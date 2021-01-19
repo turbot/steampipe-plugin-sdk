@@ -1,0 +1,580 @@
+package transform
+
+import (
+	"reflect"
+	"testing"
+)
+
+type TransformTest struct {
+	d        *TransformData
+	function TransformFunc
+	expected interface{}
+}
+
+type taggedStruct struct {
+	ID       int     `json:"id,omitempty"`
+	NodeID   *string `json:"node_id,omitempty"`
+	HTMLURL  string  `json:"html_url,omitempty"`
+	CloneURL string  `json:"clone_url,omitempty"`
+	GitURL   string  `json:"git_url,omitempty"`
+	NoTag    string
+}
+
+var nodeId = "id1"
+var taggedStructInstance = &taggedStruct{
+	ID:       100,
+	NodeID:   &nodeId,
+	HTMLURL:  "www.turbot.com",
+	CloneURL: "www.turbot2.com",
+	GitURL:   "www.github.com",
+	NoTag:    "no tag for some reason",
+}
+
+type testStruct struct {
+	a string
+	b string
+}
+
+var testCasesTransform = map[string]TransformTest{
+	// do not need every permutation of input as the go-kit unit tests cover this
+	"ToBool string TRUE": {
+		d: &TransformData{
+			Value: "TRUE",
+		},
+		function: ToBool,
+		expected: true,
+	},
+	"ToBool nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: ToBool,
+		expected: nil,
+	},
+	"ToBool bool false": {
+		d: &TransformData{
+			Value: false,
+		},
+		function: ToBool,
+		expected: false,
+	},
+	"ToBool bad string": {
+		d: &TransformData{
+			Value: "FOO",
+		},
+		function: ToBool,
+		expected: "ERROR",
+	},
+	"FieldValueGo SomeID": {
+		d: &TransformData{
+			HydrateItem: map[string]string{
+				"SomeID":   "id",
+				"TTLValue": "100",
+			},
+			ColumnName: "some_id",
+		},
+		function: FieldValueGo,
+		expected: "id",
+	},
+	"FieldValueGo TTLValue": {
+		d: &TransformData{
+			HydrateItem: map[string]string{
+				"SomeID":   "id",
+				"TTLValue": "100",
+			},
+			ColumnName: "ttl_value",
+		},
+		function: FieldValueGo,
+		expected: "100",
+	},
+	"RawValue string": {
+		d: &TransformData{
+			HydrateItem: "FOO",
+		},
+		function: RawValue,
+		expected: "FOO",
+	},
+	"RawValue int": {
+		d: &TransformData{
+			HydrateItem: 1,
+		},
+		function: RawValue,
+		expected: 1,
+	},
+	"RawValue []string": {
+		d: &TransformData{
+			HydrateItem: []string{"a", "b"},
+		},
+		function: RawValue,
+		expected: []string{"a", "b"},
+	},
+	"RawValue map": {
+		d: &TransformData{
+			HydrateItem: map[string]string{"a": "A", "b": "B"},
+		},
+		function: RawValue,
+		expected: map[string]string{"a": "A", "b": "B"},
+	},
+	"RawValue struct": {
+		d: &TransformData{
+			HydrateItem: &testStruct{"A", "B"},
+		},
+		function: RawValue,
+		expected: &testStruct{"A", "B"},
+	},
+	"UnmarshalYAML nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: UnmarshalYAML,
+		expected: nil,
+	},
+	"ToUpper nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: ToUpper,
+		expected: nil,
+	},
+	"ToLower nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: ToLower,
+		expected: nil,
+	},
+	"ToString nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: ToString,
+		expected: nil,
+	},
+	"ToInt nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: ToInt,
+		expected: nil,
+	},
+	"ToDouble nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: ToDouble,
+		expected: nil,
+	},
+	"UnmarshalYAML JSON array": {
+		d: &TransformData{
+			Value: `["foo", "bar"]`,
+		},
+		function: UnmarshalYAML,
+		expected: []interface{}{"foo", "bar"},
+	},
+	"UnmarshalYAML JSON map": {
+		d: &TransformData{
+			Value: `
+{
+   "Version":"2012-10-17",
+   "Statement":["foo"]
+}`,
+		},
+		function: UnmarshalYAML,
+		expected: map[string]interface{}{
+			"Version": "2012-10-17",
+			"Statement": []interface{}{
+				"foo",
+			},
+		},
+	},
+	"UnmarshalYAML JSON iam policy normalization encoded": {
+		d: &TransformData{
+			Value: "%7B%0A%20%20%22Version%22%3A%20%222012-10-17%22%2C%0A%20%20%22Statement%22%3A%20%5B%7B%22Sid%22%3A%22AWSAdmin%22%2C%22Effect%22%3A%22Allow%22%2C%22Action%22%3A%5B%22aws-marketplace-management%3Av%2A%22%2C%22aws-portal%3Av%2A%22%2C%22ce%3A%2A%22%2C%22iam%3Ag%2A%22%2C%22iam%3Al%2A%22%2C%22iam%3Asi%2A%22%2C%22iam%3At%2A%22%2C%22iam%3Aun%2A%22%2C%22pricing%3A%2A%22%2C%22s3%3Aa%2A%22%2C%22s3%3Ac%2A%22%2C%22s3%3Adeletea%2A%22%2C%22s3%3Adeleteb%2A%22%2C%22s3%3Adeleteo%2A%22%2C%22s3%3Ag%2A%22%2C%22s3%3Ah%2A%22%2C%22s3%3Al%2A%22%2C%22s3%3Aputa%2A%22%2C%22s3%3Aputbucketn%2A%22%2C%22s3%3Aputbucketp%2A%22%2C%22s3%3Aputbuckett%2A%22%2C%22s3%3Aputbucketv%2A%22%2C%22s3%3Aputbucketw%2A%22%2C%22s3%3Apute%2A%22%2C%22s3%3Aputi%2A%22%2C%22s3%3Aputl%2A%22%2C%22s3%3Aputm%2A%22%2C%22s3%3Aputobject%22%2C%22s3%3Aputobjectt%2A%22%2C%22s3%3Aputobjectversiont%2A%22%2C%22s3%3Ar%2A%22%2C%22sts%3A%2A%22%2C%22support%3A%2A%22%5D%2C%22Resource%22%3A%22%2A%22%7D%5D%0A%7D%0A",
+		},
+		function: UnmarshalYAML,
+		expected: map[string]interface{}{
+			"Version": "2012-10-17",
+			"Statement": []interface{}{
+				map[string]interface{}{
+					"Sid":    "AWSAdmin",
+					"Effect": "Allow",
+					"Action": []interface{}{
+						"aws-marketplace-management:v*",
+						"aws-portal:v*",
+						"ce:*",
+						"iam:g*",
+						"iam:l*",
+						"iam:si*",
+						"iam:t*",
+						"iam:un*",
+						"pricing:*",
+						"s3:a*",
+						"s3:c*",
+						"s3:deletea*",
+						"s3:deleteb*",
+						"s3:deleteo*",
+						"s3:g*",
+						"s3:h*",
+						"s3:l*",
+						"s3:puta*",
+						"s3:putbucketn*",
+						"s3:putbucketp*",
+						"s3:putbuckett*",
+						"s3:putbucketv*",
+						"s3:putbucketw*",
+						"s3:pute*",
+						"s3:puti*",
+						"s3:putl*",
+						"s3:putm*",
+						"s3:putobject",
+						"s3:putobjectt*",
+						"s3:putobjectversiont*",
+						"s3:r*",
+						"sts:*",
+						"support:*",
+					},
+					"Resource": "*",
+				},
+			},
+		},
+	},
+	"UnmarshalYAML JSON iam policy normalization decoded": {
+		d: &TransformData{
+			Value: `{
+   "Version":"2012-10-17",
+   "Statement":[
+      {
+         "Sid":"AWSAdmin",
+         "Effect":"Allow",
+         "Action":[
+            "aws-marketplace-management:v*",
+            "aws-portal:v*",
+            "ce:*",
+            "iam:g*",
+            "iam:l*",
+            "iam:si*",
+            "iam:t*",
+            "iam:un*",
+            "pricing:*",
+            "s3:a*",
+            "s3:c*",
+            "s3:deletea*",
+            "s3:deleteb*",
+            "s3:deleteo*",
+            "s3:g*",
+            "s3:h*",
+            "s3:l*",
+            "s3:puta*",
+            "s3:putbucketn*",
+            "s3:putbucketp*",
+            "s3:putbuckett*",
+            "s3:putbucketv*",
+            "s3:putbucketw*",
+            "s3:pute*",
+            "s3:puti*",
+            "s3:putl*",
+            "s3:putm*",
+            "s3:putobject",
+            "s3:putobjectt*",
+            "s3:putobjectversiont*",
+            "s3:r*",
+            "sts:*",
+            "support:*"
+         ],
+         "Resource":"*"
+      }
+   ]
+}`,
+		},
+		function: UnmarshalYAML,
+		expected: map[string]interface{}{
+			"Version": "2012-10-17",
+			"Statement": []interface{}{
+				map[string]interface{}{
+					"Sid":    "AWSAdmin",
+					"Effect": "Allow",
+					"Action": []interface{}{
+						"aws-marketplace-management:v*",
+						"aws-portal:v*",
+						"ce:*",
+						"iam:g*",
+						"iam:l*",
+						"iam:si*",
+						"iam:t*",
+						"iam:un*",
+						"pricing:*",
+						"s3:a*",
+						"s3:c*",
+						"s3:deletea*",
+						"s3:deleteb*",
+						"s3:deleteo*",
+						"s3:g*",
+						"s3:h*",
+						"s3:l*",
+						"s3:puta*",
+						"s3:putbucketn*",
+						"s3:putbucketp*",
+						"s3:putbuckett*",
+						"s3:putbucketv*",
+						"s3:putbucketw*",
+						"s3:pute*",
+						"s3:puti*",
+						"s3:putl*",
+						"s3:putm*",
+						"s3:putobject",
+						"s3:putobjectt*",
+						"s3:putobjectversiont*",
+						"s3:r*",
+						"sts:*",
+						"support:*",
+					},
+					"Resource": "*",
+				},
+			},
+		},
+	},
+	"UnmarshalYAML iam policy normalization decoded": {
+		d: &TransformData{
+			Value: `---
+Version: '2012-10-17'
+Statement:
+- Sid: AWSAdmin
+  Effect: Allow
+  Action:
+  - aws-marketplace-management:v*
+  - aws-portal:v*
+  - ce:*
+  - iam:g*
+  - iam:l*
+  - iam:si*
+  - iam:t*
+  - iam:un*
+  - pricing:*
+  - s3:a*
+  - s3:c*
+  - s3:deletea*
+  - s3:deleteb*
+  - s3:deleteo*
+  - s3:g*
+  - s3:h*
+  - s3:l*
+  - s3:puta*
+  - s3:putbucketn*
+  - s3:putbucketp*
+  - s3:putbuckett*
+  - s3:putbucketv*
+  - s3:putbucketw*
+  - s3:pute*
+  - s3:puti*
+  - s3:putl*
+  - s3:putm*
+  - s3:putobject
+  - s3:putobjectt*
+  - s3:putobjectversiont*
+  - s3:r*
+  - sts:*
+  - support:*
+  Resource: "*"
+`,
+		},
+		function: UnmarshalYAML,
+		expected: map[string]interface{}{
+			"Version": "2012-10-17",
+			"Statement": []interface{}{
+				map[string]interface{}{
+					"Sid":    "AWSAdmin",
+					"Effect": "Allow",
+					"Action": []interface{}{
+						"aws-marketplace-management:v*",
+						"aws-portal:v*",
+						"ce:*",
+						"iam:g*",
+						"iam:l*",
+						"iam:si*",
+						"iam:t*",
+						"iam:un*",
+						"pricing:*",
+						"s3:a*",
+						"s3:c*",
+						"s3:deletea*",
+						"s3:deleteb*",
+						"s3:deleteo*",
+						"s3:g*",
+						"s3:h*",
+						"s3:l*",
+						"s3:puta*",
+						"s3:putbucketn*",
+						"s3:putbucketp*",
+						"s3:putbuckett*",
+						"s3:putbucketv*",
+						"s3:putbucketw*",
+						"s3:pute*",
+						"s3:puti*",
+						"s3:putl*",
+						"s3:putm*",
+						"s3:putobject",
+						"s3:putobjectt*",
+						"s3:putobjectversiont*",
+						"s3:r*",
+						"sts:*",
+						"support:*",
+					},
+					"Resource": "*",
+				},
+			},
+		},
+	},
+	"UnmarshalYAML JSON policy array encoded": {
+		d: &TransformData{
+			Value: "%5B%22aws-marketplace-management%3Av%2A%22%2C%22aws-portal%3Av%2A%22%2C%22ce%3A%2A%22%2C%22iam%3Ag%2A%22%2C%22iam%3Al%2A%22%2C%22iam%3Asi%2A%22%2C%22iam%3At%2A%22%2C%22iam%3Aun%2A%22%2C%22pricing%3A%2A%22%2C%22s3%3Aa%2A%22%2C%22s3%3Ac%2A%22%2C%22s3%3Adeletea%2A%22%2C%22s3%3Adeleteb%2A%22%2C%22s3%3Adeleteo%2A%22%2C%22s3%3Ag%2A%22%2C%22s3%3Ah%2A%22%2C%22s3%3Al%2A%22%2C%22s3%3Aputa%2A%22%2C%22s3%3Aputbucketn%2A%22%2C%22s3%3Aputbucketp%2A%22%2C%22s3%3Aputbuckett%2A%22%2C%22s3%3Aputbucketv%2A%22%2C%22s3%3Aputbucketw%2A%22%2C%22s3%3Apute%2A%22%2C%22s3%3Aputi%2A%22%2C%22s3%3Aputl%2A%22%2C%22s3%3Aputm%2A%22%2C%22s3%3Aputobject%22%2C%22s3%3Aputobjectt%2A%22%2C%22s3%3Aputobjectversiont%2A%22%2C%22s3%3Ar%2A%22%2C%22sts%3A%2A%22%2C%22support%3A%2A%22%5D",
+		},
+		function: UnmarshalYAML,
+		expected: []interface{}{
+			"aws-marketplace-management:v*",
+			"aws-portal:v*",
+			"ce:*",
+			"iam:g*",
+			"iam:l*",
+			"iam:si*",
+			"iam:t*",
+			"iam:un*",
+			"pricing:*",
+			"s3:a*",
+			"s3:c*",
+			"s3:deletea*",
+			"s3:deleteb*",
+			"s3:deleteo*",
+			"s3:g*",
+			"s3:h*",
+			"s3:l*",
+			"s3:puta*",
+			"s3:putbucketn*",
+			"s3:putbucketp*",
+			"s3:putbuckett*",
+			"s3:putbucketv*",
+			"s3:putbucketw*",
+			"s3:pute*",
+			"s3:puti*",
+			"s3:putl*",
+			"s3:putm*",
+			"s3:putobject",
+			"s3:putobjectt*",
+			"s3:putobjectversiont*",
+			"s3:r*",
+			"sts:*",
+			"support:*",
+		},
+	},
+	"UnmarshalYAML JSON policy array decoded": {
+		d: &TransformData{
+			Value: `["aws-marketplace-management:v*","aws-portal:v*","ce:*","iam:g*","iam:l*","iam:si*","iam:t*","iam:un*","pricing:*","s3:a*","s3:c*","s3:deletea*","s3:deleteb*","s3:deleteo*","s3:g*","s3:h*","s3:l*","s3:puta*","s3:putbucketn*","s3:putbucketp*","s3:putbuckett*","s3:putbucketv*","s3:putbucketw*","s3:pute*","s3:puti*","s3:putl*","s3:putm*","s3:putobject","s3:putobjectt*","s3:putobjectversiont*","s3:r*","sts:*","support:*"]`,
+		},
+		function: UnmarshalYAML,
+		expected: []interface{}{
+			"aws-marketplace-management:v*",
+			"aws-portal:v*",
+			"ce:*",
+			"iam:g*",
+			"iam:l*",
+			"iam:si*",
+			"iam:t*",
+			"iam:un*",
+			"pricing:*",
+			"s3:a*",
+			"s3:c*",
+			"s3:deletea*",
+			"s3:deleteb*",
+			"s3:deleteo*",
+			"s3:g*",
+			"s3:h*",
+			"s3:l*",
+			"s3:puta*",
+			"s3:putbucketn*",
+			"s3:putbucketp*",
+			"s3:putbuckett*",
+			"s3:putbucketv*",
+			"s3:putbucketw*",
+			"s3:pute*",
+			"s3:puti*",
+			"s3:putl*",
+			"s3:putm*",
+			"s3:putobject",
+			"s3:putobjectt*",
+			"s3:putobjectversiont*",
+			"s3:r*",
+			"sts:*",
+			"support:*",
+		},
+	},
+
+	"FieldValueTag string": {
+		d: &TransformData{
+			Value:       "TRUE",
+			HydrateItem: taggedStructInstance,
+			ColumnName:  "git_url",
+			Param:       "json",
+		},
+		function: FieldValueTag,
+		expected: taggedStructInstance.GitURL,
+	},
+	"FieldValueTag int": {
+		d: &TransformData{
+			Value:       "TRUE",
+			HydrateItem: taggedStructInstance,
+			ColumnName:  "id",
+			Param:       "json",
+		},
+		function: FieldValueTag,
+		expected: taggedStructInstance.ID,
+	},
+	"FieldValueTag int*": {
+		d: &TransformData{
+			Value:       "TRUE",
+			HydrateItem: taggedStructInstance,
+			ColumnName:  "node_id",
+			Param:       "json",
+		},
+		function: FieldValueTag,
+		expected: taggedStructInstance.NodeID,
+	},
+	"FieldValueTag missing": {
+		d: &TransformData{
+			Value:       "TRUE",
+			HydrateItem: taggedStructInstance,
+			ColumnName:  "no_tag",
+			Param:       "json",
+		},
+		function: FieldValueTag,
+		expected: "ERROR",
+	},
+}
+
+func TestTransformFunctions(t *testing.T) {
+	for name, test := range testCasesTransform {
+		executeTransformTest(name, t, test)
+	}
+}
+
+func executeTransformTest(name string, t *testing.T, test TransformTest) {
+	defer func() {
+		if r := recover(); r != nil {
+			if test.expected != "PANIC" {
+				t.Errorf(`Test: '%s'' FAILED : unexpected panic %v`, name, r)
+			}
+		}
+	}()
+
+	output, err := test.function(textCtx, test.d)
+	if err != nil {
+		if test.expected != "ERROR" {
+			t.Errorf("Test: '%s'' FAILED : \nunexpected error %v", name, err)
+		}
+		return
+	}
+	//var expected interface{} = test.expected
+	//var got interface{} = output
+
+	if !reflect.DeepEqual(test.expected, output) {
+		t.Errorf("Test: '%s'' FAILED : \nexpected:\n %v, \ngot:\n %v\n", name, test.expected, output)
+	}
+}

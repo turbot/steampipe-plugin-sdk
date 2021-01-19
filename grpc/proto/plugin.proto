@@ -1,0 +1,150 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+package proto;
+option go_package = ".;proto";
+
+
+message Operator {
+  string name = 1;
+  enum Operation {
+    ANY = 0;
+    ALL = 1;
+   }
+  Operation operation= 2;
+}
+
+message Qual {
+  string fieldName = 1;
+  oneof operator{
+    string string_value = 2;
+    Operator tuple_value = 3;
+  }
+
+  QualValue value = 4;
+  enum anyOrAll {
+    NONE = 0;
+    ANY = 1;
+    ALL = 2;
+  }
+}
+
+message QualValueList {
+  repeated QualValue values = 1;
+
+}
+
+message QualValue {
+  oneof value{
+    string string_value = 1;
+    int64 int64_value = 2;
+    double double_value = 3;
+    bool bool_value = 4;
+    ip_addr ip_value = 5;
+    string jsonb_value = 6;
+    google.protobuf.Timestamp datetime_value = 7;
+    QualValueList list_value = 8;
+  }
+}
+
+message ip_addr {
+  int32 mask = 1;
+  oneof value {
+    string v4 = 2;
+    string v6 = 3;
+  }
+
+}
+
+message Quals {
+  repeated Qual quals = 1;
+}
+
+message QueryContext {
+  repeated string columns = 1;
+  map<string, Quals> quals = 2;
+}
+
+message ExecuteRequest {
+  string table = 1;
+  QueryContext queryContext = 2;
+}
+
+message ExecuteResponse {
+  Row row = 1;
+}
+
+message GetSchemaRequest {
+}
+
+message GetSchemaResponse {
+  Schema schema = 1;
+}
+
+service WrapperPlugin {
+    rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+    rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+}
+
+message Row {
+  map<string, Column> columns = 1;
+}
+
+message TableSchema
+{
+  repeated ColumnDefinition columns = 1;
+  string Description = 2;
+}
+
+message Schema {
+  map<string, TableSchema> schema = 1;
+}
+
+message Column {
+  oneof value {
+    // Represents a null value.
+    NullValue null_value = 2;
+    // Represents a double value.
+    double double_value = 3;
+    // Represents an int value
+    int64 int_value = 4;
+    // Represents a string value.
+    string string_value = 5;
+    // Represents a boolean value.
+    bool bool_value = 6;
+    // JSON string
+    bytes json_value = 7;
+    // Represents a datetime value
+    google.protobuf.Timestamp datetime_value = 8;
+    // Represents an ip address value
+    string ip_addr_value = 9;
+    // Represents an cidr range value
+    string cidr_range_value = 10;
+  }
+}
+
+// `NullValue` is a singleton enumeration to represent the null value for the
+// `Value` type union.
+//
+//  The JSON representation for `NullValue` is JSON `null`.
+enum NullValue {
+  // Null value.
+  NULL_VALUE = 0;
+}
+
+message ColumnDefinition {
+  string name = 1;
+  ColumnType type = 2;
+  string Description = 3;
+}
+
+enum ColumnType {
+  BOOL = 0;
+  INT = 1;
+  DOUBLE = 2;
+  STRING = 3;
+  JSON = 4;
+  DATETIME = 5;
+  IPADDR = 6;
+  CIDR = 7;
+  UNKNOWN = -1;
+}
