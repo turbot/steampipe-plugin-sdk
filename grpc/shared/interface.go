@@ -4,7 +4,7 @@ package shared
 import (
 	"context"
 
-	pb "github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
+	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"

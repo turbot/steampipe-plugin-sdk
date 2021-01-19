@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/turbotio/steampipe-plugin-sdk/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 
-	"github.com/turbotio/go-kit/helpers"
-	"github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbotio/steampipe-plugin-sdk/logging"
+	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

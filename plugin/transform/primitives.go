@@ -11,9 +11,9 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/iancoleman/strcase"
-	"github.com/turbotio/go-kit/types"
+	"github.com/turbot/go-kit/types"
 
-	"github.com/turbotio/go-kit/helpers"
+	"github.com/turbot/go-kit/helpers"
 )
 
 ///////////////////////

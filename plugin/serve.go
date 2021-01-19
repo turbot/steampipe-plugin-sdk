@@ -5,8 +5,8 @@ import (
 	"log"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbotio/steampipe-plugin-sdk/grpc"
-	"github.com/turbotio/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/logging"
 )
 
 // ServeOpts are the configurations to serve a plugin.

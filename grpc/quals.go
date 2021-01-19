@@ -3,7 +3,7 @@ package grpc
 import (
 	"fmt"
 
-	"github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 func QualMapToString(qualMap map[string]*proto.Quals) interface{} {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	pb "github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
+	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 // KeyColumnSet :: a set of columns which form the key of a table (i.e. may be used to get a single item)

@@ -3,9 +3,9 @@ package plugin
 import (
 	"log"
 
-	"github.com/turbotio/steampipe-plugin-sdk/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 
-	"github.com/turbotio/go-kit/helpers"
+	"github.com/turbot/go-kit/helpers"
 )
 
 // Table :: struct representing a plugin table

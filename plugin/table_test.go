@@ -3,8 +3,8 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/turbotio/go-kit/helpers"
-	"github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"strings"
 	"testing"
 )

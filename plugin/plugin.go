@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/turbotio/steampipe-plugin-sdk/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 
-	"github.com/turbotio/steampipe-plugin-sdk/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbotio/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/logging"
 )
 
 // Plugin :: an object used to build all necessary data for a given query

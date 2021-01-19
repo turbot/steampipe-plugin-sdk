@@ -4,16 +4,16 @@ import (
 	"context"
 	"log"
 
-	"github.com/turbotio/go-kit/helpers"
+	"github.com/turbot/go-kit/helpers"
 
 	"sync"
 	"time"
 
-	"github.com/turbotio/steampipe-plugin-sdk/connection"
+	"github.com/turbot/steampipe-plugin-sdk/connection"
 
-	"github.com/turbotio/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/logging"
 
-	pb "github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
+	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 const itemBufferSize = 100

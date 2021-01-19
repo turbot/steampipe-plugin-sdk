@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 type validateTest struct {

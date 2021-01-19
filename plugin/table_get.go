@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/turbotio/go-kit/helpers"
+	"github.com/turbot/go-kit/helpers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

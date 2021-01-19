@@ -1,4 +1,4 @@
-module github.com/turbotio/steampipe-plugin-sdk
+module github.com/turbot/steampipe-plugin-sdk
 
 go 1.15
 
@@ -13,7 +13,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
-	github.com/turbotio/go-kit v0.0.0-20210112151755-54eca0bb5c54
+	github.com/turbot/go-kit v0.0.0-20210119154454-db924443f736
 	golang.org/x/net v0.0.0-20201029221708-28c70e62bb1d // indirect
 	golang.org/x/sys v0.0.0-20201029080932-201ba4db2418 // indirect
 	golang.org/x/text v0.3.4 // indirect

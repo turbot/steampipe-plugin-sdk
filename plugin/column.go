@@ -1,8 +1,8 @@
 package plugin
 
 import (
-	"github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbotio/steampipe-plugin-sdk/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
 
 // Column :: column data, in format compatible with proto ColumnDefinition

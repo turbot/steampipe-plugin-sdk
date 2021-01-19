@@ -2,8 +2,8 @@ package grpc
 
 import (
 	"github.com/hashicorp/go-plugin"
-	pb "github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
-	pluginshared "github.com/turbotio/steampipe-plugin-sdk/grpc/shared"
+	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	pluginshared "github.com/turbot/steampipe-plugin-sdk/grpc/shared"
 )
 
 type ExecuteFunc func(req *pb.ExecuteRequest, stream pb.WrapperPlugin_ExecuteServer) error

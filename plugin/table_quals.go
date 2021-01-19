@@ -3,7 +3,7 @@ package plugin
 import (
 	"log"
 
-	pb "github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
+	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 // detect whether the query is requesting a single item by its key

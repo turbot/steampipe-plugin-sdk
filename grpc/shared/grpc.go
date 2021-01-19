@@ -3,7 +3,7 @@ package shared
 import (
 	"context"
 
-	pb "github.com/turbotio/steampipe-plugin-sdk/grpc/proto"
+	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 // GRPCClient is an implementation of
