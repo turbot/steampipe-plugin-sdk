@@ -39,20 +39,18 @@ message QualValue {
     int64 int64_value = 2;
     double double_value = 3;
     bool bool_value = 4;
-    ip_addr ip_value = 5;
+    Inet inet_value = 5;
     string jsonb_value = 6;
-    google.protobuf.Timestamp datetime_value = 7;
+    google.protobuf.Timestamp timestamp_value = 7;
     QualValueList list_value = 8;
   }
 }
 
-message ip_addr {
+message Inet {
   int32 mask = 1;
-  oneof value {
-    string v4 = 2;
-    string v6 = 3;
-  }
-
+  string addr = 2;
+  string cidr = 3;
+  string protocol_version = 4;
 }
 
 message Quals {
@@ -66,7 +64,7 @@ message QueryContext {
 
 message ExecuteRequest {
   string table = 1;
-  QueryContext queryContext = 2;
+  QueryContext query_context = 2;
 }
 
 message ExecuteResponse {
@@ -114,7 +112,7 @@ message Column {
     // JSON string
     bytes json_value = 7;
     // Represents a datetime value
-    google.protobuf.Timestamp datetime_value = 8;
+    google.protobuf.Timestamp timestamp_value = 8;
     // Represents an ip address value
     string ip_addr_value = 9;
     // Represents an cidr range value
@@ -134,7 +132,7 @@ enum NullValue {
 message ColumnDefinition {
   string name = 1;
   ColumnType type = 2;
-  string Description = 3;
+  string description = 3;
 }
 
 enum ColumnType {
@@ -143,8 +141,10 @@ enum ColumnType {
   DOUBLE = 2;
   STRING = 3;
   JSON = 4;
+  // deprecated
   DATETIME = 5;
   IPADDR = 6;
   CIDR = 7;
+  TIMESTAMP = 8;
   UNKNOWN = -1;
 }
