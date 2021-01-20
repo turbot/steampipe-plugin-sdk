@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/ghodss/yaml"
@@ -358,4 +360,34 @@ func ToDouble(_ context.Context, d *TransformData) (interface{}, error) {
 		return nil, nil
 	}
 	return types.ToFloat64(d.Value)
+}
+
+// UnixToTimestamp :: convert unix time format to RFC3339 format
+func UnixToTimestamp(_ context.Context, d *TransformData) (interface{}, error) {
+	if d.Value != nil {
+		epochTime, err := types.ToFloat64(d.Value)
+		if err != nil {
+			return nil, err
+		}
+		sec, dec := math.Modf(epochTime)
+		timestamp := time.Unix(int64(sec), int64(dec*(1e9)))
+		timestampRFC3339Format := timestamp.Format(time.RFC3339)
+		return timestampRFC3339Format, nil
+	}
+	return nil, nil
+}
+
+// UnixMsToTimestamp :: convert unix time in milliseconds to RFC3339 format
+func UnixMsToTimestamp(_ context.Context, d *TransformData) (interface{}, error) {
+	if d.Value != nil {
+		epochTime, err := types.ToInt64(d.Value)
+		if err != nil {
+			return nil, err
+		}
+
+		timeIn := time.Unix(0, epochTime*int64(time.Millisecond))
+		timestampRFC3339Format := timeIn.Format(time.RFC3339)
+		return timestampRFC3339Format, nil
+	}
+	return nil, nil
 }

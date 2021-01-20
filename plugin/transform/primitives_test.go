@@ -547,6 +547,69 @@ Statement:
 		function: FieldValueTag,
 		expected: "ERROR",
 	},
+	"UnixToTimestamp time conversion int64": {
+		d: &TransformData{
+			Value: 1611061921,
+		},
+		function: UnixToTimestamp,
+		expected: "2021-01-19T18:42:01+05:30",
+	},
+	"UnixToTimestamp time conversion string": {
+		d: &TransformData{
+			Value: "1610821712",
+		},
+		function: UnixToTimestamp,
+		expected: "2021-01-16T23:58:32+05:30",
+	},
+	"UnixToTimestamp nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: UnixToTimestamp,
+		expected: nil,
+	},
+	"UnixToTimestamp random string": {
+		d: &TransformData{
+			Value: "stringtest",
+		},
+		function: UnixToTimestamp,
+		expected: "ERROR",
+	},
+	"UnixToTimestamp struct": {
+		d: &TransformData{
+			Value: &testStruct{"A", "B"},
+		},
+		function: UnixToTimestamp,
+		expected: "ERROR",
+	},
+	"UnixMsToTimestamp time conversion": {
+		d: &TransformData{
+			Value: "1611057198070",
+		},
+		function: UnixMsToTimestamp,
+		expected: "2021-01-19T17:23:18+05:30",
+	},
+	"UnixMsToTimestamp string": {
+		d: &TransformData{
+			Value: "stringtest",
+		},
+		function: UnixMsToTimestamp,
+		expected: "ERROR",
+	},
+	"UnixMsToTimestamp struct": {
+		d: &TransformData{
+			Value: &testStruct{"A", "B"},
+		},
+		function: UnixMsToTimestamp,
+		expected: "ERROR",
+	},
+	"UnixMsToTimestamp nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: UnixMsToTimestamp,
+		expected: nil,
+	},
 }
 
 func TestTransformFunctions(t *testing.T) {
