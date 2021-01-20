@@ -369,6 +369,9 @@ func UnixToTimestamp(_ context.Context, d *TransformData) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+		if epochTime == 0 {
+			return nil, nil
+		}
 		sec, dec := math.Modf(epochTime)
 		timestamp := time.Unix(int64(sec), int64(dec*(1e9)))
 		timestampRFC3339Format := timestamp.Format(time.RFC3339)
@@ -384,7 +387,9 @@ func UnixMsToTimestamp(_ context.Context, d *TransformData) (interface{}, error)
 		if err != nil {
 			return nil, err
 		}
-
+		if epochTime == 0 {
+			return nil, nil
+		}
 		timeIn := time.Unix(0, epochTime*int64(time.Millisecond))
 		timestampRFC3339Format := timeIn.Format(time.RFC3339)
 		return timestampRFC3339Format, nil

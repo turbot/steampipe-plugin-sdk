@@ -561,6 +561,27 @@ Statement:
 		function: UnixToTimestamp,
 		expected: "2021-01-16T23:58:32+05:30",
 	},
+	"UnixToTimestamp time conversion float": {
+		d: &TransformData{
+			Value: 915148799.75,
+		},
+		function: UnixToTimestamp,
+		expected: "1999-01-01T05:29:59+05:30",
+	},
+	"UnixToTimestamp time conversion float string": {
+		d: &TransformData{
+			Value: "999999999.75",
+		},
+		function: UnixToTimestamp,
+		expected: "2001-09-09T07:16:39+05:30",
+	},
+	"UnixToTimestamp time conversion zero": {
+		d: &TransformData{
+			Value: 0,
+		},
+		function: UnixToTimestamp,
+		expected: nil,
+	},
 	"UnixToTimestamp nil": {
 		d: &TransformData{
 			Value: nil,
@@ -582,9 +603,16 @@ Statement:
 		function: UnixToTimestamp,
 		expected: "ERROR",
 	},
-	"UnixMsToTimestamp time conversion": {
+	"UnixMsToTimestamp time conversion string": {
 		d: &TransformData{
 			Value: "1611057198070",
+		},
+		function: UnixMsToTimestamp,
+		expected: "2021-01-19T17:23:18+05:30",
+	},
+	"UnixMsToTimestamp time conversion int64": {
+		d: &TransformData{
+			Value: 1611057198070,
 		},
 		function: UnixMsToTimestamp,
 		expected: "2021-01-19T17:23:18+05:30",
@@ -602,6 +630,13 @@ Statement:
 		},
 		function: UnixMsToTimestamp,
 		expected: "ERROR",
+	},
+	"UnixMsToTimestamp zero": {
+		d: &TransformData{
+			Value: 0,
+		},
+		function: UnixMsToTimestamp,
+		expected: nil,
 	},
 	"UnixMsToTimestamp nil": {
 		d: &TransformData{
