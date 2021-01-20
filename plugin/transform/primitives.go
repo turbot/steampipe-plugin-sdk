@@ -396,3 +396,34 @@ func UnixMsToTimestamp(_ context.Context, d *TransformData) (interface{}, error)
 	}
 	return nil, nil
 }
+
+// EnsureStringArray :: converts string into an array format
+func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error) {
+	if d.Value != nil {
+		switch v := d.Value.(type) {
+		case []string:
+			return v, nil
+		case string:
+			return []string{v}, nil
+		default:
+			str := fmt.Sprintf("%v", d.Value)
+			return []string{str}, nil
+		}
+
+	}
+	return nil, nil
+}
+
+// LabelsToTagsMap :: converts raw labels/tags into Tags map supported by steampipe
+func LabelsToTagsMap(_ context.Context, d *TransformData) (interface{}, error) {
+	labels := d.Value.([]string)
+	result := map[string]bool{}
+
+	if labels == nil {
+		return result, nil
+	}
+	for _, i := range labels {
+		result[i] = true
+	}
+	return result, nil
+}
