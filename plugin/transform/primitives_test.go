@@ -680,6 +680,13 @@ Statement:
 		function: LabelsToTagsMap,
 		expected: map[string]bool{},
 	},
+	"LabelsToTagsMap struct": {
+		d: &TransformData{
+			Value: &testStruct{"A", "B"},
+		},
+		function: LabelsToTagsMap,
+		expected: "ERROR",
+	},
 }
 
 func TestTransformFunctions(t *testing.T) {

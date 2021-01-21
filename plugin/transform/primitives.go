@@ -2,6 +2,7 @@ package transform
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -416,14 +417,18 @@ func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error)
 
 // LabelsToTagsMap :: converts raw labels/tags into Tags map supported by steampipe
 func LabelsToTagsMap(_ context.Context, d *TransformData) (interface{}, error) {
-	labels := d.Value.([]string)
 	result := map[string]bool{}
-
-	if labels == nil {
+	switch labels := d.Value.(type) {
+	case []string:
+		if labels == nil {
+			return result, nil
+		}
+		for _, i := range labels {
+			result[i] = true
+		}
 		return result, nil
+	default:
+		return nil, errors.New("ERROR")
 	}
-	for _, i := range labels {
-		result[i] = true
-	}
-	return result, nil
+
 }
