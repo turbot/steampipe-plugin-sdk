@@ -397,7 +397,7 @@ func UnixMsToTimestamp(_ context.Context, d *TransformData) (interface{}, error)
 	return nil, nil
 }
 
-// EnsureStringArray :: converts string into an array format
+// EnsureStringArray :: convert whatever value is passed intoa string array
 func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value != nil {
 		switch v := d.Value.(type) {
@@ -414,7 +414,7 @@ func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error)
 	return nil, nil
 }
 
-// LabelsToTagsMap :: converts raw labels/tags into Tags map supported by steampipe
+// LabelsToTagsMap :: converts an array raw label/tag strings into a tags map supported by steampipe
 func LabelsToTagsMap(_ context.Context, d *TransformData) (interface{}, error) {
 	labels := d.Value.([]string)
 	result := map[string]bool{}
