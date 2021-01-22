@@ -148,7 +148,7 @@ func (t *Table) interfaceToColumnValue(column *Column, val interface{}) (*proto.
 			}
 			columnValue = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: res}}
 		}
-	case proto.ColumnType_DATETIME:
+	case proto.ColumnType_DATETIME, proto.ColumnType_TIMESTAMP:
 		// cast val to time
 		var timeVal, err = types.ToTime(val)
 		if err != nil {
@@ -159,7 +159,7 @@ func (t *Table) interfaceToColumnValue(column *Column, val interface{}) (*proto.
 		if err != nil {
 			return nil, fmt.Errorf("interfaceToColumnValue failed for column '%s': %v", column.Name, err)
 		}
-		columnValue = &proto.Column{Value: &proto.Column_DatetimeValue{DatetimeValue: timestamp}}
+		columnValue = &proto.Column{Value: &proto.Column_TimestampValue{TimestampValue: timestamp}}
 		break
 	case proto.ColumnType_IPADDR:
 		ipString := types.SafeString(val)
