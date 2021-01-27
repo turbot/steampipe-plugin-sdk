@@ -2,7 +2,6 @@ package transform
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -428,7 +427,7 @@ func LabelsToTagsMap(_ context.Context, d *TransformData) (interface{}, error) {
 		}
 		return result, nil
 	default:
-		return nil, errors.New("ERROR")
+		return nil, fmt.Errorf("LabelsToTagsMap transform requires the input to be []string, got %s", reflect.TypeOf(d.Value).Name)
 	}
 
 }
