@@ -2,12 +2,23 @@ package plugin
 
 import (
 	"context"
+
 	"github.com/turbot/go-kit/helpers"
 )
 
 type HydrateData struct {
 	Item           interface{}
+	Params         map[string]string
 	HydrateResults map[string]interface{}
+}
+
+// perform shallow clone
+func (h *HydrateData) Clone() *HydrateData {
+	return &HydrateData{
+		Item:           h.Item,
+		Params:         h.Params,
+		HydrateResults: h.HydrateResults,
+	}
 }
 
 // HydrateFunc is a function which retrieves some or all row data for a single row item.

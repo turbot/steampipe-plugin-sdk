@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 
@@ -222,4 +223,63 @@ func (t *Table) executeListCall(ctx context.Context, d *QueryData) {
 	}
 	// list call will return when it has streamed all items so close rowDataChan
 	d.fetchComplete()
+}
+
+func ExecListForParams(ctx context.Context, queryData *QueryData, hydrateData *HydrateData, listCall HydrateFunc, listParams []map[string]string) (interface{}, error) {
+	if len(listParams) == 0 {
+		return nil, fmt.Errorf("no input parameters passed to ExecListForEachParam")
+	}
+	if len(listParams) == 1 {
+		hydrateData.Params = listParams[0]
+		return listCall(ctx, queryData, hydrateData)
+	}
+
+	var wg sync.WaitGroup
+	errorChan := make(chan error, len(listParams))
+	var errors []error
+	for _, params := range listParams {
+		// clone hydrate data and set params
+		hd := hydrateData.Clone()
+		hd.Params = params
+		wg.Add(1)
+
+		go func() {
+			_, err := listCall(ctx, queryData, hd)
+			if err != nil {
+				errorChan <- err
+			}
+			wg.Done()
+		}()
+	}
+
+	// convert wg to channel so we can select it
+	doneChan := make(chan bool, 1)
+	go func() {
+		wg.Wait()
+		doneChan <- true
+	}()
+
+	for {
+		select {
+		case err := <-errorChan:
+			errors = append(errors, err)
+		case <-doneChan:
+			err := buildSingleError(errors)
+			return nil, err
+		}
+	}
+}
+
+func buildSingleError(errors []error) error {
+	if len(errors) == 0 {
+		return nil
+	}
+	if len(errors) == 1 {
+		return errors[0]
+	}
+	errString := ""
+	for _, err := range errors {
+		errString += fmt.Sprintf("\n%s", err.Error())
+	}
+	return fmt.Errorf("%d list calls returned errors: %s", len(errors), errString)
 }
