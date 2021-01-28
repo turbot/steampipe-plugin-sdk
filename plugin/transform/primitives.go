@@ -414,8 +414,8 @@ func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error)
 	return nil, nil
 }
 
-// LabelsToTagsMap :: converts an array raw label/tag strings into a tags map supported by steampipe
-func LabelsToTagsMap(_ context.Context, d *TransformData) (interface{}, error) {
+// StringArrayToMap :: converts an array raw label/tag strings into a tags map supported by steampipe
+func StringArrayToMap(_ context.Context, d *TransformData) (interface{}, error) {
 	result := map[string]bool{}
 	switch labels := d.Value.(type) {
 	case []string:
@@ -427,7 +427,7 @@ func LabelsToTagsMap(_ context.Context, d *TransformData) (interface{}, error) {
 		}
 		return result, nil
 	default:
-		return nil, fmt.Errorf("LabelsToTagsMap transform requires the input to be []string, got %s", reflect.TypeOf(d.Value).Name)
+		return nil, fmt.Errorf("StringArrayToMap transform requires the input to be []string, got %s", reflect.TypeOf(d.Value).Name)
 	}
 
 }

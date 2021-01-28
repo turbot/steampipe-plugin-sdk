@@ -666,25 +666,25 @@ Statement:
 		function: EnsureStringArray,
 		expected: []string{"arn:aws:acm:us-east-2:123456789012:certificate/ec12345a-6121-47c3-9cd2-29fc7298889d"},
 	},
-	"LabelsToTagsMap array": {
+	"StringArrayToMap array": {
 		d: &TransformData{
 			Value: []string{"foo", "bar"},
 		},
-		function: LabelsToTagsMap,
+		function: StringArrayToMap,
 		expected: map[string]bool{"foo": true, "bar": true},
 	},
-	"LabelsToTagsMap nil": {
+	"StringArrayToMap nil": {
 		d: &TransformData{
 			Value: []string{},
 		},
-		function: LabelsToTagsMap,
+		function: StringArrayToMap,
 		expected: map[string]bool{},
 	},
-	"LabelsToTagsMap struct": {
+	"StringArrayToMap struct": {
 		d: &TransformData{
 			Value: &testStruct{"A", "B"},
 		},
-		function: LabelsToTagsMap,
+		function: StringArrayToMap,
 		expected: "ERROR",
 	},
 }
