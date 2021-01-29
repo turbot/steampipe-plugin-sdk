@@ -6,6 +6,12 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
+var concurrencyManager *ConcurrencyManager
+
+func init() {
+	concurrencyManager = newConcurrencyManager()
+}
+
 type HydrateData struct {
 	Item           interface{}
 	Params         map[string]string
@@ -20,8 +26,6 @@ func (h *HydrateData) Clone() *HydrateData {
 		HydrateResults: h.HydrateResults,
 	}
 }
-
-var con ConcurrencyManager
 
 // HydrateFunc is a function which retrieves some or all row data for a single row item.
 type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
@@ -53,7 +57,7 @@ func (h HydrateCall) CanStart(rowData *RowData, name string) bool {
 			return false
 		}
 	}
-	return con.StartIfAllowed(name)
+	return concurrencyManager.StartIfAllowed(name)
 }
 
 func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string) {
@@ -63,6 +67,6 @@ func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName str
 	go func() {
 		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName)
 		// decrement number of hydrate functions running
-		con.Finished(hydrateFuncName)
+		concurrencyManager.Finished(hydrateFuncName)
 	}()
 }
