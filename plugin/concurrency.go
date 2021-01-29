@@ -6,7 +6,7 @@ import (
 )
 
 const maxCalls = 50
-const defaultMaxPerCall = 5
+const defaultMaxPerCall = 10
 
 type ConcurrencyManager struct {
 	mut        sync.Mutex
@@ -28,8 +28,7 @@ func (c *ConcurrencyManager) StartIfAllowed(name string) (res bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			// TODO handle panic higher?
-			log.Printf("[ERROR] %v", r)
-			res = false
+			log.Printf("[WARN] %v", r)
 		}
 	}()
 
@@ -62,6 +61,6 @@ func (c *ConcurrencyManager) StartIfAllowed(name string) (res bool) {
 func (c *ConcurrencyManager) Finished(name string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
-	// c.callMap[name]--
+	c.callMap[name]--
 	c.totalCalls--
 }
