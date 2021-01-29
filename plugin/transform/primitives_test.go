@@ -645,6 +645,48 @@ Statement:
 		function: UnixMsToTimestamp,
 		expected: nil,
 	},
+	"EnsureStringArray nil": {
+		d: &TransformData{
+			Value: nil,
+		},
+		function: EnsureStringArray,
+		expected: nil,
+	},
+	"EnsureStringArray string": {
+		d: &TransformData{
+			Value: "arn:aws:acm:us-east-2:123456789012:certificate/ec12345a-6121-47c3-9cd2-29fc7298889d",
+		},
+		function: EnsureStringArray,
+		expected: []string{"arn:aws:acm:us-east-2:123456789012:certificate/ec12345a-6121-47c3-9cd2-29fc7298889d"},
+	},
+	"EnsureStringArray array": {
+		d: &TransformData{
+			Value: []string{"arn:aws:acm:us-east-2:123456789012:certificate/ec12345a-6121-47c3-9cd2-29fc7298889d"},
+		},
+		function: EnsureStringArray,
+		expected: []string{"arn:aws:acm:us-east-2:123456789012:certificate/ec12345a-6121-47c3-9cd2-29fc7298889d"},
+	},
+	"StringArrayToMap array": {
+		d: &TransformData{
+			Value: []string{"foo", "bar"},
+		},
+		function: StringArrayToMap,
+		expected: map[string]bool{"foo": true, "bar": true},
+	},
+	"StringArrayToMap nil": {
+		d: &TransformData{
+			Value: []string{},
+		},
+		function: StringArrayToMap,
+		expected: map[string]bool{},
+	},
+	"StringArrayToMap struct": {
+		d: &TransformData{
+			Value: &testStruct{"A", "B"},
+		},
+		function: StringArrayToMap,
+		expected: "ERROR",
+	},
 }
 
 func TestTransformFunctions(t *testing.T) {
