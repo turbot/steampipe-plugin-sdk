@@ -21,6 +21,8 @@ func (h *HydrateData) Clone() *HydrateData {
 	}
 }
 
+var con ConcurrencyManager
+
 // HydrateFunc is a function which retrieves some or all row data for a single row item.
 type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
 
@@ -45,11 +47,22 @@ func newHydrateCall(hydrateFunc HydrateFunc, dependencies []HydrateFunc) *Hydrat
 }
 
 // CanStart :: can this hydrate call - check whether all dependency hydrate functions have been completed
-func (h HydrateCall) CanStart(rowData *RowData) bool {
+func (h HydrateCall) CanStart(rowData *RowData, name string) bool {
 	for _, dep := range h.Depends {
 		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep) {
 			return false
 		}
 	}
-	return true
+	return con.StartIfAllowed(name)
+}
+
+func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string) {
+	r.wg.Add(1)
+
+	// call callHydrate async, ignoring return values
+	go func() {
+		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName)
+		// decrement number of hydrate functions running
+		con.Finished(hydrateFuncName)
+	}()
 }

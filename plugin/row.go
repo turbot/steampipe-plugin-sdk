@@ -52,7 +52,7 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 	// - these populate the row with data entries corresponding to the hydrate function nameSP_LOG=TRACE
 	// keep looping round hydrate functions until they are all started
 
-	// make a map of started hydrate calls
+	// make a map of started hydrate calls FOR THIS ROW
 	var callsStarted = map[string]bool{}
 
 	for {
@@ -60,16 +60,14 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 		for _, call := range r.queryData.hydrateCalls {
 			hydrateFuncName := helpers.GetFunctionName(call.Func)
 			if !callsStarted[hydrateFuncName] {
-
-				if call.CanStart(r) {
-					r.wg.Add(1)
+				if call.CanStart(r, hydrateFuncName) {
 					// call callHydrate async, ignoring return values
-					go r.callHydrate(ctx, r.queryData, call.Func, hydrateFuncName)
+					call.Start(ctx, r, hydrateFuncName)
 					callsStarted[hydrateFuncName] = true
-
 				} else {
 					allStarted = false
 				}
+
 			}
 		}
 		if allStarted {
@@ -159,6 +157,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	}
 
 	logging.LogTime(hydrateKey + " end")
+
 	// NOTE: also return the error - is this is being called by as 'get' call we can act on the error immediately
 	return hydrateData, err
 }
