@@ -21,6 +21,7 @@ type Plugin struct {
 	TableMap         map[string]*Table
 	DefaultTransform *transform.ColumnTransforms
 	DefaultGetConfig *GetConfig
+	DefaultHydrateConfig *DefaultHydrateConfig
 	// every table must implement these columns
 	RequiredColumns []*Column
 }

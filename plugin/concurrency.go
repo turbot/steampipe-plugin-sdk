@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-const maxCalls = 50
+const defaultMaxCalls = 50
 const defaultMaxPerCall = 10
 
 type ConcurrencyManager struct {
@@ -24,7 +24,7 @@ func newConcurrencyManager() *ConcurrencyManager {
 	}
 }
 
-func (c *ConcurrencyManager) StartIfAllowed(name string) (res bool) {
+func (c *ConcurrencyManager) StartIfAllowed(name string, maxCalls int) (res bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			// TODO handle panic higher?
@@ -34,6 +34,10 @@ func (c *ConcurrencyManager) StartIfAllowed(name string) (res bool) {
 
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	if maxCalls == 0 {
+		maxCalls = defaultMaxCalls
+	}
 
 	// is the total call limit exceeded?
 	if c.totalCalls == maxCalls {

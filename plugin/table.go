@@ -22,6 +22,7 @@ type Table struct {
 	Plugin *Plugin
 	// definitions of dependencies between hydrate functions
 	HydrateDependencies []HydrateDependencies
+	HydrateConfig       []HydrateConfig
 }
 
 type GetConfig struct {
@@ -90,4 +91,13 @@ func (t *Table) getHydrateDependencies(hydrateFuncName string) []HydrateFunc {
 		}
 	}
 	return []HydrateFunc{}
+}
+
+func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
+	for _, d := range t.HydrateConfig {
+		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
+			return &d
+		}
+	}
+	return &HydrateConfig{}
 }

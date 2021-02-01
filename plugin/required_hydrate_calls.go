@@ -1,8 +1,9 @@
 package plugin
 
 import (
-	"github.com/turbot/go-kit/helpers"
 	"log"
+
+	"github.com/turbot/go-kit/helpers"
 )
 
 // helper class to build list of required hydrate calls
@@ -30,9 +31,17 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
 
 		log.Printf("[TRACE] adding hydration function '%s' to hydrationMap\n", hydrateName)
 
+		// get the config for this hydrate function
+		config := c.table.getHydrateConfig(hydrateName)
+
 		// get any dependencies for this hydrate function
-		dependencies := c.table.getHydrateDependencies(hydrateName)
-		c.requiredHydrateCalls[hydrateName] = newHydrateCall(hydrateFunc, dependencies)
+		dependencies := config.Depends
+
+		if dependencies == nil {
+			dependencies = c.table.getHydrateDependencies(hydrateName)
+		}
+
+		c.requiredHydrateCalls[hydrateName] = newHydrateCall(hydrateFunc, dependencies, config)
 
 		// now add dependencies (we have already checked for circular dependencies so recursion is fine
 		for _, dep := range dependencies {

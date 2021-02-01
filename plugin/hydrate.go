@@ -31,19 +31,36 @@ func (h *HydrateData) Clone() *HydrateData {
 type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
 
 // HydrateDependencies :: define the hydrate function dependencies - other hydrate functions which must be run first
+// DEPRECATED used HydrateConfig
 type HydrateDependencies struct {
 	Func    HydrateFunc
 	Depends []HydrateFunc
+}
+
+// HydrateDependencies :: define the hydrate function dependencies - other hydrate functions which must be run first
+type HydrateConfig struct {
+	Func HydrateFunc
+	MaxConcurrency int
+	// ConcurrencyMapKey ConcurrencyMapKeyFunc 
+	//ShouldRetryError ErrorPredicate
+	//ShouldIgnoreError ErrorPredicate
+	Depends []HydrateFunc
+}
+
+type DefaultHydrateConfig struct {
+	// max number of ALL hydrate calls in progress
+	GlobalMaxConcurrency int
 }
 
 type HydrateCall struct {
 	Func HydrateFunc
 	// the dependencies expressed using function name
 	Depends []string
+	Config   *HydrateConfig
 }
 
-func newHydrateCall(hydrateFunc HydrateFunc, dependencies []HydrateFunc) *HydrateCall {
-	res := &HydrateCall{Func: hydrateFunc}
+func newHydrateCall(hydrateFunc HydrateFunc, dependencies []HydrateFunc, config *HydrateConfig) *HydrateCall {
+	res := &HydrateCall{Func: hydrateFunc, Config: config}
 	for _, f := range dependencies {
 		res.Depends = append(res.Depends, helpers.GetFunctionName(f))
 	}
@@ -57,7 +74,7 @@ func (h HydrateCall) CanStart(rowData *RowData, name string) bool {
 			return false
 		}
 	}
-	return concurrencyManager.StartIfAllowed(name)
+	return concurrencyManager.StartIfAllowed(name, h.Config.MaxConcurrency)
 }
 
 func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string) {
