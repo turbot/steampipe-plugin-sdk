@@ -19,6 +19,9 @@ type TransformData struct {
 	HydrateResults map[string]interface{}
 	// the column this transform is generating
 	ColumnName string
+	// the 'fetch metadata' associationed with this column
+	// (this is plugin dependent)
+	FetchMetadata map[string]interface{}
 }
 
 // TransformFunc :: function to transform a data value from the api value to a column value

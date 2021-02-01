@@ -17,6 +17,7 @@ type Table struct {
 	Columns          []*Column
 	List             *ListConfig
 	Get              *GetConfig
+	FetchMetadata    []map[string]interface{}
 	DefaultTransform *transform.ColumnTransforms
 	// the parent plugin object
 	Plugin *Plugin

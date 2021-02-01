@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
@@ -19,7 +21,7 @@ type PluginFunc func(context.Context) *Plugin
 
 func Serve(opts *ServeOpts) {
 
-	ctx := context.WithValue(context.Background(), ContextKeyLogger, logging.NewLogger(&hclog.LoggerOptions{DisableTime: true}))
+	ctx := context.WithValue(context.Background(), context_key.Logger, logging.NewLogger(&hclog.LoggerOptions{DisableTime: true}))
 
 	// pluginName string, getSchemaFunc GetSchemaFunc, tables map[string]ExecuteFunc
 	p := opts.PluginFunc(ctx)

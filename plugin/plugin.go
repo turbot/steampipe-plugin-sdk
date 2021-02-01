@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-
-	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
-
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
 
 // Plugin :: an object used to build all necessary data for a given query
@@ -94,7 +93,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 5) Range over rowChan - for each row, send on results stream
 
 	d := newQueryData(queryContext, table, stream)
-	ctx := context.WithValue(context.Background(), ContextKeyLogger, p.Logger)
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 	log.Printf("[TRACE] calling fetchItems, table: %s\n", table.Name)
 
 	// asyncronously fetch items

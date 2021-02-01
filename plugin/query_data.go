@@ -142,8 +142,10 @@ func (d *QueryData) StreamListItem(ctx context.Context, item interface{}) {
 	}()
 }
 
-func (d *QueryData) StreamLeafListItem(_ context.Context, item interface{}) {
+func (d *QueryData) StreamLeafListItem(ctx context.Context, item interface{}) {
+	// create rowData, passing fetchMetadata from context
 	rd := newRowData(d, item)
+	rd.fetchMetadata = GetFetchMetadata(ctx)
 
 	// NOTE: add the item as the hydrate data for the list call
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)

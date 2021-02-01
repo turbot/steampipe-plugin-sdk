@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -24,12 +25,19 @@ func (tr *TransformCall) Execute(ctx context.Context, value interface{}, hydrate
 		}
 	}()
 
+	// retrieve fetch metadata from the context - this is generally used to store the fetch region
+	var fetchMetadata = map[string]interface{}{}
+	if contextValue := ctx.Value(context_key.FetchMetadata); contextValue != nil {
+		fetchMetadata = contextValue.(map[string]interface{})
+	}
+
 	td := &TransformData{
 		Param:          tr.Param,
 		Value:          value,
 		HydrateItem:    hydrateItem,
 		HydrateResults: hydrateResults,
 		ColumnName:     columnName,
+		FetchMetadata:  fetchMetadata,
 	}
 	transformedValue, err = tr.Transform(ctx, td)
 	if err != nil {

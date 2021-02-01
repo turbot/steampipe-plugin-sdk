@@ -96,7 +96,7 @@ func (t *Table) executeLegacyGetCall(ctx context.Context, d *QueryData) {
 	}()
 
 	// build the hydrate input by calling  t.Get.ItemFromKey
-	hydrateInput, err := t.buildHydrateInputForGetCall(ctx, d)
+	hydrateInput, err := t.legacyBuildHydrateInputForGetCall(ctx, d)
 	if err != nil {
 		d.streamError(err)
 		return
@@ -121,15 +121,25 @@ func (t *Table) doGet(ctx context.Context, d *QueryData, hydrateItem interface{}
 
 	// call the get function defined by the table - SafeGet wraps the get call in the not found handler defined by the plugin
 	rd.wg.Add(1)
-	hydrateData, err := rd.callHydrate(ctx, d, t.SafeGet(), hydrateKey)
+	getItem, err := rd.callHydrate(ctx, d, t.SafeGet(), hydrateKey)
 	if err != nil {
 		log.Printf("[WARN] hydrate call returned error %v\n", err)
 		return err
 	}
-	// if there is no error and the hydrateData is nil,we assume the item does not exist
-	if hydrateData != nil {
+
+	// if there is no error and the getItem is nil,we assume the item does not exist
+	if getItem != nil {
 		// set rd.Item to the result of the Get hydrate call - this will be passed through to all other hydrate calls
-		rd.Item = hydrateData
+
+		// NOTE: check whether the getItem is in fact a ItemWithFetchMetadata struct
+		// - this will be the case for a multiregion get
+		if wrapper, ok := getItem.(ItemWithFetchMetadata); ok {
+			rd.Item = wrapper.Item
+			rd.fetchMetadata = wrapper.FetchMetadata
+		} else {
+			rd.Item = getItem
+		}
+
 		d.rowDataChan <- rd
 	}
 	return nil
@@ -138,14 +148,12 @@ func (t *Table) doGet(ctx context.Context, d *QueryData, hydrateItem interface{}
 // use the quals to build one call to populate one or more base hydrate item from the quals
 // NOTE: if there is a list of quals for the key column then we create a hydrate item for each
 // - this is handle `in` clauses
-func (t *Table) buildHydrateInputForGetCall(ctx context.Context, d *QueryData) ([]interface{}, error) {
-	// first call ItemFromKey
-
+func (t *Table) legacyBuildHydrateInputForGetCall(ctx context.Context, d *QueryData) ([]interface{}, error) {
 	// NOTE: if there qual value is actually a list of values, we call ItemFromKey for each qual
 	// this is only possible for single key column tables (as otherwise we would not have identified this as a get call)
 	if keyColumn := t.Get.KeyColumns.Single; keyColumn != "" {
 		if qualValueList := d.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
-			return t.buildHydrateInputForMultiQualValueGetCall(ctx, d)
+			return t.legacyBuildHydrateInputForMultiQualValueGetCall(ctx, d)
 		}
 	}
 
@@ -157,7 +165,7 @@ func (t *Table) buildHydrateInputForGetCall(ctx context.Context, d *QueryData) (
 	return []interface{}{hydrateInputItem}, nil
 }
 
-func (t *Table) buildHydrateInputForMultiQualValueGetCall(ctx context.Context, d *QueryData) ([]interface{}, error) {
+func (t *Table) legacyBuildHydrateInputForMultiQualValueGetCall(ctx context.Context, d *QueryData) ([]interface{}, error) {
 	keyColumn := t.Get.KeyColumns.Single
 	qualValueList := d.KeyColumnQuals[keyColumn].GetListValue()
 	log.Println("[TRACE] table has single key, key qual has multiple values")

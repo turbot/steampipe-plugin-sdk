@@ -26,6 +26,7 @@ import (
 // return a field value of either the hydrate call result (if present)  or the root item if not
 // the field name is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
+
 	var item = d.HydrateItem
 
 	propertyPath, ok := d.Param.(string)
@@ -66,6 +67,18 @@ func FieldValueGo(ctx context.Context, d *TransformData) (interface{}, error) {
 
 	d.Param = propertyPath
 	return FieldValue(ctx, d)
+}
+
+// FetchMetadataValue :: intended for the start of a transform chain
+// retrieve a value from the fetch metadata, using the param as key
+func FetchMetadataValue(ctx context.Context, d *TransformData) (interface{}, error) {
+	metadataKey, ok := d.Param.(string)
+	if !ok {
+		return nil, fmt.Errorf("'FetchMetadataValue' requires a string parameter containing metadata keybut received %v", d.Param)
+	}
+	log.Printf("[DEBUG] FetchMetadataValue key %s metadata %v", metadataKey, d.FetchMetadata)
+
+	return d.FetchMetadata[metadataKey], nil
 }
 
 // modify the name to make common intialialisms upper case

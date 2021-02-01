@@ -49,7 +49,6 @@ func (t *Table) getColumnValue(ctx context.Context, row *RowData, column *Column
 	if err != nil {
 		log.Printf("[ERROR] failed to populate column '%s': %v\n", column.Name, err)
 		return nil, fmt.Errorf("failed to populate column '%s': %v", column.Name, err)
-
 	}
 
 	// now convert the value to a protobuf column value

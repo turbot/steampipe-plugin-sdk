@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+
 	"github.com/turbot/go-kit/helpers"
 	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
@@ -17,7 +19,9 @@ import (
 // RowData :: struct containing row data
 
 type RowData struct {
+	// the output of the get/list call which is passed to all other hydrate calls
 	Item           interface{}
+	fetchMetadata  map[string]interface{}
 	hydrateResults map[string]interface{}
 	mut            sync.Mutex
 	waitChan       chan bool
@@ -37,16 +41,21 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 	errorChan := make(chan error, len(d.hydrateCalls)+2)
 
 	return &RowData{
-		Item:           item,
 		hydrateResults: make(map[string]interface{}),
 		waitChan:       make(chan bool),
 		table:          d.Table,
 		errorChan:      errorChan,
 		queryData:      d,
+		fetchMetadata:  map[string]interface{}{},
 	}
 }
 
 func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
+
+	// NOTE: the RowData (may) have fetchMetadata set
+	// (this is a data structure containing fetch specific data, e.g. region)
+	// store this in the context for use by the transform functions
+	rowDataCtx := context.WithValue(ctx, context_key.FetchMetadata, r.fetchMetadata)
 
 	// make any required hydrate function calls
 	// - these populate the row with data entries corresponding to the hydrate function nameSP_LOG=TRACE
@@ -62,7 +71,7 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 			if !callsStarted[hydrateFuncName] {
 				if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
 					// execute the hydrate call asynchronously
-					call.Start(ctx, r, hydrateFuncName, r.queryData.concurrencyManager)
+					call.Start(rowDataCtx, r, hydrateFuncName, r.queryData.concurrencyManager)
 					callsStarted[hydrateFuncName] = true
 				} else {
 					allStarted = false
@@ -84,8 +93,9 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 		r.wg.Wait()
 		logging.LogTime("all hydrate calls complete")
 		var err error
+
 		// now execute any transforms required to populate the column values
-		row, err = r.getColumnValues(ctx)
+		row, err = r.getColumnValues(rowDataCtx)
 		if err != nil {
 			r.queryData.streamError(err)
 		}
@@ -161,7 +171,13 @@ func (r *RowData) set(key string, item interface{}) error {
 	if _, ok := r.hydrateResults[key]; ok {
 		return fmt.Errorf("failed to save item - row data already contains item for key %s", key)
 	}
-	r.hydrateResults[key] = item
+	// NOTE: check whether the getItem is in fact a ItemWithFetchMetadata struct
+	// - this will be the case for a multi region get
+	if wrapper, ok := item.(ItemWithFetchMetadata); ok {
+		r.hydrateResults[key] = wrapper.Item
+	} else {
+		r.hydrateResults[key] = item
+	}
 	return nil
 }
 
