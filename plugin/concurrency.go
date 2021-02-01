@@ -59,6 +59,11 @@ func (c *ConcurrencyManager) StartIfAllowed(name string) (res bool) {
 }
 
 func (c *ConcurrencyManager) Finished(name string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] %v", r)
+		}
+	}()
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	c.callMap[name]--
