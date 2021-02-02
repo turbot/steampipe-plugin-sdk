@@ -217,6 +217,7 @@ func (d *QueryData) buildRows(ctx context.Context) chan *pb.Row {
 					// rowData channel closed - nothing more to do
 					return
 				}
+				logging.LogTime("got rowData - calling getRow")
 				rowWg.Add(1)
 				go d.buildRow(ctx, rowData, rowChan, &rowWg)
 			case err := <-d.errorChan:
@@ -241,7 +242,7 @@ func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan
 	}()
 
 	// delegate the work to a row object
-	log.Printf("[WARN] ********** buildRow  hydrateResults %v\n", rowData.hydrateResults)
+	log.Printf("[DEBUG] buildRow,  hydrateResults %v\n", rowData.hydrateResults)
 	row, err := rowData.getRow(ctx)
 	if err != nil {
 		d.streamError(err)

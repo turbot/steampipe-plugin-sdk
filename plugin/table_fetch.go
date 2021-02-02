@@ -34,7 +34,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 	} else {
 		if t.List == nil {
 			log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.Quals))
-			panic(" query is not a get call, but no list call is defined")
+			panic("query is not a get call, but no list call is defined")
 		}
 		logging.LogTime("executeListCall")
 		go t.executeListCall(ctx, queryData)
@@ -160,7 +160,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
 	getCall := t.SafeGet()
 
-	log.Printf("[WARN] getForEach, fetchMetadata list: %v\n", t.FetchMetadata)
+	log.Printf("[DEBUG] getForEach, fetchMetadata list: %v\n", t.FetchMetadata)
 
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(t.FetchMetadata))
@@ -175,11 +175,8 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 	var results []*resultWithMetadata
 
 	for _, fetchMetadata := range t.FetchMetadata {
-		//log.Printf("[WARN] getForEach, running get for fetchMetadata: %v\n", fetchMetadata)
-
 		// increment our own wait group
 		wg.Add(1)
-		// create a context with the fetch metadata
 
 		go func(fetchMetadata map[string]interface{}) {
 			defer func() {
@@ -192,13 +189,13 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 				}
 				wg.Done()
 			}()
+			// create a context with the fetch metadata
 			fetchContext := context.WithValue(ctx, context_key.FetchMetadata, fetchMetadata)
 
 			item, err := getCall(fetchContext, queryData, &HydrateData{})
 			if err != nil {
 				errorChan <- err
 			} else if item != nil {
-				log.Printf("[WARN] stream %v, %v", item, GetFetchMetadata(ctx))
 				// stream the get item AND the fetch metadata
 				resultChan <- &resultWithMetadata{item, fetchMetadata}
 			}
@@ -219,7 +216,6 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 
 			errors = append(errors, err)
 		case result := <-resultChan:
-			log.Printf("[WARN] result  %v\n", result)
 			if result != nil {
 				results = append(results, result)
 			}
@@ -237,7 +233,6 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 				// set the fetch metadata on the row data
 				rd.fetchMetadata = results[0].fetchMetadata
 				item = results[0].item
-				log.Printf("[WARN] got get result: %v, metadata: %v\n", item, rd.fetchMetadata)
 			}
 			// return item, if we have one
 			return item, nil

@@ -115,7 +115,6 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 
 // generate the column values for for all requested columns
 func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
-	log.Printf("[WARN] ********** getColumnValues hydrateResults %v\n", r.hydrateResults)
 	row := &pb.Row{Columns: make(map[string]*pb.Column)}
 	// only populate columns which have been asked for
 	for _, columnName := range r.queryData.QueryContext.Columns {
