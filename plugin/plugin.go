@@ -92,21 +92,23 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
 	// 5) Range over rowChan - for each row, send on results stream
 
-	d := newQueryData(queryContext, table, stream)
+	queryData := newQueryData(queryContext, table, stream)
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 	log.Printf("[TRACE] calling fetchItems, table: %s\n", table.Name)
 
 	// asyncronously fetch items
-	if err := table.fetchItems(ctx, d); err != nil {
+	if err := table.fetchItems(ctx, queryData); err != nil {
 		return err
 	}
+	log.Println("[TRACE] after fetchItems")
+
 
 	logging.LogTime("Calling stream")
 
 	// asyncronously build rows
-	rowChan := d.buildRows(ctx)
+	rowChan := queryData.buildRows(ctx)
 	// asyncronously stream rows
-	return d.streamRows(ctx, rowChan)
+	return queryData.streamRows(ctx, rowChan)
 }
 
 // slightly hacky - called on startup to set a plugin pointer in each table

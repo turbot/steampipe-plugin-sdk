@@ -115,6 +115,7 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 
 // generate the column values for for all requested columns
 func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
+	log.Printf("[WARN] ********** getColumnValues hydrateResults %v\n", r.hydrateResults)
 	row := &pb.Row{Columns: make(map[string]*pb.Column)}
 	// only populate columns which have been asked for
 	for _, columnName := range r.queryData.QueryContext.Columns {
@@ -133,6 +134,8 @@ func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
 	}
 	return row, nil
 }
+
+// TODO remove GET functionality from callHydrate
 
 // invoke a hydrate function, with syncronisation and error handling
 // for the purposes of get calls (which also invoke a hydration function), return whether the item was found and any error
@@ -165,19 +168,42 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	return hydrateData, err
 }
 
+// invoke a hydrate function, with syncronisation and error handling
+func (r *RowData) callGetHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) (interface{}, error) {
+	// handle panics in the row hydrate function
+	defer func() {
+		if p := recover(); p != nil {
+			r.errorChan <- status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
+		}
+		r.wg.Done()
+	}()
+
+	logging.LogTime(hydrateKey + " start")
+
+	// now call the hydrate function, passing the item and hydrate results so far
+	log.Printf("[TRACE] call hydrate %s\n", hydrateKey)
+	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults})
+	if err != nil {
+		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
+		r.errorChan <- err
+	} else if hydrateData != nil {
+		log.Printf("[TRACE] set hydrate data for %s\n", hydrateKey)
+		r.set(hydrateKey, hydrateData)
+	}
+
+	logging.LogTime(hydrateKey + " end")
+	// NOTE: also return the error - is this is being called by as 'get' call we can act on the error immediately
+	return hydrateData, err
+}
+
 func (r *RowData) set(key string, item interface{}) error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
-	if _, ok := r.hydrateResults[key]; ok {
-		return fmt.Errorf("failed to save item - row data already contains item for key %s", key)
-	}
-	// NOTE: check whether the getItem is in fact a ItemWithFetchMetadata struct
-	// - this will be the case for a multi region get
-	if wrapper, ok := item.(ItemWithFetchMetadata); ok {
-		r.hydrateResults[key] = wrapper.Item
-	} else {
-		r.hydrateResults[key] = item
-	}
+	//if _, ok := r.hydrateResults[key]; ok {
+	//	return fmt.Errorf("failed to save item - row data already contains item for key %s", key)
+	//}
+	r.hydrateResults[key] = item
+
 	return nil
 }
 
