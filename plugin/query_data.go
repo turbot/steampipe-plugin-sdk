@@ -242,7 +242,6 @@ func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan
 	}()
 
 	// delegate the work to a row object
-	log.Printf("[DEBUG] buildRow,  hydrateResults %v\n", rowData.hydrateResults)
 	row, err := rowData.getRow(ctx)
 	if err != nil {
 		d.streamError(err)

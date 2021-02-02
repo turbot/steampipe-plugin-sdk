@@ -26,7 +26,6 @@ import (
 // return a field value of either the hydrate call result (if present)  or the root item if not
 // the field name is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
-
 	var item = d.HydrateItem
 
 	propertyPath, ok := d.Param.(string)

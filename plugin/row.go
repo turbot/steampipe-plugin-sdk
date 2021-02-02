@@ -41,17 +41,17 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 	errorChan := make(chan error, len(d.hydrateCalls)+2)
 
 	return &RowData{
+		Item:           item,
+		fetchMetadata:  map[string]interface{}{},
 		hydrateResults: make(map[string]interface{}),
 		waitChan:       make(chan bool),
 		table:          d.Table,
 		errorChan:      errorChan,
 		queryData:      d,
-		fetchMetadata:  map[string]interface{}{},
 	}
 }
 
 func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
-
 	// NOTE: the RowData (may) have fetchMetadata set
 	// (this is a data structure containing fetch specific data, e.g. region)
 	// store this in the context for use by the transform functions
@@ -133,8 +133,6 @@ func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
 	}
 	return row, nil
 }
-
-// TODO remove GET functionality from callHydrate
 
 // invoke a hydrate function, with syncronisation and error handling
 func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) {

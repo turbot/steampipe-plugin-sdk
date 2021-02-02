@@ -213,7 +213,6 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 		select {
 		case err := <-errorChan:
 			log.Printf("[WARN] err %v\n", err)
-
 			errors = append(errors, err)
 		case result := <-resultChan:
 			if result != nil {

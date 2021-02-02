@@ -19,7 +19,7 @@ type TransformData struct {
 	HydrateResults map[string]interface{}
 	// the column this transform is generating
 	ColumnName string
-	// the 'fetch metadata' associationed with this column
+	// the 'fetch metadata' associated with this row
 	// (this is plugin dependent)
 	FetchMetadata map[string]interface{}
 }
