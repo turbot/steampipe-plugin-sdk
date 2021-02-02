@@ -138,8 +138,7 @@ func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
 // TODO remove GET functionality from callHydrate
 
 // invoke a hydrate function, with syncronisation and error handling
-// for the purposes of get calls (which also invoke a hydration function), return whether the item was found and any error
-func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) (interface{}, error) {
+func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) {
 	// handle panics in the row hydrate function
 	defer func() {
 		if p := recover(); p != nil {
@@ -163,9 +162,6 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	}
 
 	logging.LogTime(hydrateKey + " end")
-
-	// NOTE: also return the error - is this is being called by as 'get' call we can act on the error immediately
-	return hydrateData, err
 }
 
 // invoke a hydrate function, with syncronisation and error handling
@@ -199,9 +195,9 @@ func (r *RowData) callGetHydrate(ctx context.Context, d *QueryData, hydrateFunc 
 func (r *RowData) set(key string, item interface{}) error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
-	//if _, ok := r.hydrateResults[key]; ok {
-	//	return fmt.Errorf("failed to save item - row data already contains item for key %s", key)
-	//}
+	if _, ok := r.hydrateResults[key]; ok {
+		return fmt.Errorf("failed to save item - row data already contains item for key %s", key)
+	}
 	r.hydrateResults[key] = item
 
 	return nil

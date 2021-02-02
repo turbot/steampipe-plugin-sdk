@@ -115,20 +115,24 @@ func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) 
 	}
 }
 
-func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem interface{}) error {
+func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem interface{}) (err error) {
+	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
+	defer func() {
+		if p := recover(); p != nil {
+			err = status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
+		}
+		logging.LogTime(hydrateKey + " end")
+	}()
+	logging.LogTime(hydrateKey + " start")
+
 	// build rowData item, passing the hydrate item and use to invoke the 'get' hydrate call(s)
 	// NOTE the hydrate item is only needed for legacy get calls
 	rd := newRowData(queryData, hydrateItem)
-
 	var getItem interface{}
-	var err error
-	if len(t.FetchMetadata) == 0 {
-		// increment rowData wait group - we must increment for every hydrate function called
-		rd.wg.Add(1)
-		hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
-		log.Printf("[TRACE] calling 'get' hydrate function '%s' \n", hydrateKey)
-		getItem, err = rd.callHydrate(ctx, queryData, t.SafeGet(), hydrateKey)
 
+	if len(t.FetchMetadata) == 0 {
+		// just invoke SafeGet()
+		getItem, err = t.SafeGet()(ctx, queryData, &HydrateData{})
 	} else {
 		// the table has fetch metadata - we will invoke get for each fetch metadata item
 		getItem, err = t.getForEach(ctx, queryData, rd)
@@ -141,9 +145,10 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 
 	// if there is no error and the getItem is nil, we assume the item does not exist
 	if getItem != nil {
-		log.Printf("[WARN] ********** get item %v\n", getItem)
-		// set rd.Item to the result of the Get hydrate call - this will be passed through to all other hydrate calls
+		// set the rowData Item to the result of the Get hydrate call - this will be passed through to all other hydrate calls
 		rd.Item = getItem
+		// NOTE: explicitly set the get hydrate results on rowData
+		rd.set(hydrateKey, getItem)
 		queryData.rowDataChan <- rd
 	}
 
@@ -154,7 +159,6 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 // enables multi-partition fetching
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
 	getCall := t.SafeGet()
-	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
 
 	log.Printf("[WARN] getForEach, fetchMetadata list: %v\n", t.FetchMetadata)
 
@@ -173,9 +177,6 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 	for _, fetchMetadata := range t.FetchMetadata {
 		//log.Printf("[WARN] getForEach, running get for fetchMetadata: %v\n", fetchMetadata)
 
-		// increment rowData wait group - we must increment for every hydrate function called
-		// (as callHydrate decrements rd.wg)
-		rd.wg.Add(1)
 		// increment our own wait group
 		wg.Add(1)
 		// create a context with the fetch metadata
@@ -190,11 +191,10 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 					}
 				}
 				wg.Done()
-				// rd.wg is decremented by callHydrate
 			}()
 			fetchContext := context.WithValue(ctx, context_key.FetchMetadata, fetchMetadata)
 
-			item, err := rd.callHydrate(fetchContext, queryData, getCall, hydrateKey)
+			item, err := getCall(fetchContext, queryData, &HydrateData{})
 			if err != nil {
 				errorChan <- err
 			} else if item != nil {
@@ -237,10 +237,6 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 				// set the fetch metadata on the row data
 				rd.fetchMetadata = results[0].fetchMetadata
 				item = results[0].item
-				// NOTE: explicitly set hydrate results on rowdata, as the dsame hydrate function has been called multiple times,
-				// saving each time
-				// TODO DO NOT CALL callHydrate or call another version
-				rd.set(hydrateKey, item)
 				log.Printf("[WARN] got get result: %v, metadata: %v\n", item, rd.fetchMetadata)
 			}
 			// return item, if we have one
