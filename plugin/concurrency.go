@@ -35,6 +35,7 @@ func (c *ConcurrencyManager) StartIfAllowed(name string, maxCalls int) (res bool
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
+	// if there is no config or empty config, the max concurrency will be 0. Use default max calls specified.
 	if maxCalls == 0 {
 		maxCalls = defaultMaxCalls
 	}

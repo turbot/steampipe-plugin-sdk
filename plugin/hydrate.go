@@ -39,9 +39,9 @@ type HydrateDependencies struct {
 
 // HydrateDependencies :: define the hydrate function dependencies - other hydrate functions which must be run first
 type HydrateConfig struct {
-	Func HydrateFunc
+	Func           HydrateFunc
 	MaxConcurrency int
-	// ConcurrencyMapKey ConcurrencyMapKeyFunc 
+	// ConcurrencyMapKey ConcurrencyMapKeyFunc
 	//ShouldRetryError ErrorPredicate
 	//ShouldIgnoreError ErrorPredicate
 	Depends []HydrateFunc
@@ -49,19 +49,19 @@ type HydrateConfig struct {
 
 type DefaultHydrateConfig struct {
 	// max number of ALL hydrate calls in progress
-	GlobalMaxConcurrency int
+	MaxConcurrency int
 }
 
 type HydrateCall struct {
 	Func HydrateFunc
 	// the dependencies expressed using function name
 	Depends []string
-	Config   *HydrateConfig
+	Config  *HydrateConfig
 }
 
-func newHydrateCall(hydrateFunc HydrateFunc, dependencies []HydrateFunc, config *HydrateConfig) *HydrateCall {
+func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall {
 	res := &HydrateCall{Func: hydrateFunc, Config: config}
-	for _, f := range dependencies {
+	for _, f := range config.Depends {
 		res.Depends = append(res.Depends, helpers.GetFunctionName(f))
 	}
 	return res
