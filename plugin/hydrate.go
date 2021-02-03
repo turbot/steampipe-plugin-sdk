@@ -6,11 +6,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-var concurrencyManager *ConcurrencyManager
-
-func init() {
-	concurrencyManager = newConcurrencyManager()
-}
+// var concurrencyManager *ConcurrencyManager
 
 type HydrateData struct {
 	Item           interface{}
@@ -37,7 +33,7 @@ type HydrateDependencies struct {
 	Depends []HydrateFunc
 }
 
-// HydrateDependencies :: define the hydrate function dependencies - other hydrate functions which must be run first
+// HydrateConfig :: define the hydrate function configurations, Name, Maximum number of concurrent calls to be allowed, dependencies
 type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
@@ -47,9 +43,11 @@ type HydrateConfig struct {
 	Depends []HydrateFunc
 }
 
+// if no HydrateConfig is specified, the plugin will use DefaultHydrateConfig
 type DefaultHydrateConfig struct {
 	// max number of ALL hydrate calls in progress
-	MaxConcurrency int
+	MaxConcurrency               int
+	DefaultMaxConcurrencyPerCall int
 }
 
 type HydrateCall struct {
@@ -68,7 +66,7 @@ func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall
 }
 
 // CanStart :: can this hydrate call - check whether all dependency hydrate functions have been completed
-func (h HydrateCall) CanStart(rowData *RowData, name string) bool {
+func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager *ConcurrencyManager) bool {
 	for _, dep := range h.Depends {
 		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep) {
 			return false
@@ -77,7 +75,7 @@ func (h HydrateCall) CanStart(rowData *RowData, name string) bool {
 	return concurrencyManager.StartIfAllowed(name, h.Config.MaxConcurrency)
 }
 
-func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string) {
+func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string, concurrencyManager *ConcurrencyManager) {
 	r.wg.Add(1)
 
 	// call callHydrate async, ignoring return values

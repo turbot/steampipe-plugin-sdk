@@ -94,10 +94,12 @@ func (t *Table) getHydrateDependencies(hydrateFuncName string) []HydrateFunc {
 }
 
 func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
+	// if a hydrate config is defined see whether this call exists in it
 	for _, d := range t.HydrateConfig {
 		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
 			return &d
 		}
 	}
+	// fallback to return an empty hydrate config
 	return &HydrateConfig{}
 }

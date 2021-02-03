@@ -29,10 +29,11 @@ type QueryData struct {
 	QueryContext *pb.QueryContext
 
 	// internal
-	hydrateCalls []*HydrateCall
-	rowDataChan  chan *RowData
-	errorChan    chan error
-	stream       pb.WrapperPlugin_ExecuteServer
+	hydrateCalls       []*HydrateCall
+	concurrencyManager *ConcurrencyManager
+	rowDataChan        chan *RowData
+	errorChan          chan error
+	stream             pb.WrapperPlugin_ExecuteServer
 	// wait group used to syncronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 }
@@ -56,6 +57,7 @@ func newQueryData(queryContext *pb.QueryContext, table *Table, stream pb.Wrapper
 	ensureColumns(queryContext, table)
 
 	d.hydrateCalls = table.requiredHydrateCalls(queryContext.Columns, d.FetchType)
+	d.concurrencyManager = newConcurrencyManager(table)
 	return d
 }
 

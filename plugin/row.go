@@ -60,9 +60,9 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 		for _, call := range r.queryData.hydrateCalls {
 			hydrateFuncName := helpers.GetFunctionName(call.Func)
 			if !callsStarted[hydrateFuncName] {
-				if call.CanStart(r, hydrateFuncName) {
+				if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
 					// call callHydrate async, ignoring return values
-					call.Start(ctx, r, hydrateFuncName)
+					call.Start(ctx, r, hydrateFuncName, r.queryData.concurrencyManager)
 					callsStarted[hydrateFuncName] = true
 				} else {
 					allStarted = false
