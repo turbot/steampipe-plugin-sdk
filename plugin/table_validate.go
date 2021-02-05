@@ -5,6 +5,8 @@ import (
 	"log"
 	"strings"
 
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
 )
@@ -44,6 +46,31 @@ func (t *Table) validateRequiredColumns(requiredColumns []*Column) []string {
 		}
 	}
 	return validationErrors
+}
+
+func columnTypeToString(columnType proto.ColumnType) string {
+	switch columnType {
+	case proto.ColumnType_BOOL:
+		return "ColumnType_BOOL"
+	case proto.ColumnType_INT:
+		return "ColumnType_INT"
+	case proto.ColumnType_DOUBLE:
+		return "ColumnType_DOUBLE"
+	case proto.ColumnType_STRING:
+		return "ColumnType_STRING"
+	case proto.ColumnType_JSON:
+		return "ColumnType_BOOL"
+	case proto.ColumnType_DATETIME:
+		return "ColumnType_DATETIME"
+	case proto.ColumnType_IPADDR:
+		return "ColumnType_IPADDR"
+	case proto.ColumnType_CIDR:
+		return "ColumnType_CIDR"
+	case proto.ColumnType_TIMESTAMP:
+		return "ColumnType_TIMESTAMP"
+	default:
+		return fmt.Sprintf("Unknown column type: %v", columnType)
+	}
 }
 
 func (t *Table) validateListAndGetConfig() []string {

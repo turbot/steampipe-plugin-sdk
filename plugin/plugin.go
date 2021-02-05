@@ -22,30 +22,22 @@ type Plugin struct {
 	DefaultGetConfig   *GetConfig
 	DefaultConcurrency *DefaultConcurrencyConfig
 	// every table must implement these columns
-	RequiredColumns []*Column
+	RequiredColumns  []*Column
+	ConnectionConfig *ConnectionConfig
 }
 
-func columnTypeToString(columnType proto.ColumnType) string {
-	switch columnType {
-	case proto.ColumnType_BOOL:
-		return "ColumnType_BOOL"
-	case proto.ColumnType_INT:
-		return "ColumnType_INT"
-	case proto.ColumnType_DOUBLE:
-		return "ColumnType_DOUBLE"
-	case proto.ColumnType_STRING:
-		return "ColumnType_STRING"
-	case proto.ColumnType_JSON:
-		return "ColumnType_BOOL"
-	case proto.ColumnType_DATETIME:
-		return "ColumnType_DATETIME"
-	case proto.ColumnType_IPADDR:
-		return "ColumnType_IPADDR"
-	case proto.ColumnType_CIDR:
-		return "ColumnType_CIDR"
-	default:
-		return fmt.Sprintf("Unknown column type: %v", columnType)
-	}
+func (p *Plugin) Initialise() {
+	// initialise the connection config map
+	p.ConnectionConfig.ConfigMap = make(map[string]interface{})
+
+	// NOTE update tables to have a reference to the plugin
+	p.claimTables()
+
+	// time will be provided by the plugin logger
+	p.Logger = logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
+	log.SetOutput(p.Logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+	log.SetPrefix("")
+	log.SetFlags(0)
 }
 
 func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
@@ -75,6 +67,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}()
 
 	logging.LogTime("Start execute")
+	p.Logger.Warn("Execute ", "connection", req.Connection, "connection config", p.ConnectionConfig.ConfigMap)
 
 	queryContext := req.QueryContext
 	table, ok := p.TableMap[req.Table]
@@ -92,7 +85,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
 	// 5) Range over rowChan - for each row, send on results stream
 
-	queryData := newQueryData(queryContext, table, stream)
+	connectionConfig := p.ConnectionConfig.ConfigMap[req.Connection]
+	p.Logger.Warn("creating query data", "connectionConfig", connectionConfig)
+	queryData := newQueryData(queryContext, table, stream, connectionConfig)
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 	log.Printf("[TRACE] calling fetchItems, table: %s\n", table.Name)
 
@@ -109,6 +104,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	rowChan := queryData.buildRows(ctx)
 	// asyncronously stream rows
 	return queryData.streamRows(ctx, rowChan)
+}
+
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) error {
+	return p.ConnectionConfig.SetConnectionConfig(connectionName, connectionConfigString)
 }
 
 // slightly hacky - called on startup to set a plugin pointer in each table

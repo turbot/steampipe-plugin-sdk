@@ -24,6 +24,10 @@ func (c *GRPCClient) Execute(req *pb.ExecuteRequest) (pb.WrapperPlugin_ExecuteCl
 	return c.client.Execute(c.ctx, req)
 }
 
+func (c *GRPCClient) SetConnectionConfig(req *pb.SetConnectionConfigRequest) (*pb.SetConnectionConfigResponse, error) {
+	return c.client.SetConnectionConfig(c.ctx, req)
+}
+
 // Here is the gRPC server that GRPCClient talks to.
 type GRPCServer struct {
 	// This is the real implementation
@@ -36,4 +40,8 @@ func (m *GRPCServer) GetSchema(_ context.Context, req *pb.GetSchemaRequest) (*pb
 
 func (m *GRPCServer) Execute(req *pb.ExecuteRequest, server pb.WrapperPlugin_ExecuteServer) error {
 	return m.Impl.Execute(req, server)
+
+}
+func (m *GRPCServer) SetConnectionConfig(_ context.Context, req *pb.SetConnectionConfigRequest) (*pb.SetConnectionConfigResponse, error) {
+	return m.Impl.SetConnectionConfig(req)
 }

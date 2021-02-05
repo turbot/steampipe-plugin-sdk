@@ -25,11 +25,13 @@ var Handshake = plugin.HandshakeConfig{
 type WrapperPluginServer interface {
 	GetSchema(req *pb.GetSchemaRequest) (*pb.GetSchemaResponse, error)
 	Execute(req *pb.ExecuteRequest, stream pb.WrapperPlugin_ExecuteServer) error
+	SetConnectionConfig(req *pb.SetConnectionConfigRequest) (*pb.SetConnectionConfigResponse, error)
 }
 
 type WrapperPluginClient interface {
 	GetSchema(request *pb.GetSchemaRequest) (*pb.GetSchemaResponse, error)
 	Execute(req *pb.ExecuteRequest) (pb.WrapperPlugin_ExecuteClient, error)
+	SetConnectionConfig(req *pb.SetConnectionConfigRequest) (*pb.SetConnectionConfigResponse, error)
 }
 
 // This is the implementation of plugin.GRPCServer so we can serve/consume this.

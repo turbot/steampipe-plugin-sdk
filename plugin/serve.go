@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"log"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
@@ -22,17 +21,10 @@ func Serve(opts *ServeOpts) {
 
 	ctx := context.WithValue(context.Background(), context_key.Logger, logging.NewLogger(&hclog.LoggerOptions{DisableTime: true}))
 
-	// pluginName string, getSchemaFunc GetSchemaFunc, tables map[string]ExecuteFunc
+	// call plugin function to build a plugin object
 	p := opts.PluginFunc(ctx)
 
-	// NOTE update tables to have a reference to the plugin
-	p.claimTables()
+	p.Initialise()
 
-	// time will be provided by the plugin logger
-	p.Logger = logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
-	log.SetOutput(p.Logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
-	log.SetPrefix("")
-	log.SetFlags(0)
-
-	grpc.NewPluginServer(p.Name, p.GetSchema, p.Execute).Serve()
+	grpc.NewPluginServer(p.Name, p.GetSchema, p.Execute, p.SetConnectionConfig).Serve()
 }
