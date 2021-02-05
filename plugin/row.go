@@ -52,7 +52,7 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 	// - these populate the row with data entries corresponding to the hydrate function nameSP_LOG=TRACE
 	// keep looping round hydrate functions until they are all started
 
-	// make a map of started hydrate calls FOR THIS ROW
+	// make a map of started hydrate calls for this row - this is used the determine which calls have not started yet
 	var callsStarted = map[string]bool{}
 
 	for {
@@ -61,13 +61,12 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 			hydrateFuncName := helpers.GetFunctionName(call.Func)
 			if !callsStarted[hydrateFuncName] {
 				if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
-					// call callHydrate async, ignoring return values
+					// execute the hydrate call asynchronously
 					call.Start(ctx, r, hydrateFuncName, r.queryData.concurrencyManager)
 					callsStarted[hydrateFuncName] = true
 				} else {
 					allStarted = false
 				}
-
 			}
 		}
 		if allStarted {
