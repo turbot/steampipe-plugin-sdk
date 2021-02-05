@@ -84,11 +84,15 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 3) Build row spawns goroutines for any required hydrate functions.
 	// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
 	// 5) Range over rowChan - for each row, send on results stream
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 
 	connectionConfig := p.ConnectionConfig.ConfigMap[req.Connection]
-	p.Logger.Warn("creating query data", "connectionConfig", connectionConfig)
-	queryData := newQueryData(queryContext, table, stream, connectionConfig)
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+
+	// get the fetch metadata
+	fetchMetadata := table.FetchMetadata(ctx, connectionConfig)
+	p.Logger.Warn("creating query data", "connectionConfig", connectionConfig, "fetchMetadata", fetchMetadata)
+	queryData := newQueryData(queryContext, table, stream, connectionConfig, fetchMetadata)
+
 	log.Printf("[TRACE] calling fetchItems, table: %s\n", table.Name)
 
 	// asyncronously fetch items
@@ -96,8 +100,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return err
 	}
 	log.Println("[TRACE] after fetchItems")
-
-
 	logging.LogTime("Calling stream")
 
 	// asyncronously build rows

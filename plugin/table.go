@@ -1,12 +1,15 @@
 package plugin
 
 import (
+	"context"
 	"log"
 
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 
 	"github.com/turbot/go-kit/helpers"
 )
+
+type FetchMetadataFunc func(context.Context, interface{}) []map[string]interface{}
 
 // Table :: struct representing a plugin table
 type Table struct {
@@ -17,7 +20,7 @@ type Table struct {
 	Columns          []*Column
 	List             *ListConfig
 	Get              *GetConfig
-	FetchMetadata    []map[string]interface{}
+	FetchMetadata    FetchMetadataFunc
 	DefaultTransform *transform.ColumnTransforms
 	// the parent plugin object
 	Plugin *Plugin

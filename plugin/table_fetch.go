@@ -130,7 +130,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	rd := newRowData(queryData, hydrateItem)
 	var getItem interface{}
 
-	if len(t.FetchMetadata) == 0 {
+	if len(queryData.FetchMetadata) == 0 {
 		// just invoke SafeGet()
 		getItem, err = t.SafeGet()(ctx, queryData, &HydrateData{})
 	} else {
@@ -160,10 +160,10 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
 	getCall := t.SafeGet()
 
-	log.Printf("[DEBUG] getForEach, fetchMetadata list: %v\n", t.FetchMetadata)
+	log.Printf("[DEBUG] getForEach, fetchMetadata list: %v\n", queryData.FetchMetadata)
 
 	var wg sync.WaitGroup
-	errorChan := make(chan error, len(t.FetchMetadata))
+	errorChan := make(chan error, len(queryData.FetchMetadata))
 	var errors []error
 	// define type to stream down results channel - package the item and the fetch metadata
 	// this will for example allow us to determine which region contains the resulting get item
@@ -171,10 +171,10 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 		item          interface{}
 		fetchMetadata map[string]interface{}
 	}
-	resultChan := make(chan *resultWithMetadata, len(t.FetchMetadata))
+	resultChan := make(chan *resultWithMetadata, len(queryData.FetchMetadata))
 	var results []*resultWithMetadata
 
-	for _, fetchMetadata := range t.FetchMetadata {
+	for _, fetchMetadata := range queryData.FetchMetadata {
 		// increment our own wait group
 		wg.Add(1)
 
@@ -330,14 +330,14 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		listCall = t.List.ParentHydrate
 	}
 
-	if len(t.FetchMetadata) == 0 {
+	if len(queryData.FetchMetadata) == 0 {
 		if _, err := listCall(ctx, queryData, &HydrateData{}); err != nil {
 			queryData.streamError(err)
 		}
-	} else if len(t.FetchMetadata) == 1 {
-		log.Printf("[DEBUG] running list for single fetchMetadata: %v", t.FetchMetadata[0])
+	} else if len(queryData.FetchMetadata) == 1 {
+		log.Printf("[DEBUG] running list for single fetchMetadata: %v", queryData.FetchMetadata[0])
 		// create a context with the fetchMetadata
-		fetchContext := context.WithValue(ctx, context_key.FetchMetadata, t.FetchMetadata[0])
+		fetchContext := context.WithValue(ctx, context_key.FetchMetadata, queryData.FetchMetadata[0])
 		if _, err := listCall(fetchContext, queryData, &HydrateData{}); err != nil {
 			queryData.streamError(err)
 		}
@@ -354,7 +354,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 // enables multi-partition fetching
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
 	var wg sync.WaitGroup
-	for _, fetchMetadata := range t.FetchMetadata {
+	for _, fetchMetadata := range queryData.FetchMetadata {
 		log.Printf("[DEBUG] ListForEach, running list for fetchMetadata: %v", fetchMetadata)
 		// create a context with the fetchMetadata
 		fetchContext := context.WithValue(ctx, context_key.FetchMetadata, fetchMetadata)

@@ -29,8 +29,9 @@ type QueryData struct {
 	FetchType    fetchType
 	QueryContext *pb.QueryContext
 	// connection config
-	ConnectionConfig interface{}
-
+	Config interface{}
+	// fetch metadata list
+	FetchMetadata []map[string]interface{}
 	// internal
 	hydrateCalls       []*HydrateCall
 	concurrencyManager *ConcurrencyManager
@@ -41,12 +42,13 @@ type QueryData struct {
 	listWg sync.WaitGroup
 }
 
-func newQueryData(queryContext *pb.QueryContext, table *Table, stream pb.WrapperPlugin_ExecuteServer, connectionConfig interface{}) *QueryData {
+func newQueryData(queryContext *pb.QueryContext, table *Table, stream pb.WrapperPlugin_ExecuteServer, connectionConfig interface{}, fetchMetadata []map[string]interface{}) *QueryData {
 	d := &QueryData{
 		ConnectionManager: connection.NewManager(),
 		Table:             table,
 		QueryContext:      queryContext,
-		ConnectionConfig:  connectionConfig,
+		Config:            connectionConfig,
+		FetchMetadata:     fetchMetadata,
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan

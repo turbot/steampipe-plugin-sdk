@@ -93,7 +93,7 @@ func (c *ConnectionConfig) Validate() []string {
 		if attr.Type != schema.TypeList && attr.Elem != nil {
 			validationErrors = append(validationErrors, fmt.Sprintf("attribute %s has 'Elem' set but is Type is not TypeList", name))
 		}
-		// verify ConnectionConfig.NewInstance() returns a pointer
+		// verify Config.NewInstance() returns a pointer
 		kind := reflect.TypeOf(c.NewInstance()).Kind()
 		if kind != reflect.Ptr {
 			validationErrors = append(validationErrors, fmt.Sprintf("NewInstance function must return a pointer to a struct instance, got %v", kind))
