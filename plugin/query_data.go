@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/turbot/go-kit/helpers"
@@ -29,10 +30,11 @@ type QueryData struct {
 	QueryContext *pb.QueryContext
 
 	// internal
-	hydrateCalls []*HydrateCall
-	rowDataChan  chan *RowData
-	errorChan    chan error
-	stream       pb.WrapperPlugin_ExecuteServer
+	hydrateCalls       []*HydrateCall
+	concurrencyManager *ConcurrencyManager
+	rowDataChan        chan *RowData
+	errorChan          chan error
+	stream             pb.WrapperPlugin_ExecuteServer
 	// wait group used to syncronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 }
@@ -56,6 +58,7 @@ func newQueryData(queryContext *pb.QueryContext, table *Table, stream pb.Wrapper
 	ensureColumns(queryContext, table)
 
 	d.hydrateCalls = table.requiredHydrateCalls(queryContext.Columns, d.FetchType)
+	d.concurrencyManager = newConcurrencyManager(table)
 	return d
 }
 
@@ -232,6 +235,9 @@ func (d *QueryData) buildRows(ctx context.Context) chan *pb.Row {
 // execute necessary hydrate calls to populate row data
 func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan *pb.Row, wg *sync.WaitGroup) {
 	defer func() {
+		if r := recover(); r != nil {
+			d.streamError(ToError(r))
+		}
 		wg.Done()
 	}()
 
@@ -267,4 +273,14 @@ func (d *QueryData) singleEqualsQual(column string) (*pb.Qual, bool) {
 		return quals.Quals[0], true
 	}
 	return nil, false
+}
+
+// remove once go-kit version 0.2.0 is released
+// ToError :: if supplied value is already an error, return it, otherwise format it as an error
+func ToError(val interface{}) error {
+	if e, ok := val.(error); ok {
+		return e
+	} else {
+		return fmt.Errorf("%v", val)
+	}
 }

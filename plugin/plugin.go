@@ -21,6 +21,7 @@ type Plugin struct {
 	TableMap         map[string]*Table
 	DefaultTransform *transform.ColumnTransforms
 	DefaultGetConfig *GetConfig
+	DefaultHydrateConfig *DefaultHydrateConfig
 	// every table must implement these columns
 	RequiredColumns []*Column
 }
@@ -96,6 +97,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	ctx := context.WithValue(context.Background(), ContextKeyLogger, p.Logger)
 	log.Printf("[TRACE] calling fetchItems, table: %s\n", table.Name)
 
+	// asyncronously fetch items
 	table.fetchItems(ctx, d)
 
 	log.Println("[TRACE] after fetchItems")
