@@ -33,7 +33,7 @@ func (p *Plugin) Initialise() {
 		p.ConnectionConfig = NewConnectionConfig()
 	} else {
 		// otherwise just initialise the connection config map
-		p.ConnectionConfig.ConfigMap = make(map[string]*Connection)
+		p.ConnectionConfig.Connections = make(map[string]*Connection)
 	}
 
 	// NOTE update tables to have a reference to the plugin
@@ -73,7 +73,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}()
 
 	logging.LogTime("Start execute")
-	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.ConnectionConfig.ConfigMap)
+	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.ConnectionConfig.Connections)
 
 	queryContext := req.QueryContext
 	table, ok := p.TableMap[req.Table]
@@ -98,16 +98,17 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	// NOTE: req.Connection parameter is only populated in version 0.2.0 of Steampipe - check whether it exists
 	if req.Connection != "" {
-		connectionConfig := p.ConnectionConfig.ConfigMap[req.Connection]
-		connection = &Connection{req.Connection, connectionConfig}
+		connection = p.ConnectionConfig.Connections[req.Connection]
 	}
-	queryData := newQueryData(queryContext, table, stream, connection, fetchMetadata)
 
 	// get the fetch metadata
 	if table.GetFetchMetadata != nil {
-		fetchMetadata = table.GetFetchMetadata(ctx, queryData)
+		fetchMetadata = table.GetFetchMetadata(ctx, connection)
 	}
-	p.Logger.Debug("calling fetchItems", "table", table.Name)
+
+	queryData := newQueryData(queryContext, table, stream, connection, fetchMetadata)
+	p.Logger.Debug("calling fetchItems", "table", table.Name, "fetchMetadata", fetchMetadata)
+	table.fetchItems(ctx, queryData)
 
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {

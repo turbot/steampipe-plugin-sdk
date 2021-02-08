@@ -329,6 +329,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}
 
 	if len(queryData.FetchMetadata) == 0 {
+		log.Printf("[DEBUG] No fetch metadata")
 		if _, err := listCall(ctx, queryData, &HydrateData{}); err != nil {
 			queryData.streamError(err)
 		}
@@ -362,7 +363,6 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			continue
 		}
 
-		log.Printf("[DEBUG] ListForEach, running list for fetchMetadata: %v", fetchMetadata)
 		// create a context with the fetchMetadata
 		fetchContext := context.WithValue(ctx, context_key.FetchMetadata, fetchMetadata)
 		wg.Add(1)

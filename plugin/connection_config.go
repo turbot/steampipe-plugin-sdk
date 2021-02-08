@@ -18,7 +18,9 @@ import (
 type ConnectionConfigInstanceFunc func() interface{}
 
 type Connection struct {
-	Name   string
+	Name string
+	// the connection config
+	// NOTE: we always pass and store connection config BY VALUE
 	Config interface{}
 }
 
@@ -27,19 +29,18 @@ type ConnectionConfig struct {
 	Schema map[string]*schema.Attribute
 	// function which returns an instance of a connection config struct
 	NewInstance ConnectionConfigInstanceFunc
-	// a map of connection to connection config structs
-	// NOTE: we always pass and store connection config BY VALUE
-	ConfigMap map[string]*Connection
+	// a map of connection name to connection structs
+	Connections map[string]*Connection
 }
 
 func NewConnectionConfig() *ConnectionConfig {
 	return &ConnectionConfig{
-		Schema:    map[string]*schema.Attribute{},
-		ConfigMap: map[string]*Connection{},
+		Schema:      map[string]*schema.Attribute{},
+		Connections: map[string]*Connection{},
 	}
 }
 
-// SetConnectionConfig :: parse the conneection config, and populate the ConfigMap for this connection
+// SetConnectionConfig :: parse the conneection config, and populate the Connections for this connection
 // NOTE: we always pass and store connection config BY VALUE
 func (c *ConnectionConfig) SetConnectionConfig(connectionName, configString string) error {
 	// ask plugin for a struct to deserialise the config into
@@ -47,7 +48,7 @@ func (c *ConnectionConfig) SetConnectionConfig(connectionName, configString stri
 	if err != nil {
 		return err
 	}
-	c.ConfigMap[connectionName] = &Connection{connectionName, config}
+	c.Connections[connectionName] = &Connection{connectionName, config}
 	return nil
 }
 

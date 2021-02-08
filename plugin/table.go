@@ -9,7 +9,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-type FetchMetadataFunc func(context.Context, *QueryData) []map[string]interface{}
+type FetchMetadataFunc func(context.Context, *Connection) []map[string]interface{}
 
 // Table :: struct representing a plugin table
 type Table struct {
