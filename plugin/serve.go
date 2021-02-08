@@ -24,6 +24,7 @@ func Serve(opts *ServeOpts) {
 	// call plugin function to build a plugin object
 	p := opts.PluginFunc(ctx)
 
+	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
 	p.Initialise()
 
 	grpc.NewPluginServer(p.Name, p.GetSchema, p.Execute, p.SetConnectionConfig).Serve()

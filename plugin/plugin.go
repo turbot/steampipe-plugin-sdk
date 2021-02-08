@@ -26,9 +26,15 @@ type Plugin struct {
 	ConnectionConfig *ConnectionConfig
 }
 
+// Initialise :: initialise the connection config map, set plugin pointer on all tables and setup logger
 func (p *Plugin) Initialise() {
-	// initialise the connection config map
-	p.ConnectionConfig.ConfigMap = make(map[string]interface{})
+	// if no connection config is defined, create an empty one
+	if p.ConnectionConfig == nil {
+		p.ConnectionConfig = NewConnectionConfig()
+	} else {
+		// otherwise just initialise the connection config map
+		p.ConnectionConfig.ConfigMap = make(map[string]*Connection)
+	}
 
 	// NOTE update tables to have a reference to the plugin
 	p.claimTables()
@@ -67,7 +73,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}()
 
 	logging.LogTime("Start execute")
-	p.Logger.Warn("Execute ", "connection", req.Connection, "connection config", p.ConnectionConfig.ConfigMap)
+	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.ConnectionConfig.ConfigMap)
 
 	queryContext := req.QueryContext
 	table, ok := p.TableMap[req.Table]
@@ -75,8 +81,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
 
-	log.Printf("[TRACE] Execute: cols: %v\n", queryContext.Columns)
-	log.Printf("[TRACE] quals: %s\n", grpc.QualMapToString(queryContext.Quals))
+	p.Logger.Debug("Got query context",
+		"cols", queryContext.Columns,
+		"quals", grpc.QualMapToString(queryContext.Quals))
 
 	// async approach
 	// 1) call list() in a goroutine. This writes pages of items to the rowDataChan. When complete it closes the channel
@@ -86,14 +93,21 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 5) Range over rowChan - for each row, send on results stream
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 
-	connectionConfig := p.ConnectionConfig.ConfigMap[req.Connection]
+	var fetchMetadata = make([]map[string]interface{}, 0)
+	var connection *Connection
+
+	// NOTE: req.Connection parameter is only populated in version 0.2.0 of Steampipe - check whether it exists
+	if req.Connection != "" {
+		connectionConfig := p.ConnectionConfig.ConfigMap[req.Connection]
+		connection = &Connection{req.Connection, connectionConfig}
+	}
+	queryData := newQueryData(queryContext, table, stream, connection, fetchMetadata)
 
 	// get the fetch metadata
-	fetchMetadata := table.FetchMetadata(ctx, connectionConfig)
-	p.Logger.Warn("creating query data", "connectionConfig", connectionConfig, "fetchMetadata", fetchMetadata)
-	queryData := newQueryData(queryContext, table, stream, connectionConfig, fetchMetadata)
-
-	log.Printf("[TRACE] calling fetchItems, table: %s\n", table.Name)
+	if table.GetFetchMetadata != nil {
+		fetchMetadata = table.GetFetchMetadata(ctx, queryData)
+	}
+	p.Logger.Debug("calling fetchItems", "table", table.Name)
 
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {

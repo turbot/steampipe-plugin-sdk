@@ -7,13 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
-
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -353,8 +351,17 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 // ListForEach :: execute the provided list call for each of a set of fetchMetadata
 // enables multi-partition fetching
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+	log.Printf("[DEBUG] listForEach: %v\n", queryData.FetchMetadata)
 	var wg sync.WaitGroup
 	for _, fetchMetadata := range queryData.FetchMetadata {
+
+		// check whether there is a single equals qual for each fetch metadata property and if so, check whether
+		// the fetch metadata property values satisfy the conditions
+		if !t.fetchMetadataMeetsQuals(fetchMetadata, queryData) {
+			log.Printf("[INFO] fetch metadata item does not meet quals, %v, %v\n", queryData.EqualsQuals, fetchMetadata)
+			continue
+		}
+
 		log.Printf("[DEBUG] ListForEach, running list for fetchMetadata: %v", fetchMetadata)
 		// create a context with the fetchMetadata
 		fetchContext := context.WithValue(ctx, context_key.FetchMetadata, fetchMetadata)
@@ -380,4 +387,28 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 	}
 
 	wg.Wait()
+}
+
+func (t *Table) fetchMetadataMeetsQuals(fetchMetadata map[string]interface{}, queryData *QueryData) bool {
+	// for the purposes of optimisation , assume fetch metadata properties correspond to column names
+	// if this is NOT the case, it will not fail, but this optimisation will not do anything
+	for columnName, metadataValue := range fetchMetadata {
+		// check this fetch metadata property corresponds to a column
+		column, ok := t.columnForName(columnName)
+		if !ok {
+			// if no, just continue to next property
+			continue
+		}
+		// is there a single equals qual for this column
+		if qualValue, ok := queryData.EqualsQuals[columnName]; ok {
+
+			// get the underlying qual value
+			requiredValue := ColumnQualValue(qualValue, column)
+
+			if requiredValue != metadataValue {
+				return false
+			}
+		}
+	}
+	return true
 }

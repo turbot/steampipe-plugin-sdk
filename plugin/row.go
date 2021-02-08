@@ -10,7 +10,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 
 	"github.com/turbot/go-kit/helpers"
-	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -51,7 +51,7 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 	}
 }
 
-func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
+func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 	// NOTE: the RowData (may) have fetchMetadata set
 	// (this is a data structure containing fetch specific data, e.g. region)
 	// store this in the context for use by the transform functions
@@ -84,7 +84,7 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	var row *pb.Row
+	var row *proto.Row
 
 	// wait for all hydrate calls to complete and signal via the wait chan when they are
 	// (we need this slightly convoluted mechanism to allow us to check for upstream errors
@@ -114,8 +114,8 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 }
 
 // generate the column values for for all requested columns
-func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
-	row := &pb.Row{Columns: make(map[string]*pb.Column)}
+func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
+	row := &proto.Row{Columns: make(map[string]*proto.Column)}
 	// only populate columns which have been asked for
 	for _, columnName := range r.queryData.QueryContext.Columns {
 		// get columns schema

@@ -17,18 +17,25 @@ import (
 
 type ConnectionConfigInstanceFunc func() interface{}
 
+type Connection struct {
+	Name   string
+	Config interface{}
+}
+
+// ConnectionConfig :: struct used to define the connection config schema and store the config for each plugin connection
 type ConnectionConfig struct {
 	Schema map[string]*schema.Attribute
 	// function which returns an instance of a connection config struct
 	NewInstance ConnectionConfigInstanceFunc
 	// a map of connection to connection config structs
 	// NOTE: we always pass and store connection config BY VALUE
-	ConfigMap map[string]interface{}
+	ConfigMap map[string]*Connection
 }
 
 func NewConnectionConfig() *ConnectionConfig {
 	return &ConnectionConfig{
-		ConfigMap: make(map[string]interface{}),
+		Schema:    map[string]*schema.Attribute{},
+		ConfigMap: map[string]*Connection{},
 	}
 }
 
@@ -40,7 +47,7 @@ func (c *ConnectionConfig) SetConnectionConfig(connectionName, configString stri
 	if err != nil {
 		return err
 	}
-	c.ConfigMap[connectionName] = config
+	c.ConfigMap[connectionName] = &Connection{connectionName, config}
 	return nil
 }
 
