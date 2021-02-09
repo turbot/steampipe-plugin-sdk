@@ -123,7 +123,19 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	return queryData.streamRows(ctx, rowChan)
 }
 
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) error {
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("SetConnectionConfig failed: %s", ToError(r).Error())
+		} else {
+			p.Logger.Debug("SetConnectionConfig finished")
+		}
+	}()
+
+	if connectionConfigString == "" {
+		return nil
+	}
+
 	return p.ConnectionConfig.SetConnectionConfig(connectionName, connectionConfigString)
 }
 

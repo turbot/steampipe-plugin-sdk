@@ -108,7 +108,7 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 		logging.LogTime("send a row")
 		return row, nil
 	case err := <-r.errorChan:
-		log.Println("[TRACE] hydrate err chan select", "error", err)
+		log.Println("[DEBUG] hydrate err chan select", "error", err)
 		return nil, err
 	}
 }
