@@ -16,11 +16,11 @@ import (
 
 // Plugin :: an object used to build all necessary data for a given query
 type Plugin struct {
-	Name             string
-	Logger           hclog.Logger
-	TableMap         map[string]*Table
-	DefaultTransform *transform.ColumnTransforms
-	DefaultGetConfig *GetConfig
+	Name                 string
+	Logger               hclog.Logger
+	TableMap             map[string]*Table
+	DefaultTransform     *transform.ColumnTransforms
+	DefaultGetConfig     *GetConfig
 	DefaultHydrateConfig *DefaultHydrateConfig
 	// every table must implement these columns
 	RequiredColumns []*Column
@@ -98,7 +98,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.Printf("[TRACE] calling fetchItems, table: %s\n", table.Name)
 
 	// asyncronously fetch items
-	table.fetchItems(ctx, d)
+	if err := table.fetchItems(ctx, d); err != nil {
+		return err
+	}
 
 	log.Println("[TRACE] after fetchItems")
 

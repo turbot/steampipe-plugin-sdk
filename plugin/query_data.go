@@ -164,6 +164,9 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *pb.Row) error {
 		log.Println("[TRACE] stream loop")
 		// wait for either an item or an error
 		select {
+		case err := <-d.errorChan:
+			log.Printf("[ERROR] streamRows err chan select: %v\n", err)
+			return err
 		case row := <-rowChan:
 			log.Println("[TRACE] row chan select - got a row")
 			if row == nil {
@@ -175,9 +178,6 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *pb.Row) error {
 				log.Printf("[ERROR] stream.Send returned error: %v\n", err)
 				return err
 			}
-		case err := <-d.errorChan:
-			log.Printf("[ERROR] streamRows err chan select: %v\n", err)
-			return err
 		}
 	}
 }

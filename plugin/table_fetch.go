@@ -22,12 +22,12 @@ const (
 )
 
 // call either 'get' or 'list'.
-func (t *Table) fetchItems(ctx context.Context, d *QueryData) {
+func (t *Table) fetchItems(ctx context.Context, d *QueryData) error {
 	log.Println("[TRACE] fetchItems")
 	// if the query contains a single 'equals' constrains for all key columns, then call the 'get' function
 	if d.FetchType == fetchTypeGet && t.Get != nil {
 		logging.LogTime("executeGetCall")
-		t.executeGetCall(ctx, d)
+		return t.executeGetCall(ctx, d)
 	} else {
 		if t.List == nil {
 			log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(d.QueryContext.Quals))
@@ -36,27 +36,27 @@ func (t *Table) fetchItems(ctx context.Context, d *QueryData) {
 		logging.LogTime("executeListCall")
 		go t.executeListCall(ctx, d)
 	}
+	return nil
 }
 
-func (t *Table) executeGetCall(ctx context.Context, d *QueryData) {
-	log.Println("[TRACE] executeGetCall")
-
+func (t *Table) executeGetCall(ctx context.Context, d *QueryData) (err error) {
+	logger := t.Plugin.Logger
 	// verify we have the necessary quals
 	if d.KeyColumnQuals == nil {
-		d.streamError(status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.ToString())))
+		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.ToString()))
 	}
 
 	// deprecated - ItemFromKey is no longer recommended or required
 	if t.Get.ItemFromKey != nil {
 		t.executeLegacyGetCall(ctx, d)
-		return
+		return nil
 	}
 
 	defer func() {
 		// we can now close the item chan
 		d.fetchComplete()
 		if r := recover(); r != nil {
-			d.streamError(status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r)))
+			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r))
 		}
 	}()
 
@@ -65,14 +65,14 @@ func (t *Table) executeGetCall(ctx context.Context, d *QueryData) {
 	// in this case we call get for each value
 	if keyColumn := t.Get.KeyColumns.Single; keyColumn != "" {
 		if qualValueList := d.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
+			logger.Debug("executeGetCall - single qual, qual value is a list - executing get for each qual value item", "qualValueList", qualValueList)
 			// we will mutate d.KeyColumnQuals to replace the list value with a single qual value
 			for _, qv := range qualValueList.Values {
 				// mutate KeyColumnQuals
 				d.KeyColumnQuals[keyColumn] = qv
 				// call doGet passing nil hydrate item
 				if err := t.doGet(ctx, d, nil); err != nil {
-					d.streamError(err)
-					break
+					return err
 				}
 			}
 			// and we are done
@@ -82,14 +82,11 @@ func (t *Table) executeGetCall(ctx context.Context, d *QueryData) {
 
 	// so there is NOT a list of qual values, just call get once
 	// call doGet passing nil hydrate item
-	if err := t.doGet(ctx, d, nil); err != nil {
-		d.streamError(err)
-	}
+	return t.doGet(ctx, d, nil)
 }
 
 // t.Get.ItemFromKey is deprectaed. If this table has this property set, run legacy get
 func (t *Table) executeLegacyGetCall(ctx context.Context, d *QueryData) {
-	log.Printf("[DEBUG] executeLegacyGetCall\n")
 	defer func() {
 		// we can now close the item chan
 		d.fetchComplete()
@@ -98,7 +95,6 @@ func (t *Table) executeLegacyGetCall(ctx context.Context, d *QueryData) {
 			d.streamError(status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r)))
 		}
 	}()
-	log.Println("[TRACE] executeGetCall")
 
 	// build the hydrate input by calling  t.Get.ItemFromKey
 	hydrateInput, err := t.buildHydrateInputForGetCall(ctx, d)
