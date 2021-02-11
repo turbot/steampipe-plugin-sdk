@@ -28,8 +28,8 @@ import (
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	var item = d.HydrateItem
 
-	propertyPath := propertyPathFromParam(d.Param)
-	if propertyPath == "" {
+	propertyPath, ok := d.Param.(string)
+	if !ok {
 		return nil, fmt.Errorf("'FieldValue' requires a string parameter containing property path but received %v", d.Param)
 	}
 
@@ -39,15 +39,6 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	}
 
 	return fieldValue, nil
-}
-
-func propertyPathFromParam(param interface{}) string {
-	propertyPath, ok := param.(string)
-
-	if !ok {
-		return ""
-	}
-	return propertyPath
 }
 
 // FieldValueCamelCase :: intended for the start of a transform chain
@@ -251,26 +242,26 @@ func RawValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return d.HydrateItem, nil
 }
 
-// ToUpper ::  convert the (string) value to upper case
-// if value is not a string, do nothing
+// ToUpper ::  convert the (string or *string) value to upper case
+// if value is not a string, return unaltered value
 func ToUpper(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
 	}
-	valStr, ok := d.Value.(string)
+	valStr, ok := types.CastString(d.Value)
 	if !ok {
 		return d.Value, nil
 	}
 	return strings.ToUpper(valStr), nil
 }
 
-// ToLower ::  convert the (string) value to lower case
-// if value is not a string, do nothing
+// ToLower ::  convert the (string or *string) value to lower case
+// if value is not a string, return unaltered value
 func ToLower(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
 	}
-	valStr, ok := d.Value.(string)
+	valStr, ok := types.CastString(d.Value)
 	if !ok {
 		return d.Value, nil
 	}
@@ -427,7 +418,9 @@ func StringArrayToMap(_ context.Context, d *TransformData) (interface{}, error) 
 		}
 		return result, nil
 	default:
-		return nil, fmt.Errorf("StringArrayToMap transform requires the input to be []string, got %s", reflect.TypeOf(d.Value).Name)
+		t := reflect.TypeOf(d.Value).Name()
+		return nil,
+			fmt.Errorf("StringArrayToMap transform requires the input to be []string, got %s", t)
 	}
 
 }

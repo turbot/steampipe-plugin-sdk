@@ -35,6 +35,9 @@ type testStruct struct {
 	b string
 }
 
+var upperString = "FOO"
+var lowerString = "foo"
+
 var testCasesTransform = map[string]TransformTest{
 	// do not need every permutation of input as the go-kit unit tests cover this
 	"ToBool string TRUE": {
@@ -128,6 +131,34 @@ var testCasesTransform = map[string]TransformTest{
 		},
 		function: UnmarshalYAML,
 		expected: nil,
+	},
+	"ToUpper": {
+		d: &TransformData{
+			Value: lowerString,
+		},
+		function: ToUpper,
+		expected: upperString,
+	},
+	"ToLower": {
+		d: &TransformData{
+			Value: upperString,
+		},
+		function: ToLower,
+		expected: lowerString,
+	},
+	"ToUpper pointer": {
+		d: &TransformData{
+			Value: &lowerString,
+		},
+		function: ToUpper,
+		expected: upperString,
+	},
+	"ToLower pointer": {
+		d: &TransformData{
+			Value: &upperString,
+		},
+		function: ToLower,
+		expected: lowerString,
 	},
 	"ToUpper nil": {
 		d: &TransformData{
