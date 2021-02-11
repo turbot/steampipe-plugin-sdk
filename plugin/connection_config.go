@@ -24,41 +24,22 @@ type Connection struct {
 	Config interface{}
 }
 
-// ConnectionConfig :: struct used to define the connection config schema and store the config for each plugin connection
-type ConnectionConfig struct {
+// ConnectionConfigSchema :: struct used to define the connection config schema and store the config for each plugin connection
+type ConnectionConfigSchema struct {
 	Schema map[string]*schema.Attribute
 	// function which returns an instance of a connection config struct
 	NewInstance ConnectionConfigInstanceFunc
-	// a map of connection name to connection structs
-	Connections map[string]*Connection
 }
 
-func NewConnectionConfig() *ConnectionConfig {
-	return &ConnectionConfig{
-		Schema:      map[string]*schema.Attribute{},
-		Connections: map[string]*Connection{},
+func NewConnectionConfig() *ConnectionConfigSchema {
+	return &ConnectionConfigSchema{
+		Schema: map[string]*schema.Attribute{},
 	}
-}
-
-// SetConnectionConfig :: parse the conneection config, and populate the Connections for this connection
-// NOTE: we always pass and store connection config BY VALUE
-func (c *ConnectionConfig) SetConnectionConfig(connectionName, configString string) error {
-	// if no config passed, just return
-	if configString == "" {
-		return nil
-	}
-	// ask plugin for a struct to deserialise the config into
-	config, err := c.Parse(configString)
-	if err != nil {
-		return err
-	}
-	c.Connections[connectionName] = &Connection{connectionName, config}
-	return nil
 }
 
 // Parse :: parse the hcl string into a connection config struct.
 // The schema and the  struct to parse into are provided by the plugin
-func (c *ConnectionConfig) Parse(configString string) (interface{}, error) {
+func (c *ConnectionConfigSchema) Parse(configString string) (interface{}, error) {
 	// ensure a schema is set
 	if len(c.Schema) == 0 {
 		return nil, fmt.Errorf("cannot parse connection config as no config schema is set in the connection config")
@@ -106,7 +87,7 @@ func diagsToError(prefix string, diags hcl.Diagnostics) error {
 }
 
 // Validate :: validate the connection config
-func (c *ConnectionConfig) Validate() []string {
+func (c *ConnectionConfigSchema) Validate() []string {
 	var validationErrors []string
 	for name, attr := range c.Schema {
 		if attr.Type != schema.TypeList && attr.Elem != nil {

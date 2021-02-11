@@ -68,16 +68,16 @@ func FieldValueGo(ctx context.Context, d *TransformData) (interface{}, error) {
 	return FieldValue(ctx, d)
 }
 
-// FetchMetadataValue :: intended for the start of a transform chain
-// retrieve a value from the fetch metadata, using the param as key
-func FetchMetadataValue(ctx context.Context, d *TransformData) (interface{}, error) {
+// MatrixItemValue :: intended for the start of a transform chain
+// retrieve a value from the matrix item, using the param as key
+func MatrixItemValue(ctx context.Context, d *TransformData) (interface{}, error) {
 	metadataKey, ok := d.Param.(string)
 	if !ok {
-		return nil, fmt.Errorf("'FetchMetadataValue' requires a string parameter containing metadata keybut received %v", d.Param)
+		return nil, fmt.Errorf("'MatrixItemValue' requires a string parameter containing metadata keybut received %v", d.Param)
 	}
-	log.Printf("[DEBUG] FetchMetadataValue key %s metadata %v", metadataKey, d.FetchMetadata)
+	log.Printf("[DEBUG] MatrixItemValue key %s metadata %v", metadataKey, d.MatrixItem)
 
-	return d.FetchMetadata[metadataKey], nil
+	return d.MatrixItem[metadataKey], nil
 }
 
 // modify the name to make common intialialisms upper case

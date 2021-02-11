@@ -29,9 +29,9 @@ type QueryData struct {
 	QueryContext *proto.QueryContext
 	// connection details - the connection name and any config declared in the connection config file
 	Connection *Connection
-	// FetchMetadata is an array of parameter maps
-	// the list/get calls with be executed for each element of this list.
-	FetchMetadata []map[string]interface{}
+	// Matrix is an array of parameter maps (MatrixItems)
+	// the list/get calls with be executed for each element of this array
+	Matrix []map[string]interface{}
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
 
@@ -45,13 +45,13 @@ type QueryData struct {
 	listWg sync.WaitGroup
 }
 
-func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, fetchMetadata []map[string]interface{}) *QueryData {
+func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}) *QueryData {
 	d := &QueryData{
 		ConnectionManager: connection_manager.NewManager(),
 		Table:             table,
 		QueryContext:      queryContext,
 		Connection:        connection,
-		FetchMetadata:     fetchMetadata,
+		Matrix:            matrix,
 		KeyColumnQuals:    map[string]*proto.QualValue{},
 		EqualsQuals:       map[string]*proto.QualValue{},
 
@@ -155,9 +155,9 @@ func (d *QueryData) StreamListItem(ctx context.Context, item interface{}) {
 }
 
 func (d *QueryData) StreamLeafListItem(ctx context.Context, item interface{}) {
-	// create rowData, passing fetchMetadata from context
+	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
-	rd.fetchMetadata = GetFetchMetadata(ctx)
+	rd.matrixItem = GetMatrixItem(ctx)
 
 	// NOTE: add the item as the hydrate data for the list call
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)

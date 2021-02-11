@@ -25,10 +25,10 @@ func (tr *TransformCall) Execute(ctx context.Context, value interface{}, hydrate
 		}
 	}()
 
-	// retrieve fetch metadata from the context - this is generally used to store the fetch region
-	var fetchMetadata = map[string]interface{}{}
-	if contextValue := ctx.Value(context_key.FetchMetadata); contextValue != nil {
-		fetchMetadata = contextValue.(map[string]interface{})
+	// retrieve matrix item from the context - this is generally used to store the fetch region
+	var matrixItem = map[string]interface{}{}
+	if contextValue := ctx.Value(context_key.MatrixItem); contextValue != nil {
+		matrixItem = contextValue.(map[string]interface{})
 	}
 
 	td := &TransformData{
@@ -37,7 +37,7 @@ func (tr *TransformCall) Execute(ctx context.Context, value interface{}, hydrate
 		HydrateItem:    hydrateItem,
 		HydrateResults: hydrateResults,
 		ColumnName:     columnName,
-		FetchMetadata:  fetchMetadata,
+		MatrixItem:     matrixItem,
 	}
 	transformedValue, err = tr.Transform(ctx, td)
 	if err != nil {

@@ -22,19 +22,20 @@ type Plugin struct {
 	DefaultGetConfig   *GetConfig
 	DefaultConcurrency *DefaultConcurrencyConfig
 	// every table must implement these columns
-	RequiredColumns  []*Column
-	ConnectionConfig *ConnectionConfig
+	RequiredColumns        []*Column
+	ConnectionConfigSchema *ConnectionConfigSchema
+	// a map of connection name to connection structs
+	Connections map[string]*Connection
 }
 
 // Initialise :: initialise the connection config map, set plugin pointer on all tables and setup logger
 func (p *Plugin) Initialise() {
 	// if no connection config is defined, create an empty one
-	if p.ConnectionConfig == nil {
-		p.ConnectionConfig = NewConnectionConfig()
-	} else {
-		// otherwise just initialise the connection config map
-		p.ConnectionConfig.Connections = make(map[string]*Connection)
+	if p.ConnectionConfigSchema == nil {
+		p.ConnectionConfigSchema = NewConnectionConfig()
 	}
+	//  initialise the connection map
+	p.Connections = make(map[string]*Connection)
 
 	// NOTE update tables to have a reference to the plugin
 	p.claimTables()
@@ -73,7 +74,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}()
 
 	logging.LogTime("Start execute")
-	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.ConnectionConfig.Connections)
+	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.Connections)
 
 	queryContext := req.QueryContext
 	table, ok := p.TableMap[req.Table]
@@ -93,21 +94,21 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 5) Range over rowChan - for each row, send on results stream
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 
-	var fetchMetadata = make([]map[string]interface{}, 0)
+	var matrixItem []map[string]interface{}
 	var connection *Connection
 
 	// NOTE: req.Connection parameter is only populated in version 0.2.0 of Steampipe - check whether it exists
 	if req.Connection != "" {
-		connection = p.ConnectionConfig.Connections[req.Connection]
+		connection = p.Connections[req.Connection]
 	}
 
-	// get the fetch metadata
-	if table.GetFetchMetadata != nil {
-		fetchMetadata = table.GetFetchMetadata(ctx, connection)
+	// get the matrix item
+	if table.GetMatrixItem != nil {
+		matrixItem = table.GetMatrixItem(ctx, connection)
 	}
 
-	queryData := newQueryData(queryContext, table, stream, connection, fetchMetadata)
-	p.Logger.Debug("calling fetchItems", "table", table.Name, "fetchMetadata", fetchMetadata)
+	queryData := newQueryData(queryContext, table, stream, connection, matrixItem)
+	p.Logger.Debug("calling fetchItems", "table", table.Name, "matrixItem", matrixItem)
 	table.fetchItems(ctx, queryData)
 
 	// asyncronously fetch items
@@ -123,6 +124,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	return queryData.streamRows(ctx, rowChan)
 }
 
+// SetConnectionConfig :: parse the connection config string, and populate the connection data for this connection
+// NOTE: we always pass and store connection config BY VALUE
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -136,7 +139,13 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		return nil
 	}
 
-	return p.ConnectionConfig.SetConnectionConfig(connectionName, connectionConfigString)
+	// ask plugin for a struct to deserialise the config into
+	config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
+	if err != nil {
+		return err
+	}
+	p.Connections[connectionName] = &Connection{connectionName, config}
+	return nil
 }
 
 // slightly hacky - called on startup to set a plugin pointer in each table

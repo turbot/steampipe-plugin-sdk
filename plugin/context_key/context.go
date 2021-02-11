@@ -8,6 +8,6 @@ func (c contextKey) String() string {
 }
 
 var (
-	Logger        = contextKey("logger")
-	FetchMetadata = contextKey("fetch_metadata")
+	Logger     = contextKey("logger")
+	MatrixItem = contextKey("fetch_metadata")
 )

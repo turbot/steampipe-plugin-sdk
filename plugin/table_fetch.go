@@ -128,11 +128,11 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	rd := newRowData(queryData, hydrateItem)
 	var getItem interface{}
 
-	if len(queryData.FetchMetadata) == 0 {
+	if len(queryData.Matrix) == 0 {
 		// just invoke SafeGet()
 		getItem, err = t.SafeGet()(ctx, queryData, &HydrateData{})
 	} else {
-		// the table has fetch metadata - we will invoke get for each fetch metadata item
+		// the table has a matrix  - we will invoke get for each matrix  item
 		getItem, err = t.getForEach(ctx, queryData, rd)
 	}
 
@@ -153,30 +153,30 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	return nil
 }
 
-// getForEach :: execute the provided get call for each of a set of fetchMetadata
+// getForEach :: execute the provided get call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
 	getCall := t.SafeGet()
 
-	log.Printf("[DEBUG] getForEach, fetchMetadata list: %v\n", queryData.FetchMetadata)
+	log.Printf("[DEBUG] getForEach, matrixItem list: %v\n", queryData.Matrix)
 
 	var wg sync.WaitGroup
-	errorChan := make(chan error, len(queryData.FetchMetadata))
+	errorChan := make(chan error, len(queryData.Matrix))
 	var errors []error
-	// define type to stream down results channel - package the item and the fetch metadata
+	// define type to stream down results channel - package the item and the matrix item
 	// this will for example allow us to determine which region contains the resulting get item
 	type resultWithMetadata struct {
-		item          interface{}
-		fetchMetadata map[string]interface{}
+		item       interface{}
+		matrixItem map[string]interface{}
 	}
-	resultChan := make(chan *resultWithMetadata, len(queryData.FetchMetadata))
+	resultChan := make(chan *resultWithMetadata, len(queryData.Matrix))
 	var results []*resultWithMetadata
 
-	for _, fetchMetadata := range queryData.FetchMetadata {
+	for _, matrixItem := range queryData.Matrix {
 		// increment our own wait group
 		wg.Add(1)
 
-		go func(fetchMetadata map[string]interface{}) {
+		go func(matrixItem map[string]interface{}) {
 			defer func() {
 				if r := recover(); r != nil {
 					if err, ok := r.(error); ok {
@@ -187,17 +187,17 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 				}
 				wg.Done()
 			}()
-			// create a context with the fetch metadata
-			fetchContext := context.WithValue(ctx, context_key.FetchMetadata, fetchMetadata)
+			// create a context with the matrix item
+			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 
 			item, err := getCall(fetchContext, queryData, &HydrateData{})
 			if err != nil {
 				errorChan <- err
 			} else if item != nil {
-				// stream the get item AND the fetch metadata
-				resultChan <- &resultWithMetadata{item, fetchMetadata}
+				// stream the get item AND the matrix item
+				resultChan <- &resultWithMetadata{item, matrixItem}
 			}
-		}(fetchMetadata) // pass fetchMetadata into goroutine to avoid async timing issues
+		}(matrixItem) // pass matrixItem into goroutine to avoid async timing issues
 	}
 
 	// convert wg to channel so we can select it
@@ -227,8 +227,8 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			}
 			var item interface{}
 			if len(results) == 1 {
-				// set the fetch metadata on the row data
-				rd.fetchMetadata = results[0].fetchMetadata
+				// set the matrix item on the row data
+				rd.matrixItem = results[0].matrixItem
 				item = results[0].item
 			}
 			// return item, if we have one
@@ -328,15 +328,15 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		listCall = t.List.ParentHydrate
 	}
 
-	if len(queryData.FetchMetadata) == 0 {
-		log.Printf("[DEBUG] No fetch metadata")
+	if len(queryData.Matrix) == 0 {
+		log.Printf("[DEBUG] No matrix item")
 		if _, err := listCall(ctx, queryData, &HydrateData{}); err != nil {
 			queryData.streamError(err)
 		}
-	} else if len(queryData.FetchMetadata) == 1 {
-		log.Printf("[DEBUG] running list for single fetchMetadata: %v", queryData.FetchMetadata[0])
-		// create a context with the fetchMetadata
-		fetchContext := context.WithValue(ctx, context_key.FetchMetadata, queryData.FetchMetadata[0])
+	} else if len(queryData.Matrix) == 1 {
+		log.Printf("[DEBUG] running list for single matrixItem: %v", queryData.Matrix[0])
+		// create a context with the matrixItem
+		fetchContext := context.WithValue(ctx, context_key.MatrixItem, queryData.Matrix[0])
 		if _, err := listCall(fetchContext, queryData, &HydrateData{}); err != nil {
 			queryData.streamError(err)
 		}
@@ -349,22 +349,22 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 }
 
-// ListForEach :: execute the provided list call for each of a set of fetchMetadata
+// ListForEach :: execute the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
-	log.Printf("[DEBUG] listForEach: %v\n", queryData.FetchMetadata)
+	log.Printf("[DEBUG] listForEach: %v\n", queryData.Matrix)
 	var wg sync.WaitGroup
-	for _, fetchMetadata := range queryData.FetchMetadata {
+	for _, matrixItem := range queryData.Matrix {
 
-		// check whether there is a single equals qual for each fetch metadata property and if so, check whether
-		// the fetch metadata property values satisfy the conditions
-		if !t.fetchMetadataMeetsQuals(fetchMetadata, queryData) {
-			log.Printf("[INFO] fetch metadata item does not meet quals, %v, %v\n", queryData.EqualsQuals, fetchMetadata)
+		// check whether there is a single equals qual for each matrix item property and if so, check whether
+		// the matrix item property values satisfy the conditions
+		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
+			log.Printf("[INFO] matrix item item does not meet quals, %v, %v\n", queryData.EqualsQuals, matrixItem)
 			continue
 		}
 
-		// create a context with the fetchMetadata
-		fetchContext := context.WithValue(ctx, context_key.FetchMetadata, fetchMetadata)
+		// create a context with the matrixItem
+		fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 		wg.Add(1)
 
 		go func() {
@@ -389,11 +389,11 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 	wg.Wait()
 }
 
-func (t *Table) fetchMetadataMeetsQuals(fetchMetadata map[string]interface{}, queryData *QueryData) bool {
-	// for the purposes of optimisation , assume fetch metadata properties correspond to column names
+func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryData *QueryData) bool {
+	// for the purposes of optimisation , assume matrix item properties correspond to column names
 	// if this is NOT the case, it will not fail, but this optimisation will not do anything
-	for columnName, metadataValue := range fetchMetadata {
-		// check this fetch metadata property corresponds to a column
+	for columnName, metadataValue := range matrixItem {
+		// check this matrix item property corresponds to a column
 		column, ok := t.columnForName(columnName)
 		if !ok {
 			// if no, just continue to next property

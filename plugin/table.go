@@ -9,7 +9,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-type FetchMetadataFunc func(context.Context, *Connection) []map[string]interface{}
+type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}
 
 // Table :: struct representing a plugin table
 type Table struct {
@@ -20,7 +20,7 @@ type Table struct {
 	Columns          []*Column
 	List             *ListConfig
 	Get              *GetConfig
-	GetFetchMetadata FetchMetadataFunc
+	GetMatrixItem    MatrixItemFunc
 	DefaultTransform *transform.ColumnTransforms
 	// the parent plugin object
 	Plugin *Plugin

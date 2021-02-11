@@ -12,8 +12,8 @@ func Logger(ctx context.Context) hclog.Logger {
 	return ctx.Value(context_key.Logger).(hclog.Logger)
 }
 
-func GetFetchMetadata(ctx context.Context) map[string]interface{} {
-	value := ctx.Value(context_key.FetchMetadata)
+func GetMatrixItem(ctx context.Context) map[string]interface{} {
+	value := ctx.Value(context_key.MatrixItem)
 	if value == nil {
 		return nil
 	}

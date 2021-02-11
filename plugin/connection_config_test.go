@@ -11,7 +11,7 @@ import (
 
 type getParseConfigTest struct {
 	source           string
-	connectionConfig *ConnectionConfig
+	connectionConfig *ConnectionConfigSchema
 	expected         interface{}
 }
 
@@ -58,7 +58,7 @@ var testCasesParseConfig = map[string]getParseConfigTest{
 		source: `
 regions = ["us-east-1","us-west-2"]
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &arrayProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
@@ -76,7 +76,7 @@ regions = ["us-east-1","us-west-2"]
 		source: `
 region = "us-east-1"
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &stringProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"region": {
@@ -93,7 +93,7 @@ region = "us-east-1"
 		source: `
 count = 100
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &intProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"count": {
@@ -110,7 +110,7 @@ count = 100
 		source: `
 pi = 3.14
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &floatProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"pi": {
@@ -130,7 +130,7 @@ region = "us-east-1"
 count = 100
 pi = 3.14
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
@@ -167,7 +167,7 @@ count = 100
 pi = 3.14
 foo = "bar"
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
@@ -198,7 +198,7 @@ region = "us-east-1"
 count = 100
 pi = 3.14
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &allTypesMissingProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
@@ -229,7 +229,7 @@ region = "us-east-1"
 count = 100
 pi = 3.14
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &extraPropertyNoAnnotation{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
@@ -266,7 +266,7 @@ region = "us-east-1"
 count = 100
 pi = 3.14
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &extraPropertyWithAnnotation{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
@@ -296,7 +296,7 @@ region = "us-east-1"
 count = 100
 pi = 3.14
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
@@ -331,7 +331,7 @@ region = "us-east-1"
 count = 100
 pi = 3.14
 `,
-		connectionConfig: &ConnectionConfig{
+		connectionConfig: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {

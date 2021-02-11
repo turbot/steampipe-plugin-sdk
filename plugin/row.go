@@ -21,7 +21,7 @@ import (
 type RowData struct {
 	// the output of the get/list call which is passed to all other hydrate calls
 	Item           interface{}
-	fetchMetadata  map[string]interface{}
+	matrixItem     map[string]interface{}
 	hydrateResults map[string]interface{}
 	mut            sync.Mutex
 	waitChan       chan bool
@@ -42,8 +42,8 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 
 	return &RowData{
 		Item:           item,
-		fetchMetadata:  map[string]interface{}{},
-		hydrateResults: make(map[string]interface{}),
+		matrixItem:     map[string]interface{}{},
+		hydrateResults: map[string]interface{}{},
 		waitChan:       make(chan bool),
 		table:          d.Table,
 		errorChan:      errorChan,
@@ -52,10 +52,10 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 }
 
 func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
-	// NOTE: the RowData (may) have fetchMetadata set
+	// NOTE: the RowData (may) have matrixItem set
 	// (this is a data structure containing fetch specific data, e.g. region)
 	// store this in the context for use by the transform functions
-	rowDataCtx := context.WithValue(ctx, context_key.FetchMetadata, r.fetchMetadata)
+	rowDataCtx := context.WithValue(ctx, context_key.MatrixItem, r.matrixItem)
 
 	// make any required hydrate function calls
 	// - these populate the row with data entries corresponding to the hydrate function nameSP_LOG=TRACE
