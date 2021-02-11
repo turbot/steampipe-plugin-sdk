@@ -26,18 +26,15 @@ type HydrateDependencies struct {
 type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
-	// ConcurrencyMapKey ConcurrencyMapKeyFunc
-	// ShouldRetryError ErrorPredicate
-	// ShouldIgnoreError ErrorPredicate
-	Depends []HydrateFunc
+	Depends        []HydrateFunc
 }
 
-// DefaultHydrateConfig :: plugin levelk config to define default hydrate concurrency
+// DefaultHydrateConfig :: plugin level config to define default hydrate concurrency
 // - used if no HydrateConfig is specified for a specific call
 type DefaultHydrateConfig struct {
 	// max number of ALL hydrate calls in progress
-	MaxConcurrency               int
-	DefaultMaxConcurrencyPerCall int
+	TotalMaxConcurrency   int
+	DefaultMaxConcurrency int
 }
 
 // HydrateCall :: struct encapsulating a hydrate call, its config and dependencies

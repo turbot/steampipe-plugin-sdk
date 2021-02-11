@@ -5,12 +5,6 @@ import (
 	"sync"
 )
 
-// if no max concurrency is specified in the plugin, use this value
-const defaultMaxConcurrency = 1000
-
-// if no max call concurrency is specified for a hydrate function, use this value
-const defaultMaxConcurrencyPerCall = 500
-
 // ConcurrencyManager :: struct which ensures hydrate funcitons stay within concurrency limits
 type ConcurrencyManager struct {
 	mut sync.Mutex
@@ -27,22 +21,22 @@ type ConcurrencyManager struct {
 
 func newConcurrencyManager(t *Table) *ConcurrencyManager {
 	// if plugin does not define max concurrency, use default
-	max := defaultMaxConcurrency
+	var totalMax int
 	// if hydrate calls do not define max concurrency, use default
-	maxPerCall := defaultMaxConcurrencyPerCall
+	var maxPerCall int
 	if config := t.Plugin.DefaultHydrateConfig; config != nil {
-		if config.MaxConcurrency != 0 {
-			max = config.MaxConcurrency
+		if config.TotalMaxConcurrency != 0 {
+			totalMax = config.TotalMaxConcurrency
 		}
-		if config.DefaultMaxConcurrencyPerCall != 0 {
-			maxPerCall = config.DefaultMaxConcurrencyPerCall
-		} else if max < maxPerCall {
+		if config.DefaultMaxConcurrency != 0 {
+			maxPerCall = config.DefaultMaxConcurrency
+		} else if totalMax < maxPerCall {
 			// if the default call concurrency is greater than the toal max concurrency, clamp to total
-			maxPerCall = max
+			maxPerCall = totalMax
 		}
 	}
 	return &ConcurrencyManager{
-		maxConcurrency:               max,
+		maxConcurrency:               totalMax,
 		defaultMaxConcurrencyPerCall: maxPerCall,
 		callMap:                      make(map[string]int),
 	}
@@ -55,7 +49,7 @@ func (c *ConcurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 	defer c.mut.Unlock()
 
 	// is the total call limit exceeded?
-	if c.callsInProgress == c.maxConcurrency {
+	if c.maxConcurrency > 0 && c.callsInProgress == c.maxConcurrency {
 		return false
 	}
 
@@ -69,7 +63,7 @@ func (c *ConcurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 	currentExecutions := c.callMap[name]
 
 	// if we at the call limit return
-	if currentExecutions == maxCallConcurrency {
+	if maxCallConcurrency > 0 && currentExecutions == maxCallConcurrency {
 		return false
 	}
 
