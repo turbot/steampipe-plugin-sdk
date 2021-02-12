@@ -29,9 +29,9 @@ type HydrateConfig struct {
 	Depends        []HydrateFunc
 }
 
-// DefaultHydrateConfig :: plugin level config to define default hydrate concurrency
+// DefaultConcurrencyConfig :: plugin level config to define default hydrate concurrency
 // - used if no HydrateConfig is specified for a specific call
-type DefaultHydrateConfig struct {
+type DefaultConcurrencyConfig struct {
 	// max number of ALL hydrate calls in progress
 	TotalMaxConcurrency   int
 	DefaultMaxConcurrency int

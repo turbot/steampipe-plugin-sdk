@@ -16,12 +16,12 @@ import (
 
 // Plugin :: an object used to build all necessary data for a given query
 type Plugin struct {
-	Name                 string
-	Logger               hclog.Logger
-	TableMap             map[string]*Table
-	DefaultTransform     *transform.ColumnTransforms
-	DefaultGetConfig     *GetConfig
-	DefaultHydrateConfig *DefaultHydrateConfig
+	Name               string
+	Logger             hclog.Logger
+	TableMap           map[string]*Table
+	DefaultTransform   *transform.ColumnTransforms
+	DefaultGetConfig   *GetConfig
+	DefaultConcurrency *DefaultConcurrencyConfig
 	// every table must implement these columns
 	RequiredColumns []*Column
 }
