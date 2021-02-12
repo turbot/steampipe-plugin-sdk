@@ -213,6 +213,9 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 			})
 		}
 	}
+	if hydrateResult == nil {
+		return nil, err
+	}
 	return hydrateResult, nil
 }
 
