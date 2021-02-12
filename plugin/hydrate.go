@@ -27,14 +27,18 @@ type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
 	// ConcurrencyMapKey ConcurrencyMapKeyFunc
-	// ShouldRetryError ErrorPredicate
+	RetryConfig *RetryConfig
 	// ShouldIgnoreError ErrorPredicate
 	Depends []HydrateFunc
 }
 
-// DefaultHydrateConfig :: plugin levelk config to define default hydrate concurrency
+type RetryConfig struct {
+	ShouldRetryError ErrorPredicate
+}
+
+// DefaultConcurrencyConfig :: plugin levelk config to define default hydrate concurrency
 // - used if no HydrateConfig is specified for a specific call
-type DefaultHydrateConfig struct {
+type DefaultConcurrencyConfig struct {
 	// max number of ALL hydrate calls in progress
 	MaxConcurrency               int
 	DefaultMaxConcurrencyPerCall int
@@ -81,7 +85,7 @@ func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName str
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName)
+		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName, h.Config.RetryConfig)
 		// decrement number of hydrate functions running
 		concurrencyManager.Finished(hydrateFuncName)
 	}()

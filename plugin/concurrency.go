@@ -30,7 +30,7 @@ func newConcurrencyManager(t *Table) *ConcurrencyManager {
 	max := defaultMaxConcurrency
 	// if hydrate calls do not define max concurrency, use default
 	maxPerCall := defaultMaxConcurrencyPerCall
-	if config := t.Plugin.DefaultHydrateConfig; config != nil {
+	if config := t.Plugin.DefaultConcurrencyConfig; config != nil {
 		if config.MaxConcurrency != 0 {
 			max = config.MaxConcurrency
 		}

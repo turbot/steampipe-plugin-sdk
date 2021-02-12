@@ -12,6 +12,7 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/olekukonko/tablewriter v0.0.4
+	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
 	github.com/turbot/go-kit v0.1.1
 	golang.org/x/net v0.0.0-20201029221708-28c70e62bb1d // indirect

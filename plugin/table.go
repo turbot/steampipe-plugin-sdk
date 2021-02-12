@@ -21,8 +21,9 @@ type Table struct {
 	// the parent plugin object
 	Plugin *Plugin
 	// definitions of dependencies between hydrate functions
-	HydrateDependencies []HydrateDependencies
-	HydrateConfig       []HydrateConfig
+	HydrateDependencies      []HydrateDependencies
+	HydrateConfig            []HydrateConfig
+	DefaultConcurrencyConfig *DefaultConcurrencyConfig
 }
 
 type GetConfig struct {
@@ -34,6 +35,7 @@ type GetConfig struct {
 	Hydrate HydrateFunc
 	// a function which will return whenther to ignore a given error
 	ShouldIgnoreError ErrorPredicate
+	RetryConfig       *RetryConfig
 }
 
 type ListConfig struct {
@@ -94,12 +96,15 @@ func (t *Table) getHydrateDependencies(hydrateFuncName string) []HydrateFunc {
 }
 
 func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
+	config := &HydrateConfig{}
 	// if a hydrate config is defined see whether this call exists in it
 	for _, d := range t.HydrateConfig {
 		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
-			return &d
+			config = &d
 		}
 	}
-	// fallback to return an empty hydrate config
-	return &HydrateConfig{}
+	if config.RetryConfig == nil {
+		config.RetryConfig = t.Plugin.DefaultRetryConfig
+	}
+	return config
 }

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sethvargo/go-retry"
 	"github.com/turbot/go-kit/helpers"
 	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
@@ -128,7 +129,7 @@ func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
 
 // invoke a hydrate function, with syncronisation and error handling
 // for the purposes of get calls (which also invoke a hydration function), return whether the item was found and any error
-func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) (interface{}, error) {
+func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, retryConfig *RetryConfig) (interface{}, error) {
 	// handle panics in the row hydrate function
 	defer func() {
 		log.Printf("[TRACE] callHydrate finished: %s\n", hydrateKey)
@@ -142,7 +143,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 	// now call the hydrate function, passing the item and hydrate results so far
 	log.Printf("[TRACE] call hydrate %s\n", hydrateKey)
-	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults})
+	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, retryConfig)
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
 		r.errorChan <- err
@@ -159,6 +160,33 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 	// NOTE: also return the error - is this is being called by as 'get' call we can act on the error immediately
 	return hydrateData, err
+}
+
+func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (interface{}, error) {
+	hydrateData := &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults}
+	hydrateResult, err := hydrateFunc(ctx, d, hydrateData)
+	if err != nil {
+		if retryConfig == nil {
+			return nil, err
+		}
+		if shouldRetryErrorFunc := retryConfig.ShouldRetryError; shouldRetryErrorFunc != nil && shouldRetryErrorFunc(err) {
+			backoff, err := retry.NewFibonacci(100 * time.Millisecond)
+			if err != nil {
+				return nil, err
+			}
+			err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
+				hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
+				if err != nil {
+					if shouldRetryErrorFunc(err) {
+						return retry.RetryableError(err)
+					}
+					return err
+				}
+				return nil
+			})
+		}
+	}
+	return hydrateResult, nil
 }
 
 func (r *RowData) set(key string, item interface{}) error {
