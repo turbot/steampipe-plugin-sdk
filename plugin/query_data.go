@@ -172,7 +172,7 @@ func (d *QueryData) fetchComplete() {
 }
 
 // read rows from rowChan and stream back
-func (d *QueryData) streamRows(_ context.Context, rowChan chan *pb.Row) error {
+func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) error {
 	for {
 		// wait for either an item or an error
 		select {

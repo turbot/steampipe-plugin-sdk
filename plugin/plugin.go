@@ -109,7 +109,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	queryData := newQueryData(queryContext, table, stream, connection, matrixItem)
 	p.Logger.Debug("calling fetchItems", "table", table.Name, "matrixItem", matrixItem)
-	table.fetchItems(ctx, queryData)
 
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {
