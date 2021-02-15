@@ -82,7 +82,6 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 	// by also selecting the errorChan)
 	go func() {
 		r.wg.Wait()
-		log.Println("[TRACE] hydrate all done")
 		logging.LogTime("all hydrate calls complete")
 		var err error
 		// now execute any transforms required to populate the column values
@@ -106,7 +105,6 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 
 // generate the column values for for all requested columns
 func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
-	log.Println("[TRACE] buildRow")
 	row := &pb.Row{Columns: make(map[string]*pb.Column)}
 	// only populate columns which have been asked for
 	for _, columnName := range r.queryData.QueryContext.Columns {
@@ -131,7 +129,6 @@ func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
 func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) (interface{}, error) {
 	// handle panics in the row hydrate function
 	defer func() {
-		log.Printf("[TRACE] callHydrate finished: %s\n", hydrateKey)
 		if p := recover(); p != nil {
 			r.errorChan <- status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
 		}
@@ -141,16 +138,13 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	logging.LogTime(hydrateKey + " start")
 
 	// now call the hydrate function, passing the item and hydrate results so far
-	log.Printf("[TRACE] call hydrate %s\n", hydrateKey)
 	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults})
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
 		r.errorChan <- err
 	} else if hydrateData != nil {
-		log.Printf("[TRACE] set hydrate data for %s\n", hydrateKey)
 		r.set(hydrateKey, hydrateData)
 	} else {
-		log.Printf("[TRACE] no hydrate data for %s\n", hydrateKey)
 		// the the hydrate results to an empty data object
 		r.set(hydrateKey, emptyHydrateResults{})
 	}
@@ -184,19 +178,17 @@ func (r *RowData) getHydrateKeys() []string {
 
 // GetColumnData :: return the root item, and, if this column has a hydrate function registered, the associated hydrate data
 func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
-	log.Printf("[TRACE] GetColumnData: %s\n", column.Name)
 
 	if column.resolvedHydrateName == "" {
 		return nil, fmt.Errorf("colum,n %s has no resolved hydrate function name", column.Name)
 	}
 
-	log.Printf("[TRACE] Column has hydrate function registered: %s\n", column.resolvedHydrateName)
 	if hydrateItem, ok := r.hydrateResults[column.resolvedHydrateName]; !ok {
 		log.Printf("[ERROR] column '%s' requires hydrate data from %s but none is available.\n", column.Name, column.resolvedHydrateName)
-		log.Printf("[TRACE] Hydrate keys:\n")
-		for k := range r.hydrateResults {
-			log.Printf("[TRACE] %s\n", k)
-		}
+		//log.Printf("[TRACE] Hydrate keys:\n")
+		//for k := range r.hydrateResults {
+		//	log.Printf("[TRACE] %s\n", k)
+		//}
 
 		return nil, fmt.Errorf("column '%s' requires hydrate data from %s but none is available", column.Name, column.resolvedHydrateName)
 	} else {

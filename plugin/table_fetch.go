@@ -23,7 +23,6 @@ const (
 
 // call either 'get' or 'list'.
 func (t *Table) fetchItems(ctx context.Context, d *QueryData) error {
-	log.Println("[TRACE] fetchItems")
 	// if the query contains a single 'equals' constrains for all key columns, then call the 'get' function
 	if d.FetchType == fetchTypeGet && t.Get != nil {
 		logging.LogTime("executeGetCall")
@@ -65,7 +64,7 @@ func (t *Table) executeGetCall(ctx context.Context, d *QueryData) (err error) {
 	// in this case we call get for each value
 	if keyColumn := t.Get.KeyColumns.Single; keyColumn != "" {
 		if qualValueList := d.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
-			logger.Debug("executeGetCall - single qual, qual value is a list - executing get for each qual value item", "qualValueList", qualValueList)
+			logger.Trace("executeGetCall - single qual, qual value is a list - executing get for each qual value item", "qualValueList", qualValueList)
 			// we will mutate d.KeyColumnQuals to replace the list value with a single qual value
 			for _, qv := range qualValueList.Values {
 				// mutate KeyColumnQuals
@@ -118,7 +117,7 @@ func (t *Table) doGet(ctx context.Context, d *QueryData, hydrateItem interface{}
 	// we need to get the hydrate function name before wrapping it in SafeGet()
 	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
 
-	log.Printf("[DEBUG] calling 'get' hydrate function '%s' \n", hydrateKey)
+	log.Printf("[TRACE] calling 'get' hydrate function '%s' \n", hydrateKey)
 
 	// call the get function defined by the table - SafeGet wraps the get call in the not found handler defined by the plugin
 	rd.wg.Add(1)
@@ -131,7 +130,6 @@ func (t *Table) doGet(ctx context.Context, d *QueryData, hydrateItem interface{}
 	if hydrateData != nil {
 		// set rd.Item to the result of the Get hydrate call - this will be passed through to all other hydrate calls
 		rd.Item = hydrateData
-		log.Println("[TRACE] got item")
 		d.rowDataChan <- rd
 	}
 	return nil
@@ -155,7 +153,6 @@ func (t *Table) buildHydrateInputForGetCall(ctx context.Context, d *QueryData) (
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[TRACE] built hydrate input for get call; %v", hydrateInputItem)
 
 	return []interface{}{hydrateInputItem}, nil
 }
@@ -163,7 +160,7 @@ func (t *Table) buildHydrateInputForGetCall(ctx context.Context, d *QueryData) (
 func (t *Table) buildHydrateInputForMultiQualValueGetCall(ctx context.Context, d *QueryData) ([]interface{}, error) {
 	keyColumn := t.Get.KeyColumns.Single
 	qualValueList := d.KeyColumnQuals[keyColumn].GetListValue()
-	log.Println("[DEBUG] table has single key, key qual has multiple values")
+	log.Println("[TRACE] table has single key, key qual has multiple values")
 
 	// NOTE: store the keyColumnQuals as we will mutate the query data for the calls to ItemFromKey
 	keyColumnQuals := d.KeyColumnQuals
@@ -178,7 +175,6 @@ func (t *Table) buildHydrateInputForMultiQualValueGetCall(ctx context.Context, d
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("[TRACE] built hydrate input for get call")
 		hydrateInput = append(hydrateInput, hydrateInputItem)
 	}
 

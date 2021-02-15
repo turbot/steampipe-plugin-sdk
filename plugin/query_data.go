@@ -91,7 +91,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 			log.Printf("[INFO] this is list call, with no list quals")
 			d.FetchType = fetchTypeList
 		} else {
-			log.Printf("[WARN] No get quals passed but no list call defined - default to get call")
+			log.Printf("[INFO] No get quals passed but no list call defined - default to get call")
 			d.FetchType = fetchTypeGet
 		}
 	}
@@ -130,7 +130,7 @@ func (d *QueryData) StreamListItem(ctx context.Context, item interface{}) {
 	}
 
 	parentHydrateName := helpers.GetFunctionName(parentListHydrate)
-	Logger(ctx).Debug("StreamListItem: called from parent hydrate function - streaming result to child hydrate function",
+	Logger(ctx).Trace("StreamListItem: called from parent hydrate function - streaming result to child hydrate function",
 		"parent hydrate", parentHydrateName,
 		"child hydrate", helpers.GetFunctionName(d.Table.List.Hydrate),
 		"item", item)
@@ -159,18 +159,17 @@ func (d *QueryData) fetchComplete() {
 
 // read rows from rowChan and stream back
 func (d *QueryData) streamRows(_ context.Context, rowChan chan *pb.Row) error {
-	log.Println("[TRACE] streamRows")
 	for {
-		log.Println("[TRACE] stream loop")
 		// wait for either an item or an error
 		select {
 		case err := <-d.errorChan:
 			log.Printf("[ERROR] streamRows err chan select: %v\n", err)
 			return err
 		case row := <-rowChan:
-			log.Println("[TRACE] row chan select - got a row")
 			if row == nil {
+				// tell the concurrency manage we are done (it may log the concurrency stats)
 				log.Println("[TRACE] row chan closed, stop streaming")
+				d.concurrencyManager.Close()
 				// channel closed
 				return nil
 			}
@@ -204,7 +203,6 @@ func (d *QueryData) buildRows(ctx context.Context) chan *pb.Row {
 	// start goroutine to read items from item chan and generate row data
 	go func() {
 		for {
-			log.Println("[TRACE] start row gen loop")
 			// wait for either an rowData or an error
 			select {
 			case rowData := <-d.rowDataChan:
@@ -217,7 +215,6 @@ func (d *QueryData) buildRows(ctx context.Context) chan *pb.Row {
 					// rowData channel closed - nothing more to do
 					return
 				}
-				logging.LogTime("got rowData - calling getRow")
 				rowWg.Add(1)
 				go d.buildRow(ctx, rowData, rowChan, &rowWg)
 			case err := <-d.errorChan:
@@ -248,8 +245,6 @@ func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan
 	} else {
 		rowChan <- row
 	}
-
-	log.Println("[TRACE] getRow return")
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *pb.Row) {
@@ -263,9 +258,9 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 // is there a single '=' qual for this column
 func (d *QueryData) singleEqualsQual(column string) (*pb.Qual, bool) {
 	quals, ok := d.QueryContext.Quals[column]
-	log.Printf("[DEBUG] singleEqualsQual - quals: %v\n", quals)
+	log.Printf("[TRACE] singleEqualsQual() - quals: %v\n", quals)
 	if !ok {
-		log.Println("[DEBUG] no quals for column")
+		log.Printf("[TRACE] no quals for column %s", column)
 		return nil, false
 	}
 

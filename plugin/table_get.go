@@ -32,9 +32,9 @@ func (t *Table) SafeGet() HydrateFunc {
 					shouldIgnoreError = t.Plugin.DefaultGetConfig.ShouldIgnoreError
 				}
 			}
-			log.Printf("[DEBUG] SafeGet get call returned error %v\n", err)
+			log.Printf("[TRACE] SafeGet get call returned error %v\n", err)
 			if shouldIgnoreError != nil && shouldIgnoreError(err) {
-				log.Printf("[DEBUG] get() returned error but we are ignoring it: %v", err)
+				log.Printf("[TRACE] get() returned error but we are ignoring it: %v", err)
 				return nil, nil
 			}
 			// pass any other error on
