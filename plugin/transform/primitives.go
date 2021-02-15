@@ -46,8 +46,6 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 func FieldValueCamelCase(ctx context.Context, d *TransformData) (interface{}, error) {
 
 	propertyPath := strcase.ToCamel(d.ColumnName)
-
-	log.Printf("[TRACE] FieldValueCamelCase %s->%s\n", d.ColumnName, propertyPath)
 	if propertyPath == "" {
 		return nil, fmt.Errorf("'FieldValue' requires a string parameter containing property path but received %v", d.Param)
 	}
@@ -62,8 +60,6 @@ func FieldValueGo(ctx context.Context, d *TransformData) (interface{}, error) {
 
 	// call lintName to make common initialisms upper case
 	propertyPath := lintName(strcase.ToCamel(d.ColumnName))
-
-	log.Printf("[TRACE] FieldValueGo %s->%s\n", d.ColumnName, propertyPath)
 	if propertyPath == "" {
 		return nil, fmt.Errorf("'FieldValue' requires a string parameter containing property path but received %v", d.Param)
 	}
@@ -208,7 +204,7 @@ func FieldValueTag(ctx context.Context, d *TransformData) (interface{}, error) {
 		// get the first segment of the tag
 		tagField := strings.Split(tag, ",")[0]
 		if tagField == d.ColumnName {
-			log.Printf("[DEBUG] FieldValueTag for column %s, found matching '%s' tag on field %s", d.ColumnName, d.Param, field.Name)
+			log.Printf("[TRACE] FieldValueTag for column %s, found matching '%s' tag on field %s", d.ColumnName, d.Param, field.Name)
 			// mutate transform data to set the param to the field name and call FieldValue
 			d.Param = field.Name
 			return FieldValue(ctx, d)
@@ -301,7 +297,7 @@ func NullIfZeroValue(_ context.Context, d *TransformData) (interface{}, error) {
 		return d.Value, nil
 	}
 	if helpers.IsZero(v) {
-		log.Printf("[DEBUG] NullIfZeroValue column %s is zero\n", d.ColumnName)
+		log.Printf("[TRACE] NullIfZeroValue column %s is zero\n", d.ColumnName)
 		return nil, nil
 	}
 	return d.Value, nil

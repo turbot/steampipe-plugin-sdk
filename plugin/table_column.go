@@ -60,7 +60,6 @@ func (t *Table) getColumnValue(ctx context.Context, row *RowData, column *Column
 // if there are any column transforms defined return them
 // otherwise return either the table default (if it exists) or the base default Transform function
 func (t *Table) getColumnTransforms(column *Column) *transform.ColumnTransforms {
-	log.Printf("[TRACE] getColumnTransforms %s \n", column.Name)
 	columnTransform := column.Transform
 	if columnTransform == nil {
 		columnTransform = t.getDefaultColumnTransform(column)
@@ -86,7 +85,6 @@ func (t *Table) getDefaultColumnTransform(column *Column) *transform.ColumnTrans
 
 // convert a value of unknown type to a valid protobuf column value.type
 func (t *Table) interfaceToColumnValue(column *Column, val interface{}) (*proto.Column, error) {
-	log.Printf("[TRACE] interfaceToColumnValue, column: %s, column type: %s, val: %v\n", column.Name, column.Type, val)
 	defer func() {
 		if r := recover(); r != nil {
 			panic(fmt.Errorf("%s: %v", column.Name, r))
@@ -189,7 +187,6 @@ func (t *Table) interfaceToColumnValue(column *Column, val interface{}) (*proto.
 		return nil, fmt.Errorf("unrecognised columnValue type '%s'", column.Type)
 	}
 
-	log.Printf("[TRACE] interfaceToColumnValue returning %v\n", columnValue)
 	return columnValue, nil
 
 }

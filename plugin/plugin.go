@@ -102,8 +102,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return err
 	}
 
-	log.Println("[TRACE] after fetchItems")
-
 	logging.LogTime("Calling stream")
 
 	// asyncronously build rows

@@ -35,13 +35,13 @@ func (t *Table) getKeyColumnQuals(d *QueryData, keyColumns *KeyColumnSet) map[st
 // we can still treat this as a get call
 //
 func (t *Table) singleKeyQuals(d *QueryData, keyColumn string) map[string]*pb.QualValue {
-	log.Printf("[DEBUG] checking whether keyColumn: %s has a single '=' qual\n", keyColumn)
+	log.Printf("[TRACE] checking whether keyColumn: %s has a single '=' qual\n", keyColumn)
 
 	if qual, ok := d.singleEqualsQual(keyColumn); ok {
-		log.Printf("[DEBUG] singleKeyQuals TRUE, keyColumn: %s, qual: %v\n", keyColumn, qual)
+		log.Printf("[TRACE] singleKeyQuals TRUE, keyColumn: %s, qual: %v\n", keyColumn, qual)
 		return map[string]*pb.QualValue{keyColumn: qual.GetValue()}
 	}
-	log.Printf("[DEBUG] singleKeyQuals FALSE - not a get call")
+	log.Printf("[TRACE] singleKeyQuals FALSE - not a get call")
 	// this is not a get call
 	return nil
 }

@@ -3,10 +3,11 @@ package transform
 import (
 	"context"
 	"fmt"
+	"log"
+
 	"github.com/turbot/go-kit/helpers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log"
 )
 
 // TransformCall :: a transform function and parameter to invoke it with
@@ -33,8 +34,6 @@ func (tr *TransformCall) Execute(ctx context.Context, value interface{}, hydrate
 	transformedValue, err = tr.Transform(ctx, td)
 	if err != nil {
 		log.Printf("[ERROR] transform %s returned error %v\n", helpers.GetFunctionName(tr.Transform), err)
-	} else {
-		log.Printf("[TRACE] transform returned %v\n", value)
 	}
 	return
 }

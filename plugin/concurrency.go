@@ -17,6 +17,9 @@ type ConcurrencyManager struct {
 	callsInProgress int
 	// map of the number of instances of each call in progress
 	callMap map[string]int
+	// instrumentaton properties
+	maxCallsInProgress int
+	maxCallMap         map[string]int
 }
 
 func newConcurrencyManager(t *Table) *ConcurrencyManager {
@@ -39,6 +42,7 @@ func newConcurrencyManager(t *Table) *ConcurrencyManager {
 		maxConcurrency:               totalMax,
 		defaultMaxConcurrencyPerCall: maxPerCall,
 		callMap:                      make(map[string]int),
+		maxCallMap:                   make(map[string]int),
 	}
 }
 
@@ -70,6 +74,14 @@ func (c *ConcurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 	// to get here we are allowed to execute - increment the call counters
 	c.callMap[name] = currentExecutions + 1
 	c.callsInProgress++
+
+	// update instrumentation
+	if c.callMap[name] > c.maxCallMap[name] {
+		c.maxCallMap[name] = c.callMap[name]
+	}
+	if c.callsInProgress > c.maxCallsInProgress {
+		c.maxCallsInProgress = c.callsInProgress
+	}
 	return true
 }
 
@@ -84,4 +96,23 @@ func (c *ConcurrencyManager) Finished(name string) {
 	defer c.mut.Unlock()
 	c.callMap[name]--
 	c.callsInProgress--
+}
+
+// Close :: the query is complete. Dump out concurrency stats
+func (c *ConcurrencyManager) Close() {
+	c.DisplayConcurrencyStats()
+}
+
+func (c *ConcurrencyManager) DisplayConcurrencyStats() {
+	// TODO once logging is tidied, move to TRACE level
+	log.Printf("[INFO]   ------------------------------------")
+	log.Printf("[INFO] Concurrency Summary")
+	log.Printf("[INFO]   ------------------------------------")
+	for call, concurrency := range c.maxCallMap {
+		log.Printf("[INFO] %-30s: %d", call, concurrency)
+	}
+	log.Printf("[INFO]   ------------------------------------")
+	log.Printf("[INFO] %-30s: %d", "Total", c.maxCallsInProgress)
+
+	log.Printf("[INFO]   ------------------------------------")
 }
