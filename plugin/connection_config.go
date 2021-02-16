@@ -3,7 +3,10 @@ package plugin
 import (
 	"errors"
 	"fmt"
-	"reflect"
+	"log"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hashicorp/hcl/v2"
 
@@ -31,7 +34,7 @@ type ConnectionConfigSchema struct {
 	NewInstance ConnectionConfigInstanceFunc
 }
 
-func NewConnectionConfig() *ConnectionConfigSchema {
+func NewConnectionConfigSchema() *ConnectionConfigSchema {
 	return &ConnectionConfigSchema{
 		Schema: map[string]*schema.Attribute{},
 	}
@@ -39,7 +42,14 @@ func NewConnectionConfig() *ConnectionConfigSchema {
 
 // Parse :: parse the hcl string into a connection config struct.
 // The schema and the  struct to parse into are provided by the plugin
-func (c *ConnectionConfigSchema) Parse(configString string) (interface{}, error) {
+func (c *ConnectionConfigSchema) Parse(configString string) (config interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] ConnectionConfigSchema Parse caught a panic: %v\n", r)
+			err = status.Error(codes.Internal, fmt.Sprintf("ConnectionConfigSchema Parse failed with panic %v", r))
+		}
+	}()
+
 	// ensure a schema is set
 	if len(c.Schema) == 0 {
 		return nil, fmt.Errorf("cannot parse connection config as no config schema is set in the connection config")
@@ -50,18 +60,20 @@ func (c *ConnectionConfigSchema) Parse(configString string) (interface{}, error)
 	configStruct := c.NewInstance()
 	spec := schema.SchemaToObjectSpec(c.Schema)
 	parser := hclparse.NewParser()
+
 	file, diags := parser.ParseHCL([]byte(configString), "/")
 	if diags.HasErrors() {
-		return nil, diagsToError("failed to parse connection config", diags)
+		return nil, DiagsToError("failed to parse connection config", diags)
 	}
 	value, diags := hcldec.Decode(file.Body, spec, nil)
 	if diags.HasErrors() {
-		return nil, diagsToError("failed to parse connection config", diags)
+
+		return nil, DiagsToError("failed to parse connection config", diags)
 	}
 
 	// decode into the provided struct
 	if err := gocty.FromCtyValue(value, configStruct); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to marshal parsed config into config struct: %v", err)
 	}
 
 	// return the struct by value
@@ -69,7 +81,7 @@ func (c *ConnectionConfigSchema) Parse(configString string) (interface{}, error)
 }
 
 // convert hcl diags into an error
-func diagsToError(prefix string, diags hcl.Diagnostics) error {
+func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 	// convert the first diag into an error
 	if !diags.HasErrors() {
 		return nil
@@ -80,27 +92,11 @@ func diagsToError(prefix string, diags hcl.Diagnostics) error {
 			if diag.Detail != "" {
 				errString += fmt.Sprintf(": %s", diag.Detail)
 			}
+			if prefix != "" {
+				errString = fmt.Sprintf("%s: %s", prefix, errString)
+			}
 			return errors.New(errString)
 		}
 	}
 	return diags.Errs()[0]
-}
-
-// Validate :: validate the connection config
-func (c *ConnectionConfigSchema) Validate() []string {
-	var validationErrors []string
-	for name, attr := range c.Schema {
-		if attr.Type != schema.TypeList && attr.Elem != nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("attribute %s has 'Elem' set but is Type is not TypeList", name))
-		}
-		// verify Config.NewInstance() returns a pointer
-		kind := reflect.TypeOf(c.NewInstance()).Kind()
-		if kind != reflect.Ptr {
-			validationErrors = append(validationErrors, fmt.Sprintf("NewInstance function must return a pointer to a struct instance, got %v", kind))
-		}
-		if attr.Required != !attr.Optional {
-			validationErrors = append(validationErrors, fmt.Sprintf("connection config schema for attribute '%s' is invalid - either 'Required' or 'Optional' must be true", name))
-		}
-	}
-	return validationErrors
 }

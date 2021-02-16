@@ -32,7 +32,7 @@ type Plugin struct {
 func (p *Plugin) Initialise() {
 	// if no connection config is defined, create an empty one
 	if p.ConnectionConfigSchema == nil {
-		p.ConnectionConfigSchema = NewConnectionConfig()
+		p.ConnectionConfigSchema = NewConnectionConfigSchema()
 	}
 	//  initialise the connection map
 	p.Connections = make(map[string]*Connection)
@@ -126,6 +126,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 // SetConnectionConfig :: parse the connection config string, and populate the connection data for this connection
 // NOTE: we always pass and store connection config BY VALUE
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
+
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetConnectionConfig failed: %s", ToError(r).Error())
@@ -134,6 +135,10 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		}
 	}()
 
+	// first validate the plugin
+	if validationErrors := p.Validate(); validationErrors != "" {
+		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
+	}
 	if connectionConfigString == "" {
 		return nil
 	}

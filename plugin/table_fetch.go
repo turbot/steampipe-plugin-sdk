@@ -40,6 +40,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 	return nil
 }
 
+//  execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	logger := t.Plugin.Logger
 	// verify we have the necessary quals
@@ -86,33 +87,8 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	return t.doGet(ctx, queryData, nil)
 }
 
-// t.Get.ItemFromKey is deprectaed. If this table has this property set, run legacy get
-func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) {
-	defer func() {
-		// we can now close the item chan
-		queryData.fetchComplete()
-
-		if r := recover(); r != nil {
-			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r)))
-		}
-	}()
-
-	// build the hydrate input by calling  t.Get.ItemFromKey
-	hydrateInput, err := t.legacyBuildHydrateInputForGetCall(ctx, queryData)
-	if err != nil {
-		queryData.streamError(err)
-		return
-	}
-
-	// there may be more than one hydrate item - loop over them
-	for _, hydrateItem := range hydrateInput {
-		if err := t.doGet(ctx, queryData, hydrateItem); err != nil {
-			queryData.streamError(err)
-			break
-		}
-	}
-}
-
+// execute a get call for a single key column qual value
+// if a matrix is defined, defined for every atrix item2
 func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem interface{}) (err error) {
 	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
 	defer func() {
@@ -255,53 +231,6 @@ func buildSingleError(errors []error) error {
 	return fmt.Errorf("%d list calls returned errors:\n %s", len(errors), strings.Join(errStrings, "\n"))
 }
 
-// use the quals to build one call to populate one or more base hydrate item from the quals
-// NOTE: if there is a list of quals for the key column then we create a hydrate item for each
-// - this is handle `in` clauses
-func (t *Table) legacyBuildHydrateInputForGetCall(ctx context.Context, queryData *QueryData) ([]interface{}, error) {
-	// NOTE: if there qual value is actually a list of values, we call ItemFromKey for each qual
-	// this is only possible for single key column tables (as otherwise we would not have identified this as a get call)
-	if keyColumn := t.Get.KeyColumns.Single; keyColumn != "" {
-		if qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
-			return t.legacyBuildHydrateInputForMultiQualValueGetCall(ctx, queryData)
-		}
-	}
-
-	hydrateInputItem, err := t.Get.ItemFromKey(ctx, queryData, &HydrateData{})
-	if err != nil {
-		return nil, err
-	}
-
-	return []interface{}{hydrateInputItem}, nil
-}
-
-func (t *Table) legacyBuildHydrateInputForMultiQualValueGetCall(ctx context.Context, queryData *QueryData) ([]interface{}, error) {
-	keyColumn := t.Get.KeyColumns.Single
-	qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue()
-	log.Println("[TRACE] table has single key, key qual has multiple values")
-
-	// NOTE: store the keyColumnQuals as we will mutate the query data for the calls to ItemFromKey
-	keyColumnQuals := queryData.KeyColumnQuals
-
-	var hydrateInput []interface{}
-	for _, qualValue := range qualValueList.Values {
-		// build a new map for KeyColumnQuals and mutate the query data
-		queryData.KeyColumnQuals = map[string]*proto.QualValue{
-			keyColumn: qualValue,
-		}
-		hydrateInputItem, err := t.Get.ItemFromKey(ctx, queryData, &HydrateData{})
-		if err != nil {
-			return nil, err
-		}
-		hydrateInput = append(hydrateInput, hydrateInputItem)
-	}
-
-	// now revert keyColumnQuals on the query data for good manners
-	queryData.KeyColumnQuals = keyColumnQuals
-
-	return hydrateInput, nil
-}
-
 // execute the list call in a goroutine
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	defer func() {
@@ -411,4 +340,79 @@ func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryDat
 		}
 	}
 	return true
+}
+
+// deprecated implementation
+// t.Get.ItemFromKey is deprectaed. If this table has this property set, run legacy get
+func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) {
+	defer func() {
+		// we can now close the item chan
+		queryData.fetchComplete()
+
+		if r := recover(); r != nil {
+			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r)))
+		}
+	}()
+
+	// build the hydrate input by calling  t.Get.ItemFromKey
+	hydrateInput, err := t.legacyBuildHydrateInputForGetCall(ctx, queryData)
+	if err != nil {
+		queryData.streamError(err)
+		return
+	}
+
+	// there may be more than one hydrate item - loop over them
+	for _, hydrateItem := range hydrateInput {
+		if err := t.doGet(ctx, queryData, hydrateItem); err != nil {
+			queryData.streamError(err)
+			break
+		}
+	}
+}
+
+// use the quals to build one call to populate one or more base hydrate item from the quals
+// NOTE: if there is a list of quals for the key column then we create a hydrate item for each
+// - this is handle `in` clauses
+func (t *Table) legacyBuildHydrateInputForGetCall(ctx context.Context, queryData *QueryData) ([]interface{}, error) {
+	// NOTE: if there qual value is actually a list of values, we call ItemFromKey for each qual
+	// this is only possible for single key column tables (as otherwise we would not have identified this as a get call)
+	if keyColumn := t.Get.KeyColumns.Single; keyColumn != "" {
+		if qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
+			return t.legacyBuildHydrateInputForMultiQualValueGetCall(ctx, queryData)
+		}
+	}
+
+	hydrateInputItem, err := t.Get.ItemFromKey(ctx, queryData, &HydrateData{})
+	if err != nil {
+		return nil, err
+	}
+
+	return []interface{}{hydrateInputItem}, nil
+}
+
+func (t *Table) legacyBuildHydrateInputForMultiQualValueGetCall(ctx context.Context, queryData *QueryData) ([]interface{}, error) {
+	keyColumn := t.Get.KeyColumns.Single
+	qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue()
+	log.Println("[TRACE] table has single key, key qual has multiple values")
+
+	// NOTE: store the keyColumnQuals as we will mutate the query data for the calls to ItemFromKey
+	keyColumnQuals := queryData.KeyColumnQuals
+
+	var hydrateInput []interface{}
+	for _, qualValue := range qualValueList.Values {
+		// build a new map for KeyColumnQuals and mutate the query data
+		queryData.KeyColumnQuals = map[string]*proto.QualValue{
+			keyColumn: qualValue,
+		}
+		hydrateInputItem, err := t.Get.ItemFromKey(ctx, queryData, &HydrateData{})
+		if err != nil {
+			return nil, err
+		}
+		hydrateInput = append(hydrateInput, hydrateInputItem)
+	}
+
+	// now revert keyColumnQuals on the query data for good manners
+	queryData.KeyColumnQuals = keyColumnQuals
+
+	return hydrateInput, nil
 }
