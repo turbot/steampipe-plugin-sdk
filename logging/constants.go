@@ -2,7 +2,9 @@ package logging
 
 const (
 	// LogLevelEnvVar :: environment variable defining the steampipe log level
-	LogLevelEnvVar  = "SP_LOG"
-	ProfileEnvVar   = "SP_PROFILE"
-	defaultLogLevel = "WARN"
+	LegacyLogLevelEnvVar = "SP_LOG"
+	LegacyProfileEnvVar  = "SP_PROFILE"
+	LogLevelEnvVar       = "STEAMPIPE_LOG"
+	ProfileEnvVar        = "STEAMPIPE_PROFILE"
+	defaultLogLevel      = "WARN"
 )
