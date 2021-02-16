@@ -4,6 +4,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/version"
 )
 
 type ExecuteFunc func(req *pb.ExecuteRequest, stream pb.WrapperPlugin_ExecuteServer) error
@@ -28,7 +29,7 @@ func NewPluginServer(pluginName string, getSchemaFunc GetSchemaFunc, executeFunc
 
 func (s PluginServer) GetSchema(_ *pb.GetSchemaRequest) (*pb.GetSchemaResponse, error) {
 	schema, err := s.getSchemaFunc()
-	return &pb.GetSchemaResponse{Schema: &pb.Schema{Schema: schema}}, err
+	return &pb.GetSchemaResponse{Schema: &pb.Schema{Schema: schema, SdkVersion: version.String()}}, err
 }
 
 func (s PluginServer) Execute(req *pb.ExecuteRequest, stream pb.WrapperPlugin_ExecuteServer) error {
@@ -36,7 +37,6 @@ func (s PluginServer) Execute(req *pb.ExecuteRequest, stream pb.WrapperPlugin_Ex
 }
 
 func (s PluginServer) Serve() {
-	//log.Println("[PluginServer] PluginServer Serve")
 	pluginMap := map[string]plugin.Plugin{
 		s.pluginName: &pluginshared.WrapperPlugin{Impl: s},
 	}
