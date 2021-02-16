@@ -67,7 +67,6 @@ func (c *ConnectionConfigSchema) Parse(configString string) (config interface{},
 	}
 	value, diags := hcldec.Decode(file.Body, spec, nil)
 	if diags.HasErrors() {
-
 		return nil, DiagsToError("failed to parse connection config", diags)
 	}
 

@@ -23,9 +23,7 @@ func (c *ConnectionConfigSchema) Validate() []string {
 		if kind != reflect.Ptr {
 			validationErrors = append(validationErrors, fmt.Sprintf("NewInstance function must return a pointer to a struct instance, got %v", kind))
 		}
-		if attr.Required != !attr.Optional {
-			validationErrors = append(validationErrors, fmt.Sprintf("connection config schema for attribute '%s' is invalid - either 'Required' or 'Optional' must be true", name))
-		}
+
 		// find a property in the struct which is tagged with this field
 		validationErrors = append(validationErrors, c.validateConfigStruct(name, attr, instance)...)
 	}
@@ -59,7 +57,7 @@ func (c *ConnectionConfigSchema) validateConfigStruct(property string, attr *sch
 	}
 	if field == nil {
 		validationErrors = append(validationErrors, fmt.Sprintf("No structure field with tagged for property %s", property))
-	} else if attr.Optional && !nullable(field.Type.Kind()) {
+	} else if attr.Requirement == schema.AttributeOptional && !nullable(field.Type.Kind()) {
 		validationErrors = append(validationErrors, fmt.Sprintf("config structure '%s' is invalid:  optional field '%s' is mapped to %s property '%s' - optional fields must map to a type with a null zero value (struct, array, map or pointer)", t.Name(), property, field.Type.Name(), field.Name))
 	}
 

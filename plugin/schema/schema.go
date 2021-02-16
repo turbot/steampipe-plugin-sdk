@@ -19,10 +19,15 @@ type Attribute struct {
 	// Elem represents the element type. THis may only be set for only set for TypeList.
 	Elem *Attribute
 
-	// Either Optional Or Required must be set
-	Optional bool
-	Required bool
+	// attribute type is either AttributeRequired (default) or AttributeOptional
+	Requirement AttributeRequirement
 }
+type AttributeRequirement int
+
+const (
+	AttributeRequired AttributeRequirement = iota
+	AttributeOptional
+)
 
 func SchemaToObjectSpec(schema map[string]*Attribute) hcldec.ObjectSpec {
 	spec := hcldec.ObjectSpec{}
@@ -38,7 +43,7 @@ func attributeToSpec(name string, attr *Attribute) hcldec.Spec {
 		Name: name,
 		Type: attributeTypeToCty(attr),
 		// we have validated that Required = !Optional so here we can safely only consider Required
-		Required: attr.Required,
+		Required: attr.Requirement == AttributeRequired,
 	}
 }
 
