@@ -65,6 +65,7 @@ message QueryContext {
 message ExecuteRequest {
   string table = 1;
   QueryContext query_context = 2;
+  string connection = 3;
 }
 
 message ExecuteResponse {
@@ -79,9 +80,16 @@ message GetSchemaResponse {
 
 }
 
+message SetConnectionConfigRequest{
+  string connection_name = 1;
+  string connection_config = 2;
+}
+message SetConnectionConfigResponse{}
+
 service WrapperPlugin {
     rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
     rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+    rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
 }
 
 message Row {

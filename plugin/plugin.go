@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-
-	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
-
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
 
 // Plugin :: an object used to build all necessary data for a given query
@@ -23,30 +22,29 @@ type Plugin struct {
 	DefaultGetConfig   *GetConfig
 	DefaultConcurrency *DefaultConcurrencyConfig
 	// every table must implement these columns
-	RequiredColumns []*Column
+	RequiredColumns        []*Column
+	ConnectionConfigSchema *ConnectionConfigSchema
+	// a map of connection name to connection structs
+	Connections map[string]*Connection
 }
 
-func columnTypeToString(columnType proto.ColumnType) string {
-	switch columnType {
-	case proto.ColumnType_BOOL:
-		return "ColumnType_BOOL"
-	case proto.ColumnType_INT:
-		return "ColumnType_INT"
-	case proto.ColumnType_DOUBLE:
-		return "ColumnType_DOUBLE"
-	case proto.ColumnType_STRING:
-		return "ColumnType_STRING"
-	case proto.ColumnType_JSON:
-		return "ColumnType_BOOL"
-	case proto.ColumnType_DATETIME:
-		return "ColumnType_DATETIME"
-	case proto.ColumnType_IPADDR:
-		return "ColumnType_IPADDR"
-	case proto.ColumnType_CIDR:
-		return "ColumnType_CIDR"
-	default:
-		return fmt.Sprintf("Unknown column type: %v", columnType)
+// Initialise :: initialise the connection config map, set plugin pointer on all tables and setup logger
+func (p *Plugin) Initialise() {
+	// if no connection config is defined, create an empty one
+	if p.ConnectionConfigSchema == nil {
+		p.ConnectionConfigSchema = NewConnectionConfigSchema()
 	}
+	//  initialise the connection map
+	p.Connections = make(map[string]*Connection)
+
+	// NOTE update tables to have a reference to the plugin
+	p.claimTables()
+
+	// time will be provided by the plugin logger
+	p.Logger = logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
+	log.SetOutput(p.Logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+	log.SetPrefix("")
+	log.SetFlags(0)
 }
 
 func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
@@ -76,6 +74,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}()
 
 	logging.LogTime("Start execute")
+	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.Connections)
 
 	queryContext := req.QueryContext
 	table, ok := p.TableMap[req.Table]
@@ -83,8 +82,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
 
-	log.Printf("[TRACE] Execute: cols: %v\n", queryContext.Columns)
-	log.Printf("[TRACE] quals: %s\n", grpc.QualMapToString(queryContext.Quals))
+	p.Logger.Debug("Got query context",
+		"cols", queryContext.Columns,
+		"quals", grpc.QualMapToString(queryContext.Quals))
 
 	// async approach
 	// 1) call list() in a goroutine. This writes pages of items to the rowDataChan. When complete it closes the channel
@@ -92,22 +92,64 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 3) Build row spawns goroutines for any required hydrate functions.
 	// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
 	// 5) Range over rowChan - for each row, send on results stream
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 
-	d := newQueryData(queryContext, table, stream)
-	ctx := context.WithValue(context.Background(), ContextKeyLogger, p.Logger)
-	log.Printf("[TRACE] calling fetchItems, table: %s\n", table.Name)
+	var matrixItem []map[string]interface{}
+	var connection *Connection
 
-	// asyncronously fetch items
-	if err := table.fetchItems(ctx, d); err != nil {
-		return err
+	// NOTE: req.Connection parameter is only populated in version 0.2.0 of Steampipe - check whether it exists
+	if req.Connection != "" {
+		connection = p.Connections[req.Connection]
 	}
 
+	// get the matrix item
+	if table.GetMatrixItem != nil {
+		matrixItem = table.GetMatrixItem(ctx, connection)
+	}
+
+	queryData := newQueryData(queryContext, table, stream, connection, matrixItem)
+	p.Logger.Debug("calling fetchItems", "table", table.Name, "matrixItem", matrixItem)
+
+	// asyncronously fetch items
+	if err := table.fetchItems(ctx, queryData); err != nil {
+		return err
+	}
+	log.Println("[TRACE] after fetchItems")
 	logging.LogTime("Calling stream")
 
 	// asyncronously build rows
-	rowChan := d.buildRows(ctx)
+	rowChan := queryData.buildRows(ctx)
 	// asyncronously stream rows
-	return d.streamRows(ctx, rowChan)
+	return queryData.streamRows(ctx, rowChan)
+}
+
+// SetConnectionConfig :: parse the connection config string, and populate the connection data for this connection
+// NOTE: we always pass and store connection config BY VALUE
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("SetConnectionConfig failed: %s", ToError(r).Error())
+		} else {
+			p.Logger.Debug("SetConnectionConfig finished")
+		}
+	}()
+
+	// first validate the plugin
+	if validationErrors := p.Validate(); validationErrors != "" {
+		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
+	}
+	if connectionConfigString == "" {
+		return nil
+	}
+
+	// ask plugin for a struct to deserialise the config into
+	config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
+	if err != nil {
+		return err
+	}
+	p.Connections[connectionName] = &Connection{connectionName, config}
+	return nil
 }
 
 // slightly hacky - called on startup to set a plugin pointer in each table

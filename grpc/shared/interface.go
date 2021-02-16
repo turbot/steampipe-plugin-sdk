@@ -4,9 +4,8 @@ package shared
 import (
 	"context"
 
-	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-
 	"github.com/hashicorp/go-plugin"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"google.golang.org/grpc"
 )
 
@@ -23,13 +22,15 @@ var Handshake = plugin.HandshakeConfig{
 // - the client interface (implemented by the client stub)
 // this is because the signature of the client and server are difference when using grpc streaming
 type WrapperPluginServer interface {
-	GetSchema(req *pb.GetSchemaRequest) (*pb.GetSchemaResponse, error)
-	Execute(req *pb.ExecuteRequest, stream pb.WrapperPlugin_ExecuteServer) error
+	GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
+	Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
+	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 }
 
 type WrapperPluginClient interface {
-	GetSchema(request *pb.GetSchemaRequest) (*pb.GetSchemaResponse, error)
-	Execute(req *pb.ExecuteRequest) (pb.WrapperPlugin_ExecuteClient, error)
+	GetSchema(request *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
+	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, error)
+	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 }
 
 // This is the implementation of plugin.GRPCServer so we can serve/consume this.
@@ -42,11 +43,11 @@ type WrapperPlugin struct {
 }
 
 func (p *WrapperPlugin) GRPCServer(_ *plugin.GRPCBroker, s *grpc.Server) error {
-	pb.RegisterWrapperPluginServer(s, &GRPCServer{Impl: p.Impl})
+	proto.RegisterWrapperPluginServer(s, &GRPCServer{Impl: p.Impl})
 	return nil
 }
 
 // return a GRPCClient, called by Dispense
 func (p *WrapperPlugin) GRPCClient(ctx context.Context, _ *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
-	return &GRPCClient{client: pb.NewWrapperPluginClient(c), ctx: ctx}, nil
+	return &GRPCClient{client: proto.NewWrapperPluginClient(c), ctx: ctx}, nil
 }

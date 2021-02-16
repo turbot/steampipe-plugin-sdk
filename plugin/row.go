@@ -7,8 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+
 	"github.com/turbot/go-kit/helpers"
-	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +19,9 @@ import (
 // RowData :: struct containing row data
 
 type RowData struct {
+	// the output of the get/list call which is passed to all other hydrate calls
 	Item           interface{}
+	matrixItem     map[string]interface{}
 	hydrateResults map[string]interface{}
 	mut            sync.Mutex
 	waitChan       chan bool
@@ -38,7 +42,8 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 
 	return &RowData{
 		Item:           item,
-		hydrateResults: make(map[string]interface{}),
+		matrixItem:     map[string]interface{}{},
+		hydrateResults: map[string]interface{}{},
 		waitChan:       make(chan bool),
 		table:          d.Table,
 		errorChan:      errorChan,
@@ -46,7 +51,11 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 	}
 }
 
-func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
+func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
+	// NOTE: the RowData (may) have matrixItem set
+	// (this is a data structure containing fetch specific data, e.g. region)
+	// store this in the context for use by the transform functions
+	rowDataCtx := context.WithValue(ctx, context_key.MatrixItem, r.matrixItem)
 
 	// make any required hydrate function calls
 	// - these populate the row with data entries corresponding to the hydrate function nameSP_LOG=TRACE
@@ -62,7 +71,7 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 			if !callsStarted[hydrateFuncName] {
 				if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
 					// execute the hydrate call asynchronously
-					call.Start(ctx, r, hydrateFuncName, r.queryData.concurrencyManager)
+					call.Start(rowDataCtx, r, hydrateFuncName, r.queryData.concurrencyManager)
 					callsStarted[hydrateFuncName] = true
 				} else {
 					allStarted = false
@@ -75,7 +84,7 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	var row *pb.Row
+	var row *proto.Row
 
 	// wait for all hydrate calls to complete and signal via the wait chan when they are
 	// (we need this slightly convoluted mechanism to allow us to check for upstream errors
@@ -84,8 +93,9 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 		r.wg.Wait()
 		logging.LogTime("all hydrate calls complete")
 		var err error
+
 		// now execute any transforms required to populate the column values
-		row, err = r.getColumnValues(ctx)
+		row, err = r.getColumnValues(rowDataCtx)
 		if err != nil {
 			r.queryData.streamError(err)
 		}
@@ -98,14 +108,14 @@ func (r *RowData) getRow(ctx context.Context) (*pb.Row, error) {
 		logging.LogTime("send a row")
 		return row, nil
 	case err := <-r.errorChan:
-		log.Println("[TRACE] hydrate err chan select", "error", err)
+		log.Println("[DEBUG] hydrate err chan select", "error", err)
 		return nil, err
 	}
 }
 
 // generate the column values for for all requested columns
-func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
-	row := &pb.Row{Columns: make(map[string]*pb.Column)}
+func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
+	row := &proto.Row{Columns: make(map[string]*proto.Column)}
 	// only populate columns which have been asked for
 	for _, columnName := range r.queryData.QueryContext.Columns {
 		// get columns schema
@@ -125,8 +135,7 @@ func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
 }
 
 // invoke a hydrate function, with syncronisation and error handling
-// for the purposes of get calls (which also invoke a hydration function), return whether the item was found and any error
-func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) (interface{}, error) {
+func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) {
 	// handle panics in the row hydrate function
 	defer func() {
 		if p := recover(); p != nil {
@@ -150,7 +159,32 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	}
 
 	logging.LogTime(hydrateKey + " end")
+}
 
+// invoke a hydrate function, with syncronisation and error handling
+func (r *RowData) callGetHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) (interface{}, error) {
+	// handle panics in the row hydrate function
+	defer func() {
+		if p := recover(); p != nil {
+			r.errorChan <- status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
+		}
+		r.wg.Done()
+	}()
+
+	logging.LogTime(hydrateKey + " start")
+
+	// now call the hydrate function, passing the item and hydrate results so far
+	log.Printf("[TRACE] call hydrate %s\n", hydrateKey)
+	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults})
+	if err != nil {
+		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
+		r.errorChan <- err
+	} else if hydrateData != nil {
+		log.Printf("[TRACE] set hydrate data for %s\n", hydrateKey)
+		r.set(hydrateKey, hydrateData)
+	}
+
+	logging.LogTime(hydrateKey + " end")
 	// NOTE: also return the error - is this is being called by as 'get' call we can act on the error immediately
 	return hydrateData, err
 }
@@ -162,6 +196,7 @@ func (r *RowData) set(key string, item interface{}) error {
 		return fmt.Errorf("failed to save item - row data already contains item for key %s", key)
 	}
 	r.hydrateResults[key] = item
+
 	return nil
 }
 

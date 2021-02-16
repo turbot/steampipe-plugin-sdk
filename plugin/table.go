@@ -1,12 +1,15 @@
 package plugin
 
 import (
+	"context"
 	"log"
 
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 
 	"github.com/turbot/go-kit/helpers"
 )
+
+type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}
 
 // Table :: struct representing a plugin table
 type Table struct {
@@ -17,6 +20,7 @@ type Table struct {
 	Columns          []*Column
 	List             *ListConfig
 	Get              *GetConfig
+	GetMatrixItem    MatrixItemFunc
 	DefaultTransform *transform.ColumnTransforms
 	// the parent plugin object
 	Plugin *Plugin
@@ -102,4 +106,14 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 	}
 	// fallback to return an empty hydrate config
 	return &HydrateConfig{}
+}
+
+// return the column matching the given nam
+func (t *Table) columnForName(columnName string) (*Column, bool) {
+	for _, c := range t.Columns {
+		if c.Name == columnName {
+			return c, true
+		}
+	}
+	return nil, false
 }

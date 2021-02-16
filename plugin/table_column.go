@@ -34,8 +34,8 @@ func (t *Table) getColumnType(columnName string) proto.ColumnType {
 }
 
 // take the raw value returned by the get/list/hydrate call, apply transforms and convert to protobuf value
-func (t *Table) getColumnValue(ctx context.Context, row *RowData, column *Column) (*proto.Column, error) {
-	hydrateItem, err := row.GetColumnData(column)
+func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *Column) (*proto.Column, error) {
+	hydrateItem, err := rowData.GetColumnData(column)
 	if err != nil {
 		log.Printf("[ERROR] failed to get column data: %v\n", err)
 		return nil, err
@@ -45,11 +45,10 @@ func (t *Table) getColumnValue(ctx context.Context, row *RowData, column *Column
 	// NOTE: we must call getColumnTransforms to ensure the default is used if none is defined
 	columnTransforms := t.getColumnTransforms(column)
 	defaultTransform := t.getDefaultColumnTransform(column)
-	value, err := columnTransforms.Execute(ctx, hydrateItem, row.hydrateResults, defaultTransform, column.Name)
+	value, err := columnTransforms.Execute(ctx, hydrateItem, rowData.hydrateResults, defaultTransform, column.Name)
 	if err != nil {
 		log.Printf("[ERROR] failed to populate column '%s': %v\n", column.Name, err)
 		return nil, fmt.Errorf("failed to populate column '%s': %v", column.Name, err)
-
 	}
 
 	// now convert the value to a protobuf column value

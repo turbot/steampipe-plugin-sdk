@@ -35,6 +35,10 @@ func FromGo() *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldValueGo}}}
 }
 
+func FromMatrixItem(key string) *ColumnTransforms {
+	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: MatrixItemValue, Param: key}}}
+}
+
 // Generate a value by calling 'transformFunc'
 func From(transformFunc TransformFunc) *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: transformFunc}}}

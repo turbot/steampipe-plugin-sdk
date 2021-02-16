@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -24,12 +25,19 @@ func (tr *TransformCall) Execute(ctx context.Context, value interface{}, hydrate
 		}
 	}()
 
+	// retrieve matrix item from the context - this is generally used to store the fetch region
+	var matrixItem = map[string]interface{}{}
+	if contextValue := ctx.Value(context_key.MatrixItem); contextValue != nil {
+		matrixItem = contextValue.(map[string]interface{})
+	}
+
 	td := &TransformData{
 		Param:          tr.Param,
 		Value:          value,
 		HydrateItem:    hydrateItem,
 		HydrateResults: hydrateResults,
 		ColumnName:     columnName,
+		MatrixItem:     matrixItem,
 	}
 	transformedValue, err = tr.Transform(ctx, td)
 	if err != nil {

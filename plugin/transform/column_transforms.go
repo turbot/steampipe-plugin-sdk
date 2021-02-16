@@ -19,6 +19,8 @@ type TransformData struct {
 	HydrateResults map[string]interface{}
 	// the column this transform is generating
 	ColumnName string
+	// the 'matrix item' associated with this row
+	MatrixItem map[string]interface{}
 }
 
 // TransformFunc :: function to transform a data value from the api value to a column value

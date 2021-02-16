@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 // KeyColumnSet :: a set of columns which form the key of a table (i.e. may be used to get a single item)
@@ -31,13 +31,13 @@ func (k *KeyColumnSet) ToString() string {
 	return ""
 }
 
-func (t Table) GetSchema() *pb.TableSchema {
-	schema := &pb.TableSchema{
-		Columns:     make([]*pb.ColumnDefinition, len(t.Columns)),
+func (t Table) GetSchema() *proto.TableSchema {
+	schema := &proto.TableSchema{
+		Columns:     make([]*proto.ColumnDefinition, len(t.Columns)),
 		Description: t.Description,
 	}
 	for i, column := range t.Columns {
-		schema.Columns[i] = &pb.ColumnDefinition{
+		schema.Columns[i] = &proto.ColumnDefinition{
 			Name:        column.Name,
 			Type:        column.Type,
 			Description: column.Description,

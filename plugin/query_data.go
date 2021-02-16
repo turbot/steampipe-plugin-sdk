@@ -4,46 +4,56 @@ import (
 	"context"
 	"fmt"
 	"log"
-
-	"github.com/turbot/go-kit/helpers"
-
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/connection"
-
+	"github.com/turbot/go-kit/helpers"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
-
-	pb "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 const itemBufferSize = 100
 
 type QueryData struct {
-	ConnectionManager *connection.Manager
-	Table             *Table
+	// The table this query is associated with
+	Table *Table
 	// if this is a get call (or a list call if list key columns are specified)
 	// this will be populated with the quals as a map of column name to quals
-	KeyColumnQuals map[string]*pb.QualValue
-	// is this a get or a list
-	FetchType    fetchType
-	QueryContext *pb.QueryContext
+	KeyColumnQuals map[string]*proto.QualValue
+	// columns which have a single equals qual
+	EqualsQuals map[string]*proto.QualValue
+	// is this a 'get' or a 'list' call
+	FetchType fetchType
+	// query context data passed from postgres - this includes the requested columns and the quals
+	QueryContext *proto.QueryContext
+	// connection details - the connection name and any config declared in the connection config file
+	Connection *Connection
+	// Matrix is an array of parameter maps (MatrixItems)
+	// the list/get calls with be executed for each element of this array
+	Matrix []map[string]interface{}
+	// object to handle caching of connection specific data
+	ConnectionManager *connection_manager.Manager
 
 	// internal
 	hydrateCalls       []*HydrateCall
 	concurrencyManager *ConcurrencyManager
 	rowDataChan        chan *RowData
 	errorChan          chan error
-	stream             pb.WrapperPlugin_ExecuteServer
-	// wait group used to syncronise parent-child list fetches - each child hydrate function increments this wait group
+	stream             proto.WrapperPlugin_ExecuteServer
+	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 }
 
-func newQueryData(queryContext *pb.QueryContext, table *Table, stream pb.WrapperPlugin_ExecuteServer) *QueryData {
+func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}) *QueryData {
 	d := &QueryData{
-		ConnectionManager: connection.NewManager(),
+		ConnectionManager: connection_manager.NewManager(),
 		Table:             table,
 		QueryContext:      queryContext,
+		Connection:        connection,
+		Matrix:            matrix,
+		KeyColumnQuals:    map[string]*proto.QualValue{},
+		EqualsQuals:       map[string]*proto.QualValue{},
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -51,6 +61,7 @@ func newQueryData(queryContext *pb.QueryContext, table *Table, stream pb.Wrapper
 		errorChan:   make(chan error, 1),
 		stream:      stream,
 	}
+
 	// determine whether this is a get or a list call and set the KeyColumnQuals if present
 	d.SetFetchType(table)
 
@@ -59,14 +70,15 @@ func newQueryData(queryContext *pb.QueryContext, table *Table, stream pb.Wrapper
 
 	d.hydrateCalls = table.requiredHydrateCalls(queryContext.Columns, d.FetchType)
 	d.concurrencyManager = newConcurrencyManager(table)
+
 	return d
 }
 
 // SetFetchType :: determine whether this is a get or a list call
 func (d *QueryData) SetFetchType(table *Table) {
 	// populate a map of column to qual value
-	var getQuals map[string]*pb.QualValue
-	var listQuals map[string]*pb.QualValue
+	var getQuals map[string]*proto.QualValue
+	var listQuals map[string]*proto.QualValue
 
 	if table.Get != nil {
 		getQuals = table.getKeyColumnQuals(d, table.Get.KeyColumns)
@@ -98,7 +110,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
-func ensureColumns(queryContext *pb.QueryContext, table *Table) {
+func ensureColumns(queryContext *proto.QueryContext, table *Table) {
 	if len(queryContext.Columns) != 0 {
 		return
 	}
@@ -142,8 +154,10 @@ func (d *QueryData) StreamListItem(ctx context.Context, item interface{}) {
 	}()
 }
 
-func (d *QueryData) StreamLeafListItem(_ context.Context, item interface{}) {
+func (d *QueryData) StreamLeafListItem(ctx context.Context, item interface{}) {
+	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
+	rd.matrixItem = GetMatrixItem(ctx)
 
 	// NOTE: add the item as the hydrate data for the list call
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
@@ -158,7 +172,7 @@ func (d *QueryData) fetchComplete() {
 }
 
 // read rows from rowChan and stream back
-func (d *QueryData) streamRows(_ context.Context, rowChan chan *pb.Row) error {
+func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) error {
 	for {
 		// wait for either an item or an error
 		select {
@@ -181,8 +195,8 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *pb.Row) error {
 	}
 }
 
-func (d *QueryData) streamRow(row *pb.Row) error {
-	return d.stream.Send(&pb.ExecuteResponse{Row: row})
+func (d *QueryData) streamRow(row *proto.Row) error {
+	return d.stream.Send(&proto.ExecuteResponse{Row: row})
 }
 
 func (d *QueryData) streamError(err error) {
@@ -190,12 +204,12 @@ func (d *QueryData) streamError(err error) {
 }
 
 // iterate over rowDataChan, for each item build the row and stream over rowChan
-func (d *QueryData) buildRows(ctx context.Context) chan *pb.Row {
+func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 	log.Println("[TRACE] buildRows")
 	const rowBufferSize = 10
 
 	// stream data for each item
-	var rowChan = make(chan *pb.Row, rowBufferSize)
+	var rowChan = make(chan *proto.Row, rowBufferSize)
 	// we need to use a wait group for rows we cannot close the row channel when the item channel is closed
 	// as getRow is executing asyncronously
 	var rowWg sync.WaitGroup
@@ -215,6 +229,7 @@ func (d *QueryData) buildRows(ctx context.Context) chan *pb.Row {
 					// rowData channel closed - nothing more to do
 					return
 				}
+				logging.LogTime("got rowData - calling getRow")
 				rowWg.Add(1)
 				go d.buildRow(ctx, rowData, rowChan, &rowWg)
 			case err := <-d.errorChan:
@@ -230,7 +245,7 @@ func (d *QueryData) buildRows(ctx context.Context) chan *pb.Row {
 }
 
 // execute necessary hydrate calls to populate row data
-func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan *pb.Row, wg *sync.WaitGroup) {
+func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
 	defer func() {
 		if r := recover(); r != nil {
 			d.streamError(ToError(r))
@@ -247,7 +262,7 @@ func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan
 	}
 }
 
-func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *pb.Row) {
+func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
 	log.Println("[TRACE] wait for rows")
 	rowWg.Wait()
 	logging.DisplayProfileData(10 * time.Millisecond)
@@ -256,7 +271,7 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 }
 
 // is there a single '=' qual for this column
-func (d *QueryData) singleEqualsQual(column string) (*pb.Qual, bool) {
+func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
 	quals, ok := d.QueryContext.Quals[column]
 	log.Printf("[TRACE] singleEqualsQual() - quals: %v\n", quals)
 	if !ok {
