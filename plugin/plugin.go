@@ -30,10 +30,6 @@ type Plugin struct {
 
 // Initialise :: initialise the connection config map, set plugin pointer on all tables and setup logger
 func (p *Plugin) Initialise() {
-	// if no connection config is defined, create an empty one
-	if p.ConnectionConfigSchema == nil {
-		p.ConnectionConfigSchema = NewConnectionConfigSchema()
-	}
 	//  initialise the connection map
 	p.Connections = make(map[string]*Connection)
 
@@ -48,7 +44,7 @@ func (p *Plugin) Initialise() {
 }
 
 func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
-	// first validate the plugin - this will panic with a validation error
+	// first validate the plugin
 	if validationErrors := p.Validate(); validationErrors != "" {
 		return nil, fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
@@ -141,6 +137,9 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	}
 	if connectionConfigString == "" {
 		return nil
+	}
+	if p.ConnectionConfigSchema == nil {
+		return fmt.Errorf("plugin %s does not define a connection config schema", p.Name)
 	}
 
 	// ask plugin for a struct to deserialise the config into

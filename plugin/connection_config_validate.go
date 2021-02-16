@@ -13,15 +13,19 @@ import (
 // Validate :: validate the connection config
 func (c *ConnectionConfigSchema) Validate() []string {
 	var validationErrors []string
+	if c.NewInstance == nil {
+		return []string{"connection config schema does not specify a NewInstance function"}
+	}
 	instance := c.NewInstance()
+	// verify Config.NewInstance() returns a pointer
+	kind := reflect.TypeOf(c.NewInstance()).Kind()
+	if kind != reflect.Ptr {
+		validationErrors = append(validationErrors, fmt.Sprintf("NewInstance function must return a pointer to a struct instance, got %v", kind))
+	}
+
 	for name, attr := range c.Schema {
 		if attr.Type != schema.TypeList && attr.Elem != nil {
 			validationErrors = append(validationErrors, fmt.Sprintf("attribute %s has 'Elem' set but is Type is not TypeList", name))
-		}
-		// verify Config.NewInstance() returns a pointer
-		kind := reflect.TypeOf(c.NewInstance()).Kind()
-		if kind != reflect.Ptr {
-			validationErrors = append(validationErrors, fmt.Sprintf("NewInstance function must return a pointer to a struct instance, got %v", kind))
 		}
 
 		// find a property in the struct which is tagged with this field

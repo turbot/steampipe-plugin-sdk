@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"github.com/turbot/go-kit/helpers"
+
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/grpc/shared"
@@ -29,17 +31,32 @@ func NewPluginServer(pluginName string, getSchemaFunc GetSchemaFunc, executeFunc
 	}
 }
 
-func (s PluginServer) GetSchema(_ *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error) {
+func (s PluginServer) GetSchema(_ *proto.GetSchemaRequest) (res *proto.GetSchemaResponse, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = helpers.ToError(r)
+		}
+	}()
 	schema, err := s.getSchemaFunc()
 	return &proto.GetSchemaResponse{Schema: &proto.Schema{Schema: schema, SdkVersion: version.String()}}, err
 }
 
-func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error {
+func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = helpers.ToError(r)
+		}
+	}()
 	return s.executeFunc(req, stream)
 }
 
-func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) {
-	err := s.setConnectionConfigFunc(req.ConnectionName, req.ConnectionConfig)
+func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = helpers.ToError(r)
+		}
+	}()
+	err = s.setConnectionConfigFunc(req.ConnectionName, req.ConnectionConfig)
 	return &proto.SetConnectionConfigResponse{}, err
 }
 

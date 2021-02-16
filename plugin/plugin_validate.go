@@ -11,6 +11,8 @@ func (p *Plugin) Validate() string {
 	for tableName, table := range p.TableMap {
 		validationErrors = append(validationErrors, table.validate(tableName, p.RequiredColumns)...)
 	}
-	validationErrors = append(validationErrors, p.ConnectionConfigSchema.Validate()...)
+	if p.ConnectionConfigSchema != nil {
+		validationErrors = append(validationErrors, p.ConnectionConfigSchema.Validate()...)
+	}
 	return strings.Join(validationErrors, "\n")
 }
