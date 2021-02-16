@@ -67,8 +67,9 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &arrayProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type: schema.TypeList,
-					Elem: &schema.Attribute{Type: schema.TypeString},
+					Type:     schema.TypeList,
+					Elem:     &schema.Attribute{Type: schema.TypeString},
+					Required: true,
 				},
 			},
 		},
@@ -84,7 +85,8 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &stringProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 			},
 		},
@@ -95,12 +97,14 @@ var testCasesParseConfig = map[string]parseConfigTest{
 	"string pointer property": {
 		source: `
 	region = "us-east-1"
+	count  = 100
 	`,
 		connectionConfigSchema: &ConnectionConfigSchema{
 			NewInstance: func() interface{} { return &stringPtrProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 			},
 		},
@@ -117,7 +121,8 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &intProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 			},
 		},
@@ -133,7 +138,8 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &floatProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},
@@ -152,17 +158,21 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type: schema.TypeList,
-					Elem: &schema.Attribute{Type: schema.TypeString},
+					Type:     schema.TypeList,
+					Elem:     &schema.Attribute{Type: schema.TypeString},
+					Required: true,
 				},
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},
@@ -185,17 +195,21 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type: schema.TypeList,
-					Elem: &schema.Attribute{Type: schema.TypeString},
+					Type:     schema.TypeList,
+					Elem:     &schema.Attribute{Type: schema.TypeString},
+					Required: true,
 				},
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},
@@ -212,17 +226,21 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &allTypesMissingProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type: schema.TypeList,
-					Elem: &schema.Attribute{Type: schema.TypeString},
+					Type:     schema.TypeList,
+					Elem:     &schema.Attribute{Type: schema.TypeString},
+					Required: true,
 				},
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},
@@ -239,17 +257,21 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &extraPropertyNoAnnotation{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type: schema.TypeList,
-					Elem: &schema.Attribute{Type: schema.TypeString},
+					Type:     schema.TypeList,
+					Elem:     &schema.Attribute{Type: schema.TypeString},
+					Required: true,
 				},
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},
@@ -272,17 +294,21 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &extraPropertyWithAnnotation{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type: schema.TypeList,
-					Elem: &schema.Attribute{Type: schema.TypeString},
+					Type:     schema.TypeList,
+					Elem:     &schema.Attribute{Type: schema.TypeString},
+					Required: true,
 				},
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},
@@ -298,18 +324,20 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type:        schema.TypeList,
-					Elem:        &schema.Attribute{Type: schema.TypeString},
-					Requirement: schema.AttributeOptional,
+					Type: schema.TypeList,
+					Elem: &schema.Attribute{Type: schema.TypeString},
 				},
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},
@@ -330,19 +358,19 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type:        schema.TypeList,
-					Elem:        &schema.Attribute{Type: schema.TypeString},
-					Requirement: schema.AttributeOptional,
+					Type: schema.TypeList,
+					Elem: &schema.Attribute{Type: schema.TypeString},
 				},
 				"region": {
-					Type:        schema.TypeString,
-					Requirement: schema.AttributeOptional,
+					Type: schema.TypeString,
 				},
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},
@@ -356,12 +384,10 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &stringPtrProperty{} },
 			Schema: map[string]*schema.Attribute{
 				"region": {
-					Type:        schema.TypeString,
-					Requirement: schema.AttributeOptional,
+					Type: schema.TypeString,
 				},
 				"count": {
-					Type:        schema.TypeInt,
-					Requirement: schema.AttributeOptional,
+					Type: schema.TypeInt,
 				},
 			},
 		},
@@ -379,17 +405,21 @@ var testCasesParseConfig = map[string]parseConfigTest{
 			NewInstance: func() interface{} { return &allTypes{} },
 			Schema: map[string]*schema.Attribute{
 				"regions": {
-					Type: schema.TypeList,
-					Elem: &schema.Attribute{Type: schema.TypeString},
+					Type:     schema.TypeList,
+					Elem:     &schema.Attribute{Type: schema.TypeString},
+					Required: true,
 				},
 				"region": {
-					Type: schema.TypeString,
+					Type:     schema.TypeString,
+					Required: true,
 				},
 				"count": {
-					Type: schema.TypeInt,
+					Type:     schema.TypeInt,
+					Required: true,
 				},
 				"pi": {
-					Type: schema.TypeFloat,
+					Type:     schema.TypeFloat,
+					Required: true,
 				},
 			},
 		},

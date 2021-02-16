@@ -57,7 +57,8 @@ func (c *ConnectionConfigSchema) validateConfigStruct(property string, attr *sch
 	}
 	if field == nil {
 		validationErrors = append(validationErrors, fmt.Sprintf("No structure field with tagged for property %s", property))
-	} else if attr.Requirement == schema.AttributeOptional && !nullable(field.Type.Kind()) {
+	} else if !attr.Required && !nullable(field.Type.Kind()) {
+		// if field is optional, the struct property must be nullable
 		validationErrors = append(validationErrors, fmt.Sprintf("config structure '%s' is invalid:  optional field '%s' is mapped to %s property '%s' - optional fields must map to a type with a null zero value (struct, array, map or pointer)", t.Name(), property, field.Type.Name(), field.Name))
 	}
 
