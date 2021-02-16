@@ -76,6 +76,7 @@ message GetSchemaRequest {
 
 message GetSchemaResponse {
   Schema schema = 1;
+
 }
 
 service WrapperPlugin {
@@ -90,11 +91,12 @@ message Row {
 message TableSchema
 {
   repeated ColumnDefinition columns = 1;
-  string Description = 2;
+  string description = 2;
 }
 
 message Schema {
   map<string, TableSchema> schema = 1;
+  string sdk_version = 2;
 }
 
 message Column {
