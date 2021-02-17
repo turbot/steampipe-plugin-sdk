@@ -22,7 +22,6 @@ type QueryData struct {
 	// this will be populated with the quals as a map of column name to quals
 	KeyColumnQuals map[string]*proto.QualValue
 	// columns which have a single equals qual
-	EqualsQuals map[string]*proto.QualValue
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
 	// query context data passed from postgres - this includes the requested columns and the quals
@@ -37,6 +36,7 @@ type QueryData struct {
 
 	// internal
 	hydrateCalls       []*HydrateCall
+	equalsQuals        map[string]*proto.QualValue
 	concurrencyManager *ConcurrencyManager
 	rowDataChan        chan *RowData
 	errorChan          chan error
@@ -53,7 +53,7 @@ func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.W
 		Connection:        connection,
 		Matrix:            matrix,
 		KeyColumnQuals:    map[string]*proto.QualValue{},
-		EqualsQuals:       map[string]*proto.QualValue{},
+		equalsQuals:       map[string]*proto.QualValue{},
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan

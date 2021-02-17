@@ -288,7 +288,7 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 		// check whether there is a single equals qual for each matrix item property and if so, check whether
 		// the matrix item property values satisfy the conditions
 		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[INFO] matrix item item does not meet quals, %v, %v\n", queryData.EqualsQuals, matrixItem)
+			log.Printf("[INFO] matrix item item does not meet quals, %v, %v\n", queryData.equalsQuals, matrixItem)
 			continue
 		}
 
@@ -329,7 +329,7 @@ func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryDat
 			continue
 		}
 		// is there a single equals qual for this column
-		if qualValue, ok := queryData.EqualsQuals[columnName]; ok {
+		if qualValue, ok := queryData.equalsQuals[columnName]; ok {
 
 			// get the underlying qual value
 			requiredValue := ColumnQualValue(qualValue, column)
