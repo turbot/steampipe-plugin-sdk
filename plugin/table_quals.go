@@ -12,7 +12,7 @@ import (
 func (t *Table) getKeyColumnQuals(d *QueryData, keyColumns *KeyColumnSet) map[string]*proto.QualValue {
 	for _, c := range t.Columns {
 		if qual, ok := d.singleEqualsQual(c.Name); ok {
-			d.EqualsQuals[c.Name] = qual.GetValue()
+			d.equalsQuals[c.Name] = qual.GetValue()
 		}
 	}
 
@@ -43,7 +43,7 @@ func (t *Table) getKeyColumnQuals(d *QueryData, keyColumns *KeyColumnSet) map[st
 func (t *Table) singleKeyQuals(d *QueryData, keyColumn string) map[string]*proto.QualValue {
 	log.Printf("[TRACE] checking whether keyColumn: %s has a single '=' qual\n", keyColumn)
 
-	if qualValue, ok := d.EqualsQuals[keyColumn]; ok {
+	if qualValue, ok := d.equalsQuals[keyColumn]; ok {
 		log.Printf("[TRACE] singleKeyQuals TRUE, keyColumn: %s, qual: %v\n", keyColumn, qualValue)
 		return map[string]*proto.QualValue{keyColumn: qualValue}
 	}
@@ -56,7 +56,7 @@ func (t *Table) multiKeyQuals(d *QueryData, keyColumns []string) map[string]*pro
 	// so a list of key column selections are specified.
 	keyValues := make(map[string]*proto.QualValue)
 	for _, keyColumn := range keyColumns {
-		if qualValue, ok := d.EqualsQuals[keyColumn]; ok {
+		if qualValue, ok := d.equalsQuals[keyColumn]; ok {
 			// NOTE: if there is a list of qual values for any of the key column, this is not a get
 			// (we do not support lists of qual values for multiple key columns)
 			if qualValue.GetListValue() != nil {
