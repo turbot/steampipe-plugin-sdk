@@ -1,3 +1,12 @@
+## v0.2.0 [2021-02-17]
+_What's new?_
+
+* Add support for multi-region querying. ([#20](https://github.com/turbot/steampipe-plugin-sdk/issues/20))
+* Add support for connection config. ([#21](https://github.com/turbot/steampipe-plugin-sdk/issues/21))
+* Add mechanism to limit max hydrate function concurrency. ([#12](https://github.com/turbot/steampipe-plugin-sdk/issues/12))
+* Update environment variables to use STEAMPIPE prefix. ([#32](https://github.com/turbot/steampipe-plugin-sdk/issues/32))
+* Provide dependency mechanism to allow Steampipe to know if a plugin uses a newer sdk version. ([#25](https://github.com/turbot/steampipe-plugin-sdk/issues/25))
+
 ## v0.1.1 [2021-02-11]
 
 _What's new?_
