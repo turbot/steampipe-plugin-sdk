@@ -108,8 +108,5 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 	if config.RetryConfig == nil {
 		config.RetryConfig = t.Plugin.DefaultRetryConfig
 	}
-	if config.ShouldIgnoreError == nil {
-		config.ShouldIgnoreError = t.Plugin.DefaultShouldIgnoreError
-	}
 	return config
 }
