@@ -1,3 +1,7 @@
+## v0.2.1 [2021-02-18]
+_Bug fixes_
+* Remove "rc" from version number in the release branch. ([#38](https://github.com/turbot/steampipe-plugin-sdk/issues/38))
+
 ## v0.2.0 [2021-02-17]
 _What's new?_
 
