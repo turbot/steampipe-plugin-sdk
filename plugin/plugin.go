@@ -22,6 +22,7 @@ type Plugin struct {
 	DefaultGetConfig   *GetConfig
 	DefaultConcurrency *DefaultConcurrencyConfig
 	DefaultRetryConfig       *RetryConfig
+	DefaultShouldIgnoreError ErrorPredicate
 	// every table must implement these columns
 	RequiredColumns        []*Column
 	ConnectionConfigSchema *ConnectionConfigSchema

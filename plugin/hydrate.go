@@ -27,9 +27,9 @@ type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
 	// ConcurrencyMapKey ConcurrencyMapKeyFunc
-	RetryConfig *RetryConfig
-	// ShouldIgnoreError ErrorPredicate
-	Depends []HydrateFunc
+	RetryConfig       *RetryConfig
+	ShouldIgnoreError ErrorPredicate
+	Depends           []HydrateFunc
 }
 
 type RetryConfig struct {
@@ -85,7 +85,7 @@ func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName str
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName, h.Config.RetryConfig)
+		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName, h.Config.RetryConfig, h.Config.ShouldIgnoreError)
 		// decrement number of hydrate functions running
 		concurrencyManager.Finished(hydrateFuncName)
 	}()
