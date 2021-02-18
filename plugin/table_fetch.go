@@ -122,7 +122,13 @@ func (t *Table) doGet(ctx context.Context, d *QueryData, hydrateItem interface{}
 
 	// call the get function defined by the table - SafeGet wraps the get call in the not found handler defined by the plugin
 	rd.wg.Add(1)
-	hydrateData, err := rd.callHydrate(ctx, d, t.SafeGet(), hydrateKey, t.Get.RetryConfig)
+	shouldIgnoreError := t.Get.ShouldIgnoreError
+	if shouldIgnoreError == nil {
+		if t.Plugin.DefaultGetConfig != nil {
+			shouldIgnoreError = t.Plugin.DefaultGetConfig.ShouldIgnoreError
+		}
+	}
+	hydrateData, err := rd.callHydrate(ctx, d, t.Get.Hydrate, hydrateKey, t.Get.RetryConfig, shouldIgnoreError)
 	if err != nil {
 		log.Printf("[WARN] hydrate call returned error %v\n", err)
 		return err

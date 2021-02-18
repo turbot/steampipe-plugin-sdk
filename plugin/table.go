@@ -44,6 +44,8 @@ type ListConfig struct {
 	Hydrate HydrateFunc
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
 	ParentHydrate HydrateFunc
+	// ShouldIgnoreError ErrorPredicate
+	// RetryConfig       *RetryConfig
 }
 
 // build a list of required hydrate function calls which must be executed, based on the columns which have been requested
@@ -105,6 +107,9 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 	}
 	if config.RetryConfig == nil {
 		config.RetryConfig = t.Plugin.DefaultRetryConfig
+	}
+	if config.ShouldIgnoreError == nil {
+		config.ShouldIgnoreError = t.Plugin.DefaultShouldIgnoreError
 	}
 	return config
 }

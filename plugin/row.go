@@ -129,7 +129,7 @@ func (r *RowData) getColumnValues(ctx context.Context) (*pb.Row, error) {
 
 // invoke a hydrate function, with syncronisation and error handling
 // for the purposes of get calls (which also invoke a hydration function), return whether the item was found and any error
-func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, retryConfig *RetryConfig) (interface{}, error) {
+func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) (interface{}, error) {
 	// handle panics in the row hydrate function
 	defer func() {
 		log.Printf("[TRACE] callHydrate finished: %s\n", hydrateKey)
@@ -143,7 +143,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 	// now call the hydrate function, passing the item and hydrate results so far
 	log.Printf("[TRACE] call hydrate %s\n", hydrateKey)
-	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, retryConfig)
+	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, hydrateKey, retryConfig, shouldIgnoreError)
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
 		r.errorChan <- err
@@ -162,9 +162,10 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	return hydrateData, err
 }
 
-func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (interface{}, error) {
+func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateFuncName string, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) (interface{}, error) {
 	hydrateData := &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults}
-	hydrateResult, err := hydrateFunc(ctx, d, hydrateData)
+	wrapFunc := r.WrapHydrate(hydrateFunc, shouldIgnoreError)
+	hydrateResult, err := wrapFunc(ctx, d, hydrateData)
 	if err != nil {
 		if retryConfig == nil {
 			return nil, err
@@ -175,7 +176,7 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 				return nil, err
 			}
 			err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
-				hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
+				hydrateResult, err = wrapFunc(ctx, d, hydrateData)
 				if err != nil {
 					if shouldRetryErrorFunc(err) {
 						return retry.RetryableError(err)
@@ -190,6 +191,32 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 		return nil, err
 	}
 	return hydrateResult, nil
+}
+
+// WrapHydrate :: higher order function which returns a HydrateFunc which handles NotFound errors
+func (r *RowData) WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPredicate) HydrateFunc {
+	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[WARN] SafeGet caught a panic: %v\n", r)
+				err = status.Error(codes.Internal, fmt.Sprintf("get hydrate function %s failed with panic %v", helpers.GetFunctionName(hydrateFunc), r))
+			}
+		}()
+		// call the underlying get function
+		item, err = hydrateFunc(ctx, d, h)
+		if err != nil {
+			log.Printf("[DEBUG] SafeGet get call returned error %v\n", err)
+			// suppress not found errors
+			// see if either the table or the plugin define a NotFoundErrorPredicate
+			if shouldIgnoreError != nil && shouldIgnoreError(err) {
+				log.Printf("[DEBUG] get() returned error but we are ignoring it: %v", err)
+				return nil, nil
+			}
+			// pass any other error on
+			return nil, err
+		}
+		return item, nil
+	}
 }
 
 func (r *RowData) set(key string, item interface{}) error {
