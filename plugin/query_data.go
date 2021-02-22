@@ -219,6 +219,11 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 		for {
 			// wait for either an rowData or an error
 			select {
+			case err := <-d.errorChan:
+				log.Printf("[ERROR] err chan select: %v\n", err)
+				// put it back in the channel and return
+				d.errorChan <- err
+				return
 			case rowData := <-d.rowDataChan:
 				// is channel closed?
 				if rowData == nil {
@@ -232,11 +237,6 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 				logging.LogTime("got rowData - calling getRow")
 				rowWg.Add(1)
 				go d.buildRow(ctx, rowData, rowChan, &rowWg)
-			case err := <-d.errorChan:
-				log.Printf("[ERROR] err chan select: %v\n", err)
-				// put it back in the channel and return
-				d.errorChan <- err
-				return
 			}
 		}
 	}()
