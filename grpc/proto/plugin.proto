@@ -151,7 +151,7 @@ enum ColumnType {
   DOUBLE = 2;
   STRING = 3;
   JSON = 4;
-  // deprecated
+  // Deprecated: ColumnType_DATETIME is deprecated. Instead, use ColumnType_TIMESTAMP
   DATETIME = 5;
   IPADDR = 6;
   CIDR = 7;

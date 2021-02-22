@@ -86,7 +86,7 @@ const (
 	ColumnType_DOUBLE ColumnType = 2
 	ColumnType_STRING ColumnType = 3
 	ColumnType_JSON   ColumnType = 4
-	// deprecated
+	// Deprecated: ColumnType_DATETIME is deprecated. Instead, use ColumnType_TIMESTAMP
 	ColumnType_DATETIME  ColumnType = 5
 	ColumnType_IPADDR    ColumnType = 6
 	ColumnType_CIDR      ColumnType = 7
