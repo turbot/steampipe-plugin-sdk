@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"github.com/sethvargo/go-retry"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

@@ -21,7 +21,7 @@ type Plugin struct {
 	DefaultTransform   *transform.ColumnTransforms
 	DefaultGetConfig   *GetConfig
 	DefaultConcurrency *DefaultConcurrencyConfig
-	DefaultRetryConfig       *RetryConfig
+	DefaultRetryConfig *RetryConfig
 	// every table must implement these columns
 	RequiredColumns        []*Column
 	ConnectionConfigSchema *ConnectionConfigSchema
