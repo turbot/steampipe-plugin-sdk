@@ -104,12 +104,12 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 
 	// select both wait chan and error chan
 	select {
+	case err := <-r.errorChan:
+		log.Println("[WARN] hydrate err chan select", "error", err)
+		return nil, err
 	case <-r.waitChan:
 		logging.LogTime("send a row")
 		return row, nil
-	case err := <-r.errorChan:
-		log.Println("[DEBUG] hydrate err chan select", "error", err)
-		return nil, err
 	}
 }
 
