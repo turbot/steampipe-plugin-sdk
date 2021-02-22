@@ -134,7 +134,7 @@ func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 	return row, nil
 }
 
-// invoke a hydrate function, with syncronisation and error handling
+// invoke a hydrate function, and set results on the rowData object. Stream errors on the rowData error channel
 func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) {
 	// handle panics in the row hydrate function
 	defer func() {
@@ -147,7 +147,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	logging.LogTime(hydrateKey + " start")
 
 	// now call the hydrate function, passing the item and hydrate results so far
-	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, hydrateKey, retryConfig, shouldIgnoreError)
+	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, retryConfig, shouldIgnoreError)
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
 		r.errorChan <- err
@@ -161,35 +161,8 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	logging.LogTime(hydrateKey + " end")
 }
 
-// invoke a hydrate function, with syncronisation and error handling
-func (r *RowData) callGetHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string) (interface{}, error) {
-	// handle panics in the row hydrate function
-	defer func() {
-		if p := recover(); p != nil {
-			r.errorChan <- status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
-		}
-		r.wg.Done()
-	}()
-
-	logging.LogTime(hydrateKey + " start")
-
-	// now call the hydrate function, passing the item and hydrate results so far
-	log.Printf("[TRACE] call hydrate %s\n", hydrateKey)
-	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults})
-	if err != nil {
-		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
-		r.errorChan <- err
-	} else if hydrateData != nil {
-		log.Printf("[TRACE] set hydrate data for %s\n", hydrateKey)
-		r.set(hydrateKey, hydrateData)
-	}
-
-	logging.LogTime(hydrateKey + " end")
-	// NOTE: also return the error - is this is being called by as 'get' call we can act on the error immediately
-	return hydrateData, err
-}
-
-func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateFuncName string, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) (interface{}, error) {
+// invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
+func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) (interface{}, error) {
 	hydrateData := &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults}
 	wrapFunc := r.WrapHydrate(hydrateFunc, shouldIgnoreError)
 	hydrateResult, err := wrapFunc(ctx, d, hydrateData)

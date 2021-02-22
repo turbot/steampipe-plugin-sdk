@@ -112,6 +112,11 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 	if config.RetryConfig == nil {
 		config.RetryConfig = t.Plugin.DefaultRetryConfig
 	}
+	// get any dependencies for this hydrate function. if no hydrate dependencies are specified in the hydrate config, check the deprecated "HydrateDependencies" property
+	if config.Depends == nil {
+		config.Depends = t.getHydrateDependencies(hydrateFuncName)
+	}
+
 	return config
 }
 

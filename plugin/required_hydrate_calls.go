@@ -34,11 +34,6 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
 		// get the config for this hydrate function
 		config := c.table.getHydrateConfig(hydrateName)
 
-		// get any dependencies for this hydrate function. if no hydrate dependencies are specified in the hydrate config, check the deprecated "HydrateDependencies" property
-		if config.Depends == nil {
-			config.Depends = c.table.getHydrateDependencies(hydrateName)
-		}
-
 		c.requiredHydrateCalls[hydrateName] = newHydrateCall(hydrateFunc, config)
 
 		// now add dependencies (we have already checked for circular dependencies so recursion is fine

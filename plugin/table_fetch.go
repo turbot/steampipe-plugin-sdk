@@ -105,8 +105,10 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	var getItem interface{}
 
 	if len(queryData.Matrix) == 0 {
-		// just invoke SafeGet()
-		getItem, err = t.SafeGet()(ctx, queryData, &HydrateData{})
+		// just invoke callHydrateWithRetries()
+		// TODO resolve retry config to include default
+		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.RetryConfig, t.Get.ShouldIgnoreError)
+
 	} else {
 		// the table has a matrix  - we will invoke get for each matrix  item
 		getItem, err = t.getForEach(ctx, queryData, rd)
@@ -132,7 +134,6 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 // getForEach :: execute the provided get call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
-	getCall := t.SafeGet()
 
 	log.Printf("[DEBUG] getForEach, matrixItem list: %v\n", queryData.Matrix)
 
@@ -166,7 +167,8 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			// create a context with the matrix item
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 
-			item, err := getCall(fetchContext, queryData, &HydrateData{})
+			// TODO resolve retry config to include default
+			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, t.Get.RetryConfig, t.Get.ShouldIgnoreError)
 			if err != nil {
 				errorChan <- err
 			} else if item != nil {
