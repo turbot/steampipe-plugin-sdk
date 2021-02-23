@@ -44,7 +44,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	logger := t.Plugin.Logger
 	// verify we have the necessary quals
-	if queryData.KeyColumnQuals == nil {
+	if len(queryData.KeyColumnQuals) == 0 {
 		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.ToString()))
 	}
 
@@ -240,7 +240,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}()
 
 	// verify we have the necessary quals
-	if t.List.KeyColumns != nil && queryData.KeyColumnQuals == nil {
+	if t.List.KeyColumns != nil && len(queryData.KeyColumnQuals) == 0 {
 		queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("'List' call requires an '=' qual for %s", t.List.KeyColumns.ToString())))
 	}
 
