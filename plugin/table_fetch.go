@@ -105,8 +105,15 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	var getItem interface{}
 
 	if len(queryData.Matrix) == 0 {
+		retryConfig := t.Get.RetryConfig
+		if retryConfig == nil {
+			retryConfig = t.Plugin.DefaultGetConfig.RetryConfig
+		}
+		shouldIgnoreError := t.Get.ShouldIgnoreError
+		if shouldIgnoreError == nil {
+			shouldIgnoreError = t.Plugin.DefaultGetConfig.ShouldIgnoreError
+		}
 		// just invoke callHydrateWithRetries()
-		// TODO resolve retry config to include default
 		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.RetryConfig, t.Get.ShouldIgnoreError)
 
 	} else {
@@ -166,9 +173,16 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			}()
 			// create a context with the matrix item
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
+			retryConfig := t.Get.RetryConfig
+			if retryConfig == nil {
+				retryConfig = t.Plugin.DefaultGetConfig.RetryConfig
+			}
+			shouldIgnoreError := t.Get.ShouldIgnoreError
+			if shouldIgnoreError == nil {
+				shouldIgnoreError = t.Plugin.DefaultGetConfig.ShouldIgnoreError
+			}
 
-			// TODO resolve retry config to include default
-			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, t.Get.RetryConfig, t.Get.ShouldIgnoreError)
+			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 			if err != nil {
 				errorChan <- err
 			} else if item != nil {
