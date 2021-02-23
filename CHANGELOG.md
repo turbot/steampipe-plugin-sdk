@@ -1,3 +1,10 @@
+## v0.2.2 [2021-02-24]
+_What's new?_
+* Set the ulimit for plugin processes, respecting env var STEAMPIPE_ULIMIT.  [#43](https://github.com/turbot/steampipe-plugin-sdk/issues/43))
+
+_Bug fixes_
+* Fix error message not displaying when a query does not provide required get or listquals. ([#42](https://github.com/turbot/steampipe-plugin-sdk/issues/42))
+
 ## v0.2.1 [2021-02-18]
 _Bug fixes_
 * Remove "rc" from version number in the release branch. ([#38](https://github.com/turbot/steampipe-plugin-sdk/issues/38))
