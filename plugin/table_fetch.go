@@ -114,7 +114,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 			shouldIgnoreError = t.Plugin.DefaultGetConfig.ShouldIgnoreError
 		}
 		// just invoke callHydrateWithRetries()
-		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.RetryConfig, t.Get.ShouldIgnoreError)
+		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 
 	} else {
 		// the table has a matrix  - we will invoke get for each matrix  item
@@ -181,7 +181,6 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			if shouldIgnoreError == nil {
 				shouldIgnoreError = t.Plugin.DefaultGetConfig.ShouldIgnoreError
 			}
-
 			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 			if err != nil {
 				errorChan <- err
