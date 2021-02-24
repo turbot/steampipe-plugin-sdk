@@ -166,7 +166,7 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		return nil
 	}
 	if p.ConnectionConfigSchema == nil {
-		return fmt.Errorf("plugin %s does not define a connection config schema", p.Name)
+		return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
 	}
 
 	// ask plugin for a struct to deserialise the config into
