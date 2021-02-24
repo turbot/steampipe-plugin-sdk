@@ -87,12 +87,15 @@ func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 	}
 	for _, diag := range diags {
 		if diag.Severity == hcl.DiagError {
-			errString := fmt.Sprintf("%s: ", diag.Summary)
+			errString := fmt.Sprintf("%s", diag.Summary)
 			if diag.Detail != "" {
 				errString += fmt.Sprintf(": %s", diag.Detail)
 			}
 			if prefix != "" {
 				errString = fmt.Sprintf("%s: %s", prefix, errString)
+			}
+			if diag.Context != nil {
+				errString += fmt.Sprintf(" (%s) ", diag.Context.String())
 			}
 			return errors.New(errString)
 		}
