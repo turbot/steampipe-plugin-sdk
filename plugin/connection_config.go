@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -86,27 +85,20 @@ func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 	if !diags.HasErrors() {
 		return nil
 	}
-	errorsStrings := []string{fmt.Sprintf("%s", prefix)}
 	for _, diag := range diags {
 		if diag.Severity == hcl.DiagError {
-			errorString := fmt.Sprintf("%s", diag.Summary)
+			errString := fmt.Sprintf("%s", diag.Summary)
 			if diag.Detail != "" {
-				errorString += fmt.Sprintf(": %s", diag.Detail)
+				errString += fmt.Sprintf(": %s", diag.Detail)
+			}
+			if prefix != "" {
+				errString = fmt.Sprintf("%s: %s", prefix, errString)
 			}
 			if diag.Context != nil {
-				errorString += fmt.Sprintf(" (%s) ", diag.Context.String())
+				errString += fmt.Sprintf(" (%s) ", diag.Context.String())
 			}
-			if !helpers.StringSliceContains(errorsStrings, errorString) {
-				errorsStrings = append(errorsStrings, errorString)
-			}
+			return errors.New(errString)
 		}
-	}
-	if len(errorsStrings) > 0 {
-		errorString := strings.Join(errorsStrings, "\n")
-		if len(errorsStrings) > 1 {
-			errorString += "\n"
-		}
-		return errors.New(errorString)
 	}
 	return diags.Errs()[0]
 }
