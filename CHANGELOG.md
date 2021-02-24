@@ -1,6 +1,8 @@
 ## v0.2.2 [2021-02-24]
 _What's new?_
 * Set the ulimit for plugin processes, respecting env var STEAMPIPE_ULIMIT.  [#43](https://github.com/turbot/steampipe-plugin-sdk/issues/43))
+* When displaying hcl errors, show the context if available.  [#48](https://github.com/turbot/steampipe-plugin-sdk/issues/48))
+* Only show concurrency summary if there is any summary data to show. [#47](https://github.com/turbot/steampipe-plugin-sdk/issues/47))
 
 _Bug fixes_
 * Fix error message not displaying when a query does not provide required get or listquals. ([#42](https://github.com/turbot/steampipe-plugin-sdk/issues/42))
