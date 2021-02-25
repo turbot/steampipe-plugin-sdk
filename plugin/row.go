@@ -164,36 +164,42 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
 func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) (interface{}, error) {
 	hydrateData := &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults}
-	wrapFunc := r.WrapHydrate(hydrateFunc, shouldIgnoreError)
-	hydrateResult, err := wrapFunc(ctx, d, hydrateData)
+	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
+	hydrateWithIgnoreError := r.WrapHydrate(hydrateFunc, shouldIgnoreError)
+	hydrateResult, err := hydrateWithIgnoreError(ctx, d, hydrateData)
 	if err != nil {
 		if retryConfig == nil {
 			return nil, err
 		}
+		// TODO if any data has been streamed return an error
+		// TODO think about parent child list
 		if shouldRetryErrorFunc := retryConfig.ShouldRetryError; shouldRetryErrorFunc != nil && shouldRetryErrorFunc(err) {
-			backoff, err := retry.NewFibonacci(100 * time.Millisecond)
-			if err != nil {
-				return nil, err
-			}
-			err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
-				hydrateResult, err = wrapFunc(ctx, d, hydrateData)
-				if err != nil {
-					if shouldRetryErrorFunc(err) {
-						return retry.RetryableError(err)
-					}
-					return err
-				}
-				return nil
-			})
+			hydrateResult, err = r.retryHydrate(ctx, d, hydrateFunc, retryConfig)
 		}
 	}
-	if hydrateResult == nil {
-		return nil, err
-	}
-	return hydrateResult, nil
+	return hydrateResult, err
 }
 
-// WrapHydrate :: higher order function which returns a HydrateFunc which handles NotFound errors
+func (r *RowData) retryHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (interface{}, error) {
+	backoff, err := retry.NewFibonacci(100 * time.Millisecond)
+	if err != nil {
+		return nil, err
+	}
+	var hydrateResult interface{}
+	shouldRetryErrorFunc := retryConfig.ShouldRetryError
+	hydrateData := &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults}
+
+	err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
+		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
+		if err != nil && shouldRetryErrorFunc(err) {
+			err = retry.RetryableError(err)
+		}
+		return err
+	})
+	return hydrateResult, err
+}
+
+// WrapHydrate :: higher order function which returns a HydrateFunc which handles Ignorable errors
 func (r *RowData) WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPredicate) HydrateFunc {
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		defer func() {
