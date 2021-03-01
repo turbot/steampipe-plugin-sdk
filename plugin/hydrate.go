@@ -26,7 +26,6 @@ type HydrateDependencies struct {
 type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
-	// ConcurrencyMapKey ConcurrencyMapKeyFunc
 	RetryConfig       *RetryConfig
 	ShouldIgnoreError ErrorPredicate
 	Depends           []HydrateFunc
@@ -80,7 +79,7 @@ func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager 
 
 // Start :: start a hydrate call
 func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string, concurrencyManager *ConcurrencyManager) {
-	// tell the roewdata to wait for this call to complete
+	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 
 	// call callHydrate async, ignoring return values
