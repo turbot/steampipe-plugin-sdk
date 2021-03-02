@@ -1,3 +1,7 @@
+## v0.2.3 [2021-03-02]
+_Bug fixes_
+* Fix failure of Get calls which use `ItemFromKey` to provide a hydrate item. [#53](https://github.com/turbot/steampipe-plugin-sdk/issues/53))
+
 ## v0.2.2 [2021-02-24]
 _What's new?_
 * Set the ulimit for plugin processes, respecting env var STEAMPIPE_ULIMIT.  [#43](https://github.com/turbot/steampipe-plugin-sdk/issues/43))
