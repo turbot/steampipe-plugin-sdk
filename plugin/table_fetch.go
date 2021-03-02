@@ -72,7 +72,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 			for _, qv := range qualValueList.Values {
 				// mutate KeyColumnQuals
 				queryData.KeyColumnQuals[keyColumn] = qv
-				// call doGet passing nil hydrate item
+				// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 				if err := t.doGet(ctx, queryData, nil); err != nil {
 					return err
 				}
@@ -106,7 +106,8 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 
 	if len(queryData.Matrix) == 0 {
 		// just invoke SafeGet()
-		getItem, err = t.SafeGet()(ctx, queryData, &HydrateData{})
+		// set HydrateData.Item for legacy Get calls (it will be null for non legacy calls)
+		getItem, err = t.SafeGet()(ctx, queryData, &HydrateData{Item: hydrateItem})
 	} else {
 		// the table has a matrix  - we will invoke get for each matrix  item
 		getItem, err = t.getForEach(ctx, queryData, rd)
