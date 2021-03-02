@@ -167,7 +167,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			// create a context with the matrix item
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 
-			item, err := getCall(fetchContext, queryData, &HydrateData{})
+			item, err := getCall(fetchContext, queryData, &HydrateData{Item: rd.Item})
 			if err != nil {
 				errorChan <- err
 			} else if item != nil {
@@ -361,9 +361,10 @@ func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) 
 		queryData.streamError(err)
 		return
 	}
-
+	t.Plugin.Logger.Debug("executeLegacyGetCall", "hydrateInput", hydrateInput)
 	// there may be more than one hydrate item - loop over them
 	for _, hydrateItem := range hydrateInput {
+		t.Plugin.Logger.Debug("hydrateItem", "hydrateItem", hydrateItem)
 		if err := t.doGet(ctx, queryData, hydrateItem); err != nil {
 			queryData.streamError(err)
 			break
