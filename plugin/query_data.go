@@ -40,6 +40,7 @@ type QueryData struct {
 	concurrencyManager *ConcurrencyManager
 	rowDataChan        chan *RowData
 	errorChan          chan error
+	streamCount        int
 	stream             proto.WrapperPlugin_ExecuteServer
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
@@ -135,6 +136,8 @@ func ensureColumns(queryContext *proto.QueryContext, table *Table) {
 func (d *QueryData) StreamListItem(ctx context.Context, item interface{}) {
 	// if the calling function was the ParentHydrate function from the list config,
 	// stream the results to the child list hydrate function and return
+	d.streamCount++
+
 	parentListHydrate := d.Table.List.ParentHydrate
 	if parentListHydrate == nil {
 		d.StreamLeafListItem(ctx, item)
@@ -150,7 +153,9 @@ func (d *QueryData) StreamListItem(ctx context.Context, item interface{}) {
 
 	go func() {
 		defer d.listWg.Done()
-		d.Table.List.Hydrate(ctx, d, &HydrateData{Item: item})
+		if _, err := d.Table.List.Hydrate(ctx, d, &HydrateData{Item: item}); err != nil {
+			d.streamError(err)
+		}
 	}()
 }
 

@@ -168,16 +168,25 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 	hydrateWithIgnoreError := r.WrapHydrate(hydrateFunc, shouldIgnoreError)
 	hydrateResult, err := hydrateWithIgnoreError(ctx, d, hydrateData)
 	if err != nil {
-		if retryConfig == nil {
-			return nil, err
-		}
-		// TODO if any data has been streamed return an error
-		// TODO think about parent child list
-		if shouldRetryErrorFunc := retryConfig.ShouldRetryError; shouldRetryErrorFunc != nil && shouldRetryErrorFunc(err) {
+		if shouldRetryError(err, d, retryConfig) {
 			hydrateResult, err = r.retryHydrate(ctx, d, hydrateFunc, retryConfig)
 		}
 	}
 	return hydrateResult, err
+}
+
+func shouldRetryError(err error, d *QueryData, retryConfig *RetryConfig) bool {
+	if retryConfig == nil {
+		return false
+	}
+	if d.streamCount != 0 {
+		return false
+	}
+	shouldRetryErrorFunc := retryConfig.ShouldRetryError
+	if shouldRetryErrorFunc == nil {
+		return false
+	}
+	return shouldRetryErrorFunc(err)
 }
 
 func (r *RowData) retryHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (interface{}, error) {

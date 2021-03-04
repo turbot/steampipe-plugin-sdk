@@ -265,14 +265,14 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 	if len(queryData.Matrix) == 0 {
 		log.Printf("[DEBUG] No matrix item")
-		if _, err := rd.callHydrateWithRetries(ctx, queryData, t.List.Hydrate, retryConfig, shouldIgnoreError); err != nil {
+		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, retryConfig, shouldIgnoreError); err != nil {
 			queryData.streamError(err)
 		}
 	} else if len(queryData.Matrix) == 1 {
 		log.Printf("[DEBUG] running list for single matrixItem: %v", queryData.Matrix[0])
 		// create a context with the matrixItem
 		fetchContext := context.WithValue(ctx, context_key.MatrixItem, queryData.Matrix[0])
-		if _, err := rd.callHydrateWithRetries(fetchContext, queryData, t.List.Hydrate, retryConfig, shouldIgnoreError); err != nil {
+		if _, err := rd.callHydrateWithRetries(fetchContext, queryData, listCall, retryConfig, shouldIgnoreError); err != nil {
 			queryData.streamError(err)
 		}
 	} else {
