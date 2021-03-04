@@ -44,7 +44,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	logger := t.Plugin.Logger
 	// verify we have the necessary quals
-	if queryData.KeyColumnQuals == nil {
+	if len(queryData.KeyColumnQuals) == 0 {
 		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.ToString()))
 	}
 
@@ -72,7 +72,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 			for _, qv := range qualValueList.Values {
 				// mutate KeyColumnQuals
 				queryData.KeyColumnQuals[keyColumn] = qv
-				// call doGet passing nil hydrate item
+				// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 				if err := t.doGet(ctx, queryData, nil); err != nil {
 					return err
 				}
@@ -106,7 +106,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 
 	if len(queryData.Matrix) == 0 {
 		retryConfig, shouldIgnoreError := t.fetchGetConfig()
-
+    
 		// just invoke callHydrateWithRetries()
 		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 
@@ -170,6 +170,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			retryConfig, shouldIgnoreError := t.fetchGetConfig()
 
 			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
+
 			if err != nil {
 				errorChan <- err
 			} else if item != nil {
@@ -243,7 +244,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}()
 
 	// verify we have the necessary quals
-	if t.List.KeyColumns != nil && queryData.KeyColumnQuals == nil {
+	if t.List.KeyColumns != nil && len(queryData.KeyColumnQuals) == 0 {
 		queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("'List' call requires an '=' qual for %s", t.List.KeyColumns.ToString())))
 	}
 
@@ -368,9 +369,10 @@ func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) 
 		queryData.streamError(err)
 		return
 	}
-
+	t.Plugin.Logger.Debug("executeLegacyGetCall", "hydrateInput", hydrateInput)
 	// there may be more than one hydrate item - loop over them
 	for _, hydrateItem := range hydrateInput {
+		t.Plugin.Logger.Debug("hydrateItem", "hydrateItem", hydrateItem)
 		if err := t.doGet(ctx, queryData, hydrateItem); err != nil {
 			queryData.streamError(err)
 			break

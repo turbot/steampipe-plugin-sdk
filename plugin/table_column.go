@@ -160,7 +160,7 @@ func (t *Table) interfaceToColumnValue(column *Column, val interface{}) (*proto.
 		break
 	case proto.ColumnType_IPADDR:
 		ipString := types.SafeString(val)
-		// tread an empty string as a null ip address
+		// treat an empty string as a null ip address
 		if ipString == "" {
 			columnValue = &proto.Column{Value: &proto.Column_NullValue{}}
 		} else {
@@ -172,14 +172,28 @@ func (t *Table) interfaceToColumnValue(column *Column, val interface{}) (*proto.
 		break
 	case proto.ColumnType_CIDR:
 		cidrRangeString := types.SafeString(val)
-		// tread an empty string as a null ip address
+		// treat an empty string as a null ip address
 		if cidrRangeString == "" {
 			columnValue = &proto.Column{Value: &proto.Column_NullValue{}}
 		} else {
 			if _, _, err := net.ParseCIDR(cidrRangeString); err != nil {
-				return nil, fmt.Errorf("interfaceToColumnValue failed for column '%s': %v", column.Name, err)
+				return nil, fmt.Errorf("%s: invalid ip address %s", column.Name, cidrRangeString)
 			}
 			columnValue = &proto.Column{Value: &proto.Column_CidrRangeValue{CidrRangeValue: cidrRangeString}}
+		}
+		break
+	case proto.ColumnType_INET:
+		inetString := types.SafeString(val)
+		// treat an empty string as a null ip address
+		if inetString == "" {
+			columnValue = &proto.Column{Value: &proto.Column_NullValue{}}
+		} else {
+			if ip := net.ParseIP(inetString); ip == nil {
+				if _, _, err := net.ParseCIDR(inetString); err != nil {
+					return nil, fmt.Errorf("%s: invalid ip address %s", column.Name, inetString)
+				}
+			}
+			columnValue = &proto.Column{Value: &proto.Column_CidrRangeValue{CidrRangeValue: inetString}}
 		}
 		break
 	default:

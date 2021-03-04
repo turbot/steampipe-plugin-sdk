@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
+	"syscall"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
@@ -42,6 +45,30 @@ func (p *Plugin) Initialise() {
 	log.SetOutput(p.Logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
+
+	// set file limit
+	p.setuLimit()
+}
+
+const uLimitEnvVar = "STEAMPIPE_ULIMIT"
+const uLimitDefault = 2560
+
+func (p *Plugin) setuLimit() {
+	var ulimit uint64 = uLimitDefault
+	if ulimitString, ok := os.LookupEnv(uLimitEnvVar); ok {
+		if ulimitEnv, err := strconv.ParseUint(ulimitString, 10, 64); err == nil {
+			ulimit = ulimitEnv
+		}
+	}
+
+	var rLimit syscall.Rlimit
+	rLimit.Max = ulimit
+	rLimit.Cur = ulimit
+	p.Logger.Info("Setting Ulimit", "ulimit", ulimit)
+	err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	if err != nil {
+		p.Logger.Error("Error Setting Ulimit", "error", err)
+	}
 }
 
 func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
@@ -140,7 +167,7 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		return nil
 	}
 	if p.ConnectionConfigSchema == nil {
-		return fmt.Errorf("plugin %s does not define a connection config schema", p.Name)
+		return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
 	}
 
 	// ask plugin for a struct to deserialise the config into
