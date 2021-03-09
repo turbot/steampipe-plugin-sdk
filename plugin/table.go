@@ -25,9 +25,8 @@ type Table struct {
 	// the parent plugin object
 	Plugin *Plugin
 	// definitions of dependencies between hydrate functions
-	HydrateDependencies      []HydrateDependencies
-	HydrateConfig            []HydrateConfig
-	DefaultConcurrencyConfig *DefaultConcurrencyConfig
+	HydrateDependencies []HydrateDependencies
+	HydrateConfig       []HydrateConfig
 }
 
 type GetConfig struct {
@@ -47,7 +46,7 @@ type ListConfig struct {
 	// the list function, this should stream the list results back using the QueryData object, and return nil
 	Hydrate HydrateFunc
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
-	ParentHydrate HydrateFunc
+	ParentHydrate     HydrateFunc
 	ShouldIgnoreError ErrorPredicate
 	RetryConfig       *RetryConfig
 }
@@ -112,7 +111,7 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 	if config.RetryConfig == nil {
 		config.RetryConfig = t.Plugin.DefaultRetryConfig
 	}
-	// get any dependencies for this hydrate function. if no hydrate dependencies are specified in the hydrate config, check the deprecated "HydrateDependencies" property
+	// if no hydrate dependencies are specified in the hydrate config, check the deprecated "HydrateDependencies" property
 	if config.Depends == nil {
 		config.Depends = t.getHydrateDependencies(hydrateFuncName)
 	}

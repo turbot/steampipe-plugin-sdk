@@ -179,6 +179,7 @@ func shouldRetryError(err error, d *QueryData, retryConfig *RetryConfig) bool {
 	if retryConfig == nil {
 		return false
 	}
+	// if we have started streaming, we cannot retry
 	if d.streamCount != 0 {
 		return false
 	}
@@ -186,6 +187,7 @@ func shouldRetryError(err error, d *QueryData, retryConfig *RetryConfig) bool {
 	if shouldRetryErrorFunc == nil {
 		return false
 	}
+	 // a shouldRetryErrorFunc is declared in the retry config - call it to see if we should retry
 	return shouldRetryErrorFunc(err)
 }
 
@@ -213,15 +215,14 @@ func (r *RowData) WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPr
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[WARN] SafeGet caught a panic: %v\n", r)
-				err = status.Error(codes.Internal, fmt.Sprintf("get hydrate function %s failed with panic %v", helpers.GetFunctionName(hydrateFunc), r))
+				log.Printf("[WARN] recovered a panic from a wrapped hydrate function: %v\n", r)
+				err = status.Error(codes.Internal, fmt.Sprintf("hydrate function %s failed with panic %v", helpers.GetFunctionName(hydrateFunc), r))
 			}
 		}()
 		// call the underlying get function
 		item, err = hydrateFunc(ctx, d, h)
 		if err != nil {
-			log.Printf("[DEBUG] SafeGet get call returned error %v\n", err)
-			// suppress not found errors
+			log.Printf("[DEBUG] wrapped hydrate call returned error %v\n", err)
 			// see if either the table or the plugin define a NotFoundErrorPredicate
 			if shouldIgnoreError != nil && shouldIgnoreError(err) {
 				log.Printf("[DEBUG] get() returned error but we are ignoring it: %v", err)

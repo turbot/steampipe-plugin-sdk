@@ -105,7 +105,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	var getItem interface{}
 
 	if len(queryData.Matrix) == 0 {
-		retryConfig, shouldIgnoreError := t.fetchGetConfig()
+		retryConfig, shouldIgnoreError := t.buildGetConfig()
 
 		// just invoke callHydrateWithRetries()
 		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
@@ -167,7 +167,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			}()
 			// create a context with the matrix item
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
-			retryConfig, shouldIgnoreError := t.fetchGetConfig()
+			retryConfig, shouldIgnoreError := t.buildGetConfig()
 
 			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 			if err != nil {
@@ -261,7 +261,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}
 	rd := newRowData(queryData, nil)
 
-	retryConfig, shouldIgnoreError := t.fetchListConfig()
+	retryConfig, shouldIgnoreError := t.buildListConfig()
 
 	if len(queryData.Matrix) == 0 {
 		log.Printf("[DEBUG] No matrix item")
@@ -315,7 +315,7 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			}()
 			rd := newRowData(queryData, nil)
 
-			retryConfig, shouldIgnoreError := t.fetchListConfig()
+			retryConfig, shouldIgnoreError := t.buildListConfig()
 			_, err := rd.callHydrateWithRetries(fetchContext, queryData, t.List.Hydrate, retryConfig, shouldIgnoreError)
 			if err != nil {
 				queryData.streamError(err)
@@ -425,7 +425,7 @@ func (t *Table) legacyBuildHydrateInputForMultiQualValueGetCall(ctx context.Cont
 	return hydrateInput, nil
 }
 
-func (t *Table) fetchGetConfig() (*RetryConfig, ErrorPredicate) {
+func (t *Table) buildGetConfig() (*RetryConfig, ErrorPredicate) {
 	retryConfig := t.Get.RetryConfig
 	if retryConfig == nil && t.Plugin.DefaultGetConfig != nil {
 		retryConfig = t.Plugin.DefaultGetConfig.RetryConfig
@@ -437,7 +437,7 @@ func (t *Table) fetchGetConfig() (*RetryConfig, ErrorPredicate) {
 	return retryConfig, shouldIgnoreError
 }
 
-func (t *Table) fetchListConfig() (*RetryConfig, ErrorPredicate) {
+func (t *Table) buildListConfig() (*RetryConfig, ErrorPredicate) {
 	retryConfig := t.List.RetryConfig
 	if retryConfig == nil {
 		retryConfig = t.Plugin.DefaultRetryConfig
