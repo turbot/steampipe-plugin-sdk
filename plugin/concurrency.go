@@ -104,15 +104,18 @@ func (c *ConcurrencyManager) Close() {
 }
 
 func (c *ConcurrencyManager) DisplayConcurrencyStats() {
+	if len(c.maxCallMap) == 0 {
+		return
+	}
 	// TODO once logging is tidied, move to TRACE level
-	log.Printf("[INFO]   ------------------------------------")
+	log.Printf("[INFO] ------------------------------------")
 	log.Printf("[INFO] Concurrency Summary")
-	log.Printf("[INFO]   ------------------------------------")
+	log.Printf("[INFO] ------------------------------------")
 	for call, concurrency := range c.maxCallMap {
 		log.Printf("[INFO] %-30s: %d", call, concurrency)
 	}
-	log.Printf("[INFO]   ------------------------------------")
+	log.Printf("[INFO] ------------------------------------")
 	log.Printf("[INFO] %-30s: %d", "Total", c.maxCallsInProgress)
 
-	log.Printf("[INFO]   ------------------------------------")
+	log.Printf("[INFO] ------------------------------------")
 }
