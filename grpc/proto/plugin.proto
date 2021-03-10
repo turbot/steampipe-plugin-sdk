@@ -95,6 +95,16 @@ message TableSchema
 {
   repeated ColumnDefinition columns = 1;
   string description = 2;
+  KeyColumnsSet getCallKeyColumns = 3;
+  KeyColumnsSet listCallKeyColumns = 4;
+}
+
+// a set of Key Columns, all of which are reuired
+message KeyColumnsSet
+{
+   string single = 1;
+   repeated string all = 2;
+   repeated string any = 3;
 }
 
 message Schema {
