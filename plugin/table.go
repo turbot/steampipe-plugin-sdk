@@ -38,6 +38,7 @@ type GetConfig struct {
 	Hydrate HydrateFunc
 	// a function which will return whenther to ignore a given error
 	ShouldIgnoreError ErrorPredicate
+	RetryConfig       *RetryConfig
 }
 
 type ListConfig struct {
@@ -45,7 +46,9 @@ type ListConfig struct {
 	// the list function, this should stream the list results back using the QueryData object, and return nil
 	Hydrate HydrateFunc
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
-	ParentHydrate HydrateFunc
+	ParentHydrate     HydrateFunc
+	ShouldIgnoreError ErrorPredicate
+	RetryConfig       *RetryConfig
 }
 
 // build a list of required hydrate function calls which must be executed, based on the columns which have been requested
@@ -98,14 +101,22 @@ func (t *Table) getHydrateDependencies(hydrateFuncName string) []HydrateFunc {
 }
 
 func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
+	config := &HydrateConfig{}
 	// if a hydrate config is defined see whether this call exists in it
 	for _, d := range t.HydrateConfig {
 		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
-			return &d
+			config = &d
 		}
 	}
-	// fallback to return an empty hydrate config
-	return &HydrateConfig{}
+	if config.RetryConfig == nil {
+		config.RetryConfig = t.Plugin.DefaultRetryConfig
+	}
+	// if no hydrate dependencies are specified in the hydrate config, check the deprecated "HydrateDependencies" property
+	if config.Depends == nil {
+		config.Depends = t.getHydrateDependencies(hydrateFuncName)
+	}
+
+	return config
 }
 
 // return the column matching the given nam

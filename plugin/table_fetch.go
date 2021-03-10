@@ -105,9 +105,11 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	var getItem interface{}
 
 	if len(queryData.Matrix) == 0 {
-		// just invoke SafeGet()
-		// set HydrateData.Item for legacy Get calls (it will be null for non legacy calls)
-		getItem, err = t.SafeGet()(ctx, queryData, &HydrateData{Item: hydrateItem})
+		retryConfig, shouldIgnoreError := t.buildGetConfig()
+
+		// just invoke callHydrateWithRetries()
+		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
+
 	} else {
 		// the table has a matrix  - we will invoke get for each matrix  item
 		getItem, err = t.getForEach(ctx, queryData, rd)
@@ -133,7 +135,6 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 // getForEach :: execute the provided get call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
-	getCall := t.SafeGet()
 
 	log.Printf("[DEBUG] getForEach, matrixItem list: %v\n", queryData.Matrix)
 
@@ -166,8 +167,10 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			}()
 			// create a context with the matrix item
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
+			retryConfig, shouldIgnoreError := t.buildGetConfig()
 
-			item, err := getCall(fetchContext, queryData, &HydrateData{Item: rd.Item})
+			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
+
 			if err != nil {
 				errorChan <- err
 			} else if item != nil {
@@ -257,17 +260,20 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	if t.List.ParentHydrate != nil {
 		listCall = t.List.ParentHydrate
 	}
+	rd := newRowData(queryData, nil)
+
+	retryConfig, shouldIgnoreError := t.buildListConfig()
 
 	if len(queryData.Matrix) == 0 {
 		log.Printf("[DEBUG] No matrix item")
-		if _, err := listCall(ctx, queryData, &HydrateData{}); err != nil {
+		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, retryConfig, shouldIgnoreError); err != nil {
 			queryData.streamError(err)
 		}
 	} else if len(queryData.Matrix) == 1 {
 		log.Printf("[DEBUG] running list for single matrixItem: %v", queryData.Matrix[0])
 		// create a context with the matrixItem
 		fetchContext := context.WithValue(ctx, context_key.MatrixItem, queryData.Matrix[0])
-		if _, err := listCall(fetchContext, queryData, &HydrateData{}); err != nil {
+		if _, err := rd.callHydrateWithRetries(fetchContext, queryData, listCall, retryConfig, shouldIgnoreError); err != nil {
 			queryData.streamError(err)
 		}
 	} else {
@@ -308,8 +314,10 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 				}
 				wg.Done()
 			}()
+			rd := newRowData(queryData, nil)
 
-			_, err := listCall(fetchContext, queryData, &HydrateData{})
+			retryConfig, shouldIgnoreError := t.buildListConfig()
+			_, err := rd.callHydrateWithRetries(fetchContext, queryData, t.List.Hydrate, retryConfig, shouldIgnoreError)
 			if err != nil {
 				queryData.streamError(err)
 			}
@@ -417,4 +425,25 @@ func (t *Table) legacyBuildHydrateInputForMultiQualValueGetCall(ctx context.Cont
 	queryData.KeyColumnQuals = keyColumnQuals
 
 	return hydrateInput, nil
+}
+
+func (t *Table) buildGetConfig() (*RetryConfig, ErrorPredicate) {
+	retryConfig := t.Get.RetryConfig
+	if retryConfig == nil && t.Plugin.DefaultGetConfig != nil {
+		retryConfig = t.Plugin.DefaultGetConfig.RetryConfig
+	}
+	shouldIgnoreError := t.Get.ShouldIgnoreError
+	if shouldIgnoreError == nil && t.Plugin.DefaultGetConfig != nil {
+		shouldIgnoreError = t.Plugin.DefaultGetConfig.ShouldIgnoreError
+	}
+	return retryConfig, shouldIgnoreError
+}
+
+func (t *Table) buildListConfig() (*RetryConfig, ErrorPredicate) {
+	retryConfig := t.List.RetryConfig
+	if retryConfig == nil {
+		retryConfig = t.Plugin.DefaultRetryConfig
+	}
+	shouldIgnoreError := t.List.ShouldIgnoreError
+	return retryConfig, shouldIgnoreError
 }

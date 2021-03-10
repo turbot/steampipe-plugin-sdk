@@ -26,7 +26,13 @@ type HydrateDependencies struct {
 type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
-	Depends        []HydrateFunc
+	RetryConfig       *RetryConfig
+	ShouldIgnoreError ErrorPredicate
+	Depends           []HydrateFunc
+}
+
+type RetryConfig struct {
+	ShouldRetryError ErrorPredicate
 }
 
 // DefaultConcurrencyConfig :: plugin level config to define default hydrate concurrency
@@ -73,12 +79,12 @@ func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager 
 
 // Start :: start a hydrate call
 func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string, concurrencyManager *ConcurrencyManager) {
-	// tell the roewdata to wait for this call to complete
+	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName)
+		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName, h.Config.RetryConfig, h.Config.ShouldIgnoreError)
 		// decrement number of hydrate functions running
 		concurrencyManager.Finished(hydrateFuncName)
 	}()
