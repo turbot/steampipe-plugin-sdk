@@ -195,55 +195,7 @@ func (Operator_Operation) EnumDescriptor() ([]byte, []int) {
 	return file_plugin_proto_rawDescGZIP(), []int{0, 0}
 }
 
-type QualAnyOrAll int32
-
-const (
-	Qual_NONE QualAnyOrAll = 0
-	Qual_ANY  QualAnyOrAll = 1
-	Qual_ALL  QualAnyOrAll = 2
-)
-
-// Enum value maps for QualAnyOrAll.
-var (
-	QualAnyOrAll_name = map[int32]string{
-		0: "NONE",
-		1: "ANY",
-		2: "ALL",
-	}
-	QualAnyOrAll_value = map[string]int32{
-		"NONE": 0,
-		"ANY":  1,
-		"ALL":  2,
-	}
-)
-
-func (x QualAnyOrAll) Enum() *QualAnyOrAll {
-	p := new(QualAnyOrAll)
-	*p = x
-	return p
-}
-
-func (x QualAnyOrAll) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (QualAnyOrAll) Descriptor() protoreflect.EnumDescriptor {
-	return file_plugin_proto_enumTypes[3].Descriptor()
-}
-
-func (QualAnyOrAll) Type() protoreflect.EnumType {
-	return &file_plugin_proto_enumTypes[3]
-}
-
-func (x QualAnyOrAll) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use QualAnyOrAll.Descriptor instead.
-func (QualAnyOrAll) EnumDescriptor() ([]byte, []int) {
-	return file_plugin_proto_rawDescGZIP(), []int{1, 0}
-}
-
+// Deprecated: Do not use.
 type Operator struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -365,6 +317,7 @@ func (x *Qual) GetStringValue() string {
 	return ""
 }
 
+// Deprecated: Do not use.
 func (x *Qual) GetTupleValue() *Operator {
 	if x, ok := x.GetOperator().(*Qual_TupleValue); ok {
 		return x.TupleValue
@@ -388,6 +341,7 @@ type Qual_StringValue struct {
 }
 
 type Qual_TupleValue struct {
+	// Deprecated: Do not use.
 	TupleValue *Operator `protobuf:"bytes,3,opt,name=tuple_value,json=tupleValue,proto3,oneof"`
 }
 
@@ -1119,8 +1073,10 @@ type TableSchema struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Columns     []*ColumnDefinition `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"`
-	Description string              `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Columns            []*ColumnDefinition `protobuf:"bytes,1,rep,name=columns,proto3" json:"columns,omitempty"`
+	Description        string              `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	GetCallKeyColumns  *KeyColumnsSet      `protobuf:"bytes,3,opt,name=getCallKeyColumns,proto3" json:"getCallKeyColumns,omitempty"`
+	ListCallKeyColumns *KeyColumnsSet      `protobuf:"bytes,4,opt,name=listCallKeyColumns,proto3" json:"listCallKeyColumns,omitempty"`
 }
 
 func (x *TableSchema) Reset() {
@@ -1169,6 +1125,84 @@ func (x *TableSchema) GetDescription() string {
 	return ""
 }
 
+func (x *TableSchema) GetGetCallKeyColumns() *KeyColumnsSet {
+	if x != nil {
+		return x.GetCallKeyColumns
+	}
+	return nil
+}
+
+func (x *TableSchema) GetListCallKeyColumns() *KeyColumnsSet {
+	if x != nil {
+		return x.ListCallKeyColumns
+	}
+	return nil
+}
+
+// a set of Key Columns, all of which are reuired
+type KeyColumnsSet struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Single string   `protobuf:"bytes,1,opt,name=single,proto3" json:"single,omitempty"`
+	All    []string `protobuf:"bytes,2,rep,name=all,proto3" json:"all,omitempty"`
+	Any    []string `protobuf:"bytes,3,rep,name=any,proto3" json:"any,omitempty"`
+}
+
+func (x *KeyColumnsSet) Reset() {
+	*x = KeyColumnsSet{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_plugin_proto_msgTypes[15]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *KeyColumnsSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyColumnsSet) ProtoMessage() {}
+
+func (x *KeyColumnsSet) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_proto_msgTypes[15]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyColumnsSet.ProtoReflect.Descriptor instead.
+func (*KeyColumnsSet) Descriptor() ([]byte, []int) {
+	return file_plugin_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *KeyColumnsSet) GetSingle() string {
+	if x != nil {
+		return x.Single
+	}
+	return ""
+}
+
+func (x *KeyColumnsSet) GetAll() []string {
+	if x != nil {
+		return x.All
+	}
+	return nil
+}
+
+func (x *KeyColumnsSet) GetAny() []string {
+	if x != nil {
+		return x.Any
+	}
+	return nil
+}
+
 type Schema struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1181,7 +1215,7 @@ type Schema struct {
 func (x *Schema) Reset() {
 	*x = Schema{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_plugin_proto_msgTypes[15]
+		mi := &file_plugin_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1194,7 +1228,7 @@ func (x *Schema) String() string {
 func (*Schema) ProtoMessage() {}
 
 func (x *Schema) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_proto_msgTypes[15]
+	mi := &file_plugin_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1207,7 +1241,7 @@ func (x *Schema) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schema.ProtoReflect.Descriptor instead.
 func (*Schema) Descriptor() ([]byte, []int) {
-	return file_plugin_proto_rawDescGZIP(), []int{15}
+	return file_plugin_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Schema) GetSchema() map[string]*TableSchema {
@@ -1245,7 +1279,7 @@ type Column struct {
 func (x *Column) Reset() {
 	*x = Column{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_plugin_proto_msgTypes[16]
+		mi := &file_plugin_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1258,7 +1292,7 @@ func (x *Column) String() string {
 func (*Column) ProtoMessage() {}
 
 func (x *Column) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_proto_msgTypes[16]
+	mi := &file_plugin_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1271,7 +1305,7 @@ func (x *Column) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Column.ProtoReflect.Descriptor instead.
 func (*Column) Descriptor() ([]byte, []int) {
-	return file_plugin_proto_rawDescGZIP(), []int{16}
+	return file_plugin_proto_rawDescGZIP(), []int{17}
 }
 
 func (m *Column) GetValue() isColumn_Value {
@@ -1424,7 +1458,7 @@ type ColumnDefinition struct {
 func (x *ColumnDefinition) Reset() {
 	*x = ColumnDefinition{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_plugin_proto_msgTypes[17]
+		mi := &file_plugin_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1437,7 +1471,7 @@ func (x *ColumnDefinition) String() string {
 func (*ColumnDefinition) ProtoMessage() {}
 
 func (x *ColumnDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_plugin_proto_msgTypes[17]
+	mi := &file_plugin_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1450,7 +1484,7 @@ func (x *ColumnDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ColumnDefinition.ProtoReflect.Descriptor instead.
 func (*ColumnDefinition) Descriptor() ([]byte, []int) {
-	return file_plugin_proto_rawDescGZIP(), []int{17}
+	return file_plugin_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ColumnDefinition) GetName() string {
@@ -1480,27 +1514,25 @@ var file_plugin_proto_rawDesc = []byte{
 	0x0a, 0x0c, 0x70, 0x6c, 0x75, 0x67, 0x69, 0x6e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x05,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1f, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70,
-	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x76, 0x0a, 0x08, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x7a, 0x0a, 0x08, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74,
 	0x6f, 0x72, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
 	0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x37, 0x0a, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74,
 	0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x19, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x2e, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x6f, 0x72, 0x2e, 0x4f, 0x70, 0x65, 0x72, 0x61,
 	0x74, 0x69, 0x6f, 0x6e, 0x52, 0x09, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x22,
 	0x1d, 0x0a, 0x09, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x07, 0x0a, 0x03,
-	0x41, 0x4e, 0x59, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x41, 0x4c, 0x4c, 0x10, 0x01, 0x22, 0xd9,
-	0x01, 0x0a, 0x04, 0x51, 0x75, 0x61, 0x6c, 0x12, 0x1c, 0x0a, 0x09, 0x66, 0x69, 0x65, 0x6c, 0x64,
-	0x4e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x66, 0x69, 0x65, 0x6c,
-	0x64, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x23, 0x0a, 0x0c, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x5f,
-	0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x0b, 0x73,
-	0x74, 0x72, 0x69, 0x6e, 0x67, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x32, 0x0a, 0x0b, 0x74, 0x75,
-	0x70, 0x6c, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x0f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x4f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x6f, 0x72,
-	0x48, 0x00, 0x52, 0x0a, 0x74, 0x75, 0x70, 0x6c, 0x65, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x26,
-	0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x51, 0x75, 0x61, 0x6c, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52,
-	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x26, 0x0a, 0x08, 0x61, 0x6e, 0x79, 0x4f, 0x72, 0x41,
-	0x6c, 0x6c, 0x12, 0x08, 0x0a, 0x04, 0x4e, 0x4f, 0x4e, 0x45, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03,
-	0x41, 0x4e, 0x59, 0x10, 0x01, 0x12, 0x07, 0x0a, 0x03, 0x41, 0x4c, 0x4c, 0x10, 0x02, 0x42, 0x0a,
+	0x41, 0x4e, 0x59, 0x10, 0x00, 0x12, 0x07, 0x0a, 0x03, 0x41, 0x4c, 0x4c, 0x10, 0x01, 0x3a, 0x02,
+	0x18, 0x01, 0x22, 0xb5, 0x01, 0x0a, 0x04, 0x51, 0x75, 0x61, 0x6c, 0x12, 0x1c, 0x0a, 0x09, 0x66,
+	0x69, 0x65, 0x6c, 0x64, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09,
+	0x66, 0x69, 0x65, 0x6c, 0x64, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x23, 0x0a, 0x0c, 0x73, 0x74, 0x72,
+	0x69, 0x6e, 0x67, 0x5f, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48,
+	0x00, 0x52, 0x0b, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x36,
+	0x0a, 0x0b, 0x74, 0x75, 0x70, 0x6c, 0x65, 0x5f, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x4f, 0x70, 0x65, 0x72,
+	0x61, 0x74, 0x6f, 0x72, 0x42, 0x02, 0x18, 0x01, 0x48, 0x00, 0x52, 0x0a, 0x74, 0x75, 0x70, 0x6c,
+	0x65, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x26, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18,
+	0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x51, 0x75,
+	0x61, 0x6c, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x42, 0x0a,
 	0x0a, 0x08, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x74, 0x6f, 0x72, 0x22, 0x39, 0x0a, 0x0d, 0x51, 0x75,
 	0x61, 0x6c, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x28, 0x0a, 0x06, 0x76,
 	0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x70, 0x72,
@@ -1673,28 +1705,28 @@ func file_plugin_proto_rawDescGZIP() []byte {
 	return file_plugin_proto_rawDescData
 }
 
-var file_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_plugin_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_plugin_proto_goTypes = []interface{}{
 	(NullValue)(0),                      // 0: proto.NullValue
 	(ColumnType)(0),                     // 1: proto.ColumnType
 	(Operator_Operation)(0),             // 2: proto.Operator.Operation
-	(QualAnyOrAll)(0),                   // 3: proto.Qual.anyOrAll
-	(*Operator)(nil),                    // 4: proto.Operator
-	(*Qual)(nil),                        // 5: proto.Qual
-	(*QualValueList)(nil),               // 6: proto.QualValueList
-	(*QualValue)(nil),                   // 7: proto.QualValue
-	(*Inet)(nil),                        // 8: proto.Inet
-	(*Quals)(nil),                       // 9: proto.Quals
-	(*QueryContext)(nil),                // 10: proto.QueryContext
-	(*ExecuteRequest)(nil),              // 11: proto.ExecuteRequest
-	(*ExecuteResponse)(nil),             // 12: proto.ExecuteResponse
-	(*GetSchemaRequest)(nil),            // 13: proto.GetSchemaRequest
-	(*GetSchemaResponse)(nil),           // 14: proto.GetSchemaResponse
-	(*SetConnectionConfigRequest)(nil),  // 15: proto.SetConnectionConfigRequest
-	(*SetConnectionConfigResponse)(nil), // 16: proto.SetConnectionConfigResponse
-	(*Row)(nil),                         // 17: proto.Row
-	(*TableSchema)(nil),                 // 18: proto.TableSchema
+	(*Operator)(nil),                    // 3: proto.Operator
+	(*Qual)(nil),                        // 4: proto.Qual
+	(*QualValueList)(nil),               // 5: proto.QualValueList
+	(*QualValue)(nil),                   // 6: proto.QualValue
+	(*Inet)(nil),                        // 7: proto.Inet
+	(*Quals)(nil),                       // 8: proto.Quals
+	(*QueryContext)(nil),                // 9: proto.QueryContext
+	(*ExecuteRequest)(nil),              // 10: proto.ExecuteRequest
+	(*ExecuteResponse)(nil),             // 11: proto.ExecuteResponse
+	(*GetSchemaRequest)(nil),            // 12: proto.GetSchemaRequest
+	(*GetSchemaResponse)(nil),           // 13: proto.GetSchemaResponse
+	(*SetConnectionConfigRequest)(nil),  // 14: proto.SetConnectionConfigRequest
+	(*SetConnectionConfigResponse)(nil), // 15: proto.SetConnectionConfigResponse
+	(*Row)(nil),                         // 16: proto.Row
+	(*TableSchema)(nil),                 // 17: proto.TableSchema
+	(*KeyColumnsSet)(nil),               // 18: proto.KeyColumnsSet
 	(*Schema)(nil),                      // 19: proto.Schema
 	(*Column)(nil),                      // 20: proto.Column
 	(*ColumnDefinition)(nil),            // 21: proto.ColumnDefinition
@@ -1705,37 +1737,39 @@ var file_plugin_proto_goTypes = []interface{}{
 }
 var file_plugin_proto_depIdxs = []int32{
 	2,  // 0: proto.Operator.operation:type_name -> proto.Operator.Operation
-	4,  // 1: proto.Qual.tuple_value:type_name -> proto.Operator
-	7,  // 2: proto.Qual.value:type_name -> proto.QualValue
-	7,  // 3: proto.QualValueList.values:type_name -> proto.QualValue
-	8,  // 4: proto.QualValue.inet_value:type_name -> proto.Inet
+	3,  // 1: proto.Qual.tuple_value:type_name -> proto.Operator
+	6,  // 2: proto.Qual.value:type_name -> proto.QualValue
+	6,  // 3: proto.QualValueList.values:type_name -> proto.QualValue
+	7,  // 4: proto.QualValue.inet_value:type_name -> proto.Inet
 	25, // 5: proto.QualValue.timestamp_value:type_name -> google.protobuf.Timestamp
-	6,  // 6: proto.QualValue.list_value:type_name -> proto.QualValueList
-	5,  // 7: proto.Quals.quals:type_name -> proto.Qual
+	5,  // 6: proto.QualValue.list_value:type_name -> proto.QualValueList
+	4,  // 7: proto.Quals.quals:type_name -> proto.Qual
 	22, // 8: proto.QueryContext.quals:type_name -> proto.QueryContext.QualsEntry
-	10, // 9: proto.ExecuteRequest.query_context:type_name -> proto.QueryContext
-	17, // 10: proto.ExecuteResponse.row:type_name -> proto.Row
+	9,  // 9: proto.ExecuteRequest.query_context:type_name -> proto.QueryContext
+	16, // 10: proto.ExecuteResponse.row:type_name -> proto.Row
 	19, // 11: proto.GetSchemaResponse.schema:type_name -> proto.Schema
 	23, // 12: proto.Row.columns:type_name -> proto.Row.ColumnsEntry
 	21, // 13: proto.TableSchema.columns:type_name -> proto.ColumnDefinition
-	24, // 14: proto.Schema.schema:type_name -> proto.Schema.SchemaEntry
-	0,  // 15: proto.Column.null_value:type_name -> proto.NullValue
-	25, // 16: proto.Column.timestamp_value:type_name -> google.protobuf.Timestamp
-	1,  // 17: proto.ColumnDefinition.type:type_name -> proto.ColumnType
-	9,  // 18: proto.QueryContext.QualsEntry.value:type_name -> proto.Quals
-	20, // 19: proto.Row.ColumnsEntry.value:type_name -> proto.Column
-	18, // 20: proto.Schema.SchemaEntry.value:type_name -> proto.TableSchema
-	13, // 21: proto.WrapperPlugin.GetSchema:input_type -> proto.GetSchemaRequest
-	11, // 22: proto.WrapperPlugin.Execute:input_type -> proto.ExecuteRequest
-	15, // 23: proto.WrapperPlugin.SetConnectionConfig:input_type -> proto.SetConnectionConfigRequest
-	14, // 24: proto.WrapperPlugin.GetSchema:output_type -> proto.GetSchemaResponse
-	12, // 25: proto.WrapperPlugin.Execute:output_type -> proto.ExecuteResponse
-	16, // 26: proto.WrapperPlugin.SetConnectionConfig:output_type -> proto.SetConnectionConfigResponse
-	24, // [24:27] is the sub-list for method output_type
-	21, // [21:24] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	18, // 14: proto.TableSchema.getCallKeyColumns:type_name -> proto.KeyColumnsSet
+	18, // 15: proto.TableSchema.listCallKeyColumns:type_name -> proto.KeyColumnsSet
+	24, // 16: proto.Schema.schema:type_name -> proto.Schema.SchemaEntry
+	0,  // 17: proto.Column.null_value:type_name -> proto.NullValue
+	25, // 18: proto.Column.timestamp_value:type_name -> google.protobuf.Timestamp
+	1,  // 19: proto.ColumnDefinition.type:type_name -> proto.ColumnType
+	8,  // 20: proto.QueryContext.QualsEntry.value:type_name -> proto.Quals
+	20, // 21: proto.Row.ColumnsEntry.value:type_name -> proto.Column
+	17, // 22: proto.Schema.SchemaEntry.value:type_name -> proto.TableSchema
+	12, // 23: proto.WrapperPlugin.GetSchema:input_type -> proto.GetSchemaRequest
+	10, // 24: proto.WrapperPlugin.Execute:input_type -> proto.ExecuteRequest
+	14, // 25: proto.WrapperPlugin.SetConnectionConfig:input_type -> proto.SetConnectionConfigRequest
+	13, // 26: proto.WrapperPlugin.GetSchema:output_type -> proto.GetSchemaResponse
+	11, // 27: proto.WrapperPlugin.Execute:output_type -> proto.ExecuteResponse
+	15, // 28: proto.WrapperPlugin.SetConnectionConfig:output_type -> proto.SetConnectionConfigResponse
+	26, // [26:29] is the sub-list for method output_type
+	23, // [23:26] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_plugin_proto_init() }
@@ -1925,7 +1959,7 @@ func file_plugin_proto_init() {
 			}
 		}
 		file_plugin_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Schema); i {
+			switch v := v.(*KeyColumnsSet); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1937,7 +1971,7 @@ func file_plugin_proto_init() {
 			}
 		}
 		file_plugin_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Column); i {
+			switch v := v.(*Schema); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1949,6 +1983,18 @@ func file_plugin_proto_init() {
 			}
 		}
 		file_plugin_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Column); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_plugin_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ColumnDefinition); i {
 			case 0:
 				return &v.state
@@ -1975,7 +2021,7 @@ func file_plugin_proto_init() {
 		(*QualValue_TimestampValue)(nil),
 		(*QualValue_ListValue)(nil),
 	}
-	file_plugin_proto_msgTypes[16].OneofWrappers = []interface{}{
+	file_plugin_proto_msgTypes[17].OneofWrappers = []interface{}{
 		(*Column_NullValue)(nil),
 		(*Column_DoubleValue)(nil),
 		(*Column_IntValue)(nil),
@@ -1991,8 +2037,8 @@ func file_plugin_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_plugin_proto_rawDesc,
-			NumEnums:      4,
-			NumMessages:   21,
+			NumEnums:      3,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
