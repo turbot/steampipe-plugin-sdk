@@ -43,6 +43,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 //  execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	logger := t.Plugin.Logger
+	logger.Debug("executeGetCall", "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
 	// verify we have the necessary quals
 	if len(queryData.KeyColumnQuals) == 0 {
 		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.ToString()))
@@ -67,24 +68,30 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// in this case we call get for each value
 	if keyColumn := t.Get.KeyColumns.Single; keyColumn != "" {
 		if qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
-			logger.Trace("executeGetCall - single qual, qual value is a list - executing get for each qual value item", "qualValueList", qualValueList)
-			// we will mutate queryData.KeyColumnQuals to replace the list value with a single qual value
-			for _, qv := range qualValueList.Values {
-				// mutate KeyColumnQuals
-				queryData.KeyColumnQuals[keyColumn] = qv
-				// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
-				if err := t.doGet(ctx, queryData, nil); err != nil {
-					return err
-				}
-			}
-			// and we are done
-			return
+			return t.doGetForQualValues(ctx, queryData, keyColumn, qualValueList)
 		}
 	}
 
 	// so there is NOT a list of qual values, just call get once
 	// call doGet passing nil hydrate item
 	return t.doGet(ctx, queryData, nil)
+}
+
+func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList) error {
+	logger := t.Plugin.Logger
+	logger.Trace("executeGetCall - single qual, qual value is a list - executing get for each qual value item", "qualValueList", qualValueList)
+	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
+	for _, qv := range qualValueList.Values {
+		// make a shallow copy of the query data and modify the quals
+		queryDataCopy := queryData.ShallowCopy()
+		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
+		if err := t.doGet(ctx, queryDataCopy, nil); err != nil {
+			return err
+		}
+	}
+	// and we are done
+	return nil
 }
 
 // execute a get call for a single key column qual value
@@ -232,14 +239,17 @@ func buildSingleError(errors []error) error {
 	return fmt.Errorf("%d list calls returned errors:\n %s", len(errors), strings.Join(errStrings, "\n"))
 }
 
-// execute the list call in a goroutine
+// execute the list call - detemr
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	defer func() {
 		if r := recover(); r != nil {
 			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", helpers.GetFunctionName(t.List.Hydrate), r)))
 		}
+		// list call will return when it has streamed all items so close rowDataChan
+		queryData.fetchComplete()
 	}()
 
+	logger := t.Plugin.Logger
 	// verify we have the necessary quals
 	if t.List.KeyColumns != nil && len(queryData.KeyColumnQuals) == 0 {
 		queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("'List' call requires an '=' qual for %s", t.List.KeyColumns.ToString())))
@@ -258,6 +268,45 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		listCall = t.List.ParentHydrate
 	}
 
+	// queryData.KeyColumnQuals is a map of column to qual value
+	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
+	// in this case we call get for each value
+	if t.List.KeyColumns != nil && t.List.KeyColumns.Single != "" {
+		keyColumn := t.List.KeyColumns.Single
+		logger.Warn("executeListCall we have single key column")
+		if qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
+			t.doListForQualValues(ctx, queryData, keyColumn, qualValueList, listCall)
+			return
+		}
+	}
+	t.doList(ctx, queryData, listCall)
+}
+
+func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall HydrateFunc) {
+	logger := t.Plugin.Logger
+	var listWg sync.WaitGroup
+
+	logger.Warn("executeListCall - single qual, qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
+	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
+	for _, qv := range qualValueList.Values {
+		logger.Warn("executeListCall passing updated query data", "qv", qv)
+		// make a shallow copy of the query data and modify the quals
+		queryDataCopy := queryData.ShallowCopy()
+		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		listWg.Add(1)
+		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
+		go func() {
+			t.doList(ctx, queryDataCopy, listCall)
+			listWg.Done()
+		}()
+
+	}
+	// and we are done
+	listWg.Wait()
+	return
+}
+
+func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
 	if len(queryData.Matrix) == 0 {
 		log.Printf("[DEBUG] No matrix item")
 		if _, err := listCall(ctx, queryData, &HydrateData{}); err != nil {
@@ -273,10 +322,6 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	} else {
 		t.listForEach(ctx, queryData, listCall)
 	}
-
-	// list call will return when it has streamed all items so close rowDataChan
-	queryData.fetchComplete()
-
 }
 
 // ListForEach :: execute the provided list call for each of a set of matrixItem
