@@ -3,8 +3,6 @@ package plugin
 import (
 	"fmt"
 	"strings"
-
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 // KeyColumnSet :: a set of columns which form the key of a table (i.e. may be used to get a single item)
@@ -29,22 +27,6 @@ func (k *KeyColumnSet) ToString() string {
 		return fmt.Sprintf("one of columns: %s", strings.Join(k.Any, ","))
 	}
 	return ""
-}
-
-func (t Table) GetSchema() *proto.TableSchema {
-	schema := &proto.TableSchema{
-		Columns:     make([]*proto.ColumnDefinition, len(t.Columns)),
-		Description: t.Description,
-	}
-	for i, column := range t.Columns {
-		schema.Columns[i] = &proto.ColumnDefinition{
-			Name:        column.Name,
-			Type:        column.Type,
-			Description: column.Description,
-		}
-	}
-
-	return schema
 }
 
 func SingleColumn(column string) *KeyColumnSet {
