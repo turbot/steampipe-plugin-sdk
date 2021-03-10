@@ -5,11 +5,12 @@ option go_package = ".;proto";
 
 
 message Operator {
+  option deprecated = true;
   string name = 1;
   enum Operation {
     ANY = 0;
     ALL = 1;
-   }
+  }
   Operation operation= 2;
 }
 
@@ -17,15 +18,9 @@ message Qual {
   string fieldName = 1;
   oneof operator{
     string string_value = 2;
-    Operator tuple_value = 3;
+    Operator tuple_value = 3[deprecated=true];
   }
-
   QualValue value = 4;
-  enum anyOrAll {
-    NONE = 0;
-    ANY = 1;
-    ALL = 2;
-  }
 }
 
 message QualValueList {
@@ -87,9 +82,9 @@ message SetConnectionConfigRequest{
 message SetConnectionConfigResponse{}
 
 service WrapperPlugin {
-    rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
-    rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
-    rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
+  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+  rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
 }
 
 message Row {
