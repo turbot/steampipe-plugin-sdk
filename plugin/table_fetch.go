@@ -242,7 +242,6 @@ func buildSingleError(errors []error) error {
 	return fmt.Errorf("%d list calls returned errors:\n %s", len(errors), strings.Join(errStrings, "\n"))
 }
 
-// execute the list call - detemr
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -253,14 +252,11 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}()
 
 	logger := t.Plugin.Logger
+	logger.Warn("executeListCall", "t.List.KeyColumns", t.List.KeyColumns, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
 	// verify we have the necessary quals
 	if t.List.KeyColumns != nil && len(queryData.KeyColumnQuals) == 0 {
 		queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("'List' call requires an '=' qual for %s", t.List.KeyColumns.ToString())))
-	}
-
-	// if list key columns were specified, verify we have the necessary quals
-	if queryData.KeyColumnQuals == nil && t.List.KeyColumns != nil {
-		panic("we do not have the quals for a list")
+		return
 	}
 
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)

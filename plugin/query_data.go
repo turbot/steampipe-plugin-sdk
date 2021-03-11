@@ -106,6 +106,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType :: determine whether this is a get or a list call
 func (d *QueryData) SetFetchType(table *Table) {
+	log.Printf("[WARN] SetFetchType")
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
 	var listQuals map[string]*proto.QualValue
@@ -115,6 +116,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 	}
 	if table.List != nil && table.List.KeyColumns != nil {
 		listQuals = table.getKeyColumnQuals(d, table.List.KeyColumns)
+		log.Printf("[WARN] List quals %+v", listQuals)
 	}
 	// if quals provided in query satisfy both get and list, get wins (a get is likely to be more efficient)
 	if getQuals != nil {
@@ -307,15 +309,21 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 // is there a single '=' qual for this column
 func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
 	quals, ok := d.QueryContext.Quals[column]
-	log.Printf("[TRACE] singleEqualsQual() - quals: %v\n", quals)
 	if !ok {
-		log.Printf("[TRACE] no quals for column %s", column)
+		log.Printf("[WARN] no quals for column %s", column)
 		return nil, false
 	}
+	log.Printf("[WARN] singleEqualsQual() - quals: %v\n", quals)
 
 	if len(quals.Quals) == 1 && quals.Quals[0].GetStringValue() == "=" && quals.Quals[0].Value != nil {
+		log.Printf("[WARN] GOT singleEqualsQual() ")
 		return quals.Quals[0], true
 	}
+	log.Printf("[WARN] NOOOOOOOO singleEqualsQual() ")
+
+	log.Printf("[WARN] len(quals.Quals) %d", len(quals.Quals))
+	log.Printf("[WARN] quals.Quals[0].GetStringValue() %s", quals.Quals[0].GetStringValue())
+	log.Printf("[WARN] quals.Quals[0].Value %v", quals.Quals[0].Value)
 	return nil, false
 }
 
