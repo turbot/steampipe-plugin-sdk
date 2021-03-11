@@ -64,7 +64,7 @@ func (p *Plugin) setuLimit() {
 	var rLimit syscall.Rlimit
 	rLimit.Max = ulimit
 	rLimit.Cur = ulimit
-	p.Logger.Info("Setting Ulimit", "ulimit", ulimit)
+	p.Logger.Trace("Setting Ulimit", "ulimit", ulimit)
 	err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
 	if err != nil {
 		p.Logger.Error("Error Setting Ulimit", "error", err)
@@ -98,7 +98,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}()
 
 	logging.LogTime("Start execute")
-	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.Connections)
+	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.Connections, "table", req.Table)
 
 	queryContext := req.QueryContext
 	table, ok := p.TableMap[req.Table]
@@ -107,6 +107,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 
 	p.Logger.Debug("Got query context",
+		"table", req.Table,
 		"cols", queryContext.Columns,
 		"quals", grpc.QualMapToString(queryContext.Quals))
 
@@ -136,13 +137,14 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {
+		p.Logger.Warn("fetchItems returned an error", "table", table.Name, "error", err)
 		return err
 	}
-	log.Println("[TRACE] after fetchItems")
-	logging.LogTime("Calling stream")
+	logging.LogTime("Calling build Rows")
 
 	// asyncronously build rows
 	rowChan := queryData.buildRows(ctx)
+	logging.LogTime("Calling build Stream")
 	// asyncronously stream rows
 	return queryData.streamRows(ctx, rowChan)
 }

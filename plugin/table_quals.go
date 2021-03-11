@@ -10,14 +10,10 @@ import (
 // (e.g.  select * from aws_s3_bucket where name = 'turbot-166014743106-eu-west-2';)
 // if so return the quals values
 func (t *Table) getKeyColumnQuals(d *QueryData, keyColumns *KeyColumnSet) map[string]*proto.QualValue {
-	log.Printf("[WARN] getKeyColumnQuals")
 	for _, c := range t.Columns {
-		log.Printf("[WARN] column %s", c)
 		if qual, ok := d.singleEqualsQual(c.Name); ok {
 			d.equalsQuals[c.Name] = qual.GetValue()
-			log.Printf("[WARN] single equals qual %+v", qual)
 		} else {
-			log.Printf("[WARN] NO single equals qual %+v", qual)
 		}
 	}
 
@@ -58,7 +54,6 @@ func (t *Table) singleKeyQuals(d *QueryData, keyColumn string) map[string]*proto
 }
 
 func (t *Table) multiKeyQuals(d *QueryData, keyColumns []string) map[string]*proto.QualValue {
-	log.Printf("[WARN] multiKeyQuals %+v ", d.equalsQuals)
 	// so a list of key column selections are specified.
 	keyValues := make(map[string]*proto.QualValue)
 	for _, keyColumn := range keyColumns {
@@ -72,12 +67,9 @@ func (t *Table) multiKeyQuals(d *QueryData, keyColumns []string) map[string]*pro
 
 		} else {
 			// quals not satisfied
-			log.Printf("[WARN] multiKeyQuals FAIL")
-
 			return nil
 		}
 	}
-	log.Printf("[WARN] multiKeyQuals %+v %+v", keyColumns, keyValues)
 	// to get this far, all key columns must have a single qual so this is a get call
 	return keyValues
 }

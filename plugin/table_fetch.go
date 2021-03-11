@@ -28,22 +28,24 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 	// if the query contains a single 'equals' constrains for all key columns, then call the 'get' function
 	if queryData.FetchType == fetchTypeGet && t.Get != nil {
 		logging.LogTime("executeGetCall")
+		// return get errors directly
 		return t.executeGetCall(ctx, queryData)
-	} else {
-		if t.List == nil {
-			log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.Quals))
-			panic("query is not a get call, but no list call is defined")
-		}
-		logging.LogTime("executeListCall")
-		go t.executeListCall(ctx, queryData)
 	}
+	if t.List == nil {
+		log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.Quals))
+		panic("query is not a get call, but no list call is defined")
+	}
+
+	logging.LogTime("executeListCall")
+	go t.executeListCall(ctx, queryData)
+
 	return nil
 }
 
 //  execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	logger := t.Plugin.Logger
-	logger.Debug("executeGetCall", "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
+	logger.Trace("executeGetCall", "table", t.Name, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
 	// verify we have the necessary quals
 	if len(queryData.KeyColumnQuals) == 0 {
 		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.ToString()))
@@ -51,8 +53,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 
 	// deprecated - ItemFromKey is no longer recommended or required
 	if t.Get.ItemFromKey != nil {
-		t.executeLegacyGetCall(ctx, queryData)
-		return nil
+		return t.executeLegacyGetCall(ctx, queryData)
 	}
 
 	defer func() {
@@ -80,18 +81,35 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList) error {
 	logger := t.Plugin.Logger
 	logger.Trace("executeGetCall - single qual, qual value is a list - executing get for each qual value item", "qualValueList", qualValueList)
+
+	var getWg sync.WaitGroup
+	var errorChan = make(chan (error), len(qualValueList.Values))
+
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
-		if err := t.doGet(ctx, queryDataCopy, nil); err != nil {
-			return err
-		}
+		go func() {
+			if err := t.doGet(ctx, queryDataCopy, nil); err != nil {
+				errorChan <- err
+			}
+			getWg.Done()
+		}()
 	}
-	// and we are done
-	return nil
+
+	getWg.Wait()
+
+	// err will contain the last error (is any)
+	select {
+	case err := <-errorChan:
+		log.Printf("[WARN] doGetForQualValues returned an error: %v", err)
+		return err
+	default:
+		return nil
+	}
+
 }
 
 // execute a get call for a single key column qual value
@@ -100,7 +118,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
 	defer func() {
 		if p := recover(); p != nil {
-			err = status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
+			err = status.Error(codes.Internal, fmt.Sprintf("table '%': Get hydrate call %s failed with panic %v", t.Name, hydrateKey, p))
 		}
 		logging.LogTime(hydrateKey + " end")
 	}()
@@ -123,7 +141,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	}
 
 	if err != nil {
-		log.Printf("[WARN] hydrate call returned error %v\n", err)
+		log.Printf("[WARN] table '%': Get hydrate call %s returned error %v\n", t.Name, hydrateKey, err)
 		return err
 	}
 
@@ -252,11 +270,10 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}()
 
 	logger := t.Plugin.Logger
-	logger.Warn("executeListCall", "t.List.KeyColumns", t.List.KeyColumns, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
 	// verify we have the necessary quals
 	if t.List.KeyColumns != nil && len(queryData.KeyColumnQuals) == 0 {
-		queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("'List' call requires an '=' qual for %s", t.List.KeyColumns.ToString())))
-		return
+		err := status.Error(codes.Internal, fmt.Sprintf("'List' call requires an '=' qual for %s", t.List.KeyColumns.ToString()))
+		queryData.streamError(err)
 	}
 
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
@@ -302,7 +319,6 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 	}
 	// and we are done
 	listWg.Wait()
-	return
 }
 
 func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
@@ -313,13 +329,6 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 	if len(queryData.Matrix) == 0 {
 		log.Printf("[DEBUG] No matrix item")
 		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, retryConfig, shouldIgnoreError); err != nil {
-			queryData.streamError(err)
-		}
-	} else if len(queryData.Matrix) == 1 {
-		log.Printf("[DEBUG] running list for single matrixItem: %v", queryData.Matrix[0])
-		// create a context with the matrixItem
-		fetchContext := context.WithValue(ctx, context_key.MatrixItem, queryData.Matrix[0])
-		if _, err := rd.callHydrateWithRetries(fetchContext, queryData, listCall, retryConfig, shouldIgnoreError); err != nil {
 			queryData.streamError(err)
 		}
 	} else {
@@ -348,11 +357,7 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					if err, ok := r.(error); ok {
-						queryData.streamError(err)
-					} else {
-						queryData.streamError(fmt.Errorf("%v", r))
-					}
+					queryData.streamError(helpers.ToError(r))
 				}
 				wg.Done()
 			}()
@@ -365,7 +370,6 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			}
 		}()
 	}
-
 	wg.Wait()
 }
 
@@ -395,7 +399,7 @@ func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryDat
 
 // deprecated implementation
 // t.Get.ItemFromKey is deprectaed. If this table has this property set, run legacy get
-func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) {
+func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) error {
 	defer func() {
 		// we can now close the item chan
 		queryData.fetchComplete()
@@ -409,7 +413,7 @@ func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) 
 	hydrateInput, err := t.legacyBuildHydrateInputForGetCall(ctx, queryData)
 	if err != nil {
 		queryData.streamError(err)
-		return
+		return err
 	}
 	t.Plugin.Logger.Debug("executeLegacyGetCall", "hydrateInput", hydrateInput)
 	// there may be more than one hydrate item - loop over them
@@ -417,9 +421,10 @@ func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) 
 		t.Plugin.Logger.Debug("hydrateItem", "hydrateItem", hydrateItem)
 		if err := t.doGet(ctx, queryData, hydrateItem); err != nil {
 			queryData.streamError(err)
-			break
+			return err
 		}
 	}
+	return nil
 }
 
 // use the quals to build one call to populate one or more base hydrate item from the quals

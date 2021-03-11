@@ -106,7 +106,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType :: determine whether this is a get or a list call
 func (d *QueryData) SetFetchType(table *Table) {
-	log.Printf("[WARN] SetFetchType")
+	//log.Printf("[WARN] SetFetchType")
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
 	var listQuals map[string]*proto.QualValue
@@ -132,7 +132,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 		// if there is a List config, set this to be a list call, otherwise set it to get
 		// if we do not the required quals we will fail with an appropriate error
 		if table.List != nil {
-			log.Printf("[INFO] this is list call, with no list quals")
+			log.Printf("[INFO] table '%s': list call, with no list quals", d.Table.Name)
 			d.FetchType = fetchTypeList
 		} else {
 			log.Printf("[INFO] No get quals passed but no list call defined - default to get call")
@@ -310,7 +310,6 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
 	quals, ok := d.QueryContext.Quals[column]
 	if !ok {
-		log.Printf("[WARN] no quals for column %s", column)
 		return nil, false
 	}
 	log.Printf("[WARN] singleEqualsQual() - quals: %v\n", quals)
@@ -319,11 +318,6 @@ func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
 		log.Printf("[WARN] GOT singleEqualsQual() ")
 		return quals.Quals[0], true
 	}
-	log.Printf("[WARN] NOOOOOOOO singleEqualsQual() ")
-
-	log.Printf("[WARN] len(quals.Quals) %d", len(quals.Quals))
-	log.Printf("[WARN] quals.Quals[0].GetStringValue() %s", quals.Quals[0].GetStringValue())
-	log.Printf("[WARN] quals.Quals[0].Value %v", quals.Quals[0].Value)
 	return nil, false
 }
 
