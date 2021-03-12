@@ -65,7 +65,7 @@ func (t *Table) multiKeyQuals(d *QueryData, keyColumns []string) map[string]*pro
 			keyValues[keyColumn] = qualValue
 
 		} else {
-			// this is not a get call
+			// quals not satisfied
 			return nil
 		}
 	}

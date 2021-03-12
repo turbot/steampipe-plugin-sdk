@@ -16,8 +16,7 @@ import (
 
 // get the column object with the given name
 func (t *Table) getColumn(columnName string) *Column {
-	for _, c := range t.
-		Columns {
+	for _, c := range t.Columns {
 		if c.Name == columnName {
 			return c
 		}
@@ -37,7 +36,7 @@ func (t *Table) getColumnType(columnName string) proto.ColumnType {
 func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *Column) (*proto.Column, error) {
 	hydrateItem, err := rowData.GetColumnData(column)
 	if err != nil {
-		log.Printf("[ERROR] failed to get column data: %v\n", err)
+		log.Printf("[ERROR] table '%s' failed to get column data: %v\n", t.Name, err)
 		return nil, err
 	}
 

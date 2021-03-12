@@ -12,15 +12,25 @@ const (
 )
 
 func QualMapToString(qualMap map[string]*proto.Quals) interface{} {
-	str := "\n\t"
-	for column, quals := range qualMap {
+	divider := "----------------------------------------------------------------\n"
+	str := fmt.Sprintf("\n%s", divider)
+	for _, quals := range qualMap {
 		qualString := ""
 		for _, q := range quals.GetQuals() {
-			qualString += fmt.Sprintf("Operator: '%s', Value: '%v'\n\t", q.GetStringValue(), getQualValue(q.Value))
+			qualString += QualToString(q)
 		}
-		str += fmt.Sprintf("Column: '%s' %s", column, qualString)
+		str += qualString
 	}
+	str += divider
 	return str
+}
+
+func QualToString(q *proto.Qual) string {
+	return fmt.Sprintf("\tColumn: %s, Operator: '%s', Value: '%v'\n", q.FieldName, q.GetStringValue(), getQualValue(q.Value))
+}
+
+func QualEquals(left *proto.Qual, right *proto.Qual) bool {
+	return QualToString(left) == QualToString(right)
 }
 
 func getQualValue(v *proto.QualValue) interface{} {

@@ -187,7 +187,7 @@ func shouldRetryError(err error, d *QueryData, retryConfig *RetryConfig) bool {
 	if shouldRetryErrorFunc == nil {
 		return false
 	}
-	 // a shouldRetryErrorFunc is declared in the retry config - call it to see if we should retry
+	// a shouldRetryErrorFunc is declared in the retry config - call it to see if we should retry
 	return shouldRetryErrorFunc(err)
 }
 
@@ -222,10 +222,10 @@ func (r *RowData) WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPr
 		// call the underlying get function
 		item, err = hydrateFunc(ctx, d, h)
 		if err != nil {
-			log.Printf("[DEBUG] wrapped hydrate call returned error %v\n", err)
+			log.Printf("[DEBUG] wrapped hydrate call %s returned error %v\n", helpers.GetFunctionName(hydrateFunc), err)
 			// see if either the table or the plugin define a NotFoundErrorPredicate
 			if shouldIgnoreError != nil && shouldIgnoreError(err) {
-				log.Printf("[DEBUG] get() returned error but we are ignoring it: %v", err)
+				log.Printf("[DEBUG] wrapped hydrate call %s returned error but we are ignoring it: %v", helpers.GetFunctionName(hydrateFunc), err)
 				return nil, nil
 			}
 			// pass any other error on
@@ -261,16 +261,11 @@ func (r *RowData) getHydrateKeys() []string {
 func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
 
 	if column.resolvedHydrateName == "" {
-		return nil, fmt.Errorf("colum,n %s has no resolved hydrate function name", column.Name)
+		return nil, fmt.Errorf("column %s has no resolved hydrate function name", column.Name)
 	}
 
 	if hydrateItem, ok := r.hydrateResults[column.resolvedHydrateName]; !ok {
-		log.Printf("[ERROR] column '%s' requires hydrate data from %s but none is available.\n", column.Name, column.resolvedHydrateName)
-		//log.Printf("[TRACE] Hydrate keys:\n")
-		//for k := range r.hydrateResults {
-		//	log.Printf("[TRACE] %s\n", k)
-		//}
-
+		log.Printf("[ERROR] table '%s' column '%s' requires hydrate data from %s but none is available.\n", r.table.Name, column.Name, column.resolvedHydrateName)
 		return nil, fmt.Errorf("column '%s' requires hydrate data from %s but none is available", column.Name, column.resolvedHydrateName)
 	} else {
 		return hydrateItem, nil
