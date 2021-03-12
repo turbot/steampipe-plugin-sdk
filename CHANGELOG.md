@@ -1,3 +1,11 @@
+## v0.2.4 [2021-03-12]
+_What's new_
+* Include key column information in GetSchema response to support dynamic path key generation. [#57](https://github.com/turbot/steampipe-plugin-sdk/issues/57))
+* Make get calls with 'in' clauses asynchronous. [#30](https://github.com/turbot/steampipe-plugin-sdk/issues/30))
+
+_Bug fixes_
+* Queries with 'in' clause now work for list calls with required key columns. [#61](https://github.com/turbot/steampipe-plugin-sdk/issues/61))
+
 ## v0.2.3 [2021-03-02]
 _Bug fixes_
 * Fix failure of Get calls which use `ItemFromKey` to provide a hydrate item. [#53](https://github.com/turbot/steampipe-plugin-sdk/issues/53))
