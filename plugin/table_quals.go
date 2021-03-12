@@ -13,7 +13,6 @@ func (t *Table) getKeyColumnQuals(d *QueryData, keyColumns *KeyColumnSet) map[st
 	for _, c := range t.Columns {
 		if qual, ok := d.singleEqualsQual(c.Name); ok {
 			d.equalsQuals[c.Name] = qual.GetValue()
-		} else {
 		}
 	}
 

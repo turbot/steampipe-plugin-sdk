@@ -106,7 +106,6 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType :: determine whether this is a get or a list call
 func (d *QueryData) SetFetchType(table *Table) {
-	//log.Printf("[WARN] SetFetchType")
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
 	var listQuals map[string]*proto.QualValue
@@ -116,7 +115,6 @@ func (d *QueryData) SetFetchType(table *Table) {
 	}
 	if table.List != nil && table.List.KeyColumns != nil {
 		listQuals = table.getKeyColumnQuals(d, table.List.KeyColumns)
-		log.Printf("[WARN] List quals %+v", listQuals)
 	}
 	// if quals provided in query satisfy both get and list, get wins (a get is likely to be more efficient)
 	if getQuals != nil {
@@ -312,10 +310,8 @@ func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
 	if !ok {
 		return nil, false
 	}
-	log.Printf("[WARN] singleEqualsQual() - quals: %v\n", quals)
 
 	if len(quals.Quals) == 1 && quals.Quals[0].GetStringValue() == "=" && quals.Quals[0].Value != nil {
-		log.Printf("[WARN] GOT singleEqualsQual() ")
 		return quals.Quals[0], true
 	}
 	return nil, false
