@@ -90,6 +90,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		getWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
 			if err := t.doGet(ctx, queryDataCopy, nil); err != nil {
