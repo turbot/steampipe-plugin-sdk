@@ -215,16 +215,11 @@ func (r *RowData) getHydrateKeys() []string {
 func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
 
 	if column.resolvedHydrateName == "" {
-		return nil, fmt.Errorf("colum,n %s has no resolved hydrate function name", column.Name)
+		return nil, fmt.Errorf("column %s has no resolved hydrate function name", column.Name)
 	}
 
 	if hydrateItem, ok := r.hydrateResults[column.resolvedHydrateName]; !ok {
-		log.Printf("[ERROR] column '%s' requires hydrate data from %s but none is available.\n", column.Name, column.resolvedHydrateName)
-		//log.Printf("[TRACE] Hydrate keys:\n")
-		//for k := range r.hydrateResults {
-		//	log.Printf("[TRACE] %s\n", k)
-		//}
-
+		log.Printf("[ERROR] table '%s' column '%s' requires hydrate data from %s but none is available.\n", r.table.Name, column.Name, column.resolvedHydrateName)
 		return nil, fmt.Errorf("column '%s' requires hydrate data from %s but none is available", column.Name, column.resolvedHydrateName)
 	} else {
 		return hydrateItem, nil

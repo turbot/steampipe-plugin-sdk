@@ -52,7 +52,7 @@ type ListConfig struct {
 // NOTE: 'get' and 'list' calls are hydration functions, but they must be omitted from this list as they are called
 // first. BEFORE the other hydration functions
 func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*HydrateCall {
-	log.Printf("[TRACE] requiredHydrateCalls, fetchType %s colsUsed %v\n", fetchType, colsUsed)
+	log.Printf("[TRACE] requiredHydrateCalls, table '%s' fetchType %s colsUsed %v\n", t.Name, fetchType, colsUsed)
 
 	// what is the name of the fetch call (i.e. the get/list call)
 	var fetchCallName string
@@ -71,15 +71,14 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 			// see if this column specifies a hydrate function
 			hydrateFunc := column.Hydrate
 			if hydrateFunc != nil {
-				log.Printf("[TRACE] column '%s'  - resolved hydration function '%s'\n", column.Name, column.resolvedHydrateName)
+				log.Printf("[TRACE] table '%s' column '%s'  - resolved hydration function '%s'\n", t.Name, column.Name, column.resolvedHydrateName)
 				hydrateName := helpers.GetFunctionName(hydrateFunc)
 				column.resolvedHydrateName = hydrateName
 				requiredCallBuilder.Add(hydrateFunc)
 			} else {
-				// so there is no hydrate call registered for the column - the resolvedHydrateName is the fetch call
-				log.Printf("[TRACE] column '%s'  - resolved hydration function is the fetch call: '%s'\n", column.Name, column.resolvedHydrateName)
-
 				column.resolvedHydrateName = fetchCallName
+				// so there is no hydrate call registered for the column - the resolvedHydrateName is the fetch call
+				log.Printf("[TRACE] table '%s' column '%s'  - resolved hydration function is the fetch call: '%s'\n", t.Name, column.Name, column.resolvedHydrateName)
 				// do not add to map of hydrate functions as the fetch call will always be called
 			}
 		}

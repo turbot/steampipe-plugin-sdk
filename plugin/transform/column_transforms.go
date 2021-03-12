@@ -3,8 +3,6 @@ package transform
 import (
 	"context"
 	"log"
-
-	"github.com/turbot/go-kit/helpers"
 )
 
 // TransformData ::  the input to a transform function
@@ -51,7 +49,6 @@ func (t *ColumnTransforms) Execute(ctx context.Context, hydrateItem interface{},
 
 func callTransforms(ctx context.Context, value interface{}, hydrateItem interface{}, hydrateResults map[string]interface{}, transforms []*TransformCall, columnName string) (interface{}, error) {
 	for _, tr := range transforms {
-		log.Printf("[TRACE] executeTransform %s\n", helpers.GetFunctionName(tr.Transform))
 		var err error
 		value, err = tr.Execute(ctx, value, hydrateItem, hydrateResults, columnName)
 		if err != nil {
