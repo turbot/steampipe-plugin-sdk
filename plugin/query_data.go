@@ -34,6 +34,12 @@ type QueryData struct {
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
 
+	// streaming funcs
+	StreamListItem func(ctx context.Context, item interface{})
+	// deprecated - plugins should no longer call StreamLeafListItem directly and should just call StreamListItem
+	// event for the child list of a parent child list call
+	StreamLeafListItem func(ctx context.Context, item interface{})
+
 	// internal
 	hydrateCalls       []*HydrateCall
 	equalsQuals        map[string]*proto.QualValue
@@ -44,6 +50,8 @@ type QueryData struct {
 	stream             proto.WrapperPlugin_ExecuteServer
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
+	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
+	parentListResult interface{}
 }
 
 func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}) *QueryData {
@@ -62,8 +70,9 @@ func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.W
 		errorChan:   make(chan error, 1),
 		stream:      stream,
 	}
-
-	// determine whether this is a get or a list call and set the KeyColumnQuals if present
+	d.StreamListItem = d.streamListItem
+	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
+	d.StreamLeafListItem = d.streamLeafListItem
 	d.SetFetchType(table)
 
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
@@ -94,6 +103,8 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		Connection:         d.Connection,
 		Matrix:             d.Matrix,
 		ConnectionManager:  d.ConnectionManager,
+		StreamListItem:     d.StreamListItem,
+		StreamLeafListItem: d.StreamLeafListItem,
 		hydrateCalls:       d.hydrateCalls,
 		equalsQuals:        d.equalsQuals,
 		concurrencyManager: d.concurrencyManager,
@@ -160,9 +171,9 @@ func ensureColumns(queryContext *proto.QueryContext, table *Table) {
 	queryContext.Columns = []string{col}
 }
 
-// StreamListItem :: stream an item returned from the list call
+// stream an item returned from the list call
 // wrap in a rowData object
-func (d *QueryData) StreamListItem(ctx context.Context, item interface{}) {
+func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	// if the calling function was the ParentHydrate function from the list config,
 	// stream the results to the child list hydrate function and return
 	d.streamCount++
@@ -182,18 +193,24 @@ func (d *QueryData) StreamListItem(ctx context.Context, item interface{}) {
 
 	go func() {
 		defer d.listWg.Done()
-		if _, err := d.Table.List.Hydrate(ctx, d, &HydrateData{Item: item}); err != nil {
+		// create a copy of query data with the stream function set to streamLeafListItem
+		childQueryData := d.ShallowCopy()
+		childQueryData.StreamListItem = childQueryData.streamLeafListItem
+		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
+		childQueryData.parentListResult = item
+		if _, err := d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: item}); err != nil {
 			d.streamError(err)
 		}
 	}()
 }
 
-func (d *QueryData) StreamLeafListItem(ctx context.Context, item interface{}) {
+func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
 	rd.matrixItem = GetMatrixItem(ctx)
 
 	// NOTE: add the item as the hydrate data for the list call
+	rd.set(helpers.GetFunctionName(d.Table.List.ParentHydrate), d.parentListResult)
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
 	d.rowDataChan <- rd
 }
