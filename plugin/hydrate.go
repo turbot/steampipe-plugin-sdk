@@ -8,6 +8,8 @@ import (
 
 // HydrateData :: the input data passed to every hydrate function
 type HydrateData struct {
+	// if there was a parent-child list call, store the parent list item
+	ParentItem     interface{}
 	Item           interface{}
 	HydrateResults map[string]interface{}
 }
@@ -24,8 +26,8 @@ type HydrateDependencies struct {
 
 // HydrateConfig :: define the hydrate function configurations, Name, Maximum number of concurrent calls to be allowed, dependencies
 type HydrateConfig struct {
-	Func           HydrateFunc
-	MaxConcurrency int
+	Func              HydrateFunc
+	MaxConcurrency    int
 	RetryConfig       *RetryConfig
 	ShouldIgnoreError ErrorPredicate
 	Depends           []HydrateFunc

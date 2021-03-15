@@ -20,7 +20,9 @@ import (
 
 type RowData struct {
 	// the output of the get/list call which is passed to all other hydrate calls
-	Item           interface{}
+	Item interface{}
+	// if there was a parent-child list call, store the parent list item
+	ParentItem     interface{}
 	matrixItem     map[string]interface{}
 	hydrateResults map[string]interface{}
 	mut            sync.Mutex
@@ -163,7 +165,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
 func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) (interface{}, error) {
-	hydrateData := &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults}
+	hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
 	hydrateWithIgnoreError := r.WrapHydrate(hydrateFunc, shouldIgnoreError)
 	hydrateResult, err := hydrateWithIgnoreError(ctx, d, hydrateData)
@@ -198,7 +200,7 @@ func (r *RowData) retryHydrate(ctx context.Context, d *QueryData, hydrateFunc Hy
 	}
 	var hydrateResult interface{}
 	shouldRetryErrorFunc := retryConfig.ShouldRetryError
-	hydrateData := &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults}
+	hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 
 	err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
 		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
