@@ -50,7 +50,7 @@ type QueryData struct {
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
-	parentListResult interface{}
+	parentItem interface{}
 }
 
 func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}) *QueryData {
@@ -194,8 +194,10 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 		childQueryData := d.ShallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
-		childQueryData.parentListResult = item
-		d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: item})
+		childQueryData.parentItem = item
+		if _, err := d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: item}); err != nil {
+			d.streamError(err)
+		}
 	}()
 }
 
@@ -203,9 +205,10 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
 	rd.matrixItem = GetMatrixItem(ctx)
+	// set the parent item on the row data
+	rd.ParentItem = d.parentItem
 
 	// NOTE: add the item as the hydrate data for the list call
-	rd.set(helpers.GetFunctionName(d.Table.List.ParentHydrate), d.parentListResult)
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
 	d.rowDataChan <- rd
 }

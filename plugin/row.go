@@ -20,7 +20,9 @@ import (
 
 type RowData struct {
 	// the output of the get/list call which is passed to all other hydrate calls
-	Item           interface{}
+	Item interface{}
+	// if there was a parent-child list call, store the parent list item
+	ParentItem     interface{}
 	matrixItem     map[string]interface{}
 	hydrateResults map[string]interface{}
 	mut            sync.Mutex
@@ -147,7 +149,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	logging.LogTime(hydrateKey + " start")
 
 	// now call the hydrate function, passing the item and hydrate results so far
-	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults})
+	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults})
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
 		r.errorChan <- err
@@ -175,7 +177,7 @@ func (r *RowData) callGetHydrate(ctx context.Context, d *QueryData, hydrateFunc 
 
 	// now call the hydrate function, passing the item and hydrate results so far
 	log.Printf("[TRACE] call hydrate %s\n", hydrateKey)
-	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, HydrateResults: r.hydrateResults})
+	hydrateData, err := hydrateFunc(ctx, d, &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults})
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
 		r.errorChan <- err
