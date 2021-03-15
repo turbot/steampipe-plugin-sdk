@@ -3,7 +3,7 @@ _What's new_
 * Include key column information in GetSchema response to support dynamic path key generation. [#57](https://github.com/turbot/steampipe-plugin-sdk/issues/57))
 * Make get calls with 'in' clauses asynchronous. [#30](https://github.com/turbot/steampipe-plugin-sdk/issues/30))
 * Remove need to call StreamLeafListItem for parent-child list calls. The child list function can now just cal StreamListItem. [#64](https://github.com/turbot/steampipe-plugin-sdk/issues/64))
-* For parent-child list call, store parent list call results in hydrateResults so they can be accessed by hydrate functions. [#65](https://github.com/turbot/steampipe-plugin-sdk/issues/65))
+* For parent-child list calls, store the parent list call results in RowData `ParentItem` property so they can be accessed by hydrate functions. [#65](https://github.com/turbot/steampipe-plugin-sdk/issues/65))
 
 _Bug fixes_
 * Queries with 'in' clause now work for list calls with required key columns. [#61](https://github.com/turbot/steampipe-plugin-sdk/issues/61))
