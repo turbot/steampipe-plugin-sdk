@@ -2,92 +2,55 @@ package plugin
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"time"
 
+	"github.com/sethvargo/go-retry"
 	"github.com/turbot/go-kit/helpers"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-// HydrateData :: the input data passed to every hydrate function
-type HydrateData struct {
-	// if there was a parent-child list call, store the parent list item
-	ParentItem     interface{}
-	Item           interface{}
-	HydrateResults map[string]interface{}
-}
-
-// HydrateFunc :: a function which retrieves some or all row data for a single row item.
-type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
-
-// HydrateDependencies :: define the hydrate function dependencies - other hydrate functions which must be run first
-// Deprecated: used HydrateConfig
-type HydrateDependencies struct {
-	Func    HydrateFunc
-	Depends []HydrateFunc
-}
-
-// HydrateConfig :: define the hydrate function configurations, Name, Maximum number of concurrent calls to be allowed, dependencies
-type HydrateConfig struct {
-	Func              HydrateFunc
-	MaxConcurrency    int
-	RetryConfig       *RetryConfig
-	ShouldIgnoreError ErrorPredicate
-	Depends           []HydrateFunc
-}
-
-type RetryConfig struct {
-	ShouldRetryError ErrorPredicate
-}
-
-// DefaultConcurrencyConfig :: plugin level config to define default hydrate concurrency
-// - used if no HydrateConfig is specified for a specific call
-type DefaultConcurrencyConfig struct {
-	// max number of ALL hydrate calls in progress
-	TotalMaxConcurrency   int
-	DefaultMaxConcurrency int
-}
-
-// HydrateCall :: struct encapsulating a hydrate call, its config and dependencies
-type HydrateCall struct {
-	Func HydrateFunc
-	// the dependencies expressed using function name
-	Depends []string
-	Config  *HydrateConfig
-}
-
-func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall {
-	res := &HydrateCall{Func: hydrateFunc, Config: config}
-	for _, f := range config.Depends {
-		res.Depends = append(res.Depends, helpers.GetFunctionName(f))
+func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (interface{}, error) {
+	backoff, err := retry.NewFibonacci(100 * time.Millisecond)
+	if err != nil {
+		return nil, err
 	}
-	return res
-}
+	var hydrateResult interface{}
+	shouldRetryErrorFunc := retryConfig.ShouldRetryError
 
-// CanStart :: return whether this hydrate call can execute
-// - check whether all dependency hydrate functions have been completed
-// - check whether the concurrency limits would be exceeded
-
-func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager *ConcurrencyManager) bool {
-	for _, dep := range h.Depends {
-		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep) {
-			return false
+	err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
+		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
+		if err != nil && shouldRetryErrorFunc(err) {
+			err = retry.RetryableError(err)
 		}
-	}
-	// ask the concurrency manager whether the call can start
-	// NOTE: if the call is allowed to start, the concurrency manager ASSUMES THE CALL WILL START
-	// and increments the counters
-	// it may seem more logical to do this in the Start() function below, but we need to check and increment the counters
-	// within the same mutex lock to ensure another call does not start between checking and starting
-	return concurrencyManager.StartIfAllowed(name, h.Config.MaxConcurrency)
+		return err
+	})
+	return hydrateResult, err
 }
 
-// Start :: start a hydrate call
-func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string, concurrencyManager *ConcurrencyManager) {
-	// tell the rowdata to wait for this call to complete
-	r.wg.Add(1)
-
-	// call callHydrate async, ignoring return values
-	go func() {
-		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName, h.Config.RetryConfig, h.Config.ShouldIgnoreError)
-		// decrement number of hydrate functions running
-		concurrencyManager.Finished(hydrateFuncName)
-	}()
+// WrapHydrate :: higher order function which returns a HydrateFunc which handles Ignorable errors
+func WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPredicate) HydrateFunc {
+	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[WARN] recovered a panic from a wrapped hydrate function: %v\n", r)
+				err = status.Error(codes.Internal, fmt.Sprintf("hydrate function %s failed with panic %v", helpers.GetFunctionName(hydrateFunc), r))
+			}
+		}()
+		// call the underlying get function
+		item, err = hydrateFunc(ctx, d, h)
+		if err != nil {
+			log.Printf("[DEBUG] wrapped hydrate call %s returned error %v\n", helpers.GetFunctionName(hydrateFunc), err)
+			// see if either the table or the plugin define a NotFoundErrorPredicate
+			if shouldIgnoreError != nil && shouldIgnoreError(err) {
+				log.Printf("[DEBUG] wrapped hydrate call %s returned error but we are ignoring it: %v", helpers.GetFunctionName(hydrateFunc), err)
+				return nil, nil
+			}
+			// pass any other error on
+			return nil, err
+		}
+		return item, nil
+	}
 }
