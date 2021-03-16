@@ -94,7 +94,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		newKeyColumQuals[k] = v
 	}
 
-	return &QueryData{
+	clone := &QueryData{
 		Table:              d.Table,
 		KeyColumnQuals:     newKeyColumQuals,
 		FetchType:          d.FetchType,
@@ -102,8 +102,6 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		Connection:         d.Connection,
 		Matrix:             d.Matrix,
 		ConnectionManager:  d.ConnectionManager,
-		StreamListItem:     d.StreamListItem,
-		StreamLeafListItem: d.StreamLeafListItem,
 		hydrateCalls:       d.hydrateCalls,
 		equalsQuals:        d.equalsQuals,
 		concurrencyManager: d.concurrencyManager,
@@ -112,6 +110,10 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		stream:             d.stream,
 		listWg:             d.listWg,
 	}
+	// NOTE: point the public streaming endpoints to their internal implementations IN THIS OBJECT
+	clone.StreamListItem = clone.streamListItem
+	clone.StreamLeafListItem = clone.streamLeafListItem
+	return clone
 }
 
 // SetFetchType :: determine whether this is a get or a list call
