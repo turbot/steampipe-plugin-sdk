@@ -7,6 +7,7 @@ _What's new_
 
 _Bug fixes_
 * Queries with 'in' clause now work for list calls with required key columns. [#61](https://github.com/turbot/steampipe-plugin-sdk/issues/61))
+* For Get or List calls with required key columns and 'in' clauses, incorrect quals are passed to hydrate calls. [#69](https://github.com/turbot/steampipe-plugin-sdk/issues/69))
 
 ## v0.2.3 [2021-03-02]
 _Bug fixes_
