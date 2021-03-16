@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
@@ -107,8 +106,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	p.Logger.Debug("Got query context",
 		"table", req.Table,
-		"cols", queryContext.Columns,
-		"quals", grpc.QualMapToString(queryContext.Quals))
+		"cols", queryContext.Columns)
 
 	// async approach
 	// 1) call list() in a goroutine. This writes pages of items to the rowDataChan. When complete it closes the channel
