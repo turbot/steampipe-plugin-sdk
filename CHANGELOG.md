@@ -1,3 +1,6 @@
+## v0.2.6 [2021-03-18]
+_re-tagged after pushing missing commit_
+
 ## v0.2.5 [2021-03-18]
 _What's new_
 * Improve the hcl diagnostic to error message conversion to improve parse failure messages.  [#72](https://github.com/turbot/steampipe-plugin-sdk/issues/72))
