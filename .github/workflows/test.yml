@@ -35,6 +35,29 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Move build artifacts
+        run: |
+          mkdir ~/artifacts
+          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_linux_amd64.tar.gz ~/artifacts/linux.tar.gz
+          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_darwin_amd64.zip ~/artifacts/darwin.zip
+
+      - name: List Build Artifacts
+        run: ls -l ~/artifacts
+
+      - name: Save Linux Build Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-artifact-linux
+          path: ~/artifacts/linux.tar.gz
+          if-no-files-found: error
+
+      - name: Save MacOS Build Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-artifact-darwin
+          path: ~/artifacts/darwin.zip
+          if-no-files-found: error
+
   acceptance_testing:
     name: Acceptance testing
     needs: goreleaser
