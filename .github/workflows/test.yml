@@ -35,27 +35,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Move build artifacts
-        run: |
-          mkdir ~/artifacts
-
-      - name: List Build Artifacts
-        run: ls -l ~/artifacts
-
-      - name: Save Linux Build Artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: build-artifact-linux
-          path: ~/artifacts/linux.tar.gz
-          if-no-files-found: error
-
-      - name: Save MacOS Build Artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: build-artifact-darwin
-          path: ~/artifacts/darwin.zip
-          if-no-files-found: error
-
   acceptance_testing:
     name: Acceptance testing
     needs: goreleaser
