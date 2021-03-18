@@ -1,4 +1,8 @@
-## v0.2.4 [2021-03-12]
+## v0.2.5 [2021-03-18]
+_What's new_
+* Improve the hcl diagnostic to error message conversion to improve parse failure messages.  [#72](https://github.com/turbot/steampipe-plugin-sdk/issues/72))
+
+## v0.2.4 [2021-03-16]
 _What's new_
 * Include key column information in GetSchema response to support dynamic path key generation. [#57](https://github.com/turbot/steampipe-plugin-sdk/issues/57))
 * Make get calls with 'in' clauses asynchronous. [#30](https://github.com/turbot/steampipe-plugin-sdk/issues/30))
