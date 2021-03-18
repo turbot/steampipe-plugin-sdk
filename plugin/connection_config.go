@@ -64,11 +64,11 @@ func (c *ConnectionConfigSchema) Parse(configString string) (config interface{},
 
 	file, diags := parser.ParseHCL([]byte(configString), "/")
 	if diags.HasErrors() {
-		return nil, DiagsToError("failed to parse connection config", diags)
+		return nil, DiagsToError("Failed to parse connection config", diags)
 	}
 	value, diags := hcldec.Decode(file.Body, spec, nil)
 	if diags.HasErrors() {
-		return nil, DiagsToError("failed to parse connection config", diags)
+		return nil, DiagsToError("Failed to parse connection config", diags)
 	}
 
 	// decode into the provided struct
@@ -86,24 +86,30 @@ func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 	if !diags.HasErrors() {
 		return nil
 	}
-	errorsStrings := []string{fmt.Sprintf("%s", prefix)}
+	errorStrings := []string{fmt.Sprintf("%s", prefix)}
+	// store list of messages (without the range) and use for deduping (we may get the same message for multiple ranges)
+	errorMessages := []string{}
 	for _, diag := range diags {
 		if diag.Severity == hcl.DiagError {
 			errorString := fmt.Sprintf("%s", diag.Summary)
 			if diag.Detail != "" {
 				errorString += fmt.Sprintf(": %s", diag.Detail)
 			}
-			if diag.Context != nil {
-				errorString += fmt.Sprintf(" (%s) ", diag.Context.String())
-			}
-			if !helpers.StringSliceContains(errorsStrings, errorString) {
-				errorsStrings = append(errorsStrings, errorString)
+
+			if !helpers.StringSliceContains(errorMessages, errorString) {
+				errorMessages = append(errorMessages, errorString)
+				// now add in the subject and add to the output array
+				if diag.Subject != nil {
+					errorString += fmt.Sprintf("\n(%s)", diag.Subject.String())
+				}
+				errorStrings = append(errorStrings, errorString)
+
 			}
 		}
 	}
-	if len(errorsStrings) > 0 {
-		errorString := strings.Join(errorsStrings, "\n")
-		if len(errorsStrings) > 1 {
+	if len(errorStrings) > 0 {
+		errorString := strings.Join(errorStrings, "\n")
+		if len(errorStrings) > 1 {
 			errorString += "\n"
 		}
 		return errors.New(errorString)
