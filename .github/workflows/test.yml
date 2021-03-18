@@ -123,8 +123,6 @@ jobs:
         uses: actions/checkout@main
         with:
           repository: turbot/steampipe-plugin-chaos
-        run: |
-          echo $GITHUB_REF
 
       - name: Stop steampipe service
         run: |
