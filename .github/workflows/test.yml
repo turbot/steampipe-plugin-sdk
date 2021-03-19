@@ -41,8 +41,9 @@ jobs:
           pwd 
           ls -la
           ls dist
-          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_linux_amd64.tar.gz ~/artifacts/linux.tar.gz
-          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_darwin_amd64.zip ~/artifacts/darwin.zip
+          ls dist/steampipe-plugin-sdk_linux_amd64
+          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_v0.0.0-SNAPSHOT-9c1dfb4_linux_amd64.tar.gz ~/artifacts/linux.tar.gz
+          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_v0.0.0-SNAPSHOT-9c1dfb4_linux_arm64.tar.gz ~/artifacts/darwin.zip
 
       - name: List Build Artifacts
         run: ls -l ~/artifacts
