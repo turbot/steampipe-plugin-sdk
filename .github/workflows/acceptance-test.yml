@@ -100,12 +100,19 @@ jobs:
         run: |
           ls -l ~/artifacts
 
+      - name: Rename build artifact on Darwin
+        if: ${{ matrix.platform == 'macos-latest' }}
+        run: |
+          ls -l ~/artifacts
+          mv ~/artifacts/steampipe-plugin-chaos_darwin_amd64.gz ~/artifacts/build.zip
+          ls -l ~/artifacts
+
       - name: Extract Artifacts and Install Binary
         if: ${{ matrix.platform == 'macos-latest' }}
         run: |
           ls -l ~/artifacts
           mkdir ~/build
-          unzip ~/artifacts/steampipe-plugin-chaos_darwin_amd64.gz -d ~/build
+          gunzip ~/artifacts/build.zip -d ~/build
           ls -l ~/build
           echo "PATH=$PATH:$HOME/build:$GITHUB_WORKSPACE/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
 
