@@ -37,29 +37,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Move build artifacts
-        run: |
-          mkdir ~/artifacts
-          pwd
-          ls -la
-          mv home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/dist/steampipe-plugin-chaos_linux_amd64.gz ~/artifacts/linux.tar.gz
-          mv home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/dist/steampipe-plugin-chaos_darwin_amd64.gz ~/artifacts/darwin.tar.gz
-
       - name: List Build Artifacts
-        run: ls -l ~/artifacts
+        run: ls -laR ./dist
 
-      - name: Save Linux Build Artifact
+      - name: Save Linux Build Artifact - AMD64
         uses: actions/upload-artifact@v2
         with:
-          name: build-artifact-linux
-          path: ~/artifacts/linux.tar.gz
+          name: steampipe-chaos_linux_amd64
+          path: ./dist/steampipe-plugin-chaos_linux_amd64.gz
           if-no-files-found: error
 
-      - name: Save MacOS Build Artifact
+      - name: Save Linux Build Artifact - ARM64
         uses: actions/upload-artifact@v2
         with:
-          name: build-artifact-darwin
-          path: ~/artifacts/darwin.tar.gz
+          name: steampipe-chaos_linux_arm64
+          path: ./dist/steampipe-plugin-chaos_linux_arm64.gz
+          if-no-files-found: error
+
+      - name: Save MacOS Build Artifact - AMD64
+        uses: actions/upload-artifact@v2
+        with:
+          name: steampipe-chaos_darwin_amd64
+          path: ./dist/steampipe-plugin-chaos_darwin_amd64.gz
           if-no-files-found: error
 
   acceptance_testing:
@@ -94,7 +93,7 @@ jobs:
         uses: actions/download-artifact@v2
         if: ${{ matrix.platform == 'macos-latest' }}
         with:
-          name: build-artifact-darwin
+          name: steampipe-chaos_darwin_amd64
           path: ~/artifacts
 
       - name: Check that everything got downloaded
@@ -103,7 +102,7 @@ jobs:
 
       - name: Rename build artifact on Darwin
         if: ${{ matrix.platform == 'macos-latest' }}
-        run: mv ~/artifacts/darwin.tar.gz ~/artifacts/build.zip
+        run: mv ~/artifacts/steampipe-chaos_darwin_amd64.gz ~/artifacts/build.zip
 
       - name: Check that renaming is good
         run: |
