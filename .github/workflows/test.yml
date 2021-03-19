@@ -38,9 +38,11 @@ jobs:
       - name: Move build artifacts
         run: |
           mkdir ~/artifacts
-          pwd 
+          echo "LIST" 
           ls -la
+          echo "LIST IN DIST"
           ls dist
+          echo "LIST IN DIST steampipe plugin sdk"
           ls dist/steampipe-plugin-sdk_linux_amd64
           mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_v0.0.0-SNAPSHOT-9c1dfb4_linux_amd64.tar.gz ~/artifacts/linux.tar.gz
           mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_v0.0.0-SNAPSHOT-9c1dfb4_linux_arm64.tar.gz ~/artifacts/darwin.zip
