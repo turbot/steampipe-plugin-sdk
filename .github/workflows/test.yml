@@ -102,7 +102,7 @@ jobs:
 
       - name: Rename build artifact on Darwin
         if: ${{ matrix.platform == 'macos-latest' }}
-        run: mv ~/artifacts/steampipe-chaos_darwin_amd64.gz ~/artifacts/build.zip
+        run: mv ~/artifacts/steampipe-chaos_darwin_amd64.gz ~/artifacts/build.gz
 
       - name: Check that renaming is good
         run: |
@@ -112,7 +112,7 @@ jobs:
         if: ${{ matrix.platform == 'macos-latest' }}
         run: |
           mkdir ~/build
-          unzip ~/artifacts/build.zip -d ~/build
+          unzip ~/artifacts/build.gz -d ~/build
           ls -l ~/build
           echo "PATH=$PATH:$HOME/build:$GITHUB_WORKSPACE/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
 
