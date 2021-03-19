@@ -40,8 +40,11 @@ jobs:
       - name: Move build artifacts
         run: |
           mkdir ~/artifacts
-          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-chaos_linux_amd64.tar.gz ~/artifacts/linux.tar.gz
-          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-chaos_darwin_amd64.zip ~/artifacts/darwin.zip
+          pwd
+          ls -la
+          ls home/runner/steampipe-plugin-sdk
+          mv home/runner/steampipe-plugin-sdk/steampipe-plugin-chaos/steampipe-plugin-chaos_linux_amd64.tar.gz ~/artifacts/linux.tar.gz
+          mv home/runner/steampipe-plugin-sdk/steampipe-plugin-chaos/steampipe-plugin-chaos_darwin_amd64.zip ~/artifacts/darwin.zip
 
       - name: List Build Artifacts
         run: ls -l ~/artifacts
