@@ -44,8 +44,8 @@ jobs:
           ls dist
           echo "LIST IN DIST steampipe plugin sdk"
           ls dist/steampipe-plugin-sdk_linux_amd64
-          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_v0.0.0-SNAPSHOT-8f4bb6d_linux_amd64.tar.gz ~/artifacts/linux.tar.gz
-          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_v0.0.0-SNAPSHOT-8f4bb6d_darwin_amd64.tar.gz ~/artifacts/darwin.zip
+          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_linux_amd64/steampipe-plugin-sdk ~/artifacts/linux.tar.gz
+          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_darwin_amd64/steampipe-plugin-sdk ~/artifacts/darwin.zip
 
       - name: List Build Artifacts
         run: ls -l ~/artifacts
