@@ -88,7 +88,6 @@ jobs:
         id: prepare-for-downloads
         run: |
           mkdir ~/artifacts
-          echo $GITHUB_WORKSPACE
 
       - name: Download Darwin Build Artifacts
         uses: actions/download-artifact@v2
@@ -105,7 +104,7 @@ jobs:
         if: ${{ matrix.platform == 'macos-latest' }}
         run: |
           ls -l ~/artifacts
-          mv ~/artifacts/steampipe-chaos_darwin_amd64.gz ~/artifacts/build.zip
+          mv ~/artifacts/steampipe-plugin-chaos_darwin_amd64.gz ~/artifacts/build.zip
 
       - name: Extract Artifacts and Install Binary
         if: ${{ matrix.platform == 'macos-latest' }}
@@ -139,8 +138,8 @@ jobs:
 
       - name: Run Test Suite
         run: |
-          chmod +x $GITHUB_WORKSPACE/tests/acceptance/run.sh
-          $GITHUB_WORKSPACE/tests/acceptance/run.sh
+          chmod +x home/runner/steampipe-plugin-sdk/steampipe-plugin-chaos/acceptance/run.sh
+          home/runner/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
 
   clean_up:
     # let's clean up the artifacts.
@@ -155,19 +154,19 @@ jobs:
       - name: Clean up Windows Build
         uses: geekyeggo/delete-artifact@v1
         with:
-          name: build-artifact-windows
+          name: steampipe-chaos_linux_amd64
           failOnError: true
 
       - name: Clean up Linux Build
         uses: geekyeggo/delete-artifact@v1
         with:
-          name: build-artifact-linux
+          name: steampipe-chaos_linux_arm64
           failOnError: true
 
       - name: Clean up Darwin Build
         uses: geekyeggo/delete-artifact@v1
         with:
-          name: build-artifact-darwin
+          name: steampipe-chaos_darwin_amd64
           failOnError: true
 
       - name: Clean up Test Suite
