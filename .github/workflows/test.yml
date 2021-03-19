@@ -35,29 +35,104 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Move build artifacts
+        run: |
+          mkdir ~/artifacts
+          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_linux_amd64.tar.gz ~/artifacts/linux.tar.gz
+          mv $GITHUB_WORKSPACE/dist/steampipe-plugin-sdk_darwin_amd64.zip ~/artifacts/darwin.zip
+
       - name: List Build Artifacts
-        run: ls -laR ./dist
+        run: ls -l ~/artifacts
 
-      - name: Save Linux Build Artifact - AMD64
+      - name: Save Linux Build Artifact
         uses: actions/upload-artifact@v2
         with:
-          name: steampipe-aws_linux_amd64
-          path: ./dist/steampipe-plugin-sdk_linux_amd64.gz
+          name: build-artifact-linux
+          path: ~/artifacts/linux.tar.gz
           if-no-files-found: error
 
-      - name: Save Linux Build Artifact - ARM64
+      - name: Save MacOS Build Artifact
         uses: actions/upload-artifact@v2
         with:
-          name: steampipe-aws_linux_arm64
-          path: ./dist/steampipe-plugin-sdk_linux_arm64.gz
+          name: build-artifact-darwin
+          path: ~/artifacts/darwin.zip
           if-no-files-found: error
 
-      - name: Save MacOS Build Artifact - AMD64
-        uses: actions/upload-artifact@v2
+  platform_test:
+    name: Platform testing
+    needs: goreleaser
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.platform }}
+    env:
+      GOFLAGS: "-mod=vendor"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
         with:
-          name: steampipe-aws_darwin_amd64
-          path: ./dist/steampipe-plugin-sdk_darwin_amd64.gz
-          if-no-files-found: error
+          go-version: 1.14
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Prepare for downloads
+        id: prepare-for-downloads
+        run: |
+          mkdir ~/artifacts
+
+      - name: Download Linux Build Artifacts
+        uses: actions/download-artifact@v2
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
+        with:
+          name: build-artifact-linux
+          path: ~/artifacts
+
+      - name: Download Darwin Build Artifacts
+        uses: actions/download-artifact@v2
+        if: ${{ matrix.platform == 'macos-latest' }}
+        with:
+          name: build-artifact-darwin
+          path: ~/artifacts
+
+      - name: Check that everything got downloaded
+        run: |
+          ls -l ~/artifacts
+
+      - name: Rename build artifact on Darwin
+        if: ${{ matrix.platform == 'macos-latest' }}
+        run: mv ~/artifacts/darwin.zip ~/artifacts/build.zip
+
+      - name: Rename build artifact on Linux
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
+        run: mv ~/artifacts/linux.tar.gz ~/artifacts/build.tar.gz
+
+      - name: Check that renaming is good
+        run: |
+          ls -l ~/artifacts
+
+      - name: Extract Darwin Artifacts and Install Binary
+        if: ${{ matrix.platform == 'macos-latest' }}
+        run: |
+          mkdir ~/build
+          unzip ~/artifacts/build.zip -d ~/build
+          ls -l ~/build
+          echo "~/build" >> $GITHUB_PATH
+
+      - name: Extract Ubuntu Artifacts and Install Binary
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
+        run: |
+          mkdir ~/build
+          tar -xf ~/artifacts/build.tar.gz -C ~/build
+          ls -l ~/build
+          echo "~/build" >> $GITHUB_PATH
+
+      - name: Run Tests
+        if: ${{ matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest' }}
+        run: |
+          echo $PATH
+          $HOME/build/steampipe query "select 1 as col"
 
   acceptance_testing:
     name: Acceptance testing
