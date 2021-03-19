@@ -136,7 +136,7 @@ jobs:
         if: ${{ matrix.platform == 'macos-latest' }}
         run: |
           ls -l ~/artifacts
-          mv ~/artifacts/steampipe-plugin-chaos_darwin_amd64.gz ~/artifacts/build.zip
+          mv ~/artifacts/darwin.zip ~/artifacts/build.zip
           ls -l ~/artifacts
 
       - name: Extract Artifacts and Install Binary
