@@ -61,31 +61,6 @@ jobs:
           path: ~/artifacts/darwin.zip
           if-no-files-found: error
 
-
-      # - name: List Build Artifacts
-      #   run: ls -laR ./dist
-
-      # - name: Save Linux Build Artifact - AMD64
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: steampipe-chaos_linux_amd64
-      #     path: ./dist/steampipe-plugin-chaos_linux_amd64.gz
-      #     if-no-files-found: error
-
-      # - name: Save Linux Build Artifact - ARM64
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: steampipe-chaos_linux_arm64
-      #     path: ./dist/steampipe-plugin-chaos_linux_arm64.gz
-      #     if-no-files-found: error
-
-      # - name: Save MacOS Build Artifact - AMD64
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: steampipe-chaos_darwin_amd64
-      #     path: ./dist/steampipe-plugin-chaos_darwin_amd64.gz
-      #     if-no-files-found: error
-
   acceptance_testing:
     name: Acceptance testing
     needs: goreleaser
@@ -94,6 +69,11 @@ jobs:
         platform: [macos-latest]
     runs-on: ${{ matrix.platform }}
     steps:
+      - name: Clone steampipe-plugin-chaos repo
+        uses: actions/checkout@main
+        with:
+          repository: turbot/steampipe-plugin-chaos
+
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -104,22 +84,10 @@ jobs:
         with:
           bats-version: 1.2.1
 
-      - name: Clone steampipe-plugin-chaos repo
-        uses: actions/checkout@main
-        with:
-          repository: turbot/steampipe-plugin-chaos
-
       - name: Prepare for downloads
         id: prepare-for-downloads
         run: |
           mkdir ~/artifacts
-
-      - name: Download Linux Build Artifacts
-        uses: actions/download-artifact@v2
-        if: ${{ matrix.platform == 'ubuntu-latest' }}
-        with:
-          name: build-artifact-linux
-          path: ~/artifacts
 
       - name: Download Darwin Build Artifacts
         uses: actions/download-artifact@v2
@@ -134,15 +102,15 @@ jobs:
 
       - name: Rename build artifact on Darwin
         if: ${{ matrix.platform == 'macos-latest' }}
+        run: mv ~/artifacts/darwin.zip ~/artifacts/build.zip
+
+      - name: Check that renaming is good
         run: |
-          ls -l ~/artifacts
-          mv ~/artifacts/darwin.zip ~/artifacts/build.zip
           ls -l ~/artifacts
 
       - name: Extract Artifacts and Install Binary
         if: ${{ matrix.platform == 'macos-latest' }}
         run: |
-          ls -l ~/artifacts
           mkdir ~/build
           unzip ~/artifacts/build.zip -d ~/build
           ls -l ~/build
@@ -154,7 +122,8 @@ jobs:
           echo $PATH
           steampipe query "select 1 as col"
 
-      - name: Update go.mod file in chaos plugin
+      - name: Install chaos plugin
+        if: ${{ matrix.platform == 'macos-latest' }}
         env:
           SHA: ${{ github.sha }}
         run: |
@@ -188,19 +157,19 @@ jobs:
       - name: Clean up Windows Build
         uses: geekyeggo/delete-artifact@v1
         with:
-          name: steampipe-chaos_linux_amd64
+          name: build-artifact-windows
           failOnError: true
 
       - name: Clean up Linux Build
         uses: geekyeggo/delete-artifact@v1
         with:
-          name: steampipe-chaos_linux_arm64
+          name: build-artifact-linux
           failOnError: true
 
       - name: Clean up Darwin Build
         uses: geekyeggo/delete-artifact@v1
         with:
-          name: steampipe-chaos_darwin_amd64
+          name: build-artifact-darwin
           failOnError: true
 
       - name: Clean up Test Suite
