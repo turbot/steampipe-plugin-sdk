@@ -22,11 +22,12 @@ jobs:
         uses: actions/checkout@main
         with:
           repository: turbot/steampipe
+
+      - name: Update go.mod and build Steampipe
         env:
           SHA: ${{ github.sha }}
         run: |
           ls -la /home/runner
-          ls -la /home/runner/steampipe-plugin-sdk
           echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe/go.mod
           make
 
@@ -42,7 +43,7 @@ jobs:
         env:
           SHA: ${{ github.sha }}
         run: |
-          echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/steampipe-plugin-chaos/go.mod      
+          echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-chaos/go.mod      
           make
 
       - name: Setup BATS
