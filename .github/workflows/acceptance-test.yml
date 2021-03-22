@@ -27,8 +27,8 @@ jobs:
         env:
           SHA: ${{ github.sha }}
         run: |
-          ls -la home/runner/steampipe-plugin-sdk/
-          echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> home/runner/steampipe-plugin-sdk/steampipe/go.mod
+          ls -la home/runner/
+          echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> home/runner/steampipe/go.mod
           make
 
       - name: Install Chaos plugin from registry
@@ -43,7 +43,7 @@ jobs:
         env:
           SHA: ${{ github.sha }}
         run: |
-          echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> home/runner/steampipe-plugin-sdk/steampipe-plugin-chaos/go.mod      
+          echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> home/runner/steampipe-plugin-chaos/go.mod      
           make
 
       - name: Setup BATS
