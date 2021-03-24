@@ -29,9 +29,9 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           ls -la /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe
           go get github.com/turbot/steampipe-plugin-sdk@$SHA
           # echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe/go.mod
-          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe
           make
 
       - name: Install Chaos plugin from registry
@@ -48,9 +48,9 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           ls -la /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos
-          go get github.com/turbot/steampipe-plugin-sdk@$SHA
-          # echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/go.mod      
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/
+          go get github.com/turbot/steampipe-plugin-sdk@$SHA
+          # echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/go.mod
           make
 
       - name: Setup BATS
