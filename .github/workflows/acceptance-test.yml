@@ -19,9 +19,10 @@ jobs:
           go-version: 1.14
 
       - name: Checkout Steampipe
-        uses: actions/checkout@main
+        uses: actions/checkout@v2
         with:
           repository: turbot/steampipe
+          path: turbot/steampipe
 
       - name: Update go.mod and build Steampipe
         env:
