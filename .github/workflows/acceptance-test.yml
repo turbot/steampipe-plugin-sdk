@@ -28,9 +28,9 @@ jobs:
         env:
           SHA: ${{ github.sha }}
         run: |
-          echo $GITHUB_SHA
-          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe
-          go get github.com/steampipe-plugin-sdk@$GITHUB_SHA
+          echo ${GITHUB_HEAD_REF}
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
+          go get github.com/steampipe-plugin-sdk@${GITHUB_HEAD_REF}
           make
 
       - name: Install Chaos plugin from registry
@@ -44,11 +44,11 @@ jobs:
 
       - name: Update go.mod and build plugin chaos
         env:
-          SHA: ${{ github.sha }}
+          SHA: ${GITHUB_HEAD_REF}
         run: |
           echo $GITHUB_SHA
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
-          go get github.com/turbot/steampipe-plugin-sdk@$GITHUB_SHA
+          go get github.com/turbot/steampipe-plugin-sdk@${GITHUB_HEAD_REF}
           make
 
       - name: Setup BATS
