@@ -22,16 +22,15 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: turbot/steampipe
-          path: turbot/steampipe
+          path: steampipe
 
       - name: Update go.mod and build Steampipe
         env:
           SHA: ${{ github.sha }}
         run: |
-          ls -la /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe
+          echo $GITHUB_SHA
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe
-          go get github.com/turbot/steampipe-plugin-sdk@$SHA
-          # echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe/go.mod
+          go get github.com/steampipe-plugin-sdk@$GITHUB_SHA
           make
 
       - name: Install Chaos plugin from registry
@@ -41,16 +40,15 @@ jobs:
         uses: actions/checkout@main
         with:
           repository: turbot/steampipe-plugin-chaos
-          path: turbot/steampipe-plugin-chaos
+          path: steampipe-plugin-chaos
 
       - name: Update go.mod and build plugin chaos
         env:
           SHA: ${{ github.sha }}
         run: |
-          ls -la /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos
-          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/
-          go get github.com/turbot/steampipe-plugin-sdk@$SHA
-          # echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/go.mod
+          echo $GITHUB_SHA
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
+          go get github.com/turbot/steampipe-plugin-sdk@$GITHUB_SHA
           make
 
       - name: Setup BATS
@@ -68,5 +66,5 @@ jobs:
 
       - name: Run Test Suite
         run: |
-          chmod +x /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/tests/acceptance/run.sh
-          /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/tests/acceptance/run.sh
+          chmod +x /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
+          /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
