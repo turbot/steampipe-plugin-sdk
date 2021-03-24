@@ -39,6 +39,7 @@ jobs:
         with:
           repository: turbot/steampipe-plugin-chaos
           path: steampipe-plugin-chaos
+          submodules: true
 
       - name: Update go.mod and build plugin chaos
         run: |
