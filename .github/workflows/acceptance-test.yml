@@ -30,6 +30,7 @@ jobs:
         run: |
           ls -la /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe
           echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe/go.mod
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe
           make
 
       - name: Install Chaos plugin from registry
@@ -47,6 +48,7 @@ jobs:
         run: |
           ls -la /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos
           echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/go.mod      
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/
           make
 
       - name: Setup BATS
@@ -64,5 +66,5 @@ jobs:
 
       - name: Run Test Suite
         run: |
-          chmod +x home/runner/steampipe-plugin-sdk/steampipe-plugin-chaos/acceptance/run.sh
-          home/runner/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
+          chmod +x /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/tests/acceptance/run.sh
+          /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/turbot/steampipe-plugin-chaos/tests/acceptance/run.sh
