@@ -28,6 +28,7 @@ jobs:
         env:
           SHA: ${{ github.sha }}
         run: |
+          echo ${GITHUB_SHA}
           echo ${GITHUB_HEAD_REF}
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
           go get github.com/steampipe-plugin-sdk@${GITHUB_HEAD_REF}
@@ -47,6 +48,7 @@ jobs:
           SHA: ${GITHUB_HEAD_REF}
         run: |
           echo $GITHUB_SHA
+          echo $GITHUB_HEAD_REF
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
           go get github.com/turbot/steampipe-plugin-sdk@${GITHUB_HEAD_REF}
           make
