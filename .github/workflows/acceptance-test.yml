@@ -26,13 +26,10 @@ jobs:
 
       - name: Update go.mod and build Steampipe
         run: |
-          echo $PATH
-          echo "PATH=$PATH:$HOME/build:/home/runner:/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
-          echo $PATH
+          echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
           go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
           go build -o /home/runner/steampipe
-          ls -la /home/runner/steampipe
 
       - name: Install Chaos plugin from registry
         run: steampipe plugin install chaos
@@ -45,6 +42,7 @@ jobs:
 
       - name: Update go.mod and build plugin chaos
         run: |
+          echo "PATH=$PATH:$HOME/build::/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
           go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
           make
