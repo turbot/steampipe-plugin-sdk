@@ -28,6 +28,7 @@ jobs:
         env:
           SHA: ${{ github.sha }}
         run: |
+          git clone git@github.com:turbot/steampipe.git
           ls -la /home/runner
           echo "replace github.com/turbot/steampipe-plugin-sdk => github.com/turbot/steampipe-plugin-sdk@$SHA" >> /home/runner/work/steampipe-plugin-sdk/steampipe/go.mod
           make
