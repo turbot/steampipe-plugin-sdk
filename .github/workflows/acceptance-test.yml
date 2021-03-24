@@ -28,9 +28,7 @@ jobs:
         run: |
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
           go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
-          ls -la /home/runner/
-          ls -la /home/runner/local/bin
-          make
+          go build -o /home/runner/steampipe
 
       - name: Install Chaos plugin from registry
         run: steampipe plugin install chaos
