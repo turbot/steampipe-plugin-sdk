@@ -26,12 +26,16 @@ jobs:
 
       - name: Update go.mod and build Steampipe
         run: |
+          echo $PATH
+          echo "PATH=$PATH:$HOME/build:/home/runner/"
+          echo $PATH
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
           go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
           go build -o /home/runner/steampipe
-          ls -la /home/runner
           ls -la /home/runner/steampipe
-          steampipe plugin install chaos
+
+      - name: Install Chaos plugin from registry
+        run: steampipe plugin install chaos
 
       - name: Checkout Chaos plugin
         uses: actions/checkout@main
