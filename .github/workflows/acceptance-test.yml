@@ -25,11 +25,7 @@ jobs:
           path: steampipe
 
       - name: Update go.mod and build Steampipe
-        env:
-          SHA: ${{ github.sha }}
         run: |
-          echo ${{ github.event.pull_request.head.sha }}
-          echo ${GITHUB_HEAD_REF}
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
           go get github.com/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
           make
@@ -44,11 +40,7 @@ jobs:
           path: steampipe-plugin-chaos
 
       - name: Update go.mod and build plugin chaos
-        env:
-          SHA: ${GITHUB_HEAD_REF}
         run: |
-          echo ${{ github.event.pull_request.head.sha }}
-          echo $GITHUB_HEAD_REF
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
           go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
           make
