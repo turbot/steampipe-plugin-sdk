@@ -29,6 +29,7 @@ jobs:
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
           go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
           go build -o /home/runner/steampipe
+          ls -la /home/runner
           ls -la /home/runner/steampipe
           steampipe plugin install chaos
 
