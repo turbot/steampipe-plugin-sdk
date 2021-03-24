@@ -27,7 +27,7 @@ jobs:
       - name: Update go.mod and build Steampipe
         run: |
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
-          go get github.com/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
+          go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
           make
 
       - name: Install Chaos plugin from registry
