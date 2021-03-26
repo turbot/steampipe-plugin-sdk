@@ -1,8 +1,5 @@
-name: steampipe-plugin-tests
+name: Steampipe plugin SDK acceptance tests
 on:
-  push:
-    branches:
-      - main
   pull_request:
 
 env:
