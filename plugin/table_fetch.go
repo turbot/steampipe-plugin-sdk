@@ -23,6 +23,28 @@ const (
 	fetchTypeGet            = "get"
 )
 
+/*
+multiregion fetch
+Each plugin table can optionally define a function `GetMatrixItem`.
+
+This returns a list of maps, each of which contains the parameters required
+to do get/list for a given region (or whatever partitioning is relevant to the plugin)
+
+The plugin would typically get this information from the connection config
+
+If a matrix is returned by the plugin, we execute Get/List calls for each matrix item (e.g. each region)
+
+NOTE: if the quals include the matrix property (or properties),w e check whether each matrix
+item meets the quals and if not, do not execute for that item
+
+For example, for the query
+	select vpc_id, region from aws_vpc where region = 'us-east-1'
+we would only execute a List function for the matrix item { region: "us-east-1" },
+even if other were defined in the connection config
+
+When executing for each matrix item, the matrix item is put into the context, available for use by the get/list call
+*/
+
 // call either 'get' or 'list'.
 func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 	// if the query contains a single 'equals' constrains for all key columns, then call the 'get' function
@@ -161,7 +183,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
 	getCall := t.SafeGet()
 
-	log.Printf("[DEBUG] getForEach, matrixItem list: %v\n", queryData.Matrix)
+	log.Printf("[TRACE] getForEach, matrixItem list: %v\n", queryData.Matrix)
 
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(queryData.Matrix))
@@ -176,6 +198,12 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 	var results []*resultWithMetadata
 
 	for _, matrixItem := range queryData.Matrix {
+		// check whether there is a single equals qual for each matrix item property and if so, check whether
+		// the matrix item property values satisfy the conditions
+		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
+			log.Printf("[TRACE] getForEach: matrix item item does not meet quals, %v, %v\n", queryData.equalsQuals, matrixItem)
+			continue
+		}
 		// increment our own wait group
 		wg.Add(1)
 
@@ -321,12 +349,12 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 
 func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
 	if len(queryData.Matrix) == 0 {
-		log.Printf("[DEBUG] No matrix item")
+		log.Printf("[TRACE] doList: no matrix item")
 		if _, err := listCall(ctx, queryData, &HydrateData{}); err != nil {
 			queryData.streamError(err)
 		}
 	} else if len(queryData.Matrix) == 1 {
-		log.Printf("[DEBUG] running list for single matrixItem: %v", queryData.Matrix[0])
+		log.Printf("[TRACE] running list for single matrixItem: %v", queryData.Matrix[0])
 		// create a context with the matrixItem
 		fetchContext := context.WithValue(ctx, context_key.MatrixItem, queryData.Matrix[0])
 		if _, err := listCall(fetchContext, queryData, &HydrateData{}); err != nil {
@@ -340,14 +368,14 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 // ListForEach :: execute the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
-	log.Printf("[DEBUG] listForEach: %v\n", queryData.Matrix)
+	log.Printf("[TRACE] listForEach: %v\n", queryData.Matrix)
 	var wg sync.WaitGroup
 	for _, matrixItem := range queryData.Matrix {
 
 		// check whether there is a single equals qual for each matrix item property and if so, check whether
 		// the matrix item property values satisfy the conditions
 		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[INFO] matrix item item does not meet quals, %v, %v\n", queryData.equalsQuals, matrixItem)
+			log.Printf("[INFO] listForEach: matrix item item does not meet quals, %v, %v\n", queryData.equalsQuals, matrixItem)
 			continue
 		}
 
@@ -414,7 +442,7 @@ func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) 
 		queryData.streamError(err)
 		return err
 	}
-	t.Plugin.Logger.Debug("executeLegacyGetCall", "hydrateInput", hydrateInput)
+	t.Plugin.Logger.Trace("executeLegacyGetCall", "hydrateInput", hydrateInput)
 	// there may be more than one hydrate item - loop over them
 	for _, hydrateItem := range hydrateInput {
 		t.Plugin.Logger.Debug("hydrateItem", "hydrateItem", hydrateItem)
