@@ -1,0 +1,64 @@
+name: Steampipe plugin SDK acceptance tests
+on:
+  pull_request:
+
+env:
+  STEAMPIPE_UPDATE_CHECK: false
+
+jobs:
+  buildChaosPlugin:
+    name: Build Chaos Plugin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - name: Checkout Steampipe
+        uses: actions/checkout@v2
+        with:
+          repository: turbot/steampipe
+          path: steampipe
+
+      - name: Update go.mod and build Steampipe
+        run: |
+          echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
+          go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
+          go build -o /home/runner/steampipe
+
+      - name: Install Chaos plugin from registry
+        run: steampipe plugin install chaos
+
+      - name: Checkout Chaos plugin
+        uses: actions/checkout@main
+        with:
+          repository: turbot/steampipe-plugin-chaos
+          path: steampipe-plugin-chaos
+          submodules: true
+
+      - name: Update go.mod and build plugin chaos
+        run: |
+          echo "PATH=$PATH:$HOME/build::/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
+          go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
+          make
+
+      - name: Setup BATS
+        uses: mig4/setup-bats@v1
+        with:
+          bats-version: 1.2.1
+
+      - name: Stop steampipe service
+        run: |
+          steampipe service stop --force
+
+      - name: Start steampipe service
+        run: |
+          steampipe service start
+
+      - name: Run Test Suite
+        run: |
+          chmod +x /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
+          /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
