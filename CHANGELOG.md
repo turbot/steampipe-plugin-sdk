@@ -1,5 +1,6 @@
 ## v0.2.7 [2021-03-18]
-* Multiregion queries should take region quals into account for get calls. [#78](https://github.com/turbot/steampipe-plugin-sdk/issues/78))
+_Bug fixes_
+* Multiregion queries should take region quals into account for 'get' calls. [#78](https://github.com/turbot/steampipe-plugin-sdk/issues/78))
 
 ## v0.2.6 [2021-03-18]
 _re-tagged after pushing missing commit_
