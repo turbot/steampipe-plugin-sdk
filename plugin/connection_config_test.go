@@ -436,15 +436,15 @@ func TestParseConnectionConfig(t *testing.T) {
 			if test.expected != "ERROR" {
 				t.Errorf("test %s failed with unexpected error: %v", name, err)
 			}
-			return
+			continue
 		}
 		if test.expectedFunc != nil && !test.expectedFunc(config) {
 			t.Errorf(`Test: '%s' FAILED : expect verification func failed`, name)
-		} else {
-			if !reflect.DeepEqual(config, test.expected) {
-				fmt.Printf("")
-				t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.expected, config)
-			}
 		}
+		if !reflect.DeepEqual(config, test.expected) {
+			fmt.Printf("")
+			t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.expected, config)
+		}
+
 	}
 }
