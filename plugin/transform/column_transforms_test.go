@@ -44,6 +44,7 @@ func TestColumnDataTransform(t *testing.T) {
 			if test.expected != "ERROR" {
 				t.Errorf("Test: '%s'' FAILED : \nunextected error %v", name, err)
 			}
+			continue
 		}
 
 		if !reflect.DeepEqual(test.expected, result) {

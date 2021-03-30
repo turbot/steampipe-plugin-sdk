@@ -742,9 +742,9 @@ func executeTransformTest(name string, t *testing.T, test TransformTest) {
 		}
 		return
 	}
-	//var expected interface{} = test.expected
-	//var got interface{} = output
-
+	if test.expected == "ERROR" {
+		t.Errorf("Test: '%s'' FAILED - expected error", name)
+	}
 	if !reflect.DeepEqual(test.expected, output) {
 		t.Errorf("Test: '%s'' FAILED : \nexpected:\n %v, \ngot:\n %v\n", name, test.expected, output)
 	}
