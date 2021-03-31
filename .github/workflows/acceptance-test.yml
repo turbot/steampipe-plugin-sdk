@@ -32,8 +32,9 @@ jobs:
         run: steampipe plugin install chaos
 
       - name: Checkout Chaos plugin
-        uses: actions/checkout@v0.0.4
+        uses: actions/checkout@v2
         with:
+          ref: refs/tags/v0.0.4
           repository: turbot/steampipe-plugin-chaos
           path: steampipe-plugin-chaos
           submodules: true
