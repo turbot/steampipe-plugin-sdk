@@ -26,9 +26,12 @@ func NewCache(config *ristretto.Config) *Cache {
 	return &Cache{cache}
 }
 
-func (cache *Cache) Set(key string, value interface{}) {
+func (cache *Cache) Set(key string, value interface{}) bool {
 	ttl := 1 * time.Hour
-	cache.cache.SetWithTTL(key, value, 1, ttl)
+	res := cache.cache.SetWithTTL(key, value, 1, ttl)
+	// wait for value to pass through buffers
+	time.Sleep(10 * time.Millisecond)
+	return res
 }
 
 func (cache *Cache) Get(key string) (interface{}, bool) {
