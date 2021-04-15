@@ -2,17 +2,14 @@ package plugin
 
 import (
 	"fmt"
-	"log"
 	"strings"
-
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 func (t *Table) validate(name string, requiredColumns []*Column) []string {
-	log.Printf("[TRACE] validate table %s, required columns %v", t.Name, requiredColumns)
 	var validationErrors []string
 	// does table have a name set?
 	if t.Name == "" {
