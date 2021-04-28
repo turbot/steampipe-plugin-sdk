@@ -20,6 +20,10 @@ func FromField(field string) *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldValue, Param: field}}}
 }
 
+func FromFields(fields []string) *ColumnTransforms {
+	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldsValue, Param: fields}}}
+}
+
 // Generate a value by returning the raw hydrate item
 func FromValue() *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: RawValue}}}

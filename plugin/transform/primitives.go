@@ -26,6 +26,7 @@ import (
 // return a field value of either the hydrate call result (if present)  or the root item if not
 // the field name is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
+
 	var item = d.HydrateItem
 
 	propertyPath, ok := d.Param.(string)
@@ -39,6 +40,33 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	}
 
 	return fieldValue, nil
+}
+
+func FieldsValue(_ context.Context, d *TransformData) (interface{}, error) {
+	var item = d.HydrateItem
+
+	propertyPath, ok := d.Param.([]string)
+
+	if !ok {
+		return nil, fmt.Errorf("'FieldValue' requires a string parameter containing property path but received %v", d.Param)
+	}
+
+	for _, value := range propertyPath {
+		hydrateItem := reflect.ValueOf(item)
+		if hydrateItem.Type().Kind() != reflect.Ptr {
+			hydrateItem = reflect.New(reflect.TypeOf(item))
+		}
+		property := hydrateItem.Elem().FieldByName(value)
+		if property.IsValid() {
+			fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, value)
+			if !ok {
+				log.Printf("[TRACE] failed to retrieve property path %s\n", value)
+			}
+			return fieldValue, nil
+		}
+
+	}
+	return nil, nil
 }
 
 // FieldValueCamelCase :: intended for the start of a transform chain
