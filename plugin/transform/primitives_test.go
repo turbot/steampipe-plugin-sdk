@@ -578,30 +578,6 @@ Statement:
 		function: FieldValueTag,
 		expected: "ERROR",
 	},
-	"FieldsValue string first value": {
-		d: &TransformData{
-			HydrateItem: taggedStructInstance,
-			Param:       []string{"GitURL", "GetColumn"},
-		},
-		function: FieldsValue,
-		expected: taggedStructInstance.GitURL,
-	},
-	"FieldsValue string second value": {
-		d: &TransformData{
-			HydrateItem: taggedStructInstance,
-			Param:       []string{"GetColumn", "NodeID"},
-		},
-		function: FieldsValue,
-		expected: taggedStructInstance.NodeID,
-	},
-	"FieldsValue Invalid Value": {
-		d: &TransformData{
-			HydrateItem: taggedStructInstance,
-			Param:       []string{"GetColumn", "ListColumn"},
-		},
-		function: FieldsValue,
-		expected: nil,
-	},
 	"UnixToTimestamp time conversion int64": {
 		d: &TransformData{
 			Value: 1611061921,
