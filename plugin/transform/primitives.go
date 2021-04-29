@@ -53,10 +53,11 @@ func FieldsValue(_ context.Context, d *TransformData) (interface{}, error) {
 
 	for _, value := range propertyPath {
 		hydrateItem := reflect.ValueOf(item)
-		if hydrateItem.Type().Kind() != reflect.Ptr {
-			hydrateItem = reflect.New(reflect.TypeOf(item))
+		if hydrateItem.Type().Kind() == reflect.Ptr {
+			// if it is a pointer, deference that
+			hydrateItem = hydrateItem.Elem()
 		}
-		property := hydrateItem.Elem().FieldByName(value)
+		property := hydrateItem.FieldByName(value)
 		if property.IsValid() {
 			fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, value)
 			if !ok {
