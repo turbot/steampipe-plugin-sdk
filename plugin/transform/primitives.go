@@ -27,27 +27,36 @@ import (
 // the field name is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	var item = d.HydrateItem
+	var propertyPath string
+	var fieldNames []string
 
-	switch d.Param.(type) {
+	switch p := d.Param.(type) {
 	case []string:
-		for _, value := range d.Param.([]string) {
-			hydrateItem := reflect.ValueOf(item)
-			if hydrateItem.Type().Kind() == reflect.Ptr {
-				// if it is a pointer, deference that
-				hydrateItem = hydrateItem.Elem()
-			}
-			property := hydrateItem.FieldByName(value)
-			if property.IsValid() {
-				d.Param = value
-			}
+		fieldNames = p
+	case string:
+		fieldNames = []string{p}
+	default:
+		return nil, fmt.Errorf("'FieldValue' requires one or more string parameters containing property path but received %v", d.Param)
+	}
+
+	for _, n := range fieldNames {
+		hydrateItem := reflect.ValueOf(item)
+		if hydrateItem.Type().Kind() == reflect.Ptr {
+			// if it is a pointer, deference that
+			hydrateItem = hydrateItem.Elem()
+		}
+		property := hydrateItem.FieldByName(n)
+		if property.IsValid() {
+			propertyPath = n
 		}
 	}
 
-	propertyPath, ok := d.Param.(string)
-	if !ok {
-		return nil, fmt.Errorf("'FieldValue' requires a string parameter containing property path but received %v", d.Param)
+	if propertyPath == "" {
+		if len(fieldNames) == 1 {
+			return nil, fmt.Errorf("Could not find the property %s in the object", fieldNames[0])
+		}
+		return nil, fmt.Errorf("Could not find %s properties in object", fmt.Sprintf(strings.Join(fieldNames[:], " or ")))
 	}
-
 	fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, propertyPath)
 	if !ok {
 		log.Printf("[TRACE] failed to retrieve property path %s\n", propertyPath)

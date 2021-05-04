@@ -537,7 +537,6 @@ Statement:
 			"support:*",
 		},
 	},
-
 	"FieldValueTag string": {
 		d: &TransformData{
 			Value:       "TRUE",
@@ -578,15 +577,15 @@ Statement:
 		function: FieldValueTag,
 		expected: "ERROR",
 	},
-	"FieldValue string first value": {
+	"FieldValue string single value": {
 		d: &TransformData{
 			HydrateItem: taggedStructInstance,
-			Param:       []string{"GitURL", "GetColumn"},
+			Param:       "GitURL",
 		},
 		function: FieldValue,
 		expected: taggedStructInstance.GitURL,
 	},
-	"FieldValue string second value": {
+	"FieldValue string double value": {
 		d: &TransformData{
 			HydrateItem: taggedStructInstance,
 			Param:       []string{"GetColumn", "NodeID"},
@@ -601,14 +600,6 @@ Statement:
 		},
 		function: FieldValue,
 		expected: "ERROR",
-	},
-	"FieldValue string single value": {
-		d: &TransformData{
-			HydrateItem: taggedStructInstance,
-			Param:       "NodeID",
-		},
-		function: FieldValue,
-		expected: taggedStructInstance.NodeID,
 	},
 	"UnixToTimestamp time conversion int64": {
 		d: &TransformData{

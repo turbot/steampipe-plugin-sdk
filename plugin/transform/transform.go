@@ -16,10 +16,13 @@ func FromMethod(methodName string) *ColumnTransforms {
 }
 
 // Generate a value by retrieving a field from the source item
-func FromField(field interface{}) *ColumnTransforms {
-	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldValue, Param: field}}}
+func FromField(fieldNames ...string) *ColumnTransforms {
+	var fieldNameArray []string
+	for _, fieldName := range fieldNames {
+		fieldNameArray = append(fieldNameArray, fieldName)
+	}
+	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldValue, Param: fieldNameArray}}}
 }
-
 
 // Generate a value by returning the raw hydrate item
 func FromValue() *ColumnTransforms {
