@@ -28,7 +28,6 @@ import (
 // the field name is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	var item = d.HydrateItem
-	var propertyPath string
 	var fieldNames []string
 
 	switch p := d.Param.(type) {
@@ -50,7 +49,7 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	}
 	pluralize := pluralize.NewClient()
 
-	return nil, fmt.Errorf("[TRACE] failed to retrieve value for properties %s %s\n", pluralize.Plural(propertyPath), fieldNames)
+	return nil, fmt.Errorf("[TRACE] failed to retrieve value for property %s %s\n", pluralize.Pluralize("path", len(fieldNames), false), fmt.Sprintf(strings.Join(fieldNames[:], " or ")))
 }
 
 // FieldValueCamelCase :: intended for the start of a transform chain
