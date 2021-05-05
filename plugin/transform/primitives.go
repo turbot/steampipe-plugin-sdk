@@ -15,6 +15,7 @@ import (
 	"github.com/iancoleman/strcase"
 	"github.com/turbot/go-kit/types"
 
+	pluralize "github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 )
 
@@ -39,30 +40,17 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 		return nil, fmt.Errorf("'FieldValue' requires one or more string parameters containing property path but received %v", d.Param)
 	}
 
-	for _, n := range fieldNames {
-		hydrateItem := reflect.ValueOf(item)
-		if hydrateItem.Type().Kind() == reflect.Ptr {
-			// if it is a pointer, deference that
-			hydrateItem = hydrateItem.Elem()
-		}
-		property := hydrateItem.FieldByName(n)
-		if property.IsValid() {
-			propertyPath = n
-		}
-	}
+	for _, propertyPath := range fieldNames {
+		fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, propertyPath)
+		if ok {
+			return fieldValue, nil
 
-	if propertyPath == "" {
-		if len(fieldNames) == 1 {
-			return nil, fmt.Errorf("Could not find the property %s in the object", fieldNames[0])
 		}
-		return nil, fmt.Errorf("Could not find %s properties in object", fmt.Sprintf(strings.Join(fieldNames[:], " or ")))
-	}
-	fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, propertyPath)
-	if !ok {
-		log.Printf("[TRACE] failed to retrieve property path %s\n", propertyPath)
-	}
 
-	return fieldValue, nil
+	}
+	pluralize := pluralize.NewClient()
+
+	return nil, fmt.Errorf("[TRACE] failed to retrieve value for properties %s %s\n", pluralize.Plural(propertyPath), fieldNames)
 }
 
 // FieldValueCamelCase :: intended for the start of a transform chain

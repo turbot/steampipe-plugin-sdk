@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/dgraph-io/ristretto v0.0.3
+	github.com/gertd/go-pluralize v0.1.7 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.4.3
 	github.com/hashicorp/go-hclog v0.14.1
