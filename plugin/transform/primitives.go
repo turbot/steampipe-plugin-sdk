@@ -48,8 +48,9 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 
 	}
 	pluralize := pluralize.NewClient()
+	log.Printf("[TRACE] failed to retrieve value for property %s %s\n", pluralize.Pluralize("path", len(fieldNames), false), fmt.Sprintf(strings.Join(fieldNames[:], " or ")))
 
-	return nil, fmt.Errorf("[TRACE] failed to retrieve value for property %s %s\n", pluralize.Pluralize("path", len(fieldNames), false), fmt.Sprintf(strings.Join(fieldNames[:], " or ")))
+	return nil, nil
 }
 
 // FieldValueCamelCase :: intended for the start of a transform chain
