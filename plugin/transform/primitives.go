@@ -15,6 +15,7 @@ import (
 	"github.com/iancoleman/strcase"
 	"github.com/turbot/go-kit/types"
 
+	pluralize "github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 )
 
@@ -27,18 +28,29 @@ import (
 // the field name is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	var item = d.HydrateItem
+	var fieldNames []string
 
-	propertyPath, ok := d.Param.(string)
-	if !ok {
-		return nil, fmt.Errorf("'FieldValue' requires a string parameter containing property path but received %v", d.Param)
+	switch p := d.Param.(type) {
+	case []string:
+		fieldNames = p
+	case string:
+		fieldNames = []string{p}
+	default:
+		return nil, fmt.Errorf("'FieldValue' requires one or more string parameters containing property path but received %v", d.Param)
 	}
 
-	fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, propertyPath)
-	if !ok {
-		log.Printf("[TRACE] failed to retrieve property path %s\n", propertyPath)
-	}
+	for _, propertyPath := range fieldNames {
+		fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, propertyPath)
+		if ok {
+			return fieldValue, nil
 
-	return fieldValue, nil
+		}
+
+	}
+	pluralize := pluralize.NewClient()
+	log.Printf("[TRACE] failed to retrieve value for property %s %s\n", pluralize.Pluralize("path", len(fieldNames), false), fmt.Sprintf(strings.Join(fieldNames[:], " or ")))
+
+	return nil, nil
 }
 
 // FieldValueCamelCase :: intended for the start of a transform chain

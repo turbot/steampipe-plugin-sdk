@@ -537,7 +537,6 @@ Statement:
 			"support:*",
 		},
 	},
-
 	"FieldValueTag string": {
 		d: &TransformData{
 			Value:       "TRUE",
@@ -576,6 +575,30 @@ Statement:
 			Param:       "json",
 		},
 		function: FieldValueTag,
+		expected: "ERROR",
+	},
+	"FieldValue string single value": {
+		d: &TransformData{
+			HydrateItem: taggedStructInstance,
+			Param:       "GitURL",
+		},
+		function: FieldValue,
+		expected: taggedStructInstance.GitURL,
+	},
+	"FieldValue string double value": {
+		d: &TransformData{
+			HydrateItem: taggedStructInstance,
+			Param:       []string{"GetColumn", "NodeID"},
+		},
+		function: FieldValue,
+		expected: taggedStructInstance.NodeID,
+	},
+	"FieldValue Invalid Value": {
+		d: &TransformData{
+			HydrateItem: taggedStructInstance,
+			Param:       []string{"GetColumn", "ListColumn"},
+		},
+		function: FieldValue,
 		expected: "ERROR",
 	},
 	"UnixToTimestamp time conversion int64": {
