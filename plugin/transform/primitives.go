@@ -25,7 +25,7 @@ import (
 
 // FieldValue :: intended for the start of a transform chain
 // return a field value of either the hydrate call result (if present)  or the root item if not
-// the field name is in the 'Param'
+// the field name(s) is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	var item = d.HydrateItem
 	var fieldNames []string
