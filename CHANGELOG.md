@@ -1,4 +1,4 @@
-## v0.2.8 [2021-03-31]
+## v0.2.8 [2021-05-06]
 _What's new_
 * Added support for retryable errors and ignorable errors inside `getConfig` and `hydrateConfig`. [#15](https://github.com/turbot/steampipe-plugin-sdk/issues/15))
 * Update `FromField` transform to accept multiple arguments, which are tried in order. [#55](https://github.com/turbot/steampipe-plugin-sdk/issues/55))
