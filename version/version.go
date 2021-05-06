@@ -6,8 +6,8 @@ import (
 	version "github.com/hashicorp/go-version"
 )
 
-// ProtocolVersion :: the version of the protobuf column definitions.
-// the SDK version used by the FDW must be using a compatible version (i.e. at least as new) to all plugins used
+// ProtocolVersion :: update this if breaking changes are made to the protobuf spec
+// (for example column types)
 var ProtocolVersion int64 = 20210505
 
 // Version :: the main version number that is being run at the moment.
