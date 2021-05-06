@@ -38,7 +38,13 @@ func (s PluginServer) GetSchema(_ *proto.GetSchemaRequest) (res *proto.GetSchema
 		}
 	}()
 	schema, err := s.getSchemaFunc()
-	return &proto.GetSchemaResponse{Schema: &proto.Schema{Schema: schema, SdkVersion: version.String()}}, err
+	return &proto.GetSchemaResponse{
+		Schema: &proto.Schema{
+			Schema:                  schema,
+			SdkVersion:              version.String(),
+			ColumnDefinitionVersion: version.ColumnDefinitionVersion,
+		},
+	}, err
 }
 
 func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
