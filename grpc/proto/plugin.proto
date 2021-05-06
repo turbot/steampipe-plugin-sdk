@@ -110,7 +110,7 @@ message KeyColumnsSet
 message Schema {
   map<string, TableSchema> schema = 1;
   string sdk_version = 2;
-  int64 column_definition_version = 3;
+  int64 protocol_version = 3;
 }
 
 message Column {

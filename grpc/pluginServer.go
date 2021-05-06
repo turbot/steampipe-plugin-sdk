@@ -40,9 +40,9 @@ func (s PluginServer) GetSchema(_ *proto.GetSchemaRequest) (res *proto.GetSchema
 	schema, err := s.getSchemaFunc()
 	return &proto.GetSchemaResponse{
 		Schema: &proto.Schema{
-			Schema:                  schema,
-			SdkVersion:              version.String(),
-			ColumnDefinitionVersion: version.ColumnDefinitionVersion,
+			Schema:          schema,
+			SdkVersion:      version.String(),
+			ProtocolVersion: version.ProtocolVersion,
 		},
 	}, err
 }
