@@ -141,7 +141,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
 	defer func() {
 		if p := recover(); p != nil {
-			err = status.Error(codes.Internal, fmt.Sprintf("table '%': Get hydrate call %s failed with panic %v", t.Name, hydrateKey, p))
+			err = status.Error(codes.Internal, fmt.Sprintf("table '%s': Get hydrate call %s failed with panic %v", t.Name, hydrateKey, p))
 		}
 		logging.LogTime(hydrateKey + " end")
 	}()
@@ -164,7 +164,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	}
 
 	if err != nil {
-		log.Printf("[WARN] table '%': Get hydrate call %s returned error %v\n", t.Name, hydrateKey, err)
+		log.Printf("[WARN] table '%s': Get hydrate call %s returned error %v\n", t.Name, hydrateKey, err)
 		return err
 	}
 

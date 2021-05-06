@@ -161,6 +161,6 @@ enum ColumnType {
   IPADDR = 6;
   CIDR = 7;
   TIMESTAMP = 8;
-  INET = 9;
+//  INET = 9;
   UNKNOWN = -1;
 }
