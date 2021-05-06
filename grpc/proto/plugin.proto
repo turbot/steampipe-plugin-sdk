@@ -110,6 +110,7 @@ message KeyColumnsSet
 message Schema {
   map<string, TableSchema> schema = 1;
   string sdk_version = 2;
+  int64 protocol_version = 3;
 }
 
 message Column {
@@ -161,6 +162,6 @@ enum ColumnType {
   IPADDR = 6;
   CIDR = 7;
   TIMESTAMP = 8;
-  INET = 9;
+//  INET = 9;
   UNKNOWN = -1;
 }

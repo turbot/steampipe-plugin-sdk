@@ -89,7 +89,7 @@ func ColumnQualValue(qv *proto.QualValue, column *Column) interface{} {
 		return qv.GetTimestampValue()
 	case proto.ColumnType_JSON:
 		return qv.GetJsonbValue()
-	case proto.ColumnType_IPADDR, proto.ColumnType_CIDR, proto.ColumnType_INET:
+	case proto.ColumnType_IPADDR, proto.ColumnType_CIDR: //proto.ColumnType_INET:
 		return qv.GetInetValue()
 	default:
 		return nil

@@ -3,10 +3,11 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"strings"
 	"testing"
+
+	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 //// isGet ////
@@ -196,6 +197,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 				Hydrate: getHydrate,
 			},
 			HydrateDependencies: nil,
+			Plugin:              &Plugin{},
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
@@ -211,6 +213,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 			List:                &ListConfig{Hydrate: listHydrate},
 			Get:                 &GetConfig{Hydrate: getHydrate},
 			HydrateDependencies: nil,
+			Plugin:              &Plugin{},
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
@@ -226,6 +229,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 			List:                &ListConfig{Hydrate: listHydrate},
 			Get:                 &GetConfig{Hydrate: getHydrate},
 			HydrateDependencies: []HydrateDependencies{{hydrate1, []HydrateFunc{hydrate2}}},
+			Plugin:              &Plugin{},
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
@@ -242,6 +246,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 			List:                &ListConfig{Hydrate: listHydrate},
 			Get:                 &GetConfig{Hydrate: getHydrate},
 			HydrateDependencies: []HydrateDependencies{{hydrate1, []HydrateFunc{hydrate3}}},
+			Plugin:              &Plugin{},
 		},
 		columns:   []string{"c1", "c2"},
 		fetchType: fetchTypeGet,
@@ -261,6 +266,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 				{hydrate1, []HydrateFunc{hydrate2}},
 				{hydrate2, []HydrateFunc{hydrate3}},
 			},
+			Plugin: &Plugin{},
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeGet,
@@ -280,6 +286,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 				{hydrate1, []HydrateFunc{hydrate2}},
 				{hydrate2, []HydrateFunc{hydrate3}},
 			},
+			Plugin: &Plugin{},
 		},
 		columns:   []string{"c3"},
 		fetchType: fetchTypeGet,

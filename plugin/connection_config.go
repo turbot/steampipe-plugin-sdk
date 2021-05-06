@@ -6,17 +6,14 @@ import (
 	"log"
 	"strings"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/hashicorp/hcl/v2"
-
-	"github.com/turbot/steampipe-plugin-sdk/plugin/schema"
-
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/schema"
 	"github.com/zclconf/go-cty/cty/gocty"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type ConnectionConfigInstanceFunc func() interface{}
