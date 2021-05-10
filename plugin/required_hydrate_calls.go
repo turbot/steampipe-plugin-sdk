@@ -1,8 +1,6 @@
 package plugin
 
 import (
-	"log"
-
 	"github.com/turbot/go-kit/helpers"
 )
 
@@ -28,8 +26,6 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
 	if hydrateName != c.fetchCallName {
 		if _, ok := c.requiredHydrateCalls[hydrateName]; !ok {
 		}
-
-		log.Printf("[TRACE] adding hydration function '%s' to hydrationMap\n", hydrateName)
 
 		// get the config for this hydrate function
 		config := c.table.getHydrateConfig(hydrateName)

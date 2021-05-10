@@ -74,14 +74,12 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 			// see if this column specifies a hydrate function
 			hydrateFunc := column.Hydrate
 			if hydrateFunc != nil {
-				log.Printf("[TRACE] table '%s' column '%s'  - resolved hydration function '%s'\n", t.Name, column.Name, column.resolvedHydrateName)
 				hydrateName := helpers.GetFunctionName(hydrateFunc)
 				column.resolvedHydrateName = hydrateName
 				requiredCallBuilder.Add(hydrateFunc)
 			} else {
 				column.resolvedHydrateName = fetchCallName
 				// so there is no hydrate call registered for the column - the resolvedHydrateName is the fetch call
-				log.Printf("[TRACE] table '%s' column '%s'  - resolved hydration function is the fetch call: '%s'\n", t.Name, column.Name, column.resolvedHydrateName)
 				// do not add to map of hydrate functions as the fetch call will always be called
 			}
 		}
