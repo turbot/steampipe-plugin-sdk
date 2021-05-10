@@ -24,6 +24,10 @@ func FromField(fieldNames ...string) *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldValue, Param: fieldNameArray}}}
 }
 
+func FromQual(qual string) *ColumnTransforms {
+	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: QualValue, Param: qual}}}
+}
+
 // Generate a value by returning the raw hydrate item
 func FromValue() *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: RawValue}}}

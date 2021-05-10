@@ -39,15 +39,15 @@ type QueryData struct {
 	// deprecated - plugins should no longer call StreamLeafListItem directly and should just call StreamListItem
 	// event for the child list of a parent child list call
 	StreamLeafListItem func(ctx context.Context, item interface{})
-
 	// internal
-	hydrateCalls       []*HydrateCall
-	equalsQuals        map[string]*proto.QualValue
-	concurrencyManager *ConcurrencyManager
-	rowDataChan        chan *RowData
-	errorChan          chan error
-	streamCount        int
-	stream             proto.WrapperPlugin_ExecuteServer
+	hydrateCalls        []*HydrateCall
+	equalsQuals         map[string]*proto.QualValue
+	concurrencyManager  *ConcurrencyManager
+	rowDataChan         chan *RowData
+	errorChan           chan error
+	streamCount         int
+	stream              proto.WrapperPlugin_ExecuteServer
+	keyColumnQualValues map[string]interface{}
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
@@ -118,11 +118,11 @@ func (d *QueryData) ShallowCopy() *QueryData {
 }
 
 // SetFetchType :: determine whether this is a get or a list call
+// SetFetchType :: determine whether this is a get or a list call
 func (d *QueryData) SetFetchType(table *Table) {
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
 	var listQuals map[string]*proto.QualValue
-
 	if table.Get != nil {
 		getQuals = table.getKeyColumnQuals(d, table.Get.KeyColumns)
 	}
@@ -150,6 +150,20 @@ func (d *QueryData) SetFetchType(table *Table) {
 			d.FetchType = fetchTypeGet
 		}
 	}
+	d.populateQualValueMap(table)
+}
+
+func (queryData *QueryData) populateQualValueMap(table *Table) {
+	qualValueMap := queryData.KeyColumnQuals
+	keyColumnQuals := make(map[string]interface{}, len(qualValueMap))
+	for columnName, qualValue := range qualValueMap {
+		qualColumn, ok := table.columnForName(columnName)
+		if !ok {
+			continue
+		}
+		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
+	}
+	queryData.keyColumnQualValues = keyColumnQuals
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return

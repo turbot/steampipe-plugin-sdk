@@ -112,6 +112,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		queryDataCopy.populateQualValueMap(t)
 		getWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
@@ -338,6 +339,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		queryDataCopy.populateQualValueMap(t)
 		listWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {

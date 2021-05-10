@@ -444,3 +444,8 @@ func StringArrayToMap(_ context.Context, d *TransformData) (interface{}, error) 
 	}
 
 }
+
+func QualValue(ctx context.Context, d *TransformData) (interface{}, error) {
+	value := d.KeyColumnQuals[d.Param.(string)]
+	return value, nil
+}
