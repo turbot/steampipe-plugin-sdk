@@ -1,3 +1,7 @@
+## v0.2.9 [2021-05-13]
+_What's new_
+* Export GetQualValue function ([#98](https://github.com/turbot/steampipe-plugin-sdk/issues/98))
+
 ## v0.2.8 [2021-05-06]
 _What's new_
 * Added support for retryable errors and ignorable errors inside `getConfig` and `hydrateConfig`. ([#15](https://github.com/turbot/steampipe-plugin-sdk/issues/15))
