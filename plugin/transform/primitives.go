@@ -23,8 +23,8 @@ import (
 // Transform primitives
 // predefined transform functions that may be chained together
 
-// FieldValue :: intended for the start of a transform chain
-// Field Value returns a field value of either the hydrate call result (if present)  or the root item if not
+// FieldValue function is intended for the start of a transform chain.
+// This returns a field value of either the hydrate call result (if present)  or the root item if not
 // the field name is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	var item = d.HydrateItem
@@ -53,8 +53,8 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return nil, nil
 }
 
-// FieldValueCamelCase :: intended for the start of a transform chain
-// FieldValueCamelCase converts the column name to camel case and call FieldValue
+// FieldValueCamelCase is intended for the start of a transform chain
+// This converts the column name to camel case and call FieldValue
 func FieldValueCamelCase(ctx context.Context, d *TransformData) (interface{}, error) {
 
 	propertyPath := strcase.ToCamel(d.ColumnName)
@@ -66,8 +66,8 @@ func FieldValueCamelCase(ctx context.Context, d *TransformData) (interface{}, er
 	return FieldValue(ctx, d)
 }
 
-// FieldValueGo :: intended for the start of a transform chain
-// FieldValueGo converts the column name to camel case, with common initialisms upper case, and call FieldValue
+// FieldValueGo is intended for the start of a transform chain
+// This converts the column name to camel case, with common initialisms upper case, and call FieldValue
 func FieldValueGo(ctx context.Context, d *TransformData) (interface{}, error) {
 
 	// call lintName to make common initialisms upper case
@@ -80,8 +80,8 @@ func FieldValueGo(ctx context.Context, d *TransformData) (interface{}, error) {
 	return FieldValue(ctx, d)
 }
 
-// MatrixItemValue :: intended for the start of a transform chain
-// MatrixItemValue retrieves a value from the matrix item, using the param from transform data as a key
+// MatrixItemValue is intended for the start of a transform chain
+// This retrieves a value from the matrix item, using the param from transform data as a key
 func MatrixItemValue(ctx context.Context, d *TransformData) (interface{}, error) {
 	metadataKey, ok := d.Param.(string)
 	if !ok {
@@ -204,8 +204,8 @@ var commonInitialisms = map[string]bool{
 	"XSS":   true,
 }
 
-// FieldValueTag :: intended for the start of a transform chain
-// FieldValueTag finds the data value with the tag matching the column name
+// FieldValueTag is intended for the start of a transform chain
+// This finds the data value with the tag matching the column name
 func FieldValueTag(ctx context.Context, d *TransformData) (interface{}, error) {
 	tagName, ok := d.Param.(string)
 	if !ok {
@@ -238,8 +238,8 @@ func FieldValueTag(ctx context.Context, d *TransformData) (interface{}, error) {
 
 }
 
-// ConstantValue :: intended for the start of a transform chain
-// ConstantValue returns the value passed as d.Param
+// ConstantValue is intended for the start of a transform chain
+// This returns the value passed as d.Param
 func ConstantValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return d.Param, nil
 }
@@ -257,8 +257,8 @@ func MethodValue(_ context.Context, d *TransformData) (interface{}, error) {
 	}
 }
 
-// RawValue :: intended for the start of a transform chain
-// RawValue returns the whole hydrate item as it is
+// RawValue is intended for the start of a transform chain
+// This returns the whole hydrate item as it is
 func RawValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return d.HydrateItem, nil
 }
@@ -290,7 +290,7 @@ func ToLower(_ context.Context, d *TransformData) (interface{}, error) {
 }
 
 // ToBool converts the (string) value to a bool
-// it returns nil if value is not a string
+// This returns nil if value is not a string
 func ToBool(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil

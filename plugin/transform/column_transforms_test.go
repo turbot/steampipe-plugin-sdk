@@ -7,10 +7,9 @@ import (
 )
 
 type ColumnDataTransformTest struct {
-	hydrateItem interface{}
-	transforms  *ColumnTransforms
-	column      string
-	expected    interface{}
+	transformData *TransformData
+	expected      interface{}
+	transforms    *ColumnTransforms
 }
 
 var textCtx = context.Background()
@@ -22,24 +21,28 @@ type apiStruct struct {
 }
 
 var testCasesColumnDataTransform = map[string]ColumnDataTransformTest{
-
 	"FromField (hydrate item, map source)": {
-		hydrateItem: map[string]string{"S": "stringval"},
-		transforms:  FromField("S"),
-		column:      "c1",
-		expected:    "stringval",
+		transformData: &TransformData{
+			HydrateItem: map[string]string{"S": "stringval"},
+
+			ColumnName: "c1",
+		},
+		transforms: FromField("S"),
+		expected:   "stringval",
 	},
 	"FromField (hydrate item, struct source)": {
-		hydrateItem: &apiStruct{S: "stringval"},
-		transforms:  FromField("S"),
-		column:      "c1",
-		expected:    "stringval",
+		transformData: &TransformData{
+			HydrateItem: &apiStruct{S: "stringval"},
+			ColumnName:  "c1",
+		},
+		transforms: FromField("S"),
+		expected:   "stringval",
 	},
 }
 
 func TestColumnDataTransform(t *testing.T) {
 	for name, test := range testCasesColumnDataTransform {
-		result, err := test.transforms.Execute(textCtx, test.hydrateItem, nil, nil, test.column)
+		result, err := test.transforms.Execute(textCtx, test.transformData, nil)
 		if err != nil {
 			if test.expected != "ERROR" {
 				t.Errorf("Test: '%s'' FAILED : \nunextected error %v", name, err)
