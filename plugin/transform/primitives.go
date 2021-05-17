@@ -411,6 +411,8 @@ func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error)
 			return v, nil
 		case string:
 			return []string{v}, nil
+		case *string:
+			return []string{*v}, nil
 		default:
 			str := fmt.Sprintf("%v", d.Value)
 			return []string{str}, nil
