@@ -84,7 +84,7 @@ func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.W
 	return d
 }
 
-// create a shallow copy of the QueryData
+// ShallowCopy creates a shallow copy of the QueryData
 // this is used to pass different quals to multiple list/get calls, when an in() clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -117,8 +117,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	return clone
 }
 
-// SetFetchType :: determine whether this is a get or a list call
-// SetFetchType :: determine whether this is a get or a list call
+// SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map 
 func (d *QueryData) SetFetchType(table *Table) {
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
@@ -153,6 +152,8 @@ func (d *QueryData) SetFetchType(table *Table) {
 	d.populateQualValueMap(table)
 }
 
+// populate a map of the resolved values of each key column qual
+// this is passed into transforms
 func (queryData *QueryData) populateQualValueMap(table *Table) {
 	qualValueMap := queryData.KeyColumnQuals
 	keyColumnQuals := make(map[string]interface{}, len(qualValueMap))
