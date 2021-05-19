@@ -15,23 +15,16 @@ func (t *Table) getKeyColumnQuals(d *QueryData, keyColumns *KeyColumnSet) map[st
 			d.equalsQuals[c.Name] = qual.GetValue()
 		}
 	}
-
 	// KeyColumns is either string or []string
 	if keyColumn := keyColumns.Single; keyColumn != "" {
 		return t.singleKeyQuals(d, keyColumn)
 	}
 	if keyColumns := keyColumns.All; len(keyColumns) != 0 {
-		return t.multiKeyQuals(d, keyColumns)
+		return t.multiKeyQuals(d, keyColumns, true)
 	}
-
 	if keyColumns := keyColumns.Any; len(keyColumns) != 0 {
-		for _, keyColumn := range keyColumns {
-			if quals := t.singleKeyQuals(d, keyColumn); quals != nil {
-				return quals
-			}
-		}
+		return t.multiKeyQuals(d, keyColumns, false)
 	}
-
 	return nil
 }
 
@@ -52,24 +45,25 @@ func (t *Table) singleKeyQuals(d *QueryData, keyColumn string) map[string]*proto
 	return nil
 }
 
-func (t *Table) multiKeyQuals(d *QueryData, keyColumns []string) map[string]*proto.QualValue {
+func (t *Table) multiKeyQuals(d *QueryData, keyColumns []string, allRequired bool) map[string]*proto.QualValue {
 	// so a list of key column selections are specified.
 	keyValues := make(map[string]*proto.QualValue)
 	for _, keyColumn := range keyColumns {
 		if qualValue, ok := d.equalsQuals[keyColumn]; ok {
-			// NOTE: if there is a list of qual values for any of the key column, this is not a get
+			// NOTE: if there is a list of qual values for any of the key column, qual requirements are not satisfied
 			// (we do not support lists of qual values for multiple key columns)
 			if qualValue.GetListValue() != nil {
 				return nil
 			}
 			keyValues[keyColumn] = qualValue
-
 		} else {
-			// quals not satisfied
-			return nil
+			if allRequired {
+				// quals requirements are not satisfied
+				return nil
+			}
 		}
 	}
-	// to get this far, all key columns must have a single qual so this is a get call
+	// to get this far, all key columns must have a single qual so qual requirements are satisfied
 	return keyValues
 }
 
