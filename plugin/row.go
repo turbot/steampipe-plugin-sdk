@@ -59,8 +59,17 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 	rowDataCtx := context.WithValue(ctx, context_key.MatrixItem, r.matrixItem)
 
 	// make any required hydrate function calls
-	// - these populate the row with data entries corresponding to the hydrate function nameSP_LOG=TRACE
-	// keep looping round hydrate functions until they are all started
+	// - these populate the row with data entries corresponding to the hydrate function name
+
+	if err := r.startAllHydrateCalls(rowDataCtx); err != nil {
+		return nil, err
+	}
+
+	return r.waitForHydrateCallsToComplete(rowDataCtx)
+}
+
+// keep looping round hydrate functions until they are all started
+func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context) error {
 
 	// make a map of started hydrate calls for this row - this is used the determine which calls have not started yet
 	var callsStarted = map[string]bool{}
@@ -69,14 +78,27 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 		var allStarted = true
 		for _, call := range r.queryData.hydrateCalls {
 			hydrateFuncName := helpers.GetFunctionName(call.Func)
-			if !callsStarted[hydrateFuncName] {
-				if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
-					// execute the hydrate call asynchronously
-					call.Start(rowDataCtx, r, hydrateFuncName, r.queryData.concurrencyManager)
-					callsStarted[hydrateFuncName] = true
-				} else {
-					allStarted = false
-				}
+			// if it is already started, continue to next call
+			if callsStarted[hydrateFuncName] {
+				continue
+			}
+
+			// so call needs to start - can it?
+			if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
+				// execute the hydrate call asynchronously
+				call.Start(rowDataCtx, r, hydrateFuncName, r.queryData.concurrencyManager)
+				callsStarted[hydrateFuncName] = true
+			} else {
+				allStarted = false
+			}
+			// check for any hydrate errors
+			// this is to handle the case that a hydrate function fails which another hydrate function depends on
+			// in this case, we will never get out of the start loop as the dependent hydrate function will never start
+			select {
+			case err := <-r.errorChan:
+				log.Println("[WARN] hydrate err chan select", "error", err)
+				return err
+			default:
 			}
 		}
 		if allStarted {
@@ -84,10 +106,15 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	return nil
+}
+
+// wait for all hydrate calls to complete
+func (r *RowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*proto.Row, error) {
 
 	var row *proto.Row
 
-	// wait for all hydrate calls to complete and signal via the wait chan when they are
+	// start a go routine which signals via the wait chan when all calls are complete
 	// (we need this slightly convoluted mechanism to allow us to check for upstream errors
 	// by also selecting the errorChan)
 	go func() {
@@ -174,6 +201,7 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrateFunc, retryConfig)
 		}
 	}
+
 	return hydrateResult, err
 }
 
