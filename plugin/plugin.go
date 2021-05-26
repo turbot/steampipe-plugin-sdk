@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"syscall"
 
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
@@ -29,12 +31,16 @@ type Plugin struct {
 	ConnectionConfigSchema *ConnectionConfigSchema
 	// a map of connection name to connection structs
 	Connections map[string]*Connection
+	// object to handle caching of connection specific data
+	ConnectionManager *connection_manager.Manager
 }
 
 // Initialise :: initialise the connection config map, set plugin pointer on all tables and setup logger
 func (p *Plugin) Initialise() {
 	//  initialise the connection map
 	p.Connections = make(map[string]*Connection)
+	log.Println("[WARN] Plugin Initialise creating connection manager")
+	p.ConnectionManager = connection_manager.NewManager()
 
 	// NOTE update tables to have a reference to the plugin
 	p.claimTables()
@@ -130,7 +136,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		matrixItem = table.GetMatrixItem(ctx, connection)
 	}
 
-	queryData := newQueryData(queryContext, table, stream, connection, matrixItem)
+	queryData := newQueryData(queryContext, table, stream, connection, matrixItem, p.ConnectionManager)
 	p.Logger.Debug("calling fetchItems", "table", table.Name, "matrixItem", matrixItem)
 
 	// asyncronously fetch items
