@@ -66,6 +66,7 @@ func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall
 // - check whether the concurrency limits would be exceeded
 
 func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager *ConcurrencyManager) bool {
+	// check whether all hydrate functions we depend on have saved their results
 	for _, dep := range h.Depends {
 		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep) {
 			return false
