@@ -117,7 +117,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	return clone
 }
 
-// SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map 
+// SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) SetFetchType(table *Table) {
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
@@ -352,8 +352,8 @@ func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
 	return nil, false
 }
 
+// ToError is used to return an error or format the supplied value as error.
 // remove once go-kit version 0.2.0 is released
-// ToError :: if supplied value is already an error, return it, otherwise format it as an error
 func ToError(val interface{}) error {
 	if e, ok := val.(error); ok {
 		return e

@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// ConcurrencyManager :: struct which ensures hydrate funcitons stay within concurrency limits
+// ConcurrencyManager struct ensures that hydrate functions stay within concurrency limits
 type ConcurrencyManager struct {
 	mut sync.Mutex
 	// the maximun number of all hydrate calls which can run concurrently
@@ -46,7 +46,7 @@ func newConcurrencyManager(t *Table) *ConcurrencyManager {
 	}
 }
 
-// StartIfAllowed :: check whether the named hydrate call is permitted to start
+// StartIfAllowed checks whether the named hydrate call is permitted to start
 // based on the number of running instances of that call, and the total calls in progress
 func (c *ConcurrencyManager) StartIfAllowed(name string, maxCallConcurrency int) (res bool) {
 	c.mut.Lock()
@@ -85,7 +85,7 @@ func (c *ConcurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 	return true
 }
 
-// Finished :: decrement the counter for the named function
+// Finished decrements the counter for the named function
 func (c *ConcurrencyManager) Finished(name string) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -98,7 +98,7 @@ func (c *ConcurrencyManager) Finished(name string) {
 	c.callsInProgress--
 }
 
-// Close :: the query is complete. Dump out concurrency stats
+// Close executs when the query is complete and dumps out the concurrency stats
 func (c *ConcurrencyManager) Close() {
 	c.DisplayConcurrencyStats()
 }

@@ -25,7 +25,7 @@ type Connection struct {
 	Config interface{}
 }
 
-// ConnectionConfigSchema :: struct used to define the connection config schema and store the config for each plugin connection
+// ConnectionConfigSchema struct is used to define the connection config schema and store the config for each plugin connection
 type ConnectionConfigSchema struct {
 	Schema map[string]*schema.Attribute
 	// function which returns an instance of a connection config struct
@@ -38,7 +38,7 @@ func NewConnectionConfigSchema() *ConnectionConfigSchema {
 	}
 }
 
-// Parse :: parse the hcl string into a connection config struct.
+// Parse function parses the hcl string into a connection config struct.
 // The schema and the  struct to parse into are provided by the plugin
 func (c *ConnectionConfigSchema) Parse(configString string) (config interface{}, err error) {
 	defer func() {
@@ -77,7 +77,7 @@ func (c *ConnectionConfigSchema) Parse(configString string) (config interface{},
 	return helpers.DereferencePointer(configStruct), nil
 }
 
-// convert hcl diags into an error
+// DiagsToError converts hcl diags into an error
 func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 	// convert the first diag into an error
 	if !diags.HasErrors() {

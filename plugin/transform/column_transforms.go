@@ -5,13 +5,13 @@ import (
 	"log"
 )
 
-// TransformData is the input to a transform function
+// TransformData is the input to a transform function. 
 type TransformData struct {
 	// an optional parameter
 	Param interface{}
 	// the value to be transformed
 	Value interface{}
-	// a data object containing the the source data for this column
+	// a data object containing the source data for this column
 	HydrateItem interface{}
 	// all hydrate results
 	HydrateResults map[string]interface{}
@@ -29,7 +29,7 @@ type TransformData struct {
 type TransformFunc func(context.Context, *TransformData) (interface{}, error)
 type GetSourceFieldFunc func(interface{}) string
 
-// ColumnTransforms is a struct defining the data transforms required to map from a JSON value to a column value
+// ColumnTransforms struct defines the data transforms required to map from a JSON value to a column value
 type ColumnTransforms struct {
 	// a list of transforms to apply to the data
 	Transforms []*TransformCall

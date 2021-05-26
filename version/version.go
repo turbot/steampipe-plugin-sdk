@@ -6,14 +6,14 @@ import (
 	version "github.com/hashicorp/go-version"
 )
 
-// ProtocolVersion :: update this if breaking changes are made to the protobuf spec
+// ProtocolVersion marks the current version, update this if breaking changes are made to the protobuf spec
 // (for example column types)
 var ProtocolVersion int64 = 20210505
 
-// Version :: the main version number that is being run at the moment.
+// Version is the main version number that is being run at the moment.
 var Version = "0.2.8"
 
-// Prerelease :: a pre-release marker for the version
+// Prerelease is the pre-release marker for the version
 // if this is "" (empty string) then it means that it is a final release
 // otherwise, this is a pre-release such as "dev" (in development), "beta", "rc1", etc.
 var Prerelease = ""
@@ -31,7 +31,7 @@ func init() {
 	SemVer = version.Must(version.NewVersion(str))
 }
 
-// String :: return the complete version string, including prerelease
+// String returns the complete version string, including prerelease
 func String() string {
 	return SemVer.String()
 }

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// KeyColumnSet :: a set of columns which form the key of a table (i.e. may be used to get a single item)
+// KeyColumnSet is a set of columns which form the key of a table (i.e. may be used to get a single item)
 // may specify:
 // - a Single column
 // - a set of columns which together All form the key

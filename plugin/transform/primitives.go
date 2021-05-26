@@ -1,3 +1,4 @@
+// Transform package provides the ability to transform data from APIs. It contains transform functions which can be chained together to get the desired values
 package transform
 
 import (

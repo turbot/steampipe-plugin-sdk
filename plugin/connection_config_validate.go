@@ -10,7 +10,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/plugin/schema"
 )
 
-// Validate :: validate the connection config
+// Validate validates the connection config
 func (c *ConnectionConfigSchema) Validate() []string {
 	var validationErrors []string
 	if c.NewInstance == nil {

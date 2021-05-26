@@ -30,7 +30,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	return hydrateResult, err
 }
 
-// WrapHydrate :: higher order function which returns a HydrateFunc which handles Ignorable errors
+// WrapHydrate is a higher order function which returns a HydrateFunc which handles Ignorable errors
 func WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPredicate) HydrateFunc {
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		defer func() {

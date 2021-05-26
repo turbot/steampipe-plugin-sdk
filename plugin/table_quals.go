@@ -73,7 +73,7 @@ func (t *Table) multiKeyQuals(d *QueryData, keyColumns []string) map[string]*pro
 	return keyValues
 }
 
-// ColumnQualValue :: convert a qual value into the underlying value
+// ColumnQualValue converts a qual value into the underlying value
 // - based on out knowledge of the column type which the qual is applying to
 func ColumnQualValue(qv *proto.QualValue, column *Column) interface{} {
 	switch column.Type {

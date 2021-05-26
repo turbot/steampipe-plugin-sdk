@@ -1,16 +1,15 @@
 package transform
 
-// Transform definition functions - function used to build a list of transforms
+// Transform definition functions can be used to build a list of transforms
 
-// FROM functions
-// The transform chain must be started with a From... function
+// The transform functions chain must be started with a From... function
 
 // FromConstant returns a constant value (specified by 'param')
 func FromConstant(value interface{}) *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: ConstantValue, Param: value}}}
 }
 
-// FromMethod invokes a function on the hydrate item
+// FromMethod invokes a function on the hydrate item coming from transform data
 func FromMethod(methodName string) *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: MethodValue, Param: methodName}}}
 }
