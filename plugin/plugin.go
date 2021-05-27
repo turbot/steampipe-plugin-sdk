@@ -39,7 +39,7 @@ type Plugin struct {
 func (p *Plugin) Initialise() {
 	//  initialise the connection map
 	p.Connections = make(map[string]*Connection)
-	log.Println("[WARN] Plugin Initialise creating connection manager")
+	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionManager = connection_manager.NewManager()
 
 	// NOTE update tables to have a reference to the plugin
