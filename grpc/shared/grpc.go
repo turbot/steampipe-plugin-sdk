@@ -42,6 +42,7 @@ func (m *GRPCServer) Execute(req *proto.ExecuteRequest, server proto.WrapperPlug
 	return m.Impl.Execute(req, server)
 
 }
+
 func (m *GRPCServer) SetConnectionConfig(_ context.Context, req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) {
 	return m.Impl.SetConnectionConfig(req)
 }

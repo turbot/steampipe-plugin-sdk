@@ -145,7 +145,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 			log.Printf("[INFO] table '%s': list call, with no list quals", d.Table.Name)
 			d.FetchType = fetchTypeList
 		} else {
-			log.Printf("[INFO] No get quals passed but no list call defined - default to get call")
+			log.Printf("[INFO] no get quals passed but no list call defined - default to get call")
 			d.FetchType = fetchTypeGet
 		}
 	}
@@ -274,7 +274,6 @@ func (d *QueryData) streamError(err error) {
 
 // iterate over rowDataChan, for each item build the row and stream over rowChan
 func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
-	log.Println("[TRACE] buildRows")
 	const rowBufferSize = 10
 
 	// stream data for each item

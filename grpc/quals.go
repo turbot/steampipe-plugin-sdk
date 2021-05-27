@@ -26,14 +26,14 @@ func QualMapToString(qualMap map[string]*proto.Quals) interface{} {
 }
 
 func QualToString(q *proto.Qual) string {
-	return fmt.Sprintf("\tColumn: %s, Operator: '%s', Value: '%v'\n", q.FieldName, q.GetStringValue(), getQualValue(q.Value))
+	return fmt.Sprintf("\tColumn: %s, Operator: '%s', Value: '%v'\n", q.FieldName, q.GetStringValue(), GetQualValue(q.Value))
 }
 
 func QualEquals(left *proto.Qual, right *proto.Qual) bool {
 	return QualToString(left) == QualToString(right)
 }
 
-func getQualValue(v *proto.QualValue) interface{} {
+func GetQualValue(v *proto.QualValue) interface{} {
 	var qv interface{}
 	switch v := v.GetValue().(type) {
 	case *proto.QualValue_InetValue:
@@ -51,7 +51,7 @@ func getQualValue(v *proto.QualValue) interface{} {
 	case *proto.QualValue_ListValue:
 		var values []interface{}
 		for _, l := range v.ListValue.Values {
-			values = append(values, getQualValue(l))
+			values = append(values, GetQualValue(l))
 		}
 		qv = values
 	}

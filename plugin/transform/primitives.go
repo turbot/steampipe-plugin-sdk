@@ -88,8 +88,6 @@ func MatrixItemValue(ctx context.Context, d *TransformData) (interface{}, error)
 	if !ok {
 		return nil, fmt.Errorf("'MatrixItemValue' requires a string parameter containing metadata keybut received %v", d.Param)
 	}
-	log.Printf("[DEBUG] MatrixItemValue key %s metadata %v", metadataKey, d.MatrixItem)
-
 	return d.MatrixItem[metadataKey], nil
 }
 
@@ -229,7 +227,6 @@ func FieldValueTag(ctx context.Context, d *TransformData) (interface{}, error) {
 		// get the first segment of the tag
 		tagField := strings.Split(tag, ",")[0]
 		if tagField == d.ColumnName {
-			log.Printf("[TRACE] FieldValueTag for column %s, found matching '%s' tag on field %s", d.ColumnName, d.Param, field.Name)
 			// mutate transform data to set the param to the field name and call FieldValue
 			d.Param = field.Name
 			return FieldValue(ctx, d)
@@ -304,7 +301,6 @@ func NullIfEqualParam(_ context.Context, d *TransformData) (interface{}, error) 
 	if d.Value == nil {
 		return nil, nil
 	}
-	log.Printf("[TRACE] NullIfEqualParam value %v, param %v equal %v", d.Value, d.Param, d.Value == d.Param)
 	if helpers.DereferencePointer(d.Value) == d.Param {
 		return nil, nil
 	}
@@ -323,7 +319,6 @@ func NullIfZeroValue(_ context.Context, d *TransformData) (interface{}, error) {
 		return d.Value, nil
 	}
 	if helpers.IsZero(v) {
-		log.Printf("[TRACE] NullIfZeroValue column %s is zero\n", d.ColumnName)
 		return nil, nil
 	}
 	return d.Value, nil
@@ -418,6 +413,8 @@ func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error)
 			return v, nil
 		case string:
 			return []string{v}, nil
+		case *string:
+			return []string{*v}, nil
 		default:
 			str := fmt.Sprintf("%v", d.Value)
 			return []string{str}, nil

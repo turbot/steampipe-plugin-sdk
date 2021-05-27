@@ -43,10 +43,10 @@ func WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPredicate) Hydr
 		// call the underlying get function
 		item, err = hydrateFunc(ctx, d, h)
 		if err != nil {
-			log.Printf("[DEBUG] wrapped hydrate call %s returned error %v\n", helpers.GetFunctionName(hydrateFunc), err)
+			log.Printf("[TRACE] wrapped hydrate call %s returned error %v\n", helpers.GetFunctionName(hydrateFunc), err)
 			// see if either the table or the plugin define a NotFoundErrorPredicate
 			if shouldIgnoreError != nil && shouldIgnoreError(err) {
-				log.Printf("[DEBUG] wrapped hydrate call %s returned error but we are ignoring it: %v", helpers.GetFunctionName(hydrateFunc), err)
+				log.Printf("[TRACE] wrapped hydrate call %s returned error but we are ignoring it: %v", helpers.GetFunctionName(hydrateFunc), err)
 				return nil, nil
 			}
 			// pass any other error on
