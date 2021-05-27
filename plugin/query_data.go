@@ -54,9 +54,9 @@ type QueryData struct {
 	parentItem interface{}
 }
 
-func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}) *QueryData {
+func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
 	d := &QueryData{
-		ConnectionManager: connection_manager.NewManager(),
+		ConnectionManager: connectionManager,
 		Table:             table,
 		QueryContext:      queryContext,
 		Connection:        connection,
