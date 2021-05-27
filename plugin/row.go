@@ -15,8 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// RowData :: struct containing row data
-
+// RowData contains the row data
 type RowData struct {
 	// the output of the get/list call which is passed to all other hydrate calls
 	Item interface{}
@@ -36,7 +35,7 @@ type RowData struct {
 // - this allows us to determine the hydrate function _was_ called
 type emptyHydrateResults struct{}
 
-// newRowData :: create an empty rowData object
+// newRowData creates an empty rowData object
 func newRowData(d *QueryData, item interface{}) *RowData {
 	// create buffered error channel for any errors occurring hydrate functions (+2 is for the get and list hydrate calls)
 	errorChan := make(chan error, len(d.hydrateCalls)+2)
@@ -243,7 +242,7 @@ func (r *RowData) getHydrateKeys() []string {
 	return keys
 }
 
-// GetColumnData :: return the root item, and, if this column has a hydrate function registered, the associated hydrate data
+// GetColumnData returns the root item, and, if this column has a hydrate function registered, the associated hydrate data
 func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
 
 	if column.resolvedHydrateName == "" {

@@ -5,7 +5,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
 
-// Column :: column data, in format compatible with proto ColumnDefinition
+// Column contains column data, in a format compatible with proto ColumnDefinition
 type Column struct {
 	// column name
 	Name string

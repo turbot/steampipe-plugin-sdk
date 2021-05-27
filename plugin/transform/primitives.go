@@ -1,3 +1,4 @@
+// Transform package provides the ability to transform data from APIs. It contains transform functions which can be chained together to get the desired values
 package transform
 
 import (
@@ -23,8 +24,8 @@ import (
 // Transform primitives
 // predefined transform functions that may be chained together
 
-// FieldValue :: intended for the start of a transform chain
-// return a field value of either the hydrate call result (if present)  or the root item if not
+// FieldValue function is intended for the start of a transform chain.
+// This returns a field value of either the hydrate call result (if present)  or the root item if not
 // the field name is in the 'Param'
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	var item = d.HydrateItem
@@ -53,8 +54,8 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return nil, nil
 }
 
-// FieldValueCamelCase :: intended for the start of a transform chain
-// convert the column name to camel case and call FieldValue
+// FieldValueCamelCase is intended for the start of a transform chain
+// This converts the column name to camel case and call FieldValue
 func FieldValueCamelCase(ctx context.Context, d *TransformData) (interface{}, error) {
 
 	propertyPath := strcase.ToCamel(d.ColumnName)
@@ -66,8 +67,8 @@ func FieldValueCamelCase(ctx context.Context, d *TransformData) (interface{}, er
 	return FieldValue(ctx, d)
 }
 
-// FieldValueGo :: intended for the start of a transform chain
-// convert the column name to camel case, with common initialisms upper case, and call FieldValue
+// FieldValueGo is intended for the start of a transform chain
+// This converts the column name to camel case, with common initialisms upper case, and call FieldValue
 func FieldValueGo(ctx context.Context, d *TransformData) (interface{}, error) {
 
 	// call lintName to make common initialisms upper case
@@ -80,8 +81,8 @@ func FieldValueGo(ctx context.Context, d *TransformData) (interface{}, error) {
 	return FieldValue(ctx, d)
 }
 
-// MatrixItemValue :: intended for the start of a transform chain
-// retrieve a value from the matrix item, using the param as key
+// MatrixItemValue is intended for the start of a transform chain
+// This retrieves a value from the matrix item, using the param from transform data as a key
 func MatrixItemValue(ctx context.Context, d *TransformData) (interface{}, error) {
 	metadataKey, ok := d.Param.(string)
 	if !ok {
@@ -202,8 +203,8 @@ var commonInitialisms = map[string]bool{
 	"XSS":   true,
 }
 
-// FieldValueTag :: intended for the start of a transform chain
-// find the data value with the tag matching the column name
+// FieldValueTag is intended for the start of a transform chain
+// This finds the data value with the tag matching the column name
 func FieldValueTag(ctx context.Context, d *TransformData) (interface{}, error) {
 	tagName, ok := d.Param.(string)
 	if !ok {
@@ -235,12 +236,13 @@ func FieldValueTag(ctx context.Context, d *TransformData) (interface{}, error) {
 
 }
 
-// ConstantValue :: intended for the start of a transform chain
-// return the value passed as d.Param
+// ConstantValue is intended for the start of a transform chain
+// This returns the value passed as d.Param
 func ConstantValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return d.Param, nil
 }
 
+// MethodValue function takes the transform data and invokes specified method on the hydrate item
 func MethodValue(_ context.Context, d *TransformData) (interface{}, error) {
 	param := d.Param.(string)
 	if res, err := helpers.ExecuteMethod(d.HydrateItem, param); err != nil {
@@ -253,14 +255,14 @@ func MethodValue(_ context.Context, d *TransformData) (interface{}, error) {
 	}
 }
 
-// RawValue :: intended for the start of a transform chain
-// return the whole hydrate item
+// RawValue is intended for the start of a transform chain
+// This returns the whole hydrate item as it is
 func RawValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return d.HydrateItem, nil
 }
 
-// ToUpper ::  convert the (string or *string) value to upper case
-// if value is not a string, return unaltered value
+// ToUpper converts the (string or *string) value to upper case,
+// returns unaltered value if value from the transform data is not a string
 func ToUpper(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -272,8 +274,8 @@ func ToUpper(_ context.Context, d *TransformData) (interface{}, error) {
 	return strings.ToUpper(valStr), nil
 }
 
-// ToLower ::  convert the (string or *string) value to lower case
-// if value is not a string, return unaltered value
+// ToLower converts the (string or *string) value to lower case
+// returns unaltered value if value is not a string
 func ToLower(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -285,8 +287,8 @@ func ToLower(_ context.Context, d *TransformData) (interface{}, error) {
 	return strings.ToLower(valStr), nil
 }
 
-// ToBool ::  convert the (string) value to a bool
-// if value is not a string, do nothing
+// ToBool converts the (string) value to a bool
+// This returns nil if value is not a string
 func ToBool(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -294,7 +296,7 @@ func ToBool(_ context.Context, d *TransformData) (interface{}, error) {
 	return types.ToBool(d.Value)
 }
 
-// NullIfEqualParam :: if the input Value equals the transform param, return nil
+// NullIfEqualParam returns nil if the input Value equals the transform param
 func NullIfEqualParam(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -305,7 +307,7 @@ func NullIfEqualParam(_ context.Context, d *TransformData) (interface{}, error) 
 	return d.Value, nil
 }
 
-// NullIfZero :: if the input value equals the zero value of its type, return nil
+// NullIfZeroValue takes the transform data and returns nil if the input value equals the zero value of its type
 func NullIfZeroValue(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -322,7 +324,7 @@ func NullIfZeroValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return d.Value, nil
 }
 
-// UnmarshalYAML :: parse the yaml-encoded data and return the result
+// UnmarshalYAML parse the yaml-encoded data and return the result
 func UnmarshalYAML(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -344,7 +346,7 @@ func UnmarshalYAML(_ context.Context, d *TransformData) (interface{}, error) {
 	return result, nil
 }
 
-// ToString :: convert the value to a string
+// ToString convert the value from transform data to a string
 func ToString(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -352,7 +354,7 @@ func ToString(_ context.Context, d *TransformData) (interface{}, error) {
 	return types.ToString(d.Value), nil
 }
 
-// ToInt :: convert the value to an int64
+// ToInt convert the value from transform data to an int64
 func ToInt(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -360,7 +362,7 @@ func ToInt(_ context.Context, d *TransformData) (interface{}, error) {
 	return types.ToInt64(d.Value)
 }
 
-// ToDouble :: convert the value to an float64
+// ToDouble convert the value from transform data to float64
 func ToDouble(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
@@ -368,7 +370,7 @@ func ToDouble(_ context.Context, d *TransformData) (interface{}, error) {
 	return types.ToFloat64(d.Value)
 }
 
-// UnixToTimestamp :: convert unix time format to RFC3339 format
+// UnixToTimestamp convert unix time format to RFC3339 format
 func UnixToTimestamp(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value != nil {
 		epochTime, err := types.ToFloat64(d.Value)
@@ -386,7 +388,7 @@ func UnixToTimestamp(_ context.Context, d *TransformData) (interface{}, error) {
 	return nil, nil
 }
 
-// UnixMsToTimestamp :: convert unix time in milliseconds to RFC3339 format
+// UnixMsToTimestamp convert unix time in milliseconds to RFC3339 format
 func UnixMsToTimestamp(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value != nil {
 		epochTime, err := types.ToInt64(d.Value)
@@ -403,7 +405,7 @@ func UnixMsToTimestamp(_ context.Context, d *TransformData) (interface{}, error)
 	return nil, nil
 }
 
-// EnsureStringArray :: convert the input value to a string array
+// EnsureStringArray convert the input value from transform data into a string array
 func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value != nil {
 		switch v := d.Value.(type) {
@@ -422,7 +424,7 @@ func EnsureStringArray(_ context.Context, d *TransformData) (interface{}, error)
 	return nil, nil
 }
 
-// StringArrayToMap :: converts a string array to a map where the keys are the array elements
+// StringArrayToMap converts a string array to a map where the keys are the array elements
 func StringArrayToMap(_ context.Context, d *TransformData) (interface{}, error) {
 	result := map[string]bool{}
 	switch labels := d.Value.(type) {
@@ -440,4 +442,10 @@ func StringArrayToMap(_ context.Context, d *TransformData) (interface{}, error) 
 			fmt.Errorf("StringArrayToMap transform requires the input to be []string, got %s", t)
 	}
 
+}
+
+// QualValue takes the column name from the transform data param and returns the value of the column
+func QualValue(ctx context.Context, d *TransformData) (interface{}, error) {
+	value := d.KeyColumnQuals[d.Param.(string)]
+	return value, nil
 }

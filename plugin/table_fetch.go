@@ -112,6 +112,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		queryDataCopy.populateQualValueMap(t)
 		getWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
@@ -180,7 +181,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	return nil
 }
 
-// getForEach :: execute the provided get call for each of a set of matrixItem
+// getForEach executes the provided get call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
 
@@ -338,6 +339,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		queryDataCopy.populateQualValueMap(t)
 		listWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
@@ -365,7 +367,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 	}
 }
 
-// ListForEach :: execute the provided list call for each of a set of matrixItem
+// ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
 	log.Printf("[TRACE] listForEach: %v\n", queryData.Matrix)

@@ -39,15 +39,15 @@ type QueryData struct {
 	// deprecated - plugins should no longer call StreamLeafListItem directly and should just call StreamListItem
 	// event for the child list of a parent child list call
 	StreamLeafListItem func(ctx context.Context, item interface{})
-
 	// internal
-	hydrateCalls       []*HydrateCall
-	equalsQuals        map[string]*proto.QualValue
-	concurrencyManager *ConcurrencyManager
-	rowDataChan        chan *RowData
-	errorChan          chan error
-	streamCount        int
-	stream             proto.WrapperPlugin_ExecuteServer
+	hydrateCalls        []*HydrateCall
+	equalsQuals         map[string]*proto.QualValue
+	concurrencyManager  *ConcurrencyManager
+	rowDataChan         chan *RowData
+	errorChan           chan error
+	streamCount         int
+	stream              proto.WrapperPlugin_ExecuteServer
+	keyColumnQualValues map[string]interface{}
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
@@ -84,7 +84,7 @@ func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.W
 	return d
 }
 
-// create a shallow copy of the QueryData
+// ShallowCopy creates a shallow copy of the QueryData
 // this is used to pass different quals to multiple list/get calls, when an in() clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -117,12 +117,11 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	return clone
 }
 
-// SetFetchType :: determine whether this is a get or a list call
+// SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) SetFetchType(table *Table) {
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
 	var listQuals map[string]*proto.QualValue
-
 	if table.Get != nil {
 		getQuals = table.getKeyColumnQuals(d, table.Get.KeyColumns)
 	}
@@ -150,6 +149,22 @@ func (d *QueryData) SetFetchType(table *Table) {
 			d.FetchType = fetchTypeGet
 		}
 	}
+	d.populateQualValueMap(table)
+}
+
+// populate a map of the resolved values of each key column qual
+// this is passed into transforms
+func (queryData *QueryData) populateQualValueMap(table *Table) {
+	qualValueMap := queryData.KeyColumnQuals
+	keyColumnQuals := make(map[string]interface{}, len(qualValueMap))
+	for columnName, qualValue := range qualValueMap {
+		qualColumn, ok := table.columnForName(columnName)
+		if !ok {
+			continue
+		}
+		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
+	}
+	queryData.keyColumnQualValues = keyColumnQuals
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
@@ -336,8 +351,8 @@ func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
 	return nil, false
 }
 
-// remove once go-kit version 0.2.0 is released
-// ToError :: if supplied value is already an error, return it, otherwise format it as an error
+// ToError is used to return an error or format the supplied value as error.
+// Can be removed once go-kit version 0.2.0 is released
 func ToError(val interface{}) error {
 	if e, ok := val.(error); ok {
 		return e

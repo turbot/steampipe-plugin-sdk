@@ -15,7 +15,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
 
-// Plugin :: an object used to build all necessary data for a given query
+// Plugin is an object used to build all necessary data for a given query
 type Plugin struct {
 	Name               string
 	Logger             hclog.Logger
@@ -31,7 +31,7 @@ type Plugin struct {
 	Connections map[string]*Connection
 }
 
-// Initialise :: initialise the connection config map, set plugin pointer on all tables and setup logger
+// Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
 func (p *Plugin) Initialise() {
 	//  initialise the connection map
 	p.Connections = make(map[string]*Connection)
@@ -84,7 +84,7 @@ func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
 	return schema, nil
 }
 
-// Execute :: execute a query and stream the results
+// Execute executes a query and stream the results
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -147,7 +147,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	return queryData.streamRows(ctx, rowChan)
 }
 
-// SetConnectionConfig :: parse the connection config string, and populate the connection data for this connection
+// SetConnectionConfig parses the connection config string, and populate the connection data for this connection
 // NOTE: we always pass and store connection config BY VALUE
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 

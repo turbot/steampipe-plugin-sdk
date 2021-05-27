@@ -10,8 +10,9 @@ import (
 )
 
 type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}
+type ErrorPredicate func(error) bool
 
-// Table :: struct representing a plugin table
+// Table represents a plugin table
 type Table struct {
 	Name string
 	// table description

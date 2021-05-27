@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attemptes before throwing error
 func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (interface{}, error) {
 	backoff, err := retry.NewFibonacci(100 * time.Millisecond)
 	if err != nil {
@@ -30,7 +31,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	return hydrateResult, err
 }
 
-// WrapHydrate :: higher order function which returns a HydrateFunc which handles Ignorable errors
+// WrapHydrate is a higher order function which returns a HydrateFunc which handles Ignorable errors
 func WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPredicate) HydrateFunc {
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		defer func() {
