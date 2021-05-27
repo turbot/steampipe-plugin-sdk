@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attemptes before throwing error
 func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (interface{}, error) {
 	backoff, err := retry.NewFibonacci(100 * time.Millisecond)
 	if err != nil {

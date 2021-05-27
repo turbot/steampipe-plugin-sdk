@@ -353,7 +353,7 @@ func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
 }
 
 // ToError is used to return an error or format the supplied value as error.
-// remove once go-kit version 0.2.0 is released
+// Can be removed once go-kit version 0.2.0 is released
 func ToError(val interface{}) error {
 	if e, ok := val.(error); ok {
 		return e

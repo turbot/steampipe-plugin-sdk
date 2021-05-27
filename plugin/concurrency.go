@@ -103,6 +103,7 @@ func (c *ConcurrencyManager) Close() {
 	c.DisplayConcurrencyStats()
 }
 
+// DisplayConcurrencyStats displays the the summary of all the concurrent hydrate calls
 func (c *ConcurrencyManager) DisplayConcurrencyStats() {
 	if len(c.maxCallMap) == 0 {
 		return
