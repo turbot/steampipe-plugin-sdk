@@ -251,7 +251,7 @@ func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
 
 	if hydrateItem, ok := r.hydrateResults[column.resolvedHydrateName]; !ok {
 		log.Printf("[ERROR] table '%s' column '%s' requires hydrate data from %s but none is available.\n", r.table.Name, column.Name, column.resolvedHydrateName)
-		return nil, fmt.Errorf("column '%s' requires hydrate data from %s but none is available", column.Name, column.resolvedHydrateName)
+		return nil, fmt.Errorf("table '%s' column '%s' requires hydrate data from %s but none is available", r.table.Name, column.Name, column.resolvedHydrateName)
 	} else {
 		return hydrateItem, nil
 	}
