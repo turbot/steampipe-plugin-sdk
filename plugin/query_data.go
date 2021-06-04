@@ -191,7 +191,6 @@ func ensureColumns(queryContext *proto.QueryContext, table *Table) {
 // stream an item returned from the list call
 // wrap in a rowData object
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
-	d.verifyCallerIsListCall(helpers.GetCallingFunction(1))
 	// if the calling function was the ParentHydrate function from the list config,
 	// stream the results to the child list hydrate function and return
 	d.streamCount++
@@ -220,17 +219,6 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 			d.streamError(err)
 		}
 	}()
-}
-
-func (d *QueryData) verifyCallerIsListCall(callingFunction string) {
-	if d.Table.List == nil {
-		panic("streamListItem must only be called from a list call akhdkhdkhd")
-	}
-	listFunction := helpers.GetFunctionName(d.Table.List.Hydrate)
-	listParentFunction := helpers.GetFunctionName(d.Table.List.ParentHydrate)
-	if callingFunction != listFunction && callingFunction != listParentFunction {
-		panic("streamListItem must only be called from a list call")
-	}
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
