@@ -191,23 +191,13 @@ func ensureColumns(queryContext *proto.QueryContext, table *Table) {
 // stream an item returned from the list call
 // wrap in a rowData object
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
-	d.verifyCallerIsListCall(helpers.GetCallingFunction(1))
-	defer func() {
-		if r := recover(); r != nil {
-			if !d.verifyCallerIsListCall(helpers.GetCallingFunction(1)) {
-				err := fmt.Errorf("Function %s failed with error %s", helpers.GetCallingFunction(1), "'streamListItem' must only be called from a list call")
-				d.streamError(err)
-			}
-			d.streamError(helpers.ToError(r))
-		}
-	}()
+	callingFunction := helpers.GetCallingFunction(1)
+
 	// if the calling function was the ParentHydrate function from the list config,
 	// stream the results to the child list hydrate function and return
 	d.streamCount++
-	log.Printf("[ERROR] LOG 1")
 
 	parentListHydrate := d.Table.List.ParentHydrate
-	log.Printf("[ERROR] LOG 2")
 	if parentListHydrate == nil {
 		d.StreamLeafListItem(ctx, item)
 		return
@@ -221,6 +211,16 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	d.listWg.Add(1)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err := helpers.ToError(r)
+				if !d.verifyCallerIsListCall(callingFunction) {
+					err = fmt.Errorf("'streamListItem' must only be called from a list call. Calling function name is '%s'", callingFunction)
+					log.Printf("[TRACE] 'streamListItem' failed with panic: %s. Calling function name is '%s'", err, callingFunction)
+				}
+				d.streamError(err)
+			}
+		}()
 		defer d.listWg.Done()
 		// create a copy of query data with the stream function set to streamLeafListItem
 		childQueryData := d.ShallowCopy()
