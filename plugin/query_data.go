@@ -192,11 +192,22 @@ func ensureColumns(queryContext *proto.QueryContext, table *Table) {
 // wrap in a rowData object
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	d.verifyCallerIsListCall(helpers.GetCallingFunction(1))
+	defer func() {
+		if r := recover(); r != nil {
+			if !d.verifyCallerIsListCall(helpers.GetCallingFunction(1)) {
+				err := fmt.Errorf("Function %s failed with error %s", helpers.GetCallingFunction(1), "'streamListItem' must only be called from a list call")
+				d.streamError(err)
+			}
+			d.streamError(helpers.ToError(r))
+		}
+	}()
 	// if the calling function was the ParentHydrate function from the list config,
 	// stream the results to the child list hydrate function and return
 	d.streamCount++
+	log.Printf("[ERROR] LOG 1")
 
 	parentListHydrate := d.Table.List.ParentHydrate
+	log.Printf("[ERROR] LOG 2")
 	if parentListHydrate == nil {
 		d.StreamLeafListItem(ctx, item)
 		return
@@ -222,15 +233,16 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	}()
 }
 
-func (d *QueryData) verifyCallerIsListCall(callingFunction string) {
+func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 	if d.Table.List == nil {
-		panic("streamListItem must only be called from a list call akhdkhdkhd")
+		return false
 	}
 	listFunction := helpers.GetFunctionName(d.Table.List.Hydrate)
 	listParentFunction := helpers.GetFunctionName(d.Table.List.ParentHydrate)
 	if callingFunction != listFunction && callingFunction != listParentFunction {
-		panic("streamListItem must only be called from a list call")
+		return false
 	}
+	return true
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
@@ -239,7 +251,6 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	rd.matrixItem = GetMatrixItem(ctx)
 	// set the parent item on the row data
 	rd.ParentItem = d.parentItem
-
 	// NOTE: add the item as the hydrate data for the list call
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
 	d.rowDataChan <- rd
