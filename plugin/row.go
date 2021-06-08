@@ -23,6 +23,7 @@ type RowData struct {
 	ParentItem     interface{}
 	matrixItem     map[string]interface{}
 	hydrateResults map[string]interface{}
+	hydrateErrors  map[string]error
 	mut            sync.Mutex
 	waitChan       chan bool
 	wg             sync.WaitGroup
@@ -177,6 +178,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, retryConfig, shouldIgnoreError)
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
+		r.setError(hydrateKey, err)
 		r.errorChan <- err
 	} else if hydrateData != nil {
 		r.set(hydrateKey, hydrateData)
@@ -231,6 +233,17 @@ func (r *RowData) set(key string, item interface{}) error {
 	return nil
 }
 
+func (r *RowData) setError(key string, err error) error {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+	if _, ok := r.hydrateErrors[key]; ok {
+		return fmt.Errorf("failed to save error - row data already contains error for key %s", key)
+	}
+	r.hydrateErrors[key] = err
+
+	return nil
+}
+
 // get the name of the hydrate function which have completed
 func (r *RowData) getHydrateKeys() []string {
 	r.mut.Lock()
@@ -250,8 +263,15 @@ func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
 	}
 
 	if hydrateItem, ok := r.hydrateResults[column.resolvedHydrateName]; !ok {
-		log.Printf("[ERROR] table '%s' column '%s' requires hydrate data from %s but none is available.\n", r.table.Name, column.Name, column.resolvedHydrateName)
-		return nil, fmt.Errorf("table '%s' column '%s' requires hydrate data from %s but none is available", r.table.Name, column.Name, column.resolvedHydrateName)
+		var errorString string
+		err, ok := r.hydrateErrors[column.resolvedHydrateName]
+		if ok {
+			errorString = fmt.Sprintf("table '%s' column '%s' requires hydrate data from %s, which failed with error %v.\n", r.table.Name, column.Name, column.resolvedHydrateName, err)
+		} else {
+			errorString = fmt.Sprintf("table '%s' column '%s' requires hydrate data from %s but none is available.\n", r.table.Name, column.Name, column.resolvedHydrateName)
+		}
+		log.Printf("[Error] %s\n", errorString)
+		return nil, fmt.Errorf(errorString)
 	} else {
 		return hydrateItem, nil
 	}
