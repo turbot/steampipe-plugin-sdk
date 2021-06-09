@@ -191,6 +191,8 @@ func ensureColumns(queryContext *proto.QueryContext, table *Table) {
 // stream an item returned from the list call
 // wrap in a rowData object
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
+	callingFunction := helpers.GetCallingFunction(1)
+
 	// if the calling function was the ParentHydrate function from the list config,
 	// stream the results to the child list hydrate function and return
 	d.streamCount++
@@ -209,6 +211,16 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	d.listWg.Add(1)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				err := helpers.ToError(r)
+				if !d.verifyCallerIsListCall(callingFunction) {
+					err = fmt.Errorf("'streamListItem' must only be called from a list call. Calling function name is '%s'", callingFunction)
+					log.Printf("[TRACE] 'streamListItem' failed with panic: %s. Calling function name is '%s'", err, callingFunction)
+				}
+				d.streamError(err)
+			}
+		}()
 		defer d.listWg.Done()
 		// create a copy of query data with the stream function set to streamLeafListItem
 		childQueryData := d.ShallowCopy()
@@ -221,13 +233,24 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	}()
 }
 
+func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
+	if d.Table.List == nil {
+		return false
+	}
+	listFunction := helpers.GetFunctionName(d.Table.List.Hydrate)
+	listParentFunction := helpers.GetFunctionName(d.Table.List.ParentHydrate)
+	if callingFunction != listFunction && callingFunction != listParentFunction {
+		return false
+	}
+	return true
+}
+
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
 	rd.matrixItem = GetMatrixItem(ctx)
 	// set the parent item on the row data
 	rd.ParentItem = d.parentItem
-
 	// NOTE: add the item as the hydrate data for the list call
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
 	d.rowDataChan <- rd
