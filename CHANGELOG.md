@@ -1,3 +1,16 @@
+## v0.2.10 [2021-06-09]
+_What's new_
+* Provide SDK transform to get a qual value. ([#77](https://github.com/turbot/steampipe-plugin-sdk/issues/77))
+* Change plugin license to Apache 2.0 ([#488](https://github.com/turbot/steampipe/issues/488))
+  
+_Bug fixes_
+* Fix Cache being recreated for every query. ([#106](https://github.com/turbot/steampipe-plugin-sdk/issues/106))
+* Improve error messages when hydrate function fails and when StreamListItem is called from anywhere other than a list function. ([#70](https://github.com/turbot/steampipe-plugin-sdk/issues/70))
+* Fix key column setting of AnyColumn only populating the first key column in the KeyColumnQuals map. ([#101](https://github.com/turbot/steampipe-plugin-sdk/issues/101))
+* Fix EnsureStringArray transform not working for input type *string. closes #92 (#100)
+* Fix Steampipe hanging after hydrate error. ([#103](https://github.com/turbot/steampipe-plugin-sdk/issues/103))
+* Fix list call failing with error "get call requires an '=' qual". ([#103](https://github.com/turbot/steampipe-plugin-sdk/issues/103))
+
 ## v0.2.9 [2021-05-13]
 _What's new_
 * Export GetQualValue function ([#98](https://github.com/turbot/steampipe-plugin-sdk/issues/98))
