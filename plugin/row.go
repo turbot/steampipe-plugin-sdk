@@ -233,16 +233,14 @@ func (r *RowData) set(key string, item interface{}) error {
 	return nil
 }
 
-func (r *RowData) setError(key string, err error) error {
+func (r *RowData) setError(key string, err error) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 	if _, ok := r.hydrateErrors[key]; ok {
 		log.Printf("[INFO] row data already contains error for key %s", key)
-		return nil
+		return
 	}
 	r.hydrateErrors[key] = err
-
-	return nil
 }
 
 // get the name of the hydrate function which have completed
