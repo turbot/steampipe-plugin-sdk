@@ -237,7 +237,8 @@ func (r *RowData) setError(key string, err error) error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 	if _, ok := r.hydrateErrors[key]; ok {
-		return fmt.Errorf("failed to save error - row data already contains error for key %s", key)
+		log.Printf("[INFO] row data already contains error for key %s", key)
+		return nil
 	}
 	r.hydrateErrors[key] = err
 
