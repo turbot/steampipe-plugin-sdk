@@ -4,12 +4,19 @@ import (
 	"context"
 	"log"
 	"sync"
+
+	"github.com/turbot/go-kit/helpers"
 )
 
 var cacheableHydrateFunctionsPending = make(map[string]*sync.Mutex)
 var cacheableHydrateLock sync.Mutex
 
-func CacheableHydrate(hydrate, getCacheKey HydrateFunc) HydrateFunc {
+// WithCache is a chainable function which wraps a hydrate call with caching and checks for
+// pending execution of the same function
+func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
+	// build a function to return the cache key
+	getCacheKey := hydrate.getCacheKeyFunction(args)
+
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (interface{}, error) {
 		// build key
 		k, err := getCacheKey(ctx, d, h)
@@ -36,17 +43,17 @@ func CacheableHydrate(hydrate, getCacheKey HydrateFunc) HydrateFunc {
 			// look in the cache to see if the data is there
 			cachedData, ok := d.ConnectionManager.Cache.Get(cacheKey)
 			if ok {
-				log.Printf("[TRACE] CacheableHydrate CACHE HIT key %s", cacheKey)
+				log.Printf("[TRACE] WithCache CACHE HIT key %s", cacheKey)
 				// we got the data
 				return cachedData, nil
 			}
-			log.Printf("[TRACE] CacheableHydrate CACHE MISS key %s", cacheKey)
+			log.Printf("[TRACE] WithCache CACHE MISS key %s", cacheKey)
 
 			// so there is no cached data - call the hydrate function and cache the result
 			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey)
 
 		} else {
-			log.Printf("[TRACE] CacheableHydrate no function lock key %s", cacheKey)
+			log.Printf("[TRACE] WithCache no function lock key %s", cacheKey)
 			// there is no lock for this function, which means it has not been run yet
 			// create a lock
 			functionLock = &sync.Mutex{}
@@ -59,11 +66,27 @@ func CacheableHydrate(hydrate, getCacheKey HydrateFunc) HydrateFunc {
 			// unlock the global lock
 			cacheableHydrateLock.Unlock()
 
-			log.Printf("[TRACE] CacheableHydrate added lock to map key %s", cacheKey)
+			log.Printf("[TRACE] WithCache added lock to map key %s", cacheKey)
 			// no call the hydrate function and cache the result
 			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey)
 		}
 	}
+}
+
+func (hydrate HydrateFunc) getCacheKeyFunction(args []HydrateFunc) HydrateFunc {
+	var getCacheKey HydrateFunc
+	switch len(args) {
+	case 0:
+		// no argument was supplied - infer cache key from the hydrate function
+		getCacheKey = func(context.Context, *QueryData, *HydrateData) (interface{}, error) {
+			return helpers.GetFunctionName(hydrate), nil
+		}
+	case 1:
+		getCacheKey = args[0]
+	default:
+		panic("WithCache accepts 0 or 1 argument")
+	}
+	return getCacheKey
 }
 
 func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydrate HydrateFunc, cacheKey string) (interface{}, error) {
@@ -78,14 +101,4 @@ func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydr
 	d.ConnectionManager.Cache.Set(cacheKey, hydrateData)
 	// return the hydrate data
 	return hydrateData, nil
-}
-
-func ConstantCacheKey(key string) HydrateFunc {
-	return func(context.Context, *QueryData, *HydrateData) (interface{}, error) {
-		return key, nil
-	}
-}
-
-func ExecuteCacheableHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydrate HydrateFunc, getCacheKey HydrateFunc) (interface{}, error) {
-	return CacheableHydrate(hydrate, getCacheKey)(ctx, d, h)
 }
