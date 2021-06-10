@@ -154,8 +154,8 @@ func (d *QueryData) SetFetchType(table *Table) {
 
 // populate a map of the resolved values of each key column qual
 // this is passed into transforms
-func (queryData *QueryData) populateQualValueMap(table *Table) {
-	qualValueMap := queryData.KeyColumnQuals
+func (d *QueryData) populateQualValueMap(table *Table) {
+	qualValueMap := d.KeyColumnQuals
 	keyColumnQuals := make(map[string]interface{}, len(qualValueMap))
 	for columnName, qualValue := range qualValueMap {
 		qualColumn, ok := table.columnForName(columnName)
@@ -164,7 +164,7 @@ func (queryData *QueryData) populateQualValueMap(table *Table) {
 		}
 		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
 	}
-	queryData.keyColumnQualValues = keyColumnQuals
+	d.keyColumnQualValues = keyColumnQuals
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
@@ -269,7 +269,7 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) error
 		// wait for either an item or an error
 		select {
 		case err := <-d.errorChan:
-			log.Printf("[ERROR] streamRows err chan select: %v\n", err)
+			log.Printf("[ERROR] streamRows error chan select: %v\n", err)
 			return err
 		case row := <-rowChan:
 			if row == nil {
@@ -311,7 +311,7 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 			// wait for either an rowData or an error
 			select {
 			case err := <-d.errorChan:
-				log.Printf("[ERROR] err chan select: %v\n", err)
+				log.Printf("[ERROR] error chan select: %v\n", err)
 				// put it back in the channel and return
 				d.errorChan <- err
 				return
@@ -347,6 +347,7 @@ func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan
 	// delegate the work to a row object
 	row, err := rowData.getRow(ctx)
 	if err != nil {
+		log.Printf("[WARN] getRow failed with error %v", err)
 		d.streamError(err)
 	} else {
 		rowChan <- row
