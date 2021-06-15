@@ -4,7 +4,6 @@ package transform
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"net/url"
 	"reflect"
@@ -14,10 +13,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/iancoleman/strcase"
-	"github.com/turbot/go-kit/types"
-
-	pluralize "github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/go-kit/types"
 )
 
 ///////////////////////
@@ -48,9 +45,6 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 		}
 
 	}
-	pluralize := pluralize.NewClient()
-	log.Printf("[TRACE] failed to retrieve value for property %s %s\n", pluralize.Pluralize("path", len(fieldNames), false), fmt.Sprintf(strings.Join(fieldNames[:], " or ")))
-
 	return nil, nil
 }
 

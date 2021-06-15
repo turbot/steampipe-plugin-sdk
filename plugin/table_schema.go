@@ -32,13 +32,14 @@ func (t Table) GetSchema() *proto.TableSchema {
 				All:    t.List.KeyColumns.All,
 				Any:    t.List.KeyColumns.Any,
 			}
-			if t.List.OptionalKeyColumns != nil {
-				schema.ListCallOptionalKeyColumns = &proto.KeyColumnsSet{
-					Single: t.List.OptionalKeyColumns.Single,
-					All:    t.List.OptionalKeyColumns.All,
-					Any:    t.List.OptionalKeyColumns.Any,
-				}
+		}
+		if t.List.OptionalKeyColumns != nil {
+			schema.ListCallOptionalKeyColumns = &proto.KeyColumnsSet{
+				Single: t.List.OptionalKeyColumns.Single,
+				All:    t.List.OptionalKeyColumns.All,
+				Any:    t.List.OptionalKeyColumns.Any,
 			}
+
 		}
 	}
 
