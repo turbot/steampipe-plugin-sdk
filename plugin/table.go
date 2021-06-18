@@ -32,8 +32,9 @@ type Table struct {
 
 type GetConfig struct {
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
-	KeyColumns  *KeyColumnSet
-	ItemFromKey HydrateFunc
+	KeyColumns         *KeyColumnSet
+	OptionalKeyColumns *KeyColumnSet
+	ItemFromKey        HydrateFunc
 	// the hydrate function which is called first when performing a 'get' call.
 	// if this returns 'not found', no further hydrate functions are called
 	Hydrate HydrateFunc
@@ -43,7 +44,8 @@ type GetConfig struct {
 }
 
 type ListConfig struct {
-	KeyColumns *KeyColumnSet
+	KeyColumns         *KeyColumnSet
+	OptionalKeyColumns *KeyColumnSet
 	// the list function, this should stream the list results back using the QueryData object, and return nil
 	Hydrate HydrateFunc
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items

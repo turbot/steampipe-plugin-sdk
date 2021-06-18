@@ -21,6 +21,8 @@ type QueryData struct {
 	// if this is a get call (or a list call if list key columns are specified)
 	// this will be populated with the quals as a map of column name to quals
 	KeyColumnQuals map[string]*proto.QualValue
+	// any optional list quals which were passed
+	OptionalKeyColumnQuals map[string]*proto.QualValue
 	// columns which have a single equals qual
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
@@ -122,20 +124,27 @@ func (d *QueryData) SetFetchType(table *Table) {
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
 	var listQuals map[string]*proto.QualValue
+	var optionalListQuals map[string]*proto.QualValue
 	if table.Get != nil {
 		getQuals = table.getKeyColumnQuals(d, table.Get.KeyColumns)
 	}
-	if table.List != nil && table.List.KeyColumns != nil {
-		listQuals = table.getKeyColumnQuals(d, table.List.KeyColumns)
+	if table.List != nil {
+		if table.List.KeyColumns != nil {
+			listQuals = table.getKeyColumnQuals(d, table.List.KeyColumns)
+		}
+		if table.List.OptionalKeyColumns != nil {
+			optionalListQuals = table.getKeyColumnQuals(d, table.List.OptionalKeyColumns)
+		}
 	}
 	// if quals provided in query satisfy both get and list, get wins (a get is likely to be more efficient)
 	if len(getQuals) > 0 {
 		log.Printf("[INFO] get quals - this is a get call  %+v", getQuals)
 		d.KeyColumnQuals = getQuals
 		d.FetchType = fetchTypeGet
-	} else if len(listQuals) > 0 {
-		log.Printf("[INFO] list quals - this is list call  %+v", listQuals)
+	} else if len(listQuals)+len(optionalListQuals) > 0 {
+		log.Printf("[INFO] list quals - this is list call, list quals: %+v, optional list quals: %+v", listQuals, optionalListQuals)
 		d.KeyColumnQuals = listQuals
+		d.OptionalKeyColumnQuals = optionalListQuals
 		d.FetchType = fetchTypeList
 	} else {
 		// so we do not have required quals for either.
@@ -154,8 +163,8 @@ func (d *QueryData) SetFetchType(table *Table) {
 
 // populate a map of the resolved values of each key column qual
 // this is passed into transforms
-func (queryData *QueryData) populateQualValueMap(table *Table) {
-	qualValueMap := queryData.KeyColumnQuals
+func (d *QueryData) populateQualValueMap(table *Table) {
+	qualValueMap := d.KeyColumnQuals
 	keyColumnQuals := make(map[string]interface{}, len(qualValueMap))
 	for columnName, qualValue := range qualValueMap {
 		qualColumn, ok := table.columnForName(columnName)
@@ -164,7 +173,7 @@ func (queryData *QueryData) populateQualValueMap(table *Table) {
 		}
 		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
 	}
-	queryData.keyColumnQualValues = keyColumnQuals
+	d.keyColumnQualValues = keyColumnQuals
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
@@ -269,7 +278,7 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) error
 		// wait for either an item or an error
 		select {
 		case err := <-d.errorChan:
-			log.Printf("[ERROR] streamRows err chan select: %v\n", err)
+			log.Printf("[ERROR] streamRows error chan select: %v\n", err)
 			return err
 		case row := <-rowChan:
 			if row == nil {
@@ -311,7 +320,7 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 			// wait for either an rowData or an error
 			select {
 			case err := <-d.errorChan:
-				log.Printf("[ERROR] err chan select: %v\n", err)
+				log.Printf("[ERROR] error chan select: %v\n", err)
 				// put it back in the channel and return
 				d.errorChan <- err
 				return
@@ -347,6 +356,7 @@ func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan
 	// delegate the work to a row object
 	row, err := rowData.getRow(ctx)
 	if err != nil {
+		log.Printf("[WARN] getRow failed with error %v", err)
 		d.streamError(err)
 	} else {
 		rowChan <- row

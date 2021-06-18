@@ -72,7 +72,6 @@ message GetSchemaRequest {
 
 message GetSchemaResponse {
   Schema schema = 1;
-
 }
 
 message SetConnectionConfigRequest{
@@ -97,6 +96,7 @@ message TableSchema
   string description = 2;
   KeyColumnsSet getCallKeyColumns = 3;
   KeyColumnsSet listCallKeyColumns = 4;
+  KeyColumnsSet listCallOptionalKeyColumns = 5;
 }
 
 // a set of Key Columns, all of which are reuired

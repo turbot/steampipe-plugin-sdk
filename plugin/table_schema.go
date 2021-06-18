@@ -25,11 +25,21 @@ func (t Table) GetSchema() *proto.TableSchema {
 			Any:    t.Get.KeyColumns.Any,
 		}
 	}
-	if t.List != nil && t.List.KeyColumns != nil {
-		schema.ListCallKeyColumns = &proto.KeyColumnsSet{
-			Single: t.List.KeyColumns.Single,
-			All:    t.List.KeyColumns.All,
-			Any:    t.List.KeyColumns.Any,
+	if t.List != nil {
+		if t.List.KeyColumns != nil {
+			schema.ListCallKeyColumns = &proto.KeyColumnsSet{
+				Single: t.List.KeyColumns.Single,
+				All:    t.List.KeyColumns.All,
+				Any:    t.List.KeyColumns.Any,
+			}
+		}
+		if t.List.OptionalKeyColumns != nil {
+			schema.ListCallOptionalKeyColumns = &proto.KeyColumnsSet{
+				Single: t.List.OptionalKeyColumns.Single,
+				All:    t.List.OptionalKeyColumns.All,
+				Any:    t.List.OptionalKeyColumns.Any,
+			}
+
 		}
 	}
 

@@ -62,6 +62,7 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 	// - these populate the row with data entries corresponding to the hydrate function name
 
 	if err := r.startAllHydrateCalls(rowDataCtx); err != nil {
+		log.Printf("[WARN] startAllHydrateCalls failed with error %v", err)
 		return nil, err
 	}
 
@@ -96,7 +97,7 @@ func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context) error {
 			// in this case, we will never get out of the start loop as the dependent hydrate function will never start
 			select {
 			case err := <-r.errorChan:
-				log.Println("[WARN] hydrate err chan select", "error", err)
+				log.Printf("[WARN] startAllHydrateCalls failed with error %v", err)
 				return err
 			default:
 			}
@@ -133,7 +134,7 @@ func (r *RowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 	// select both wait chan and error chan
 	select {
 	case err := <-r.errorChan:
-		log.Println("[WARN] hydrate err chan select", "error", err)
+		log.Println("[WARN] hydrate error chan select", "error", err)
 		return nil, err
 	case <-r.waitChan:
 		logging.LogTime("send a row")
