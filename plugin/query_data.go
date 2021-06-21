@@ -165,6 +165,10 @@ func (d *QueryData) SetFetchType(table *Table) {
 // this is passed into transforms
 func (d *QueryData) populateQualValueMap(table *Table) {
 	qualValueMap := d.KeyColumnQuals
+	if qualValueMap == nil {
+		qualValueMap = d.OptionalKeyColumnQuals
+	}
+
 	keyColumnQuals := make(map[string]interface{}, len(qualValueMap))
 	for columnName, qualValue := range qualValueMap {
 		qualColumn, ok := table.columnForName(columnName)
