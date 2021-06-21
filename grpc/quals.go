@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
@@ -48,6 +49,9 @@ func GetQualValue(v *proto.QualValue) interface{} {
 		qv = v.DoubleValue
 	case *proto.QualValue_BoolValue:
 		qv = v.BoolValue
+	case *proto.QualValue_TimestampValue:
+		ts := v.TimestampValue
+		qv = time.Unix(ts.Seconds, int64(ts.Nanos))
 	case *proto.QualValue_ListValue:
 		var values []interface{}
 		for _, l := range v.ListValue.Values {
