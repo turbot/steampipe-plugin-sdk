@@ -164,13 +164,15 @@ func (d *QueryData) SetFetchType(table *Table) {
 // populate a map of the resolved values of each key column qual
 // this is passed into transforms
 func (d *QueryData) populateQualValueMap(table *Table) {
-	qualValueMap := d.KeyColumnQuals
-	if qualValueMap == nil {
-		qualValueMap = d.OptionalKeyColumnQuals
+	keyColumnQuals := make(map[string]interface{})
+	for columnName, qualValue := range d.KeyColumnQuals {
+		qualColumn, ok := table.columnForName(columnName)
+		if !ok {
+			continue
+		}
+		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
 	}
-
-	keyColumnQuals := make(map[string]interface{}, len(qualValueMap))
-	for columnName, qualValue := range qualValueMap {
+	for columnName, qualValue := range d.OptionalKeyColumnQuals {
 		qualColumn, ok := table.columnForName(columnName)
 		if !ok {
 			continue
