@@ -19,6 +19,7 @@ func LegacyQualMap(qualMap map[string]*DbQuals) map[string]*Quals {
 		res[k] = &Quals{}
 		for _, dbQual := range v.Quals {
 			if q := dbQual.GetQual(); q != nil {
+				q.OperatorDeprecated = &Qual_StringValue{q.Operator}
 				res[k].Append(q)
 			}
 		}
