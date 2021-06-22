@@ -54,7 +54,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 		return t.executeGetCall(ctx, queryData)
 	}
 	if t.List == nil {
-		log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.Quals))
+		log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.DbQuals))
 		panic("query is not a get call, but no list call is defined")
 	}
 
@@ -319,7 +319,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	// in this case we call get for each value
 	if t.List.KeyColumns != nil && t.List.KeyColumns.Single != "" {
 		keyColumn := t.List.KeyColumns.Single
-		logger.Warn("executeListCall we have single key column")
+		logger.Warn("executeListCall we have single key column", "keyColumn", keyColumn)
 		if qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
 			t.doListForQualValues(ctx, queryData, keyColumn, qualValueList, listCall)
 			return

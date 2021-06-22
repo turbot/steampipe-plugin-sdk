@@ -151,7 +151,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 		// if there is a List config, set this to be a list call, otherwise set it to get
 		// if we do not the required quals we will fail with an appropriate error
 		if table.List != nil {
-			log.Printf("[INFO] table '%s': list call, with no list quals", d.Table.Name)
+			log.Printf("[INFO] table '%s': list call, with no list quals: %v", d.Table.Name, table)
 			d.FetchType = fetchTypeList
 		} else {
 			log.Printf("[INFO] no get quals passed but no list call defined - default to get call")
@@ -379,13 +379,17 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 
 // is there a single '=' qual for this column
 func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
-	quals, ok := d.QueryContext.Quals[column]
+	quals, ok := d.QueryContext.DbQuals[column]
 	if !ok {
 		return nil, false
 	}
 
-	if len(quals.Quals) == 1 && quals.Quals[0].GetStringValue() == "=" && quals.Quals[0].Value != nil {
-		return quals.Quals[0], true
+	if len(quals.Quals) == 1 {
+		// is this a simple qual
+		q := quals.Quals[0].GetQual()
+		if q.Operator == "=" && q.Value != nil {
+			return q, true
+		}
 	}
 	return nil, false
 }

@@ -12,7 +12,7 @@ const (
 	IPv6 = "IPv6"
 )
 
-func QualMapToString(qualMap map[string]*proto.Quals) interface{} {
+func QualMapToString(qualMap map[string]*proto.DbQuals) interface{} {
 	divider := "----------------------------------------------------------------\n"
 	str := fmt.Sprintf("\n%s", divider)
 	for _, quals := range qualMap {
@@ -26,12 +26,13 @@ func QualMapToString(qualMap map[string]*proto.Quals) interface{} {
 	return str
 }
 
-func QualToString(q *proto.Qual) string {
-	return fmt.Sprintf("\tColumn: %s, Operator: '%s', Value: '%v'\n", q.FieldName, q.GetStringValue(), GetQualValue(q.Value))
-}
-
-func QualEquals(left *proto.Qual, right *proto.Qual) bool {
-	return QualToString(left) == QualToString(right)
+func QualToString(d *proto.DbQual) string {
+	q := d.GetQual()
+	if q != nil {
+		return fmt.Sprintf("\tColumn: %s, Operator: '%s', Value: '%v'\n", q.FieldName, q.Operator, GetQualValue(q.Value))
+	}
+	// TODO BOOL QUAL TO STRING
+	return "BOOL QUAL"
 }
 
 func GetQualValue(v *proto.QualValue) interface{} {

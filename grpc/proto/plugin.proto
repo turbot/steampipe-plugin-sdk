@@ -16,11 +16,33 @@ message Operator {
 
 message Qual {
   string fieldName = 1;
-  oneof operator{
-    string string_value = 2;
+  oneof operator_deprecated{
+    string string_value = 2[deprecated=true];
     Operator tuple_value = 3[deprecated=true];
   }
   QualValue value = 4;
+  string operator = 5;
+}
+
+message DbQual {
+  oneof dbQual{
+    Qual qual = 1;
+    BoolQual boolQual=2;
+  }
+}
+message DbQuals {
+  repeated DbQual quals = 1;
+}
+
+message BoolQual {
+  enum Operator {
+    EQ = 0;
+    NE = 1;
+    AND = 2;
+    OR = 3;
+  }
+  Operator operator= 2;
+  DbQuals quals = 3;
 }
 
 message QualValueList {
@@ -54,7 +76,8 @@ message Quals {
 
 message QueryContext {
   repeated string columns = 1;
-  map<string, Quals> quals = 2;
+  map<string, Quals> quals = 2[deprecated=true];
+  map<string, DbQuals> db_quals = 3;
 }
 
 message ExecuteRequest {
