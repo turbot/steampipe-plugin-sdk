@@ -11,13 +11,13 @@ import (
 // - a set of columns which together All form the key
 // - a set of columns Any of which which form the key
 type KeyColumnSet struct {
-	Single string
-	All    []string
-	Any    []string
+	Single *KeyColumn
+	All    []*KeyColumn
+	Any    []*KeyColumn
 }
 
 func (k *KeyColumnSet) ToString() string {
-	if k.Single != "" {
+	if k.Single != nil {
 		return fmt.Sprintf("column: %s", k.Single)
 	}
 	if k.All != nil {
@@ -30,7 +30,7 @@ func (k *KeyColumnSet) ToString() string {
 }
 
 func SingleColumn(column string) *KeyColumnSet {
-	return &KeyColumnSet{Single: column}
+	return &KeyColumnSet{Single: &KeyColumn{Name: column, Operators: []Operator{OperatorEq}}}
 }
 
 func AllColumns(columns []string) *KeyColumnSet {
@@ -40,3 +40,5 @@ func AllColumns(columns []string) *KeyColumnSet {
 func AnyColumn(columns []string) *KeyColumnSet {
 	return &KeyColumnSet{Any: columns}
 }
+
+key_columns_should_allow_specifying_supported_operators_121
