@@ -8,9 +8,10 @@ type QueryContext struct {
 	Columns  []string
 	RawQuals map[string]*proto.Quals
 	Limit    *int64
-	Offset   *int64
 }
 
+// NewQueryContext maps from a proto.QueryContext to a plugin.QueryContext.
+// the only difference is the representation of the limit (as protobuf does not support pointers)
 func NewQueryContext(p *proto.QueryContext) *QueryContext {
 	q := &QueryContext{
 		Columns:  p.Columns,
@@ -18,9 +19,6 @@ func NewQueryContext(p *proto.QueryContext) *QueryContext {
 	}
 	if p.Limit != nil {
 		q.Limit = &p.Limit.Value
-	}
-	if p.Offset != nil {
-		q.Offset = &p.Offset.Value
 	}
 	return q
 }
