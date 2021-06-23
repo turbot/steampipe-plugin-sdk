@@ -27,7 +27,7 @@ type QueryData struct {
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
 	// query context data passed from postgres - this includes the requested columns and the quals
-	QueryContext *proto.QueryContext
+	QueryContext *QueryContext
 	// connection details - the connection name and any config declared in the connection config file
 	Connection *Connection
 	// Matrix is an array of parameter maps (MatrixItems)
@@ -56,7 +56,7 @@ type QueryData struct {
 	parentItem interface{}
 }
 
-func newQueryData(queryContext *proto.QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
+func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
 	d := &QueryData{
 		ConnectionManager: connectionManager,
 		Table:             table,
@@ -183,7 +183,7 @@ func (d *QueryData) populateQualValueMap(table *Table) {
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
-func ensureColumns(queryContext *proto.QueryContext, table *Table) {
+func ensureColumns(queryContext *QueryContext, table *Table) {
 	if len(queryContext.Columns) != 0 {
 		return
 	}
@@ -379,7 +379,7 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 
 // is there a single '=' qual for this column
 func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
-	quals, ok := d.QueryContext.Quals[column]
+	quals, ok := d.QueryContext.RawQuals[column]
 	if !ok {
 		return nil, false
 	}

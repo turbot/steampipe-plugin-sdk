@@ -55,6 +55,11 @@ message Quals {
 message QueryContext {
   repeated string columns = 1;
   map<string, Quals> quals = 2;
+  NullableInt limit = 3;
+}
+
+message NullableInt {
+  int64 value=1;
 }
 
 message ExecuteRequest {

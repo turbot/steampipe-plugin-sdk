@@ -54,7 +54,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 		return t.executeGetCall(ctx, queryData)
 	}
 	if t.List == nil {
-		log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.Quals))
+		log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.RawQuals))
 		panic("query is not a get call, but no list call is defined")
 	}
 

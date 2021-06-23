@@ -105,7 +105,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	logging.LogTime("Start execute")
 	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.Connections, "table", req.Table)
 
-	queryContext := req.QueryContext
+	queryContext := NewQueryContext(req.QueryContext)
 	table, ok := p.TableMap[req.Table]
 	if !ok {
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
@@ -137,7 +137,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 
 	queryData := newQueryData(queryContext, table, stream, connection, matrixItem, p.ConnectionManager)
-	p.Logger.Debug("calling fetchItems", "table", table.Name, "matrixItem", matrixItem)
+	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", matrixItem, "limit", queryContext.Limit)
 
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {
