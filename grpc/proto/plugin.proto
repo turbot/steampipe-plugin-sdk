@@ -50,11 +50,13 @@ message Inet {
 
 message Quals {
   repeated Qual quals = 1;
+  int64 limit=2;
 }
 
 message QueryContext {
   repeated string columns = 1;
   map<string, Quals> quals = 2;
+  int64 limit = 3;
 }
 
 message ExecuteRequest {
