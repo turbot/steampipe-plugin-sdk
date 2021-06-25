@@ -36,8 +36,13 @@ func WrapHydrate(hydrateFunc HydrateFunc, shouldIgnoreError ErrorPredicate) Hydr
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[WARN] recovered a panic from a wrapped hydrate function: %v\n", r)
-				err = status.Error(codes.Internal, fmt.Sprintf("hydrate function %s failed with panic %v", helpers.GetFunctionName(hydrateFunc), r))
+				if helpers.ToError(r).Error() == contextCancelledError {
+					// if the error was a context cancellation, just trace it - this is not an error
+					log.Printf("[TRACE] hydrate function %s terminated with a context cancellation", helpers.GetFunctionName(hydrateFunc))
+				} else {
+					log.Printf("[WARN] recovered a panic from a wrapped hydrate function: %v\n", r)
+					err = status.Error(codes.Internal, fmt.Sprintf("hydrate function %s failed with panic %v", helpers.GetFunctionName(hydrateFunc), r))
+				}
 			}
 		}()
 		// call the underlying get function
