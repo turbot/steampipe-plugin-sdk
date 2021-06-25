@@ -34,11 +34,9 @@ func SingleColumn(column string) *KeyColumnSet {
 }
 
 func AllColumns(columns []string) *KeyColumnSet {
-	return &KeyColumnSet{All: columns}
+	return &KeyColumnSet{All: NewKeyColumnSlice(columns)}
 }
 
 func AnyColumn(columns []string) *KeyColumnSet {
-	return &KeyColumnSet{Any: columns}
+	return &KeyColumnSet{Any: NewKeyColumnSlice(columns)}
 }
-
-key_columns_should_allow_specifying_supported_operators_121
