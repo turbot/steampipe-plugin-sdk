@@ -20,8 +20,10 @@ func (c *GRPCClient) GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaRes
 	return c.client.GetSchema(c.ctx, req)
 }
 
-func (c *GRPCClient) Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, error) {
-	return c.client.Execute(c.ctx, req)
+func (c *GRPCClient) Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.CancelFunc, error) {
+	ctx, cancel := context.WithCancel(c.ctx)
+	client, err := c.client.Execute(ctx, req)
+	return client, cancel, err
 }
 
 func (c *GRPCClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) {
