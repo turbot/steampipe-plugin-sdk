@@ -121,7 +121,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 3) Build row spawns goroutines for any required hydrate functions.
 	// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
 	// 5) Range over rowChan - for each row, send on results stream
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+	ctx := context.WithValue(stream.Context(), context_key.Logger, p.Logger)
 
 	var matrixItem []map[string]interface{}
 	var connection *Connection

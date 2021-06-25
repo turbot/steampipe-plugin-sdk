@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -55,9 +54,6 @@ type QueryData struct {
 	listWg sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
 	parentItem interface{}
-
-	// there was an error streaming to the grpc stream
-	streamingError error
 }
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
@@ -265,9 +261,11 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
-	if d.streamingError != nil {
-		// if there is streaming error, panic to force exit thread - this will be recovered higher up
-		panic(d.streamingError)
+	// if the context is cancelled, panic to break out
+	select {
+	case <-d.stream.Context().Done():
+		panic(contextCancelledError)
+	default:
 	}
 
 	// create rowData, passing matrixItem from context
@@ -292,8 +290,6 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) error
 	for {
 		// wait for either an item or an error
 		select {
-		case <-d.stream.Context().Done():
-			d.streamingError = errors.New(contextCancelledError)
 		case err := <-d.errorChan:
 			log.Printf("[ERROR] streamRows error chan select: %v\n", err)
 			return err
@@ -306,10 +302,6 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) error
 				return nil
 			}
 			if err := d.streamRow(row); err != nil {
-				// if there was an error streaming, store in d.streamingError
-				// - this is checked by the thread streaming list items and will cause it to terminate
-				d.streamingError = err
-
 				return err
 			}
 		}
