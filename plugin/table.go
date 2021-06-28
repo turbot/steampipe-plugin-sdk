@@ -34,7 +34,6 @@ type GetConfig struct {
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
 	KeyColumns         *KeyColumnSet
 	OptionalKeyColumns *KeyColumnSet
-	ItemFromKey        HydrateFunc
 	// the hydrate function which is called first when performing a 'get' call.
 	// if this returns 'not found', no further hydrate functions are called
 	Hydrate HydrateFunc

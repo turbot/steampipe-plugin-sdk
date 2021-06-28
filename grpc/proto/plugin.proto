@@ -107,9 +107,20 @@ message TableSchema
 // a set of Key Columns, all of which are reuired
 message KeyColumnsSet
 {
-   string single = 1;
-   repeated string all = 2;
-   repeated string any = 3;
+  // deprecated properties which specify column only
+   string single = 1 [deprecated=true];
+   repeated string all = 2 [deprecated=true];
+   repeated string any = 3 [deprecated=true];
+
+   KeyColumn single_key_column = 4;
+   repeated KeyColumn all_key_columns = 5;
+   repeated KeyColumn any_key_columns = 6;
+}
+
+message KeyColumn
+{
+  string name = 1;
+  repeated string operators = 2;
 }
 
 message Schema {

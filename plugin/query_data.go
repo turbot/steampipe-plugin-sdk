@@ -18,11 +18,15 @@ const itemBufferSize = 100
 type QueryData struct {
 	// The table this query is associated with
 	Table *Table
-	// if this is a get call (or a list call if list key columns are specified)
-	// this will be populated with the quals as a map of column name to quals
+	// if this is a get call this will be populated with the quals as a map of column name to quals
+	//  (this will also be populated for a list call if list key columns are specified -
+	//  however this usage is deprecated and provided for legacy reasons only)
 	KeyColumnQuals map[string]*proto.QualValue
+	// if this is a list call with key columns specified this will be populated with the quals
+	// as a map of column name to KeyColumnQualValue
+	ListKeyColumnQuals KeyColumnQualValueMap
 	// any optional list quals which were passed
-	OptionalKeyColumnQuals map[string]*proto.QualValue
+	OptionalListKeyColumnQuals KeyColumnQualValueMap
 	// columns which have a single equals qual
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
@@ -58,13 +62,15 @@ type QueryData struct {
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
 	d := &QueryData{
-		ConnectionManager: connectionManager,
-		Table:             table,
-		QueryContext:      queryContext,
-		Connection:        connection,
-		Matrix:            matrix,
-		KeyColumnQuals:    map[string]*proto.QualValue{},
-		equalsQuals:       map[string]*proto.QualValue{},
+		ConnectionManager:          connectionManager,
+		Table:                      table,
+		QueryContext:               queryContext,
+		Connection:                 connection,
+		Matrix:                     matrix,
+		KeyColumnQuals:             make(map[string]*proto.QualValue),
+		ListKeyColumnQuals:         make(KeyColumnQualValueMap),
+		OptionalListKeyColumnQuals: make(KeyColumnQualValueMap),
+		equalsQuals:                make(map[string]*proto.QualValue),
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -89,29 +95,36 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 // ShallowCopy creates a shallow copy of the QueryData
 // this is used to pass different quals to multiple list/get calls, when an in() clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
-	// NOTE: we create a deep copy of the keyColumnQuals
-	// - this is so they can be updated in the copied QueryData without mutating the original
-	newKeyColumQuals := map[string]*proto.QualValue{}
-
-	for k, v := range d.KeyColumnQuals {
-		newKeyColumQuals[k] = v
-	}
 
 	clone := &QueryData{
-		Table:              d.Table,
-		KeyColumnQuals:     newKeyColumQuals,
-		FetchType:          d.FetchType,
-		QueryContext:       d.QueryContext,
-		Connection:         d.Connection,
-		Matrix:             d.Matrix,
-		ConnectionManager:  d.ConnectionManager,
-		hydrateCalls:       d.hydrateCalls,
-		equalsQuals:        d.equalsQuals,
-		concurrencyManager: d.concurrencyManager,
-		rowDataChan:        d.rowDataChan,
-		errorChan:          d.errorChan,
-		stream:             d.stream,
-		listWg:             d.listWg,
+		Table:                      d.Table,
+		KeyColumnQuals:             make(map[string]*proto.QualValue),
+		ListKeyColumnQuals:         make(KeyColumnQualValueMap),
+		OptionalListKeyColumnQuals: make(KeyColumnQualValueMap),
+		FetchType:                  d.FetchType,
+		QueryContext:               d.QueryContext,
+		Connection:                 d.Connection,
+		Matrix:                     d.Matrix,
+		ConnectionManager:          d.ConnectionManager,
+		hydrateCalls:               d.hydrateCalls,
+		equalsQuals:                d.equalsQuals,
+		concurrencyManager:         d.concurrencyManager,
+		rowDataChan:                d.rowDataChan,
+		errorChan:                  d.errorChan,
+		stream:                     d.stream,
+		listWg:                     d.listWg,
+	}
+
+	// NOTE: we create a deep copy of the keyColumnQuals
+	// - this is so they can be updated in the copied QueryData without mutating the original
+	for k, v := range d.KeyColumnQuals {
+		clone.KeyColumnQuals[k] = v
+	}
+	for k, v := range d.ListKeyColumnQuals {
+		clone.ListKeyColumnQuals[k] = v
+	}
+	for k, v := range d.OptionalListKeyColumnQuals {
+		clone.OptionalListKeyColumnQuals[k] = v
 	}
 	// NOTE: point the public streaming endpoints to their internal implementations IN THIS OBJECT
 	clone.StreamListItem = clone.streamListItem
@@ -123,41 +136,56 @@ func (d *QueryData) ShallowCopy() *QueryData {
 func (d *QueryData) SetFetchType(table *Table) {
 	// populate a map of column to qual value
 	var getQuals map[string]*proto.QualValue
-	var listQuals map[string]*proto.QualValue
-	var optionalListQuals map[string]*proto.QualValue
+	var listQuals KeyColumnQualValueMap
+	var optionalListQuals KeyColumnQualValueMap
+
 	if table.Get != nil {
-		getQuals = table.getKeyColumnQuals(d, table.Get.KeyColumns)
+		// if there is a get config default to get
+		// (this will be overriden be default to list if there is a list config)
+		d.FetchType = fetchTypeGet
+		// look for get key columns in the quals
+		getQuals = table.buildGetKeyColumnsQuals(d, table.Get.KeyColumns)
 	}
+
 	if table.List != nil {
+		// if there is a list config default to list
+		d.FetchType = fetchTypeList
+
+		// if list key columns are defined, look for them in the provided quals
 		if table.List.KeyColumns != nil {
-			listQuals = table.getKeyColumnQuals(d, table.List.KeyColumns)
+			listQuals = table.buildListKeyColumnsQuals(d, table.List.KeyColumns)
+			log.Printf("List key columns: %s", listQuals)
 		}
+
+		// if optional list key columns are defined, look for them in the provided quals
 		if table.List.OptionalKeyColumns != nil {
-			optionalListQuals = table.getKeyColumnQuals(d, table.List.OptionalKeyColumns)
+			optionalListQuals = table.buildListKeyColumnsQuals(d, table.List.OptionalKeyColumns)
+			log.Printf("Optional list key columns: %s", optionalListQuals)
 		}
+	} else {
+		// otherwise default to get
+
 	}
+
+	// now examine quals and determine the actual fetch type
+
 	// if quals provided in query satisfy both get and list, get wins (a get is likely to be more efficient)
 	if len(getQuals) > 0 {
 		log.Printf("[INFO] get quals - this is a get call  %+v", getQuals)
 		d.KeyColumnQuals = getQuals
 		d.FetchType = fetchTypeGet
-	} else if len(listQuals)+len(optionalListQuals) > 0 {
-		log.Printf("[INFO] list quals - this is list call, list quals: %+v, optional list quals: %+v", listQuals, optionalListQuals)
-		d.KeyColumnQuals = listQuals
-		d.OptionalKeyColumnQuals = optionalListQuals
-		d.FetchType = fetchTypeList
-	} else {
-		// so we do not have required quals for either.
-		// if there is a List config, set this to be a list call, otherwise set it to get
-		// if we do not the required quals we will fail with an appropriate error
-		if table.List != nil {
-			log.Printf("[INFO] table '%s': list call, with no list quals", d.Table.Name)
-			d.FetchType = fetchTypeList
-		} else {
-			log.Printf("[INFO] no get quals passed but no list call defined - default to get call")
-			d.FetchType = fetchTypeGet
-		}
+	} else if len(listQuals) > 0 {
+		log.Printf("[WARN] list quals - this is list call, list quals: %+v, optional list quals: %+v", listQuals, optionalListQuals)
+		// store list quals
+		d.ListKeyColumnQuals = listQuals
+		// NOTE: STORE LEGACY VALS legacy
+		log.Printf("[WARN] store list quals in legacy format in KeyColumnQuals property")
+		d.KeyColumnQuals = listQuals.ToValueMap()
 	}
+	if len(optionalListQuals) > 0 {
+		d.OptionalListKeyColumnQuals = optionalListQuals
+	}
+
 	d.populateQualValueMap(table)
 }
 
@@ -172,12 +200,17 @@ func (d *QueryData) populateQualValueMap(table *Table) {
 		}
 		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
 	}
-	for columnName, qualValue := range d.OptionalKeyColumnQuals {
+	for columnName, keyColumnQualValue := range d.OptionalListKeyColumnQuals {
+		// TODO is it ok to only pass equals quals to fromQuals transform?
+		if !keyColumnQualValue.KeyColumn.SingleEqualsQual() {
+			// only store equals quals
+			continue
+		}
 		qualColumn, ok := table.columnForName(columnName)
 		if !ok {
 			continue
 		}
-		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
+		keyColumnQuals[columnName] = ColumnQualValue(keyColumnQualValue.Values[0], qualColumn)
 	}
 	d.keyColumnQualValues = keyColumnQuals
 }
@@ -381,19 +414,6 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	logging.DisplayProfileData(10 * time.Millisecond)
 	log.Println("[TRACE] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
-}
-
-// is there a single '=' qual for this column
-func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
-	quals, ok := d.QueryContext.RawQuals[column]
-	if !ok {
-		return nil, false
-	}
-
-	if len(quals.Quals) == 1 && quals.Quals[0].GetStringValue() == "=" && quals.Quals[0].Value != nil {
-		return quals.Quals[0], true
-	}
-	return nil, false
 }
 
 // ToError is used to return an error or format the supplied value as error.

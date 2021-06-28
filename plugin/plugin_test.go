@@ -64,7 +64,6 @@ var testCasesValidate = map[string]validateTest{
 					},
 					Get: &GetConfig{
 						KeyColumns:        SingleColumn("name"),
-						ItemFromKey:       itemFromKey,
 						Hydrate:           getHydrate,
 						ShouldIgnoreError: isNotFound,
 					},
@@ -102,7 +101,6 @@ var testCasesValidate = map[string]validateTest{
 					},
 					Get: &GetConfig{
 						KeyColumns:        SingleColumn("name"),
-						ItemFromKey:       itemFromKey,
 						Hydrate:           getHydrate,
 						ShouldIgnoreError: isNotFound,
 					},
@@ -137,7 +135,6 @@ var testCasesValidate = map[string]validateTest{
 						Hydrate: listHydrate,
 					},
 					Get: &GetConfig{
-						ItemFromKey:       itemFromKey,
 						Hydrate:           getHydrate,
 						ShouldIgnoreError: isNotFound,
 					},
@@ -170,7 +167,6 @@ var testCasesValidate = map[string]validateTest{
 					},
 					Get: &GetConfig{
 						KeyColumns:        SingleColumn("name"),
-						ItemFromKey:       itemFromKey,
 						ShouldIgnoreError: isNotFound,
 					},
 					HydrateDependencies: []HydrateDependencies{{Func: hydrate1, Depends: []HydrateFunc{getHydrate}}},
@@ -200,7 +196,6 @@ var testCasesValidate = map[string]validateTest{
 					List: &ListConfig{},
 					Get: &GetConfig{
 						KeyColumns:        SingleColumn("name"),
-						ItemFromKey:       itemFromKey,
 						Hydrate:           getHydrate,
 						ShouldIgnoreError: isNotFound,
 					},
@@ -257,7 +252,6 @@ var testCasesValidate = map[string]validateTest{
 					},
 					Get: &GetConfig{
 						KeyColumns:        SingleColumn("name"),
-						ItemFromKey:       itemFromKey,
 						Hydrate:           getHydrate,
 						ShouldIgnoreError: isNotFound,
 					},
@@ -290,7 +284,6 @@ var testCasesValidate = map[string]validateTest{
 					},
 					Get: &GetConfig{
 						KeyColumns:        SingleColumn("name"),
-						ItemFromKey:       itemFromKey,
 						Hydrate:           getHydrate,
 						ShouldIgnoreError: isNotFound,
 					},
@@ -322,7 +315,6 @@ var testCasesValidate = map[string]validateTest{
 						Hydrate: listHydrate,
 					},
 					Get: &GetConfig{
-						ItemFromKey:       itemFromKey,
 						Hydrate:           getHydrate,
 						ShouldIgnoreError: isNotFound,
 					},

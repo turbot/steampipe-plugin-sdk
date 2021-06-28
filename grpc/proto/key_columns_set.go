@@ -1,8 +1,10 @@
 package proto
 
-import "github.com/turbot/go-kit/helpers"
+import (
+	"github.com/turbot/go-kit/helpers"
+)
 
-// ToSlice returns a slice of all columns referenced by the KeyColumnSet
+// ToSlice returns a slice of all columns referenced by the protobuf KeyColumnSet
 func (k *KeyColumnsSet) ToSlice() []string {
 	var res []string
 	if k.Single != "" {
