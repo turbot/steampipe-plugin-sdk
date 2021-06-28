@@ -15,10 +15,8 @@ require (
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
-	github.com/turbot/go-kit v0.2.2-0.20210614162002-b56bc76ce374
+	github.com/turbot/go-kit v0.2.2-0.20210628165333-268ba0a30be3
 	github.com/zclconf/go-cty v1.8.2
 	google.golang.org/grpc v1.33.1
 	google.golang.org/protobuf v1.25.0
 )
-
-replace github.com/turbot/go-kit => /Users/kai/Dev/github/turbot/go-kit
