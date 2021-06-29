@@ -6,7 +6,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-// KeyColumnSet is a set of columns which form the key of a table
+// KeyColumnSet is used by plugin to specify a set of columns which form the key of a table
 // may specify:
 // - a Single column
 // - a set of columns which together All form the key
@@ -31,7 +31,6 @@ func (k *KeyColumnSet) String() string {
 }
 
 func (k *KeyColumnSet) ToKeyColumnSlice() KeyColumnSlice {
-
 	if k.Single != nil {
 		return []*KeyColumn{k.Single}
 	}

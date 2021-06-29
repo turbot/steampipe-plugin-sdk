@@ -1,4 +1,4 @@
-package plugin
+package quals
 
 import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"

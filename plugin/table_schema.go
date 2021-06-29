@@ -19,7 +19,6 @@ func (t Table) GetSchema() *proto.TableSchema {
 		}
 	}
 	// key columns
-	// TODO add operators into the result
 	if t.Get != nil && t.Get.KeyColumns != nil {
 		schema.GetCallKeyColumns = t.Get.KeyColumns.ToProtobuf()
 	}

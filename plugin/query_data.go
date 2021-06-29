@@ -24,7 +24,7 @@ type QueryData struct {
 	KeyColumnQuals map[string]*proto.QualValue
 	// a map of all key quals which were specified in the query
 	// - this will contain either the Get quals or the List quals (including any optional key coluns)
-	KeyColumnQualValues KeyColumnQualValueMap
+	KeyColumnQualValues KeyColumnQualMap
 	// columns which have a single equals qual
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
@@ -66,7 +66,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		Connection:          connection,
 		Matrix:              matrix,
 		KeyColumnQuals:      make(map[string]*proto.QualValue),
-		KeyColumnQualValues: make(KeyColumnQualValueMap),
+		KeyColumnQualValues: make(KeyColumnQualMap),
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -95,7 +95,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	clone := &QueryData{
 		Table:               d.Table,
 		KeyColumnQuals:      make(map[string]*proto.QualValue),
-		KeyColumnQualValues: make(KeyColumnQualValueMap),
+		KeyColumnQualValues: make(KeyColumnQualMap),
 		FetchType:           d.FetchType,
 		QueryContext:        d.QueryContext,
 		Connection:          d.Connection,
@@ -126,6 +126,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) SetFetchType(table *Table) {
+
 	if table.Get != nil {
 		// default to get, even before checking the quals
 		// this handles the case of a get call only
@@ -133,9 +134,9 @@ func (d *QueryData) SetFetchType(table *Table) {
 
 		// build a qual map from Get key columns
 		qualMap := NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.Get.KeyColumns)
-		// no see whether the qual map has everything required for the get call
+		// now see whether the qual map has everything required for the get call
 		if qualMap.SatisfiesKeyColumns(table.Get.KeyColumns) {
-			d.KeyColumnQuals = qualMap.ToValueMap()
+			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
 			d.KeyColumnQualValues = qualMap
 			return
 		}

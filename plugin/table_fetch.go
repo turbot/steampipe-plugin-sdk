@@ -12,6 +12,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -294,8 +295,9 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}()
 
 	logger := t.Plugin.Logger
+
 	// verify we have the necessary quals
-	if queryData.KeyColumnQualValues.SatisfiesKeyColumns(t.List.KeyColumns) {
+	if !queryData.KeyColumnQualValues.SatisfiesKeyColumns(t.List.KeyColumns) {
 		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: %s", t.List.KeyColumns.String()))
 		queryData.streamError(err)
 	}
@@ -336,9 +338,9 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		logger.Warn("executeListCall passing updated query data", "qv", qv)
 		// make a shallow copy of the query data and modify the value of the key column qual to be the value list item
 		queryDataCopy := queryData.ShallowCopy()
-		// update legacy map
+		// update qual maps to replace list value with list element
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
-		queryDataCopy.KeyColumnQualValues[keyColumn].Quals = []*Qual{{
+		queryDataCopy.KeyColumnQualValues[keyColumn].Quals = []*quals.Qual{{
 			Column:   keyColumn,
 			Operator: "=",
 			Value:    qv,

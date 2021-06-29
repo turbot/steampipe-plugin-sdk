@@ -3,6 +3,8 @@ package transform
 import (
 	"context"
 	"log"
+
+	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
 )
 
 // TransformData is the input to a transform function.
@@ -19,8 +21,8 @@ type TransformData struct {
 	ColumnName string
 	// the 'matrix item' associated with this row
 	MatrixItem map[string]interface{}
-	// KeyColumnQuals will be populated with the quals as a map of column name to quals
-	KeyColumnQuals map[string]interface{}
+	// KeyColumnQuals will be populated with the quals as a map of column name to an array of quals fo rthat column
+	KeyColumnQuals map[string][]*quals.Qual
 }
 
 // TransformFunc is a function to transform a data value from the api value to a column value
