@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-// TransformData is the input to a transform function. 
+// TransformData is the input to a transform function.
 type TransformData struct {
 	// an optional parameter
 	Param interface{}

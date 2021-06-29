@@ -22,11 +22,9 @@ type QueryData struct {
 	//  (this will also be populated for a list call if list key columns are specified -
 	//  however this usage is deprecated and provided for legacy reasons only)
 	KeyColumnQuals map[string]*proto.QualValue
-	// if this is a list call with key columns specified this will be populated with the quals
-	// as a map of column name to KeyColumnQualValue
-	ListKeyColumnQuals KeyColumnQualValueMap
-	// any optional list quals which were passed
-	OptionalListKeyColumnQuals KeyColumnQualValueMap
+	// a map of all key quals which were specified in the query
+	// - this will contain either the Get quals or the List quals (including any optional key coluns)
+	KeyColumnQualValues KeyColumnQualValueMap
 	// columns which have a single equals qual
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
@@ -46,14 +44,14 @@ type QueryData struct {
 	// event for the child list of a parent child list call
 	StreamLeafListItem func(ctx context.Context, item interface{})
 	// internal
-	hydrateCalls        []*HydrateCall
-	equalsQuals         map[string]*proto.QualValue
-	concurrencyManager  *ConcurrencyManager
-	rowDataChan         chan *RowData
-	errorChan           chan error
-	streamCount         int
-	stream              proto.WrapperPlugin_ExecuteServer
-	keyColumnQualValues map[string]interface{}
+	hydrateCalls []*HydrateCall
+
+	concurrencyManager *ConcurrencyManager
+	rowDataChan        chan *RowData
+	errorChan          chan error
+	streamCount        int
+	stream             proto.WrapperPlugin_ExecuteServer
+
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
@@ -62,15 +60,13 @@ type QueryData struct {
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
 	d := &QueryData{
-		ConnectionManager:          connectionManager,
-		Table:                      table,
-		QueryContext:               queryContext,
-		Connection:                 connection,
-		Matrix:                     matrix,
-		KeyColumnQuals:             make(map[string]*proto.QualValue),
-		ListKeyColumnQuals:         make(KeyColumnQualValueMap),
-		OptionalListKeyColumnQuals: make(KeyColumnQualValueMap),
-		equalsQuals:                make(map[string]*proto.QualValue),
+		ConnectionManager:   connectionManager,
+		Table:               table,
+		QueryContext:        queryContext,
+		Connection:          connection,
+		Matrix:              matrix,
+		KeyColumnQuals:      make(map[string]*proto.QualValue),
+		KeyColumnQualValues: make(KeyColumnQualValueMap),
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -97,22 +93,20 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 func (d *QueryData) ShallowCopy() *QueryData {
 
 	clone := &QueryData{
-		Table:                      d.Table,
-		KeyColumnQuals:             make(map[string]*proto.QualValue),
-		ListKeyColumnQuals:         make(KeyColumnQualValueMap),
-		OptionalListKeyColumnQuals: make(KeyColumnQualValueMap),
-		FetchType:                  d.FetchType,
-		QueryContext:               d.QueryContext,
-		Connection:                 d.Connection,
-		Matrix:                     d.Matrix,
-		ConnectionManager:          d.ConnectionManager,
-		hydrateCalls:               d.hydrateCalls,
-		equalsQuals:                d.equalsQuals,
-		concurrencyManager:         d.concurrencyManager,
-		rowDataChan:                d.rowDataChan,
-		errorChan:                  d.errorChan,
-		stream:                     d.stream,
-		listWg:                     d.listWg,
+		Table:               d.Table,
+		KeyColumnQuals:      make(map[string]*proto.QualValue),
+		KeyColumnQualValues: make(KeyColumnQualValueMap),
+		FetchType:           d.FetchType,
+		QueryContext:        d.QueryContext,
+		Connection:          d.Connection,
+		Matrix:              d.Matrix,
+		ConnectionManager:   d.ConnectionManager,
+		hydrateCalls:        d.hydrateCalls,
+		concurrencyManager:  d.concurrencyManager,
+		rowDataChan:         d.rowDataChan,
+		errorChan:           d.errorChan,
+		stream:              d.stream,
+		listWg:              d.listWg,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -120,12 +114,10 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	for k, v := range d.KeyColumnQuals {
 		clone.KeyColumnQuals[k] = v
 	}
-	for k, v := range d.ListKeyColumnQuals {
-		clone.ListKeyColumnQuals[k] = v
+	for k, v := range d.KeyColumnQualValues {
+		clone.KeyColumnQualValues[k] = v
 	}
-	for k, v := range d.OptionalListKeyColumnQuals {
-		clone.OptionalListKeyColumnQuals[k] = v
-	}
+
 	// NOTE: point the public streaming endpoints to their internal implementations IN THIS OBJECT
 	clone.StreamListItem = clone.streamListItem
 	clone.StreamLeafListItem = clone.streamLeafListItem
@@ -134,85 +126,37 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) SetFetchType(table *Table) {
-	// populate a map of column to qual value
-	var getQuals map[string]*proto.QualValue
-	var listQuals KeyColumnQualValueMap
-	var optionalListQuals KeyColumnQualValueMap
-
 	if table.Get != nil {
-		// if there is a get config default to get
-		// (this will be overriden be default to list if there is a list config)
+		// default to get, even before checking the quals
+		// this handles the case of a get call only
 		d.FetchType = fetchTypeGet
-		// look for get key columns in the quals
-		getQuals = table.buildGetKeyColumnsQuals(d, table.Get.KeyColumns)
+
+		// build a qual map from Get key columns
+		qualMap := NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.Get.KeyColumns)
+		// no see whether the qual map has everything required for the get call
+		if qualMap.SatisfiesKeyColumns(table.Get.KeyColumns) {
+			d.KeyColumnQuals = qualMap.ToValueMap()
+			d.KeyColumnQualValues = qualMap
+			return
+		}
 	}
 
 	if table.List != nil {
-		// if there is a list config default to list
+		// if there is a list config default to list, even is we are missing required quals
 		d.FetchType = fetchTypeList
 
+		// build an array of the key columns we need to buil dthe map for
+		var listKeyColumns []*KeyColumnSet
 		// if list key columns are defined, look for them in the provided quals
 		if table.List.KeyColumns != nil {
-			listQuals = table.buildListKeyColumnsQuals(d, table.List.KeyColumns)
-			log.Printf("List key columns: %s", listQuals)
+			listKeyColumns = append(listKeyColumns, table.List.KeyColumns)
 		}
-
-		// if optional list key columns are defined, look for them in the provided quals
 		if table.List.OptionalKeyColumns != nil {
-			optionalListQuals = table.buildListKeyColumnsQuals(d, table.List.OptionalKeyColumns)
-			log.Printf("Optional list key columns: %s", optionalListQuals)
+			listKeyColumns = append(listKeyColumns, table.List.OptionalKeyColumns)
 		}
-	} else {
-		// otherwise default to get
 
+		d.KeyColumnQualValues = NewKeyColumnQualValueMap(d.QueryContext.RawQuals, listKeyColumns...)
 	}
-
-	// now examine quals and determine the actual fetch type
-
-	// if quals provided in query satisfy both get and list, get wins (a get is likely to be more efficient)
-	if len(getQuals) > 0 {
-		log.Printf("[INFO] get quals - this is a get call  %+v", getQuals)
-		d.KeyColumnQuals = getQuals
-		d.FetchType = fetchTypeGet
-	} else if len(listQuals) > 0 {
-		log.Printf("[WARN] list quals - this is list call, list quals: %+v, optional list quals: %+v", listQuals, optionalListQuals)
-		// store list quals
-		d.ListKeyColumnQuals = listQuals
-		// NOTE: STORE LEGACY VALS legacy
-		log.Printf("[WARN] store list quals in legacy format in KeyColumnQuals property")
-		d.KeyColumnQuals = listQuals.ToValueMap()
-	}
-	if len(optionalListQuals) > 0 {
-		d.OptionalListKeyColumnQuals = optionalListQuals
-	}
-
-	d.populateQualValueMap(table)
-}
-
-// populate a map of the resolved values of each key column qual
-// this is passed into transforms
-func (d *QueryData) populateQualValueMap(table *Table) {
-	keyColumnQuals := make(map[string]interface{})
-	for columnName, qualValue := range d.KeyColumnQuals {
-		qualColumn, ok := table.columnForName(columnName)
-		if !ok {
-			continue
-		}
-		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
-	}
-	for columnName, keyColumnQualValue := range d.OptionalListKeyColumnQuals {
-		// TODO is it ok to only pass equals quals to fromQuals transform?
-		if !keyColumnQualValue.KeyColumn.SingleEqualsQual() {
-			// only store equals quals
-			continue
-		}
-		qualColumn, ok := table.columnForName(columnName)
-		if !ok {
-			continue
-		}
-		keyColumnQuals[columnName] = ColumnQualValue(keyColumnQualValue.Values[0], qualColumn)
-	}
-	d.keyColumnQualValues = keyColumnQuals
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return

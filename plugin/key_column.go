@@ -11,17 +11,17 @@ import (
 
 // KeyColumn is a struct representing the definition of a KeyColumn used to filter and Get/List call
 type KeyColumn struct {
-	Name      string
+	Column    string
 	Operators []string
 }
 
 func (k KeyColumn) String() string {
-	return fmt.Sprintf("column:'%s' %s: %s", k.Name, pluralize.NewClient().Pluralize("operator", len(k.Operators), false), strings.Join(k.Operators, ","))
+	return fmt.Sprintf("column:'%s' %s: %s", k.Column, pluralize.NewClient().Pluralize("operator", len(k.Operators), false), strings.Join(k.Operators, ","))
 }
 
 // ToProtobuf converts the KeyColumn to a protobuf object
 func (k *KeyColumn) ToProtobuf() *proto.KeyColumn {
-	return &proto.KeyColumn{Name: k.Name}
+	return &proto.KeyColumn{Name: k.Column}
 }
 
 // SingleEqualsQual returns whether this key column has a single = operator
@@ -55,7 +55,7 @@ type KeyColumnSlice []*KeyColumn
 func NewEqualsKeyColumnSlice(columns []string) KeyColumnSlice {
 	var all = make([]*KeyColumn, len(columns))
 	for i, c := range columns {
-		all[i] = &KeyColumn{Name: c, Operators: []string{"="}}
+		all[i] = &KeyColumn{Column: c, Operators: []string{"="}}
 	}
 	return all
 }

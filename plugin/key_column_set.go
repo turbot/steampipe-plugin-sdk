@@ -6,7 +6,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-// KeyColumnSet is a set of columns which form the key of a table (i.e. may be used to get a single item)
+// KeyColumnSet is a set of columns which form the key of a table
 // may specify:
 // - a Single column
 // - a set of columns which together All form the key
@@ -30,10 +30,25 @@ func (k *KeyColumnSet) String() string {
 	return ""
 }
 
+func (k *KeyColumnSet) ToKeyColumnSlice() KeyColumnSlice {
+
+	if k.Single != nil {
+		return []*KeyColumn{k.Single}
+	}
+	if k.All != nil {
+		return k.All
+	}
+	if k.Any != nil {
+		return k.Any
+	}
+
+	return nil
+}
+
 func (k *KeyColumnSet) ToProtobuf() *proto.KeyColumnsSet {
 	res := &proto.KeyColumnsSet{}
 	if k.Single != nil {
-		res.Single = k.Single.Name
+		res.Single = k.Single.Column
 		res.SingleKeyColumn = k.Single.ToProtobuf()
 	}
 	if k.All != nil {
@@ -79,11 +94,11 @@ func (k *KeyColumnSet) Validate() []string {
 		// a column may only appear once in an 'All' slice
 		columnMap := make(map[string]bool)
 		for _, col := range k.All {
-			if columnMap[col.Name] {
-				res = append(res, fmt.Sprintf("a column may only appear once in an 'All' clause. column %s is repeated", col.Name))
+			if columnMap[col.Column] {
+				res = append(res, fmt.Sprintf("a column may only appear once in an 'All' clause. column %s is repeated", col.Column))
 				break
 			}
-			columnMap[col.Name] = true
+			columnMap[col.Column] = true
 		}
 		return k.All.Validate()
 	}
@@ -93,36 +108,4 @@ func (k *KeyColumnSet) Validate() []string {
 
 	return nil
 
-}
-
-// SingleColumn creates a KeyColumnSet based on a column name
-// The created set has a 'Single' KeyColumn using equals operator
-func SingleColumn(column string) *KeyColumnSet {
-	return &KeyColumnSet{Single: &KeyColumn{Name: column, Operators: []string{"="}}}
-}
-
-// AllColumns creates a KeyColumnSet based on a slice of column names,
-// The created set has an 'All' KeyColumnSlice using equals operator
-func AllColumns(columns []string) *KeyColumnSet {
-	return &KeyColumnSet{All: NewEqualsKeyColumnSlice(columns)}
-}
-
-// AnyColumn creates a KeyColumnSet with an 'Any' KeyColumnSlice using equals operator
-func AnyColumn(columns []string) *KeyColumnSet {
-	return &KeyColumnSet{Any: NewEqualsKeyColumnSlice(columns)}
-}
-
-// SingleKeyColumn creates a 'Single' KeyColumnSet based on the passed in KeyColumn
-func SingleKeyColumn(keyColumn *KeyColumn) *KeyColumnSet {
-	return &KeyColumnSet{Single: keyColumn}
-}
-
-// AllKeyColumns creates a, 'All' KeyColumnSet based on the passed in KeyColumn
-func AllKeyColumns(keyColumns KeyColumnSlice) *KeyColumnSet {
-	return &KeyColumnSet{All: keyColumns}
-}
-
-// AnyKeyColumn creates a, 'All' KeyColumnSet based on the passed in KeyColumn
-func AnyKeyColumn(keyColumns KeyColumnSlice) *KeyColumnSet {
-	return &KeyColumnSet{Any: keyColumns}
 }

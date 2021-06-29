@@ -85,8 +85,8 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
 	// in this case we call get for each value
 	if keyColumn := t.Get.KeyColumns.Single; keyColumn != nil {
-		if qualValueList := queryData.KeyColumnQuals[keyColumn.Name].GetListValue(); qualValueList != nil {
-			return t.doGetForQualValues(ctx, queryData, keyColumn.Name, qualValueList)
+		if qualValueList := queryData.KeyColumnQuals[keyColumn.Column].GetListValue(); qualValueList != nil {
+			return t.doGetForQualValues(ctx, queryData, keyColumn.Column, qualValueList)
 		}
 	}
 
@@ -107,7 +107,6 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
-		queryDataCopy.populateQualValueMap(t)
 		getWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
@@ -198,7 +197,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 		// check whether there is a single equals qual for each matrix item property and if so, check whether
 		// the matrix item property values satisfy the conditions
 		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[TRACE] getForEach: matrix item item does not meet quals, %v, %v\n", queryData.equalsQuals, matrixItem)
+			log.Printf("[TRACE] getForEach: matrix item item does not meet quals %v\n", matrixItem)
 			continue
 		}
 		// increment our own wait group
@@ -296,7 +295,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 	logger := t.Plugin.Logger
 	// verify we have the necessary quals
-	if t.List.KeyColumns != nil && len(queryData.ListKeyColumnQuals) == 0 {
+	if queryData.KeyColumnQualValues.SatisfiesKeyColumns(t.List.KeyColumns) {
 		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: %s", t.List.KeyColumns.String()))
 		queryData.streamError(err)
 	}
@@ -309,17 +308,16 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		listCall = t.List.ParentHydrate
 	}
 
-	// queryData.KeyColumnQuals is a map of column to qual value
 	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
-	// in this case we call get for each value
+	// in this case we call list for each value
 	if t.List.KeyColumns != nil && t.List.KeyColumns.Single != nil {
 		keyColumn := t.List.KeyColumns.Single
-		keyColumnValues := queryData.ListKeyColumnQuals[keyColumn.Name].Values
-		if len(keyColumnValues) == 1 {
+		// get the quals for this key columns (we have already checked that they are satisfied)
+		keyColumnQuals := queryData.KeyColumnQualValues[keyColumn.Column]
+		if keyColumnQuals.SingleEqualsQual() {
 			logger.Warn("executeListCall we have single key column")
-			qualValueList := queryData.ListKeyColumnQuals[keyColumn.Name].Values[0].GetListValue()
-			if keyColumn.SingleEqualsQual() && qualValueList != nil {
-				t.doListForQualValues(ctx, queryData, keyColumn.Name, qualValueList, listCall)
+			if qualValueList := keyColumnQuals.Quals[0].Value.GetListValue(); qualValueList != nil {
+				t.doListForQualValues(ctx, queryData, keyColumn.Column, qualValueList, listCall)
 				return
 			}
 		}
@@ -328,7 +326,6 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 }
 
 // doListForQualValues is called when there is an equals qual and the qual value is a list of values
-
 func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall HydrateFunc) {
 	logger := t.Plugin.Logger
 	var listWg sync.WaitGroup
@@ -339,12 +336,14 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		logger.Warn("executeListCall passing updated query data", "qv", qv)
 		// make a shallow copy of the query data and modify the value of the key column qual to be the value list item
 		queryDataCopy := queryData.ShallowCopy()
+		// update legacy map
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
-		queryDataCopy.ListKeyColumnQuals[keyColumn].Values = []*proto.QualValue{qv}
+		queryDataCopy.KeyColumnQualValues[keyColumn].Quals = []*Qual{{
+			Column:   keyColumn,
+			Operator: "=",
+			Value:    qv,
+		}}
 
-		// TODO update populateQualValueMap to allow for list quals?
-		// populate the equal value map passed to transforms
-		queryDataCopy.populateQualValueMap(t)
 		listWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
@@ -382,7 +381,7 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 		// check whether there is a single equals qual for each matrix item property and if so, check whether
 		// the matrix item property values satisfy the conditions
 		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[INFO] listForEach: matrix item item does not meet quals, %v, %v\n", queryData.equalsQuals, matrixItem)
+			log.Printf("[INFO] listForEach: matrix item item does not meet quals, %v\n", matrixItem)
 			continue
 		}
 
@@ -413,20 +412,14 @@ func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryDat
 	// for the purposes of optimisation , assume matrix item properties correspond to column names
 	// if this is NOT the case, it will not fail, but this optimisation will not do anything
 	for columnName, metadataValue := range matrixItem {
-		// check this matrix item property corresponds to a column
-		column, ok := t.columnForName(columnName)
-		if !ok {
-			// if no, just continue to next property
-			continue
-		}
 		// is there a single equals qual for this column
-		if qualValue, ok := queryData.equalsQuals[columnName]; ok {
-
-			// get the underlying qual value
-			requiredValue := ColumnQualValue(qualValue, column)
-
-			if requiredValue != metadataValue {
-				return false
+		if qualValue, ok := queryData.KeyColumnQualValues[columnName]; ok {
+			if qualValue.SingleEqualsQual() {
+				// get the underlying qual value
+				requiredValue := grpc.GetQualValue(qualValue.Quals[0].Value)
+				if requiredValue != metadataValue {
+					return false
+				}
 			}
 		}
 	}

@@ -117,13 +117,3 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 
 	return config
 }
-
-// return the column matching the given nam
-func (t *Table) columnForName(columnName string) (*Column, bool) {
-	for _, c := range t.Columns {
-		if c.Name == columnName {
-			return c, true
-		}
-	}
-	return nil, false
-}

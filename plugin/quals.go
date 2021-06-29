@@ -20,25 +20,29 @@ func singleEqualsQual(column string, qualMap map[string]*proto.Quals) (*proto.Qu
 	return nil, false
 }
 
-// look in a column-qual map for a qual with column and operator matching the key column
-func qualExists(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) (*proto.Qual, bool) {
-	log.Printf("[WARN] qualExists keyColumn %s qualMap %s", keyColumn, qualMap)
+// look in a column-qual map for quals with column and operator matching the key column
+func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*proto.Qual {
+	log.Printf("[WARN] getMatchingQuals keyColumn %s qualMap %s", keyColumn, qualMap)
 
-	quals, ok := qualMap[keyColumn.Name]
+	quals, ok := qualMap[keyColumn.Column]
 	if !ok {
-		log.Printf("[WARN] qualExists returning false - qualMap does not contain any quals for colums %s", keyColumn.Name)
-		return nil, false
+		log.Printf("[WARN] getMatchingQuals returning false - qualMap does not contain any quals for colums %s", keyColumn.Column)
+		return nil
 	}
 
+	var res []*proto.Qual
 	for _, q := range quals.Quals {
 		operator := q.GetStringValue()
 		if helpers.StringSliceContains(keyColumn.Operators, operator) {
-			log.Printf("[WARN] qualExists found quals matching key column %s - operator %s", keyColumn, operator)
-			return q, true
+			res = append(res, q)
+
 		}
 	}
+	if len(res) > 0 {
+		log.Printf("[WARN] getMatchingQuals found %d quals matching key column %s", len(res), keyColumn)
+	} else {
+		log.Printf("[WARN] getMatchingQuals returning false - qualMap does not contain any matching quals for quals for key column %s", keyColumn)
+	}
 
-	log.Printf("[WARN] qualExists returning false - qualMap does not contain any matching quals for quals for key column %s", keyColumn)
-
-	return nil, false
+	return res
 }
