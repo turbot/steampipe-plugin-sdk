@@ -18,3 +18,9 @@ func NewQual(q *proto.Qual) *Qual {
 		Value:    q.Value,
 	}
 }
+
+type QualSlice []*Qual
+
+func (s QualSlice) SingleEqualsQual() bool {
+	return len(s) == 1 && s[0].Operator == "="
+}

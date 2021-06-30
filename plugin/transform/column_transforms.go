@@ -21,8 +21,8 @@ type TransformData struct {
 	ColumnName string
 	// the 'matrix item' associated with this row
 	MatrixItem map[string]interface{}
-	// KeyColumnQuals will be populated with the quals as a map of column name to an array of quals fo rthat column
-	KeyColumnQuals map[string][]*quals.Qual
+	// KeyColumnQuals will be populated with the quals as a map of column name to an array of quals for that column
+	KeyColumnQuals map[string]quals.QualSlice
 }
 
 // TransformFunc is a function to transform a data value from the api value to a column value

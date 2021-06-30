@@ -340,7 +340,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		queryDataCopy := queryData.ShallowCopy()
 		// update qual maps to replace list value with list element
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
-		queryDataCopy.Quals[keyColumn].Quals = []*quals.Qual{{
+		queryDataCopy.Quals[keyColumn].Quals = quals.QualSlice{{
 			Column:   keyColumn,
 			Operator: "=",
 			Value:    qv,

@@ -73,8 +73,8 @@ func (m KeyColumnQualMap) SatisfiesKeyColumns(columnSet *KeyColumnSet) (bool, Ke
 
 // ToQualMap converts the map into a simpler map of column to []Quals
 // this is needed to avoid the transform package needing to reference plugin
-func (m KeyColumnQualMap) ToQualMap() map[string][]*quals.Qual {
-	var res = make(map[string][]*quals.Qual)
+func (m KeyColumnQualMap) ToQualMap() map[string]quals.QualSlice {
+	var res = make(map[string]quals.QualSlice)
 	for k, v := range m {
 		res[k] = v.Quals
 	}
@@ -100,7 +100,7 @@ func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumnSets ...
 					// crate a new map entry for this column
 					res[col.Column] = &KeyColumnQuals{
 						Column: col.Column,
-						Quals:  []*quals.Qual{qual},
+						Quals:  quals.QualSlice{qual},
 					}
 				}
 			}

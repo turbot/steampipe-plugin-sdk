@@ -9,7 +9,7 @@ import (
 // KeyColumnQuals is a struct representing all quals for a specific column
 type KeyColumnQuals struct {
 	Column string
-	Quals  []*quals.Qual
+	Quals  quals.QualSlice
 }
 
 func (k KeyColumnQuals) SatisfiesKeyColumn(keyColumn *KeyColumn) bool {
@@ -25,5 +25,5 @@ func (k KeyColumnQuals) SatisfiesKeyColumn(keyColumn *KeyColumn) bool {
 }
 
 func (k KeyColumnQuals) SingleEqualsQual() bool {
-	return len(k.Quals) == 1 && k.Quals[0].Operator == "="
+	return k.Quals.SingleEqualsQual()
 }
