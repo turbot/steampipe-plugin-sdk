@@ -10,10 +10,14 @@ type KeyColumnSlice []*KeyColumn
 
 // NewEqualsKeyColumnSlice creates a KeyColumnSlice from a list of column names.
 // All KeyColumns default to use equals operator
-func NewEqualsKeyColumnSlice(columns []string) KeyColumnSlice {
+func NewEqualsKeyColumnSlice(columns []string, optional bool) KeyColumnSlice {
 	var all = make([]*KeyColumn, len(columns))
 	for i, c := range columns {
-		all[i] = &KeyColumn{Column: c, Operators: []string{"="}}
+		all[i] = &KeyColumn{
+			Column:    c,
+			Operators: []string{"="},
+			Optional:  optional,
+		}
 	}
 	return all
 }

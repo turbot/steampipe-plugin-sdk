@@ -22,9 +22,8 @@ type QueryData struct {
 	//  (this will also be populated for a list call if list key columns are specified -
 	//  however this usage is deprecated and provided for legacy reasons only)
 	KeyColumnQuals map[string]*proto.QualValue
-	// a map of all key quals which were specified in the query
-	// - this will contain either the Get quals or the List quals (including any optional key coluns)
-	KeyColumnQualValues KeyColumnQualMap
+	// a map of all key column quals which were specified in the query
+	Quals KeyColumnQualMap
 	// columns which have a single equals qual
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
@@ -60,13 +59,13 @@ type QueryData struct {
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
 	d := &QueryData{
-		ConnectionManager:   connectionManager,
-		Table:               table,
-		QueryContext:        queryContext,
-		Connection:          connection,
-		Matrix:              matrix,
-		KeyColumnQuals:      make(map[string]*proto.QualValue),
-		KeyColumnQualValues: make(KeyColumnQualMap),
+		ConnectionManager: connectionManager,
+		Table:             table,
+		QueryContext:      queryContext,
+		Connection:        connection,
+		Matrix:            matrix,
+		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		Quals:             make(KeyColumnQualMap),
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -93,20 +92,20 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 func (d *QueryData) ShallowCopy() *QueryData {
 
 	clone := &QueryData{
-		Table:               d.Table,
-		KeyColumnQuals:      make(map[string]*proto.QualValue),
-		KeyColumnQualValues: make(KeyColumnQualMap),
-		FetchType:           d.FetchType,
-		QueryContext:        d.QueryContext,
-		Connection:          d.Connection,
-		Matrix:              d.Matrix,
-		ConnectionManager:   d.ConnectionManager,
-		hydrateCalls:        d.hydrateCalls,
-		concurrencyManager:  d.concurrencyManager,
-		rowDataChan:         d.rowDataChan,
-		errorChan:           d.errorChan,
-		stream:              d.stream,
-		listWg:              d.listWg,
+		Table:              d.Table,
+		KeyColumnQuals:     make(map[string]*proto.QualValue),
+		Quals:              make(KeyColumnQualMap),
+		FetchType:          d.FetchType,
+		QueryContext:       d.QueryContext,
+		Connection:         d.Connection,
+		Matrix:             d.Matrix,
+		ConnectionManager:  d.ConnectionManager,
+		hydrateCalls:       d.hydrateCalls,
+		concurrencyManager: d.concurrencyManager,
+		rowDataChan:        d.rowDataChan,
+		errorChan:          d.errorChan,
+		stream:             d.stream,
+		listWg:             d.listWg,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -114,8 +113,8 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	for k, v := range d.KeyColumnQuals {
 		clone.KeyColumnQuals[k] = v
 	}
-	for k, v := range d.KeyColumnQualValues {
-		clone.KeyColumnQualValues[k] = v
+	for k, v := range d.Quals {
+		clone.Quals[k] = v
 	}
 
 	// NOTE: point the public streaming endpoints to their internal implementations IN THIS OBJECT
@@ -126,8 +125,10 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) SetFetchType(table *Table) {
+	log.Printf("[WARN] SetFetchType table %v list %v ", table, table.List)
 
 	if table.Get != nil {
+		log.Printf("[WARN] got a Get config")
 		// default to get, even before checking the quals
 		// this handles the case of a get call only
 		d.FetchType = fetchTypeGet
@@ -136,27 +137,24 @@ func (d *QueryData) SetFetchType(table *Table) {
 		qualMap := NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.Get.KeyColumns)
 		// now see whether the qual map has everything required for the get call
 		if qualMap.SatisfiesKeyColumns(table.Get.KeyColumns) {
+			log.Printf("[WARN] It's a get")
 			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
-			d.KeyColumnQualValues = qualMap
+			d.Quals = qualMap
+			log.Printf("[WARN] built map")
 			return
 		}
 	}
 
+	log.Printf("[WARN] Not Get")
+
 	if table.List != nil {
+		log.Printf("[WARN] got a List config")
 		// if there is a list config default to list, even is we are missing required quals
 		d.FetchType = fetchTypeList
-
-		// build an array of the key columns we need to buil dthe map for
-		var listKeyColumns []*KeyColumnSet
-		// if list key columns are defined, look for them in the provided quals
 		if table.List.KeyColumns != nil {
-			listKeyColumns = append(listKeyColumns, table.List.KeyColumns)
+			d.Quals = NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.List.KeyColumns)
 		}
-		if table.List.OptionalKeyColumns != nil {
-			listKeyColumns = append(listKeyColumns, table.List.OptionalKeyColumns)
-		}
-
-		d.KeyColumnQualValues = NewKeyColumnQualValueMap(d.QueryContext.RawQuals, listKeyColumns...)
+		log.Printf("[WARN] built List map")
 	}
 }
 
@@ -184,6 +182,7 @@ func ensureColumns(queryContext *QueryContext, table *Table) {
 // stream an item returned from the list call
 // wrap in a rowData object
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
+	log.Printf("[WARN] streamListItem")
 	callingFunction := helpers.GetCallingFunction(1)
 
 	// if the calling function was the ParentHydrate function from the list config,

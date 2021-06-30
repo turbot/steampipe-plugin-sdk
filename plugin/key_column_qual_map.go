@@ -36,37 +36,37 @@ func (m KeyColumnQualMap) String() string {
 	return strings.Join(strs, "\n")
 }
 
-func (m KeyColumnQualMap) SatisfiesKeyColumns(keyColumns *KeyColumnSet) bool {
-	log.Printf("[WARN] SatisfiesKeyColumns")
-	if keyColumns == nil {
+func (m KeyColumnQualMap) SatisfiesKeyColumns(columnSet *KeyColumnSet) bool {
+	log.Printf("[WARN] SatisfiesKeyColumns___ %v", columnSet)
+
+	if columnSet == nil {
 		return true
 	}
-	if keyColumns.Single != nil {
-		log.Printf("[WARN] columns.Single")
-		k := m[keyColumns.Single.Column]
-		return k != nil && k.SatisfiesKeyColumn(keyColumns.Single)
-	}
-	if keyColumns.Any != nil {
-		log.Printf("[WARN] columns.Any")
-		for _, k := range keyColumns.Any {
-			q := m[k.Column]
-			if q != nil && q.SatisfiesKeyColumn(k) {
-				return true
-			}
-		}
-	}
-	if keyColumns.All != nil {
-		log.Printf("[WARN] columns.All")
-		for _, k := range keyColumns.All {
-			q := m[k.Column]
-			if q == nil || !q.SatisfiesKeyColumn(k) {
-				log.Printf("[WARN] quals %v does not satisfy key column %v", q, k)
+	var satisfiedKeyColumns KeyColumnSlice
+
+	for _, keyColumn := range columnSet.Columns {
+		// look for this key column in our map
+		k := m[keyColumn.Column]
+		satisfied := k != nil && k.SatisfiesKeyColumn(keyColumn)
+		if satisfied {
+			log.Printf("[WARN] column satisfied %v", keyColumn)
+			satisfiedKeyColumns = append(satisfiedKeyColumns, keyColumn)
+		} else {
+			log.Printf("[WARN] column NOT satisfied %v", keyColumn)
+			// if this was NOT an optional key column, we are not satisfied
+			if !keyColumn.Optional {
+				log.Printf("[WARN] NOT OPTIONAL - FAILING")
 				return false
 			}
 		}
 	}
-	log.Printf("[WARN] I'm satisfied")
-	return true
+
+	// check whether we have the mimimum numbe rof satisfied key columns
+	res := len(satisfiedKeyColumns) > columnSet.Minimum
+
+	log.Printf("[WARN] len(satisfiedKeyColumns) %d columnSet.Minimum %d res %v", len(satisfiedKeyColumns), columnSet.Minimum, res)
+
+	return res
 }
 
 // ToQualMap converts the map into a simpler map of column to []Quals
@@ -81,11 +81,13 @@ func (m KeyColumnQualMap) ToQualMap() map[string][]*quals.Qual {
 
 // NewKeyColumnQualValueMap creates a KeyColumnQualMap from one or more KeyColumnSets
 func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumnSets ...*KeyColumnSet) KeyColumnQualMap {
+	log.Printf("[WARN] NewKeyColumnQualValueMap %v", keyColumnSets)
 	res := KeyColumnQualMap{}
+
 	for _, keyColumns := range keyColumnSets {
-		// extract the key columns slice from the set
-		slice := keyColumns.ToKeyColumnSlice()
-		for _, col := range slice {
+		log.Printf("[WARN] keyColumns %v", keyColumns)
+
+		for _, col := range keyColumns.Columns {
 			matchingQuals := getMatchingQuals(col, qualMap)
 			for _, q := range matchingQuals {
 				// convert proto.Qual into a qual.Qual (which is easier to use)

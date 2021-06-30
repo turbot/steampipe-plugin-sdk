@@ -43,8 +43,7 @@ type GetConfig struct {
 }
 
 type ListConfig struct {
-	KeyColumns         *KeyColumnSet
-	OptionalKeyColumns *KeyColumnSet
+	KeyColumns *KeyColumnSet
 	// the list function, this should stream the list results back using the QueryData object, and return nil
 	Hydrate HydrateFunc
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items

@@ -26,9 +26,7 @@ func (t Table) GetSchema() *proto.TableSchema {
 		if t.List.KeyColumns != nil {
 			schema.ListCallKeyColumns = t.List.KeyColumns.ToProtobuf()
 		}
-		if t.List.OptionalKeyColumns != nil {
-			schema.ListCallOptionalKeyColumns = t.List.OptionalKeyColumns.ToProtobuf()
-		}
+
 	}
 
 	return schema

@@ -85,7 +85,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// queryData.KeyColumnQuals is a map of column to qual value
 	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
 	// in this case we call get for each value
-	if keyColumn := t.Get.KeyColumns.Single; keyColumn != nil {
+	if keyColumn := t.Get.KeyColumns.SingleEqualsQual(); keyColumn != nil {
 		if qualValueList := queryData.KeyColumnQuals[keyColumn.Column].GetListValue(); qualValueList != nil {
 			return t.doGetForQualValues(ctx, queryData, keyColumn.Column, qualValueList)
 		}
@@ -295,13 +295,16 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}()
 
 	logger := t.Plugin.Logger
+	log.Printf("[WARN] executeListCall %v", t.List.KeyColumns)
 
 	// verify we have the necessary quals
-	if !queryData.KeyColumnQualValues.SatisfiesKeyColumns(t.List.KeyColumns) {
+	if !queryData.Quals.SatisfiesKeyColumns(t.List.KeyColumns) {
+		log.Printf("[WARN] DIDNT SatisfiesKeyColumns %v", t.List.KeyColumns)
 		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: %s", t.List.KeyColumns.String()))
 		queryData.streamError(err)
 	}
 
+	log.Printf("[WARN] satisfied %v", t.List.KeyColumns)
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
 	listCall := t.List.Hydrate
 	// if there is a parent hydrate function, call that
@@ -312,15 +315,16 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
 	// in this case we call list for each value
-	if t.List.KeyColumns != nil && t.List.KeyColumns.Single != nil {
-		keyColumn := t.List.KeyColumns.Single
-		// get the quals for this key columns (we have already checked that they are satisfied)
-		keyColumnQuals := queryData.KeyColumnQualValues[keyColumn.Column]
-		if keyColumnQuals.SingleEqualsQual() {
-			logger.Warn("executeListCall we have single key column")
-			if qualValueList := keyColumnQuals.Quals[0].Value.GetListValue(); qualValueList != nil {
-				t.doListForQualValues(ctx, queryData, keyColumn.Column, qualValueList, listCall)
-				return
+	if t.List.KeyColumns != nil {
+		if keyColumn := t.List.KeyColumns.SingleEqualsQual(); keyColumn != nil {
+			// get the quals for this key columns (we have already checked that they are satisfied)
+			keyColumnQuals := queryData.Quals[keyColumn.Column]
+			if keyColumnQuals.SingleEqualsQual() {
+				logger.Warn("executeListCall we have single key column")
+				if qualValueList := keyColumnQuals.Quals[0].Value.GetListValue(); qualValueList != nil {
+					t.doListForQualValues(ctx, queryData, keyColumn.Column, qualValueList, listCall)
+					return
+				}
 			}
 		}
 	}
@@ -340,7 +344,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		queryDataCopy := queryData.ShallowCopy()
 		// update qual maps to replace list value with list element
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
-		queryDataCopy.KeyColumnQualValues[keyColumn].Quals = []*quals.Qual{{
+		queryDataCopy.Quals[keyColumn].Quals = []*quals.Qual{{
 			Column:   keyColumn,
 			Operator: "=",
 			Value:    qv,
@@ -415,7 +419,7 @@ func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryDat
 	// if this is NOT the case, it will not fail, but this optimisation will not do anything
 	for columnName, metadataValue := range matrixItem {
 		// is there a single equals qual for this column
-		if qualValue, ok := queryData.KeyColumnQualValues[columnName]; ok {
+		if qualValue, ok := queryData.Quals[columnName]; ok {
 			if qualValue.SingleEqualsQual() {
 				// get the underlying qual value
 				requiredValue := grpc.GetQualValue(qualValue.Quals[0].Value)

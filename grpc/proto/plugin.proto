@@ -101,7 +101,7 @@ message TableSchema
   string description = 2;
   KeyColumnsSet getCallKeyColumns = 3;
   KeyColumnsSet listCallKeyColumns = 4;
-  KeyColumnsSet listCallOptionalKeyColumns = 5;
+  KeyColumnsSet listCallOptionalKeyColumns = 5  [deprecated=true];
 }
 
 // a set of Key Columns, all of which are reuired

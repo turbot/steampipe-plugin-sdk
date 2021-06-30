@@ -13,6 +13,7 @@ import (
 type KeyColumn struct {
 	Column    string
 	Operators []string
+	Optional  bool
 }
 
 func (k KeyColumn) String() string {

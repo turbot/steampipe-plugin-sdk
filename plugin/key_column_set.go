@@ -2,6 +2,9 @@ package plugin
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/turbot/steampipe-plugin-sdk/plugin/option"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
@@ -12,99 +15,67 @@ import (
 // - a set of columns which together All form the key
 // - a set of columns Any of which which form the key
 type KeyColumnSet struct {
-	Single *KeyColumn
-	All    KeyColumnSlice
-	Any    KeyColumnSlice
+	Columns KeyColumnSlice
+	Minimum int
 }
 
 func (k *KeyColumnSet) String() string {
-	if k.Single != nil {
-		return k.Single.String()
+	var strs = make([]string, len(k.Columns))
+
+	for i, keyColumn := range k.Columns {
+		strs[i] = keyColumn.String()
 	}
-	if k.All != nil {
-		return fmt.Sprintf("ALL of: \n%s", k.All)
+
+	if k.Minimum != 0 {
+		strs = append([]string{fmt.Sprintf("at least %d of: ", k.Minimum)}, strs...)
 	}
-	if k.Any != nil {
-		return fmt.Sprintf("ANY of: \n%s", k.Any)
-	}
-	return ""
+	return strings.Join(strs, "\n")
 }
 
-func (k *KeyColumnSet) ToKeyColumnSlice() KeyColumnSlice {
-	if k.Single != nil {
-		return []*KeyColumn{k.Single}
+// SingleEqualsQual returns whether this key column set has a single qual with a single = operator
+func (k *KeyColumnSet) SingleEqualsQual() *KeyColumn {
+	if len(k.Columns) == 1 && k.Columns[0].SingleEqualsQual() {
+		return k.Columns[0]
 	}
-	if k.All != nil {
-		return k.All
-	}
-	if k.Any != nil {
-		return k.Any
-	}
-
 	return nil
 }
 
 func (k *KeyColumnSet) ToProtobuf() *proto.KeyColumnsSet {
 	res := &proto.KeyColumnsSet{}
-	if k.Single != nil {
-		res.Single = k.Single.Column
-		res.SingleKeyColumn = k.Single.ToProtobuf()
-	}
-	if k.All != nil {
-		res.All = k.All.StringSlice()
-		res.AllKeyColumns = k.All.ToProtobuf()
-	}
-	if k.Any != nil {
-		res.Any = k.Any.StringSlice()
-		res.AnyKeyColumns = k.Any.ToProtobuf()
-	}
+	//if k.Single != nil {
+	//	res.Single = k.Single.Column
+	//	res.SingleKeyColumn = k.Single.ToProtobuf()
+	//}
+	//if k.All != nil {
+	//	res.All = k.All.StringSlice()
+	//	res.AllKeyColumns = k.All.ToProtobuf()
+	//}
+	//if k.Any != nil {
+	//	res.Any = k.Any.StringSlice()
+	//	res.AnyKeyColumns = k.Any.ToProtobuf()
+	//}
 
+	// TODO
 	return res
 }
 
 // AllEquals returns whether all child KeyColumns only use equals operators
 func (k *KeyColumnSet) AllEquals() bool {
-	if k.Single != nil {
-		return k.Single.SingleEqualsQual()
-	}
-	if k.All != nil {
-		return k.All.AllEquals()
-	}
-	if k.Any != nil {
-		return k.Any.AllEquals()
-	}
+	return k.Columns.AllEquals()
 
-	return true
 }
 
 func (k *KeyColumnSet) Validate() []string {
-	if k.Single != nil {
-		if k.All != nil || k.Any != nil {
-			return []string{"only 1 of 'Single', 'Any' and 'All' may be set'"}
-		}
-		return k.Single.Validate()
-	}
+	var res = k.Columns.Validate()
 
-	if k.All != nil {
-		if k.Any != nil {
-			return []string{"only 1 of 'Single', 'Any' and 'All' may be set'"}
-		}
-		var res []string
-		// a column may only appear once in an 'All' slice
-		columnMap := make(map[string]bool)
-		for _, col := range k.All {
-			if columnMap[col.Column] {
-				res = append(res, fmt.Sprintf("a column may only appear once in an 'All' clause. column %s is repeated", col.Column))
-				break
-			}
-			columnMap[col.Column] = true
-		}
-		return k.All.Validate()
-	}
-	if k.Any != nil {
-		return k.All.Validate()
-	}
+	// TODO verify valid combinations of ALL etc
 
-	return nil
+	return res
 
+}
+
+func (k *KeyColumnSet) SetOption(option option.KeyColumnSetOptions) {
+	if option.MinimumQuals != 0 {
+		k.Minimum = option.MinimumQuals
+	}
 }
