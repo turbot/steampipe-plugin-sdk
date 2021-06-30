@@ -11,6 +11,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
+
 	"github.com/ghodss/yaml"
 	"github.com/iancoleman/strcase"
 	"github.com/turbot/go-kit/helpers"
@@ -449,6 +451,6 @@ func QualValue(ctx context.Context, d *TransformData) (interface{}, error) {
 	if !columnQuals.SingleEqualsQual() {
 		return nil, fmt.Errorf("FromQual transform can only be called if there is a singe equals qual for the given column")
 	}
-	qualValue := columnQuals[0].Value
+	qualValue := grpc.GetQualValue(columnQuals[0].Value)
 	return qualValue, nil
 }
