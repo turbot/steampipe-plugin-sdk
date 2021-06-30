@@ -136,7 +136,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 		// build a qual map from Get key columns
 		qualMap := NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.Get.KeyColumns)
 		// now see whether the qual map has everything required for the get call
-		if qualMap.SatisfiesKeyColumns(table.Get.KeyColumns) {
+		if satisfied, _ := qualMap.SatisfiesKeyColumns(table.Get.KeyColumns); satisfied {
 			log.Printf("[WARN] It's a get")
 			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
 			d.Quals = qualMap

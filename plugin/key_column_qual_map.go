@@ -36,37 +36,39 @@ func (m KeyColumnQualMap) String() string {
 	return strings.Join(strs, "\n")
 }
 
-func (m KeyColumnQualMap) SatisfiesKeyColumns(columnSet *KeyColumnSet) bool {
+func (m KeyColumnQualMap) SatisfiesKeyColumns(columnSet *KeyColumnSet) (bool, KeyColumnSlice) {
 	log.Printf("[WARN] SatisfiesKeyColumns___ %v", columnSet)
 
 	if columnSet == nil {
-		return true
+		return true, nil
 	}
 	var satisfiedKeyColumns KeyColumnSlice
-
+	var unsatisfiedKeyColumns KeyColumnSlice
+	allRequiredColumnsSatisfied := true
 	for _, keyColumn := range columnSet.Columns {
 		// look for this key column in our map
 		k := m[keyColumn.Column]
 		satisfied := k != nil && k.SatisfiesKeyColumn(keyColumn)
 		if satisfied {
-			log.Printf("[WARN] column satisfied %v", keyColumn)
+			log.Printf("[WARN] key column satisfied %v", keyColumn)
 			satisfiedKeyColumns = append(satisfiedKeyColumns, keyColumn)
 		} else {
-			log.Printf("[WARN] column NOT satisfied %v", keyColumn)
+			unsatisfiedKeyColumns = append(unsatisfiedKeyColumns, keyColumn)
+			log.Printf("[WARN] key column NOT satisfied %v", keyColumn)
 			// if this was NOT an optional key column, we are not satisfied
 			if !keyColumn.Optional {
+				allRequiredColumnsSatisfied = false
 				log.Printf("[WARN] NOT OPTIONAL - FAILING")
-				return false
 			}
 		}
 	}
 
-	// check whether we have the mimimum numbe rof satisfied key columns
-	res := len(satisfiedKeyColumns) > columnSet.Minimum
+	// check whether we have the minimum number rof satisfied key columns
+	res := allRequiredColumnsSatisfied && len(satisfiedKeyColumns) > columnSet.Minimum
 
 	log.Printf("[WARN] len(satisfiedKeyColumns) %d columnSet.Minimum %d res %v", len(satisfiedKeyColumns), columnSet.Minimum, res)
 
-	return res
+	return res, unsatisfiedKeyColumns
 }
 
 // ToQualMap converts the map into a simpler map of column to []Quals

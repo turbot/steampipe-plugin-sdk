@@ -298,13 +298,15 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	log.Printf("[WARN] executeListCall %v", t.List.KeyColumns)
 
 	// verify we have the necessary quals
-	if !queryData.Quals.SatisfiesKeyColumns(t.List.KeyColumns) {
+	isSatisfied, unsatisfiedColumns := queryData.Quals.SatisfiesKeyColumns(t.List.KeyColumns)
+	if !isSatisfied {
 		log.Printf("[WARN] DIDNT SatisfiesKeyColumns %v", t.List.KeyColumns)
-		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: %s", t.List.KeyColumns.String()))
+		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: \n%s", unsatisfiedColumns.String()))
 		queryData.streamError(err)
+		return
 	}
 
-	log.Printf("[WARN] satisfied %v", t.List.KeyColumns)
+	log.Printf("[WARN] SatisfiesKeyColumns passed %v", t.List.KeyColumns)
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
 	listCall := t.List.Hydrate
 	// if there is a parent hydrate function, call that

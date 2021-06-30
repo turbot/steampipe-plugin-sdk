@@ -111,16 +111,15 @@ message KeyColumnsSet
    string single = 1 [deprecated=true];
    repeated string all = 2 [deprecated=true];
    repeated string any = 3 [deprecated=true];
-
-   KeyColumn single_key_column = 4;
-   repeated KeyColumn all_key_columns = 5;
-   repeated KeyColumn any_key_columns = 6;
+   // list of all key columns
+   repeated KeyColumn key_columns = 4;
 }
 
 message KeyColumn
 {
   string name = 1;
   repeated string operators = 2;
+  bool optional =3;
 }
 
 message Schema {

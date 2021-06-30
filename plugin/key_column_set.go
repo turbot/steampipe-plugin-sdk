@@ -42,20 +42,11 @@ func (k *KeyColumnSet) SingleEqualsQual() *KeyColumn {
 
 func (k *KeyColumnSet) ToProtobuf() *proto.KeyColumnsSet {
 	res := &proto.KeyColumnsSet{}
-	//if k.Single != nil {
-	//	res.Single = k.Single.Column
-	//	res.SingleKeyColumn = k.Single.ToProtobuf()
-	//}
-	//if k.All != nil {
-	//	res.All = k.All.StringSlice()
-	//	res.AllKeyColumns = k.All.ToProtobuf()
-	//}
-	//if k.Any != nil {
-	//	res.Any = k.Any.StringSlice()
-	//	res.AnyKeyColumns = k.Any.ToProtobuf()
-	//}
 
-	// TODO
+	// for legacy reasons, populate the Any field of protobuf columnset with all out columns
+	res.Any = k.Columns.StringSlice()
+	res.KeyColumns = k.Columns.ToProtobuf()
+
 	return res
 }
 

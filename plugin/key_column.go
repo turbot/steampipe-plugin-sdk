@@ -22,7 +22,11 @@ func (k KeyColumn) String() string {
 
 // ToProtobuf converts the KeyColumn to a protobuf object
 func (k *KeyColumn) ToProtobuf() *proto.KeyColumn {
-	return &proto.KeyColumn{Name: k.Column}
+	return &proto.KeyColumn{
+		Name:      k.Column,
+		Operators: k.Operators,
+		Optional:  k.Optional,
+	}
 }
 
 // SingleEqualsQual returns whether this key column has a single = operator
