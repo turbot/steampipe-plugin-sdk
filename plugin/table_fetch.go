@@ -294,19 +294,14 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		queryData.fetchComplete()
 	}()
 
-	logger := t.Plugin.Logger
-	log.Printf("[WARN] executeListCall %v", t.List.KeyColumns)
-
 	// verify we have the necessary quals
 	isSatisfied, unsatisfiedColumns := queryData.Quals.SatisfiesKeyColumns(t.List.KeyColumns)
 	if !isSatisfied {
-		log.Printf("[WARN] DIDNT SatisfiesKeyColumns %v", t.List.KeyColumns)
 		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: \n%s", unsatisfiedColumns.String()))
 		queryData.streamError(err)
 		return
 	}
 
-	log.Printf("[WARN] SatisfiesKeyColumns passed %v", t.List.KeyColumns)
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
 	listCall := t.List.Hydrate
 	// if there is a parent hydrate function, call that
@@ -322,7 +317,6 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 			// get the quals for this key columns (we have already checked that they are satisfied)
 			keyColumnQuals := queryData.Quals[keyColumn.Column]
 			if keyColumnQuals.SingleEqualsQual() {
-				logger.Warn("executeListCall we have single key column")
 				if qualValueList := keyColumnQuals.Quals[0].Value.GetListValue(); qualValueList != nil {
 					t.doListForQualValues(ctx, queryData, keyColumn.Column, qualValueList, listCall)
 					return
@@ -338,10 +332,10 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 	logger := t.Plugin.Logger
 	var listWg sync.WaitGroup
 
-	logger.Warn("executeListCall - single qual, qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
+	logger.Trace("doListForQualValues - single qual, qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
-		logger.Warn("executeListCall passing updated query data", "qv", qv)
+		logger.Trace("executeListCall passing updated query data", "qv", qv)
 		// make a shallow copy of the query data and modify the value of the key column qual to be the value list item
 		queryDataCopy := queryData.ShallowCopy()
 		// update qual maps to replace list value with list element

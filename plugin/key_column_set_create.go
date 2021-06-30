@@ -1,8 +1,6 @@
 package plugin
 
 import (
-	"log"
-
 	"github.com/turbot/steampipe-plugin-sdk/plugin/option"
 )
 
@@ -30,7 +28,6 @@ func SingleColumn(column string) *KeyColumnSet {
 				Optional:  false,
 			},
 		}}
-	log.Printf("[WARN] SingleColumn returning %v", res)
 	return res
 }
 
@@ -38,7 +35,6 @@ func SingleColumn(column string) *KeyColumnSet {
 // All columns have a single equals operator and Optional=false
 func AllColumns(columns []string) *KeyColumnSet {
 	res := &KeyColumnSet{Columns: NewEqualsKeyColumnSlice(columns, false)}
-	log.Printf("[WARN] AllColumns returning %v", res)
 	return res
 }
 
@@ -53,6 +49,5 @@ func OptionalColumns(columns []string) *KeyColumnSet {
 // The column set has Minimu=1, meaning at least one satisfied qual is required
 func AnyColumn(columns []string) *KeyColumnSet {
 	res := &KeyColumnSet{Columns: NewEqualsKeyColumnSlice(columns, true), Minimum: 1}
-	log.Printf("[WARN] AnyColumn returning %v", res)
 	return res
 }

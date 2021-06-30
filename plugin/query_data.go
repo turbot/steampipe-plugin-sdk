@@ -125,10 +125,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) SetFetchType(table *Table) {
-	log.Printf("[WARN] SetFetchType table %v list %v ", table, table.List)
-
 	if table.Get != nil {
-		log.Printf("[WARN] got a Get config")
 		// default to get, even before checking the quals
 		// this handles the case of a get call only
 		d.FetchType = fetchTypeGet
@@ -137,24 +134,18 @@ func (d *QueryData) SetFetchType(table *Table) {
 		qualMap := NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.Get.KeyColumns)
 		// now see whether the qual map has everything required for the get call
 		if satisfied, _ := qualMap.SatisfiesKeyColumns(table.Get.KeyColumns); satisfied {
-			log.Printf("[WARN] It's a get")
 			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
 			d.Quals = qualMap
-			log.Printf("[WARN] built map")
 			return
 		}
 	}
 
-	log.Printf("[WARN] Not Get")
-
 	if table.List != nil {
-		log.Printf("[WARN] got a List config")
 		// if there is a list config default to list, even is we are missing required quals
 		d.FetchType = fetchTypeList
 		if table.List.KeyColumns != nil {
 			d.Quals = NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.List.KeyColumns)
 		}
-		log.Printf("[WARN] built List map")
 	}
 }
 
@@ -182,7 +173,6 @@ func ensureColumns(queryContext *QueryContext, table *Table) {
 // stream an item returned from the list call
 // wrap in a rowData object
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
-	log.Printf("[WARN] streamListItem")
 	callingFunction := helpers.GetCallingFunction(1)
 
 	// if the calling function was the ParentHydrate function from the list config,

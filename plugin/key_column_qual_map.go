@@ -37,7 +37,7 @@ func (m KeyColumnQualMap) String() string {
 }
 
 func (m KeyColumnQualMap) SatisfiesKeyColumns(columnSet *KeyColumnSet) (bool, KeyColumnSlice) {
-	log.Printf("[WARN] SatisfiesKeyColumns___ %v", columnSet)
+	log.Printf("[TRACE] SatisfiesKeyColumns %v", columnSet)
 
 	if columnSet == nil {
 		return true, nil
@@ -50,15 +50,15 @@ func (m KeyColumnQualMap) SatisfiesKeyColumns(columnSet *KeyColumnSet) (bool, Ke
 		k := m[keyColumn.Column]
 		satisfied := k != nil && k.SatisfiesKeyColumn(keyColumn)
 		if satisfied {
-			log.Printf("[WARN] key column satisfied %v", keyColumn)
+			log.Printf("[TRACE] key column satisfied %v", keyColumn)
 			satisfiedKeyColumns = append(satisfiedKeyColumns, keyColumn)
 		} else {
 			unsatisfiedKeyColumns = append(unsatisfiedKeyColumns, keyColumn)
-			log.Printf("[WARN] key column NOT satisfied %v", keyColumn)
+			log.Printf("[TRACE] key column NOT satisfied %v", keyColumn)
 			// if this was NOT an optional key column, we are not satisfied
 			if !keyColumn.Optional {
 				allRequiredColumnsSatisfied = false
-				log.Printf("[WARN] NOT OPTIONAL - FAILING")
+				log.Printf("[TRACE] key column required - set result to false")
 			}
 		}
 	}
@@ -66,7 +66,7 @@ func (m KeyColumnQualMap) SatisfiesKeyColumns(columnSet *KeyColumnSet) (bool, Ke
 	// check whether we have the minimum number rof satisfied key columns
 	res := allRequiredColumnsSatisfied && len(satisfiedKeyColumns) > columnSet.Minimum
 
-	log.Printf("[WARN] len(satisfiedKeyColumns) %d columnSet.Minimum %d res %v", len(satisfiedKeyColumns), columnSet.Minimum, res)
+	log.Printf("[TRACE] len(satisfiedKeyColumns) %d columnSet.Minimum %d res %v", len(satisfiedKeyColumns), columnSet.Minimum, res)
 
 	return res, unsatisfiedKeyColumns
 }
@@ -83,12 +83,9 @@ func (m KeyColumnQualMap) ToQualMap() map[string][]*quals.Qual {
 
 // NewKeyColumnQualValueMap creates a KeyColumnQualMap from one or more KeyColumnSets
 func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumnSets ...*KeyColumnSet) KeyColumnQualMap {
-	log.Printf("[WARN] NewKeyColumnQualValueMap %v", keyColumnSets)
 	res := KeyColumnQualMap{}
 
 	for _, keyColumns := range keyColumnSets {
-		log.Printf("[WARN] keyColumns %v", keyColumns)
-
 		for _, col := range keyColumns.Columns {
 			matchingQuals := getMatchingQuals(col, qualMap)
 			for _, q := range matchingQuals {
@@ -115,11 +112,11 @@ func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumnSets ...
 
 // look in a column-qual map for quals with column and operator matching the key column
 func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*proto.Qual {
-	log.Printf("[WARN] getMatchingQuals keyColumn %s qualMap %s", keyColumn, qualMap)
+	log.Printf("[TRACE] getMatchingQuals keyColumn %s qualMap %s", keyColumn, qualMap)
 
 	quals, ok := qualMap[keyColumn.Column]
 	if !ok {
-		log.Printf("[WARN] getMatchingQuals returning false - qualMap does not contain any quals for colums %s", keyColumn.Column)
+		log.Printf("[TRACE] getMatchingQuals returning false - qualMap does not contain any quals for colums %s", keyColumn.Column)
 		return nil
 	}
 
@@ -131,9 +128,9 @@ func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*
 		}
 	}
 	if len(res) > 0 {
-		log.Printf("[WARN] getMatchingQuals found %d quals matching key column %s", len(res), keyColumn)
+		log.Printf("[TRACE] getMatchingQuals found %d quals matching key column %s", len(res), keyColumn)
 	} else {
-		log.Printf("[WARN] getMatchingQuals returning false - qualMap does not contain any matching quals for quals for key column %s", keyColumn)
+		log.Printf("[TRACE] getMatchingQuals returning false - qualMap does not contain any matching quals for quals for key column %s", keyColumn)
 	}
 
 	return res
