@@ -143,7 +143,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 	if table.List != nil {
 		// if there is a list config default to list, even is we are missing required quals
 		d.FetchType = fetchTypeList
-		if table.List.KeyColumns != nil {
+		if len(table.List.KeyColumns) > 0 {
 			d.Quals = NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.List.KeyColumns)
 		}
 	}

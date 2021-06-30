@@ -152,7 +152,7 @@ func (t *Table) validateKeyColumns() []string {
 	var getValidationErrors []string
 	var listValidationErrors []string
 	if t.Get != nil {
-		if t.Get.KeyColumns != nil {
+		if len(t.Get.KeyColumns) > 0 {
 			getValidationErrors = append(getValidationErrors, t.Get.KeyColumns.Validate()...)
 			if !t.Get.KeyColumns.AllEquals() {
 				getValidationErrors = append(getValidationErrors, fmt.Sprintf("table '%s' Get key columns must only use '=' operators", t.Name))
@@ -163,7 +163,7 @@ func (t *Table) validateKeyColumns() []string {
 		}
 	}
 
-	if t.List != nil && t.List.KeyColumns != nil {
+	if t.List != nil && len(t.List.KeyColumns) > 0 {
 		listValidationErrors = t.List.KeyColumns.Validate()
 		if len(listValidationErrors) > 0 {
 			listValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid List config:", t.Name)}, helpers.TabifyStringSlice(listValidationErrors, "    - ")...)

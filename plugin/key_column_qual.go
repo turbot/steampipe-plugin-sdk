@@ -8,12 +8,12 @@ import (
 
 // KeyColumnQuals is a struct representing all quals for a specific column
 type KeyColumnQuals struct {
-	Column string
-	Quals  quals.QualSlice
+	Name  string
+	Quals quals.QualSlice
 }
 
 func (k KeyColumnQuals) SatisfiesKeyColumn(keyColumn *KeyColumn) bool {
-	if keyColumn.Column != k.Column {
+	if keyColumn.Name != k.Name {
 		return false
 	}
 	for _, q := range k.Quals {

@@ -86,8 +86,8 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
 	// in this case we call get for each value
 	if keyColumn := t.Get.KeyColumns.SingleEqualsQual(); keyColumn != nil {
-		if qualValueList := queryData.KeyColumnQuals[keyColumn.Column].GetListValue(); qualValueList != nil {
-			return t.doGetForQualValues(ctx, queryData, keyColumn.Column, qualValueList)
+		if qualValueList := queryData.KeyColumnQuals[keyColumn.Name].GetListValue(); qualValueList != nil {
+			return t.doGetForQualValues(ctx, queryData, keyColumn.Name, qualValueList)
 		}
 	}
 
@@ -312,18 +312,21 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
 	// in this case we call list for each value
-	if t.List.KeyColumns != nil {
+	if len(t.List.KeyColumns) > 0 {
+		// if there a single equals KEY COLUMN
 		if keyColumn := t.List.KeyColumns.SingleEqualsQual(); keyColumn != nil {
 			// get the quals for this key columns (we have already checked that they are satisfied)
-			keyColumnQuals := queryData.Quals[keyColumn.Column]
-			if keyColumnQuals.SingleEqualsQual() {
+			// is there is a single equals QUAL, check for an array value
+			keyColumnQuals := queryData.Quals[keyColumn.Name]
+			if keyColumnQuals != nil && keyColumnQuals.SingleEqualsQual() {
 				if qualValueList := keyColumnQuals.Quals[0].Value.GetListValue(); qualValueList != nil {
-					t.doListForQualValues(ctx, queryData, keyColumn.Column, qualValueList, listCall)
+					t.doListForQualValues(ctx, queryData, keyColumn.Name, qualValueList, listCall)
 					return
 				}
 			}
 		}
 	}
+
 	t.doList(ctx, queryData, listCall)
 }
 

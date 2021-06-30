@@ -8,20 +8,6 @@ import (
 
 type KeyColumnSlice []*KeyColumn
 
-// NewEqualsKeyColumnSlice creates a KeyColumnSlice from a list of column names.
-// All KeyColumns default to use equals operator
-func NewEqualsKeyColumnSlice(columns []string, optional bool) KeyColumnSlice {
-	var all = make([]*KeyColumn, len(columns))
-	for i, c := range columns {
-		all[i] = &KeyColumn{
-			Column:    c,
-			Operators: []string{"="},
-			Optional:  optional,
-		}
-	}
-	return all
-}
-
 func (k KeyColumnSlice) String() string {
 	return strings.Join(k.StringSlice(), "\n")
 }
@@ -29,12 +15,13 @@ func (k KeyColumnSlice) String() string {
 // StringSlice converts a KeyColumnSlice to a slice of strings
 func (k KeyColumnSlice) StringSlice() []string {
 	strs := make([]string, len(k))
-	for i, s := range k {
-		strs[i] = s.String()
+	for i, c := range k {
+		strs[i] = c.String()
 	}
 	return strs
 }
 
+// ToProtobuf converts the KeyColumnSlice to a slice of protobuf KeyColumns
 func (k KeyColumnSlice) ToProtobuf() []*proto.KeyColumn {
 	var res = make([]*proto.KeyColumn, len(k))
 	for i, col := range k {
@@ -43,7 +30,7 @@ func (k KeyColumnSlice) ToProtobuf() []*proto.KeyColumn {
 	return res
 }
 
-// AllEquals returns whether all child KeyColumns only use equals operators
+// AllEquals returns whether all KeyColumns only use equals operators
 func (k KeyColumnSlice) AllEquals() bool {
 	for _, col := range k {
 		if !col.SingleEqualsQual() {
@@ -54,6 +41,16 @@ func (k KeyColumnSlice) AllEquals() bool {
 	return true
 }
 
+// SingleEqualsQual determines whether this key column slice has a single qual with a single = operator
+// and if so returns it
+func (k KeyColumnSlice) SingleEqualsQual() *KeyColumn {
+	if len(k) == 1 && k[0].SingleEqualsQual() {
+		return k[0]
+	}
+	return nil
+}
+
+// Validate validates all child columns
 func (k KeyColumnSlice) Validate() []string {
 	var res []string
 	for _, col := range k {

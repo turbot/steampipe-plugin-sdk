@@ -31,43 +31,52 @@ func (m KeyColumnQualMap) String() string {
 		for i, v := range k.Quals {
 			values[i] = v.Value
 		}
-		strs = append(strs, fmt.Sprintf("%s - %v", k.Column, values))
+		strs = append(strs, fmt.Sprintf("%s - %v", k.Name, values))
 	}
 	return strings.Join(strs, "\n")
 }
 
-func (m KeyColumnQualMap) SatisfiesKeyColumns(columnSet *KeyColumnSet) (bool, KeyColumnSlice) {
-	log.Printf("[TRACE] SatisfiesKeyColumns %v", columnSet)
+func (m KeyColumnQualMap) SatisfiesKeyColumns(columns KeyColumnSlice) (bool, KeyColumnSlice) {
+	log.Printf("[WARN] SatisfiesKeyColumns %v", columns)
 
-	if columnSet == nil {
+	if columns == nil {
 		return true, nil
 	}
-	var satisfiedKeyColumns KeyColumnSlice
 	var unsatisfiedKeyColumns KeyColumnSlice
-	allRequiredColumnsSatisfied := true
-	for _, keyColumn := range columnSet.Columns {
+	satisfiedCount := map[string]int{
+		Required: 0,
+		AnyOf:    0,
+		Optional: 0,
+	}
+	unsatisfiedCount := map[string]int{
+		Required: 0,
+		AnyOf:    0,
+		Optional: 0,
+	}
+
+	for _, keyColumn := range columns {
 		// look for this key column in our map
-		k := m[keyColumn.Column]
+		k := m[keyColumn.Name]
 		satisfied := k != nil && k.SatisfiesKeyColumn(keyColumn)
 		if satisfied {
+			satisfiedCount[keyColumn.Require]++
+
 			log.Printf("[TRACE] key column satisfied %v", keyColumn)
-			satisfiedKeyColumns = append(satisfiedKeyColumns, keyColumn)
+
 		} else {
+			unsatisfiedCount[keyColumn.Require]++
 			unsatisfiedKeyColumns = append(unsatisfiedKeyColumns, keyColumn)
 			log.Printf("[TRACE] key column NOT satisfied %v", keyColumn)
 			// if this was NOT an optional key column, we are not satisfied
-			if !keyColumn.Optional {
-				allRequiredColumnsSatisfied = false
-				log.Printf("[TRACE] key column required - set result to false")
-			}
 		}
 	}
 
-	// check whether we have the minimum number rof satisfied key columns
-	res := allRequiredColumnsSatisfied && len(satisfiedKeyColumns) > columnSet.Minimum
+	// we are satisfied if:
+	// all Required key columns are satisfied
+	// either there is at least 1 satisfied AnyOf key columns, or there are no AnyOf columns
+	res := unsatisfiedCount[Required] == 0 && (satisfiedCount[AnyOf] > 0 || unsatisfiedCount[AnyOf] == 0)
 
-	log.Printf("[TRACE] len(satisfiedKeyColumns) %d columnSet.Minimum %d res %v", len(satisfiedKeyColumns), columnSet.Minimum, res)
-
+	log.Printf("[WARN] SatisfiesKeyColumns result: %v, satisfiedCount %v, unsatisfiedCount %v, unsatisfiedKeyColumns %v", res, satisfiedCount, unsatisfiedCount, unsatisfiedKeyColumns)
 	return res, unsatisfiedKeyColumns
 }
 
@@ -81,30 +90,27 @@ func (m KeyColumnQualMap) ToQualMap() map[string]quals.QualSlice {
 	return res
 }
 
-// NewKeyColumnQualValueMap creates a KeyColumnQualMap from one or more KeyColumnSets
-func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumnSets ...*KeyColumnSet) KeyColumnQualMap {
+// NewKeyColumnQualValueMap creates a KeyColumnQualMap from a qual map and a KeyColumnSlice
+func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumns KeyColumnSlice) KeyColumnQualMap {
 	res := KeyColumnQualMap{}
 
-	for _, keyColumns := range keyColumnSets {
-		for _, col := range keyColumns.Columns {
-			matchingQuals := getMatchingQuals(col, qualMap)
-			for _, q := range matchingQuals {
-				// convert proto.Qual into a qual.Qual (which is easier to use)
-				qual := quals.NewQual(q)
+	for _, col := range keyColumns {
+		matchingQuals := getMatchingQuals(col, qualMap)
+		for _, q := range matchingQuals {
+			// convert proto.Qual into a qual.Qual (which is easier to use)
+			qual := quals.NewQual(q)
 
-				// if there is already an entry for this column, add a value to the array
-				if mapEntry, mapEntryExists := res[col.Column]; mapEntryExists {
-					mapEntry.Quals = append(mapEntry.Quals, qual)
-					res[col.Column] = mapEntry
-				} else {
-					// crate a new map entry for this column
-					res[col.Column] = &KeyColumnQuals{
-						Column: col.Column,
-						Quals:  quals.QualSlice{qual},
-					}
+			// if there is already an entry for this column, add a value to the array
+			if mapEntry, mapEntryExists := res[col.Name]; mapEntryExists {
+				mapEntry.Quals = append(mapEntry.Quals, qual)
+				res[col.Name] = mapEntry
+			} else {
+				// crate a new map entry for this column
+				res[col.Name] = &KeyColumnQuals{
+					Name:  col.Name,
+					Quals: quals.QualSlice{qual},
 				}
 			}
-
 		}
 	}
 	return res
@@ -114,9 +120,9 @@ func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumnSets ...
 func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*proto.Qual {
 	log.Printf("[TRACE] getMatchingQuals keyColumn %s qualMap %s", keyColumn, qualMap)
 
-	quals, ok := qualMap[keyColumn.Column]
+	quals, ok := qualMap[keyColumn.Name]
 	if !ok {
-		log.Printf("[TRACE] getMatchingQuals returning false - qualMap does not contain any quals for colums %s", keyColumn.Column)
+		log.Printf("[TRACE] getMatchingQuals returning false - qualMap does not contain any quals for colums %s", keyColumn.Name)
 		return nil
 	}
 

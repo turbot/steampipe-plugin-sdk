@@ -19,11 +19,11 @@ func (t Table) GetSchema() *proto.TableSchema {
 		}
 	}
 	// key columns
-	if t.Get != nil && t.Get.KeyColumns != nil {
+	if t.Get != nil && len(t.Get.KeyColumns) > 0 {
 		schema.GetCallKeyColumns = t.Get.KeyColumns.ToProtobuf()
 	}
 	if t.List != nil {
-		if t.List.KeyColumns != nil {
+		if len(t.List.KeyColumns) > 0 {
 			schema.ListCallKeyColumns = t.List.KeyColumns.ToProtobuf()
 		}
 
