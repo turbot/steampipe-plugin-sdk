@@ -99,8 +99,22 @@ message TableSchema
 {
   repeated ColumnDefinition columns = 1;
   string description = 2;
-  repeated KeyColumn getCallKeyColumns = 3;
-  repeated KeyColumn listCallKeyColumns = 4;
+  KeyColumnsSet getCallKeyColumns = 3 [deprecated=true];
+  KeyColumnsSet listCallKeyColumns = 4 [deprecated=true];
+  KeyColumnsSet listCallOptionalKeyColumns = 5 [deprecated=true];
+
+  repeated KeyColumn getCallKeyColumnList = 6;
+  repeated KeyColumn listCallKeyColumnList = 7;
+}
+
+// a set of Key Columns, required for get/list calls
+// deprecated - kept for compatibility
+message KeyColumnsSet
+{
+  option deprecated = true;
+  string single = 1;
+  repeated string all = 2;
+  repeated string any = 3;
 }
 
 message KeyColumn
