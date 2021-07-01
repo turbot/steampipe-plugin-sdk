@@ -1,10 +1,15 @@
 ## v1.3  [2021-07-01]
+
+
 _What's new_
 * When defining key columns it is now possible to specify supported operators for each column (defaulting to '='). ([#121](https://github.com/turbot/steampipe-plugin-sdk/issues/121))
 * Add support for optional key columns. ([#112](https://github.com/turbot/steampipe-plugin-sdk/issues/112))
 * Cancellation of GRPC stream is now reflected in the context passed to plugin operations, so plugins can easily handle cancellation by checking the context. ([#17](https://github.com/turbot/steampipe-plugin-sdk/issues/17))
 * Add WithCache() function - if this is chained after a hydrate function definition, it enables plugin cache optimisation to avoid concurrent hydrate functions with same parameters([#116](https://github.com/turbot/steampipe-plugin-sdk/issues/116))
-* Rename QueryData.QueryContext.Quals to QueryContext.UnsafeQuals. Add QueryData.Quals property instead which contains only key column quals. ([#119](https://github.com/turbot/steampipe-plugin-sdk/issues/119))
+
+_Breaking changes_
+* The property `QueryData.QueryContext.Quals` has been renamed to `QueryContext.UnsafeQuals`. This property contains all quals, not just key columns. These quals should not be used for filtering data as this may break the FDW row data caching, which is keyed based on key column quals. Instead, use the new property `QueryData.Quals`which contains only key column quals. ([#119](https://github.com/turbot/steampipe-plugin-sdk/issues/119))
+* Plugins built with `v1.3` of the sdk will only be loaded by Steampipe `v1.7` onwards.
 
 ## v0.2.10 [2021-06-09]
 _What's new_
