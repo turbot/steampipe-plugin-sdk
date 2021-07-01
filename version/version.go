@@ -8,7 +8,7 @@ import (
 
 // ProtocolVersion marks the current version, update this if breaking changes are made to the protobuf spec
 // (for example column types)
-var ProtocolVersion int64 = 20210505
+var ProtocolVersion int64 = 20210701
 
 // Version is the main version number that is being run at the moment.
 var Version = "0.3.0"
