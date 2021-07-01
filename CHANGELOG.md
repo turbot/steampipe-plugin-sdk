@@ -1,3 +1,11 @@
+## v1.3  [2021-07-01]
+_What's new_
+* When defining key columns it is now possible to specify supported operators for each column (defaulting to '='). ([#121](https://github.com/turbot/steampipe-plugin-sdk/issues/121))
+* Add support for optional key columns. ([#112](https://github.com/turbot/steampipe-plugin-sdk/issues/112))
+* Cancellation of GRPC stream is now reflected in the context passed to plugin operations, so plugins can easily handle cancellation by checking the context. ([#17](https://github.com/turbot/steampipe-plugin-sdk/issues/17))
+* Add WithCache() function - if this is chained after a hydrate function definition, it enables plugin cache optimisation to avoid concurrent hydrate functions with same parameters([#116](https://github.com/turbot/steampipe-plugin-sdk/issues/116))
+* Rename QueryData.QueryContext.Quals to QueryContext.UnsafeQuals. Add QueryData.Quals property instead which contains only key column quals. ([#119](https://github.com/turbot/steampipe-plugin-sdk/issues/119))
+
 ## v0.2.10 [2021-06-09]
 _What's new_
 * Provide SDK transform to get a qual value. ([#77](https://github.com/turbot/steampipe-plugin-sdk/issues/77))
