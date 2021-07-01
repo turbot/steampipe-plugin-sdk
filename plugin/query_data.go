@@ -131,7 +131,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 		d.FetchType = fetchTypeGet
 
 		// build a qual map from Get key columns
-		qualMap := NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.Get.KeyColumns)
+		qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.Get.KeyColumns)
 		// now see whether the qual map has everything required for the get call
 		if satisfied, _ := qualMap.SatisfiesKeyColumns(table.Get.KeyColumns); satisfied {
 			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
@@ -144,7 +144,7 @@ func (d *QueryData) SetFetchType(table *Table) {
 		// if there is a list config default to list, even is we are missing required quals
 		d.FetchType = fetchTypeList
 		if len(table.List.KeyColumns) > 0 {
-			d.Quals = NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.List.KeyColumns)
+			d.Quals = NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.List.KeyColumns)
 		}
 	}
 }
@@ -228,12 +228,6 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
-	// if the context is cancelled, panic to break out
-	select {
-	case <-d.stream.Context().Done():
-		panic(contextCancelledError)
-	default:
-	}
 
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
