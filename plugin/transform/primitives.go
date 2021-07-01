@@ -11,6 +11,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
+
 	"github.com/ghodss/yaml"
 	"github.com/iancoleman/strcase"
 	"github.com/turbot/go-kit/helpers"
@@ -438,8 +440,17 @@ func StringArrayToMap(_ context.Context, d *TransformData) (interface{}, error) 
 
 }
 
-// QualValue takes the column name from the transform data param and returns the value of the column
+// QualValue takes the column name from the transform data param and retrieves any quals for it
+// If the quals is a single equals quals it returns it
+// If there are any other quals and error is returned
 func QualValue(ctx context.Context, d *TransformData) (interface{}, error) {
-	value := d.KeyColumnQuals[d.Param.(string)]
-	return value, nil
+	columnQuals := d.KeyColumnQuals[d.Param.(string)]
+	if len(columnQuals) == 0 {
+		return nil, nil
+	}
+	if !columnQuals.SingleEqualsQual() {
+		return nil, fmt.Errorf("FromQual transform can only be called if there is a singe equals qual for the given column")
+	}
+	qualValue := grpc.GetQualValue(columnQuals[0].Value)
+	return qualValue, nil
 }

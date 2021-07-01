@@ -43,7 +43,8 @@ func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *Co
 	// NOTE: we must call getColumnTransforms to ensure the default is used if none is defined
 	columnTransforms := t.getColumnTransforms(column)
 	defaultTransform := t.getDefaultColumnTransform(column)
-	qualValueMap := rowData.queryData.keyColumnQualValues
+
+	qualValueMap := rowData.queryData.Quals.ToQualMap()
 	transformData := &transform.TransformData{
 		HydrateItem:    hydrateItem,
 		HydrateResults: rowData.hydrateResults,

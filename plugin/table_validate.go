@@ -25,6 +25,8 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	// the map entries are strings - ensure they correpond to actual functions
 	validationErrors = append(validationErrors, t.validateHydrateDependencies()...)
 
+	// verify any ALL key kolumns do not duplicate columns between ALL fields
+
 	return validationErrors
 }
 
@@ -76,22 +78,26 @@ func (t *Table) validateListAndGetConfig() []string {
 	var validationErrors []string
 	// either get or list must be defined
 	if t.List == nil && t.Get == nil {
-		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' does not have either GetConfig or ListConfig - one of these must be provided", t.Name))
+		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' does not have either Get config or List config - one of these must be provided", t.Name))
 	}
 
 	if t.Get != nil {
 		if t.Get.Hydrate == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a hydrate function", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get config does not specify a hydrate function", t.Name))
 		}
 		if t.Get.KeyColumns == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a key", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get config does not specify a KeyColumn", t.Name))
 		}
 	}
 	if t.List != nil {
 		if t.List.Hydrate == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' ListConfig does not specify a hydrate function", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List config does not specify a hydrate function", t.Name))
 		}
 	}
+
+	// verify any key columns defined for GET only use '=' operators
+	validationErrors = append(validationErrors, t.validateKeyColumns()...)
+
 	return validationErrors
 }
 
@@ -116,7 +122,6 @@ func (t *Table) validateHydrateDependencies() []string {
 	}
 	return validationErrors
 }
-
 func (t *Table) detectCyclicHydrateDependencies() string {
 	var dependencies = topsort.NewGraph()
 	dependencies.AddNode("root")
@@ -140,4 +145,30 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 	}
 
 	return ""
+}
+
+func (t *Table) validateKeyColumns() []string {
+	// get key columns should only have equals operators
+	var getValidationErrors []string
+	var listValidationErrors []string
+	if t.Get != nil {
+		if len(t.Get.KeyColumns) > 0 {
+			getValidationErrors = append(getValidationErrors, t.Get.KeyColumns.Validate()...)
+			if !t.Get.KeyColumns.AllEquals() {
+				getValidationErrors = append(getValidationErrors, fmt.Sprintf("table '%s' Get key columns must only use '=' operators", t.Name))
+			}
+			if len(getValidationErrors) > 0 {
+				getValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid Get config:", t.Name)}, helpers.TabifyStringSlice(getValidationErrors, "    - ")...)
+			}
+		}
+	}
+
+	if t.List != nil && len(t.List.KeyColumns) > 0 {
+		listValidationErrors = t.List.KeyColumns.Validate()
+		if len(listValidationErrors) > 0 {
+			listValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid List config:", t.Name)}, helpers.TabifyStringSlice(listValidationErrors, "    - ")...)
+		}
+	}
+
+	return append(getValidationErrors, listValidationErrors...)
 }

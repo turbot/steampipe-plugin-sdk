@@ -32,9 +32,7 @@ type Table struct {
 
 type GetConfig struct {
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
-	KeyColumns         *KeyColumnSet
-	OptionalKeyColumns *KeyColumnSet
-	ItemFromKey        HydrateFunc
+	KeyColumns KeyColumnSlice
 	// the hydrate function which is called first when performing a 'get' call.
 	// if this returns 'not found', no further hydrate functions are called
 	Hydrate HydrateFunc
@@ -44,8 +42,7 @@ type GetConfig struct {
 }
 
 type ListConfig struct {
-	KeyColumns         *KeyColumnSet
-	OptionalKeyColumns *KeyColumnSet
+	KeyColumns KeyColumnSlice
 	// the list function, this should stream the list results back using the QueryData object, and return nil
 	Hydrate HydrateFunc
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
@@ -117,14 +114,4 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 	}
 
 	return config
-}
-
-// return the column matching the given nam
-func (t *Table) columnForName(columnName string) (*Column, bool) {
-	for _, c := range t.Columns {
-		if c.Name == columnName {
-			return c, true
-		}
-	}
-	return nil, false
 }

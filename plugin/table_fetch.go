@@ -12,6 +12,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -70,12 +71,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	logger.Trace("executeGetCall", "table", t.Name, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
 	// verify we have the necessary quals
 	if len(queryData.KeyColumnQuals) == 0 {
-		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.ToString()))
-	}
-
-	// deprecated - ItemFromKey is no longer recommended or required
-	if t.Get.ItemFromKey != nil {
-		return t.executeLegacyGetCall(ctx, queryData)
+		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.String()))
 	}
 
 	defer func() {
@@ -89,9 +85,9 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// queryData.KeyColumnQuals is a map of column to qual value
 	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
 	// in this case we call get for each value
-	if keyColumn := t.Get.KeyColumns.Single; keyColumn != "" {
-		if qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
-			return t.doGetForQualValues(ctx, queryData, keyColumn, qualValueList)
+	if keyColumn := t.Get.KeyColumns.SingleEqualsQual(); keyColumn != nil {
+		if qualValueList := queryData.KeyColumnQuals[keyColumn.Name].GetListValue(); qualValueList != nil {
+			return t.doGetForQualValues(ctx, queryData, keyColumn.Name, qualValueList)
 		}
 	}
 
@@ -112,7 +108,6 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
-		queryDataCopy.populateQualValueMap(t)
 		getWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
@@ -203,7 +198,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 		// check whether there is a single equals qual for each matrix item property and if so, check whether
 		// the matrix item property values satisfy the conditions
 		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[TRACE] getForEach: matrix item item does not meet quals, %v, %v\n", queryData.equalsQuals, matrixItem)
+			log.Printf("[TRACE] getForEach: matrix item item does not meet quals %v\n", matrixItem)
 			continue
 		}
 		// increment our own wait group
@@ -299,11 +294,12 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		queryData.fetchComplete()
 	}()
 
-	logger := t.Plugin.Logger
 	// verify we have the necessary quals
-	if t.List.KeyColumns != nil && len(queryData.KeyColumnQuals) == 0 {
-		err := status.Error(codes.Internal, fmt.Sprintf("'List' call requires an '=' qual for %s", t.List.KeyColumns.ToString()))
+	isSatisfied, unsatisfiedColumns := queryData.Quals.SatisfiesKeyColumns(t.List.KeyColumns)
+	if !isSatisfied {
+		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: \n%s", unsatisfiedColumns.String()))
 		queryData.streamError(err)
+		return
 	}
 
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
@@ -314,32 +310,45 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		listCall = t.List.ParentHydrate
 	}
 
-	// queryData.KeyColumnQuals is a map of column to qual value
 	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
-	// in this case we call get for each value
-	if t.List.KeyColumns != nil && t.List.KeyColumns.Single != "" {
-		keyColumn := t.List.KeyColumns.Single
-		logger.Warn("executeListCall we have single key column")
-		if qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
-			t.doListForQualValues(ctx, queryData, keyColumn, qualValueList, listCall)
-			return
+	// in this case we call list for each value
+	if len(t.List.KeyColumns) > 0 {
+		// if there a single equals KEY COLUMN
+		if keyColumn := t.List.KeyColumns.SingleEqualsQual(); keyColumn != nil {
+			// get the quals for this key columns (we have already checked that they are satisfied)
+			// is there is a single equals QUAL, check for an array value
+			keyColumnQuals := queryData.Quals[keyColumn.Name]
+			if keyColumnQuals != nil && keyColumnQuals.SingleEqualsQual() {
+				if qualValueList := keyColumnQuals.Quals[0].Value.GetListValue(); qualValueList != nil {
+					t.doListForQualValues(ctx, queryData, keyColumn.Name, qualValueList, listCall)
+					return
+				}
+			}
 		}
 	}
+
 	t.doList(ctx, queryData, listCall)
 }
 
+// doListForQualValues is called when there is an equals qual and the qual value is a list of values
 func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall HydrateFunc) {
 	logger := t.Plugin.Logger
 	var listWg sync.WaitGroup
 
-	logger.Warn("executeListCall - single qual, qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
+	logger.Trace("doListForQualValues - single qual, qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
-		logger.Warn("executeListCall passing updated query data", "qv", qv)
-		// make a shallow copy of the query data and modify the quals
+		logger.Trace("executeListCall passing updated query data", "qv", qv)
+		// make a shallow copy of the query data and modify the value of the key column qual to be the value list item
 		queryDataCopy := queryData.ShallowCopy()
+		// update qual maps to replace list value with list element
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
-		queryDataCopy.populateQualValueMap(t)
+		queryDataCopy.Quals[keyColumn].Quals = quals.QualSlice{{
+			Column:   keyColumn,
+			Operator: "=",
+			Value:    qv,
+		}}
+
 		listWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
@@ -377,7 +386,7 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 		// check whether there is a single equals qual for each matrix item property and if so, check whether
 		// the matrix item property values satisfy the conditions
 		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[INFO] listForEach: matrix item item does not meet quals, %v, %v\n", queryData.equalsQuals, matrixItem)
+			log.Printf("[INFO] listForEach: matrix item item does not meet quals, %v\n", matrixItem)
 			continue
 		}
 
@@ -408,101 +417,18 @@ func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryDat
 	// for the purposes of optimisation , assume matrix item properties correspond to column names
 	// if this is NOT the case, it will not fail, but this optimisation will not do anything
 	for columnName, metadataValue := range matrixItem {
-		// check this matrix item property corresponds to a column
-		column, ok := t.columnForName(columnName)
-		if !ok {
-			// if no, just continue to next property
-			continue
-		}
 		// is there a single equals qual for this column
-		if qualValue, ok := queryData.equalsQuals[columnName]; ok {
-
-			// get the underlying qual value
-			requiredValue := ColumnQualValue(qualValue, column)
-
-			if requiredValue != metadataValue {
-				return false
+		if qualValue, ok := queryData.Quals[columnName]; ok {
+			if qualValue.SingleEqualsQual() {
+				// get the underlying qual value
+				requiredValue := grpc.GetQualValue(qualValue.Quals[0].Value)
+				if requiredValue != metadataValue {
+					return false
+				}
 			}
 		}
 	}
 	return true
-}
-
-// deprecated implementation
-// t.Get.ItemFromKey is deprectaed. If this table has this property set, run legacy get
-func (t *Table) executeLegacyGetCall(ctx context.Context, queryData *QueryData) error {
-	defer func() {
-		// we can now close the item chan
-		queryData.fetchComplete()
-
-		if r := recover(); r != nil {
-			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r)))
-		}
-	}()
-
-	// build the hydrate input by calling  t.Get.ItemFromKey
-	hydrateInput, err := t.legacyBuildHydrateInputForGetCall(ctx, queryData)
-	if err != nil {
-		queryData.streamError(err)
-		return err
-	}
-	t.Plugin.Logger.Trace("executeLegacyGetCall", "hydrateInput", hydrateInput)
-	// there may be more than one hydrate item - loop over them
-	for _, hydrateItem := range hydrateInput {
-		t.Plugin.Logger.Debug("hydrateItem", "hydrateItem", hydrateItem)
-		if err := t.doGet(ctx, queryData, hydrateItem); err != nil {
-			queryData.streamError(err)
-			return err
-		}
-	}
-	return nil
-}
-
-// use the quals to build one call to populate one or more base hydrate item from the quals
-// NOTE: if there is a list of quals for the key column then we create a hydrate item for each
-// - this is handle `in` clauses
-func (t *Table) legacyBuildHydrateInputForGetCall(ctx context.Context, queryData *QueryData) ([]interface{}, error) {
-	// NOTE: if there qual value is actually a list of values, we call ItemFromKey for each qual
-	// this is only possible for single key column tables (as otherwise we would not have identified this as a get call)
-	if keyColumn := t.Get.KeyColumns.Single; keyColumn != "" {
-		if qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue(); qualValueList != nil {
-			return t.legacyBuildHydrateInputForMultiQualValueGetCall(ctx, queryData)
-		}
-	}
-
-	hydrateInputItem, err := t.Get.ItemFromKey(ctx, queryData, &HydrateData{})
-	if err != nil {
-		return nil, err
-	}
-
-	return []interface{}{hydrateInputItem}, nil
-}
-
-func (t *Table) legacyBuildHydrateInputForMultiQualValueGetCall(ctx context.Context, queryData *QueryData) ([]interface{}, error) {
-	keyColumn := t.Get.KeyColumns.Single
-	qualValueList := queryData.KeyColumnQuals[keyColumn].GetListValue()
-	log.Println("[TRACE] table has single key, key qual has multiple values")
-
-	// NOTE: store the keyColumnQuals as we will mutate the query data for the calls to ItemFromKey
-	keyColumnQuals := queryData.KeyColumnQuals
-
-	var hydrateInput []interface{}
-	for _, qualValue := range qualValueList.Values {
-		// build a new map for KeyColumnQuals and mutate the query data
-		queryData.KeyColumnQuals = map[string]*proto.QualValue{
-			keyColumn: qualValue,
-		}
-		hydrateInputItem, err := t.Get.ItemFromKey(ctx, queryData, &HydrateData{})
-		if err != nil {
-			return nil, err
-		}
-		hydrateInput = append(hydrateInput, hydrateInputItem)
-	}
-
-	// now revert keyColumnQuals on the query data for good manners
-	queryData.KeyColumnQuals = keyColumnQuals
-
-	return hydrateInput, nil
 }
 
 func (t *Table) buildGetConfig() (*RetryConfig, ErrorPredicate) {

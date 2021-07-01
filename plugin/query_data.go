@@ -18,11 +18,12 @@ const itemBufferSize = 100
 type QueryData struct {
 	// The table this query is associated with
 	Table *Table
-	// if this is a get call (or a list call if list key columns are specified)
-	// this will be populated with the quals as a map of column name to quals
+	// if this is a get call this will be populated with the quals as a map of column name to quals
+	//  (this will also be populated for a list call if list key columns are specified -
+	//  however this usage is deprecated and provided for legacy reasons only)
 	KeyColumnQuals map[string]*proto.QualValue
-	// any optional list quals which were passed
-	OptionalKeyColumnQuals map[string]*proto.QualValue
+	// a map of all key column quals which were specified in the query
+	Quals KeyColumnQualMap
 	// columns which have a single equals qual
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
@@ -42,14 +43,14 @@ type QueryData struct {
 	// event for the child list of a parent child list call
 	StreamLeafListItem func(ctx context.Context, item interface{})
 	// internal
-	hydrateCalls        []*HydrateCall
-	equalsQuals         map[string]*proto.QualValue
-	concurrencyManager  *ConcurrencyManager
-	rowDataChan         chan *RowData
-	errorChan           chan error
-	streamCount         int
-	stream              proto.WrapperPlugin_ExecuteServer
-	keyColumnQualValues map[string]interface{}
+	hydrateCalls []*HydrateCall
+
+	concurrencyManager *ConcurrencyManager
+	rowDataChan        chan *RowData
+	errorChan          chan error
+	streamCount        int
+	stream             proto.WrapperPlugin_ExecuteServer
+
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
@@ -63,8 +64,8 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		QueryContext:      queryContext,
 		Connection:        connection,
 		Matrix:            matrix,
-		KeyColumnQuals:    map[string]*proto.QualValue{},
-		equalsQuals:       map[string]*proto.QualValue{},
+		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		Quals:             make(KeyColumnQualMap),
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -89,30 +90,33 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 // ShallowCopy creates a shallow copy of the QueryData
 // this is used to pass different quals to multiple list/get calls, when an in() clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
-	// NOTE: we create a deep copy of the keyColumnQuals
-	// - this is so they can be updated in the copied QueryData without mutating the original
-	newKeyColumQuals := map[string]*proto.QualValue{}
-
-	for k, v := range d.KeyColumnQuals {
-		newKeyColumQuals[k] = v
-	}
 
 	clone := &QueryData{
 		Table:              d.Table,
-		KeyColumnQuals:     newKeyColumQuals,
+		KeyColumnQuals:     make(map[string]*proto.QualValue),
+		Quals:              make(KeyColumnQualMap),
 		FetchType:          d.FetchType,
 		QueryContext:       d.QueryContext,
 		Connection:         d.Connection,
 		Matrix:             d.Matrix,
 		ConnectionManager:  d.ConnectionManager,
 		hydrateCalls:       d.hydrateCalls,
-		equalsQuals:        d.equalsQuals,
 		concurrencyManager: d.concurrencyManager,
 		rowDataChan:        d.rowDataChan,
 		errorChan:          d.errorChan,
 		stream:             d.stream,
 		listWg:             d.listWg,
 	}
+
+	// NOTE: we create a deep copy of the keyColumnQuals
+	// - this is so they can be updated in the copied QueryData without mutating the original
+	for k, v := range d.KeyColumnQuals {
+		clone.KeyColumnQuals[k] = v
+	}
+	for k, v := range d.Quals {
+		clone.Quals[k] = v
+	}
+
 	// NOTE: point the public streaming endpoints to their internal implementations IN THIS OBJECT
 	clone.StreamListItem = clone.streamListItem
 	clone.StreamLeafListItem = clone.streamLeafListItem
@@ -121,65 +125,28 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) SetFetchType(table *Table) {
-	// populate a map of column to qual value
-	var getQuals map[string]*proto.QualValue
-	var listQuals map[string]*proto.QualValue
-	var optionalListQuals map[string]*proto.QualValue
 	if table.Get != nil {
-		getQuals = table.getKeyColumnQuals(d, table.Get.KeyColumns)
-	}
-	if table.List != nil {
-		if table.List.KeyColumns != nil {
-			listQuals = table.getKeyColumnQuals(d, table.List.KeyColumns)
-		}
-		if table.List.OptionalKeyColumns != nil {
-			optionalListQuals = table.getKeyColumnQuals(d, table.List.OptionalKeyColumns)
-		}
-	}
-	// if quals provided in query satisfy both get and list, get wins (a get is likely to be more efficient)
-	if len(getQuals) > 0 {
-		log.Printf("[INFO] get quals - this is a get call  %+v", getQuals)
-		d.KeyColumnQuals = getQuals
+		// default to get, even before checking the quals
+		// this handles the case of a get call only
 		d.FetchType = fetchTypeGet
-	} else if len(listQuals)+len(optionalListQuals) > 0 {
-		log.Printf("[INFO] list quals - this is list call, list quals: %+v, optional list quals: %+v", listQuals, optionalListQuals)
-		d.KeyColumnQuals = listQuals
-		d.OptionalKeyColumnQuals = optionalListQuals
-		d.FetchType = fetchTypeList
-	} else {
-		// so we do not have required quals for either.
-		// if there is a List config, set this to be a list call, otherwise set it to get
-		// if we do not the required quals we will fail with an appropriate error
-		if table.List != nil {
-			log.Printf("[INFO] table '%s': list call, with no list quals", d.Table.Name)
-			d.FetchType = fetchTypeList
-		} else {
-			log.Printf("[INFO] no get quals passed but no list call defined - default to get call")
-			d.FetchType = fetchTypeGet
-		}
-	}
-	d.populateQualValueMap(table)
-}
 
-// populate a map of the resolved values of each key column qual
-// this is passed into transforms
-func (d *QueryData) populateQualValueMap(table *Table) {
-	keyColumnQuals := make(map[string]interface{})
-	for columnName, qualValue := range d.KeyColumnQuals {
-		qualColumn, ok := table.columnForName(columnName)
-		if !ok {
-			continue
+		// build a qual map from Get key columns
+		qualMap := NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.Get.KeyColumns)
+		// now see whether the qual map has everything required for the get call
+		if satisfied, _ := qualMap.SatisfiesKeyColumns(table.Get.KeyColumns); satisfied {
+			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
+			d.Quals = qualMap
+			return
 		}
-		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
 	}
-	for columnName, qualValue := range d.OptionalKeyColumnQuals {
-		qualColumn, ok := table.columnForName(columnName)
-		if !ok {
-			continue
+
+	if table.List != nil {
+		// if there is a list config default to list, even is we are missing required quals
+		d.FetchType = fetchTypeList
+		if len(table.List.KeyColumns) > 0 {
+			d.Quals = NewKeyColumnQualValueMap(d.QueryContext.RawQuals, table.List.KeyColumns)
 		}
-		keyColumnQuals[columnName] = ColumnQualValue(qualValue, qualColumn)
 	}
-	d.keyColumnQualValues = keyColumnQuals
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
@@ -381,19 +348,6 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	logging.DisplayProfileData(10 * time.Millisecond)
 	log.Println("[TRACE] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
-}
-
-// is there a single '=' qual for this column
-func (d *QueryData) singleEqualsQual(column string) (*proto.Qual, bool) {
-	quals, ok := d.QueryContext.RawQuals[column]
-	if !ok {
-		return nil, false
-	}
-
-	if len(quals.Quals) == 1 && quals.Quals[0].GetStringValue() == "=" && quals.Quals[0].Value != nil {
-		return quals.Quals[0], true
-	}
-	return nil, false
 }
 
 // ToError is used to return an error or format the supplied value as error.
