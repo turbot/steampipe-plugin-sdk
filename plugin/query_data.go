@@ -21,7 +21,7 @@ type QueryData struct {
 	// if this is a get call this will be populated with the quals as a map of column name to quals
 	//  (this will also be populated for a list call if list key columns are specified -
 	//  however this usage is deprecated and provided for legacy reasons only)
-	KeyColumnQuals map[string]*proto.QualValue
+	KeyColumnQuals KeyColumnEqualsQualMap
 	// a map of all key column quals which were specified in the query
 	Quals KeyColumnQualMap
 	// columns which have a single equals qual
@@ -125,6 +125,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 // SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) SetFetchType(table *Table) {
+	log.Printf("[TRACE] SetFetchType")
 	if table.Get != nil {
 		// default to get, even before checking the quals
 		// this handles the case of a get call only
@@ -134,19 +135,33 @@ func (d *QueryData) SetFetchType(table *Table) {
 		qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.Get.KeyColumns)
 		// now see whether the qual map has everything required for the get call
 		if satisfied, _ := qualMap.SatisfiesKeyColumns(table.Get.KeyColumns); satisfied {
+			log.Printf("[TRACE] Set fetchType to fetchTypeGet")
 			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
 			d.Quals = qualMap
+			d.logQualMaps()
 			return
 		}
 	}
 
 	if table.List != nil {
+		log.Printf("[TRACE] Set fetchType to fetchTypeList")
 		// if there is a list config default to list, even is we are missing required quals
 		d.FetchType = fetchTypeList
 		if len(table.List.KeyColumns) > 0 {
-			d.Quals = NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.List.KeyColumns)
+			// build a qual map from List key columns
+			qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.List.KeyColumns)
+			// assign to the map of all key column quals
+			d.Quals = qualMap
+			// convert to a map of equals quals to populate legacy `KeyColumnQuals` map
+			d.KeyColumnQuals = d.Quals.ToEqualsQualValueMap()
 		}
+		d.logQualMaps()
 	}
+}
+
+func (d *QueryData) logQualMaps() {
+	log.Printf("[TRACE] Equals key column quals:\n%s", d.KeyColumnQuals)
+	log.Printf("[TRACE] All key column quals:\n%s", d.Quals)
 }
 
 // for count(*) queries, there will be no columns - add in 1 column so that we have some data to return

@@ -111,7 +111,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
 
-	p.Logger.Warn("Got query context",
+	p.Logger.Trace("Got query context",
 		"table", req.Table,
 		"cols", queryContext.Columns)
 

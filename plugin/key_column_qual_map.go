@@ -5,6 +5,8 @@ import (
 	"log"
 	"strings"
 
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
+
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
@@ -25,19 +27,20 @@ func (m KeyColumnQualMap) ToEqualsQualValueMap() map[string]*proto.QualValue {
 }
 
 func (m KeyColumnQualMap) String() string {
-	strs := make([]string, len(m))
+	if len(m) == 0 {
+		return "{}"
+	}
+	var strs []string
 	for _, k := range m {
-		var values = make([]interface{}, len(k.Quals))
-		for i, v := range k.Quals {
-			values[i] = v.Value
+		for _, q := range k.Quals {
+			strs = append(strs, fmt.Sprintf("%s %s %v", k.Name, q.Operator, grpc.GetQualValue(q.Value)))
 		}
-		strs = append(strs, fmt.Sprintf("%s - %v", k.Name, values))
 	}
 	return strings.Join(strs, "\n")
 }
 
 func (m KeyColumnQualMap) SatisfiesKeyColumns(columns KeyColumnSlice) (bool, KeyColumnSlice) {
-	log.Printf("[WARN] SatisfiesKeyColumns %v", columns)
+	log.Printf("[TRACE] SatisfiesKeyColumns %v", columns)
 
 	if columns == nil {
 		return true, nil
@@ -76,7 +79,7 @@ func (m KeyColumnQualMap) SatisfiesKeyColumns(columns KeyColumnSlice) (bool, Key
 	// either there is at least 1 satisfied AnyOf key columns, or there are no AnyOf columns
 	res := unsatisfiedCount[Required] == 0 && (satisfiedCount[AnyOf] > 0 || unsatisfiedCount[AnyOf] == 0)
 
-	log.Printf("[WARN] SatisfiesKeyColumns result: %v, satisfiedCount %v, unsatisfiedCount %v, unsatisfiedKeyColumns %v", res, satisfiedCount, unsatisfiedCount, unsatisfiedKeyColumns)
+	log.Printf("[TRACE] SatisfiesKeyColumns result: %v\nsatisfiedCount %v\nunsatisfiedCount %v\nunsatisfiedKeyColumns %v", res, satisfiedCount, unsatisfiedCount, unsatisfiedKeyColumns)
 	return res, unsatisfiedKeyColumns
 }
 
@@ -96,6 +99,7 @@ func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumns KeyCol
 
 	for _, col := range keyColumns {
 		matchingQuals := getMatchingQuals(col, qualMap)
+
 		for _, q := range matchingQuals {
 			// convert proto.Qual into a qual.Qual (which is easier to use)
 			qual := quals.NewQual(q)
@@ -105,7 +109,7 @@ func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumns KeyCol
 				mapEntry.Quals = append(mapEntry.Quals, qual)
 				res[col.Name] = mapEntry
 			} else {
-				// crate a new map entry for this column
+				// create a new map entry for this column
 				res[col.Name] = &KeyColumnQuals{
 					Name:  col.Name,
 					Quals: quals.QualSlice{qual},
@@ -113,21 +117,22 @@ func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumns KeyCol
 			}
 		}
 	}
+
 	return res
 }
 
 // look in a column-qual map for quals with column and operator matching the key column
 func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*proto.Qual {
-	log.Printf("[TRACE] getMatchingQuals keyColumn %s qualMap %s", keyColumn, qualMap)
+	log.Printf("[TRACE] getMatchingQuals %s", keyColumn)
 
-	quals, ok := qualMap[keyColumn.Name]
+	columnQuals, ok := qualMap[keyColumn.Name]
 	if !ok {
 		log.Printf("[TRACE] getMatchingQuals returning false - qualMap does not contain any quals for colums %s", keyColumn.Name)
 		return nil
 	}
 
 	var res []*proto.Qual
-	for _, q := range quals.Quals {
+	for _, q := range columnQuals.Quals {
 		operator := q.GetStringValue()
 		if helpers.StringSliceContains(keyColumn.Operators, operator) {
 			res = append(res, q)

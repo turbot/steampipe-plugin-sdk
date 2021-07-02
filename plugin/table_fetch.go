@@ -286,6 +286,7 @@ func buildSingleError(errors []error) error {
 }
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
+	log.Printf("[TRACE] executeListCall")
 	defer func() {
 		if r := recover(); r != nil {
 			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", helpers.GetFunctionName(t.List.Hydrate), r)))
