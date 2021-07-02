@@ -160,6 +160,8 @@ func (t *Table) validateKeyColumns() []string {
 			if len(getValidationErrors) > 0 {
 				getValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid Get config:", t.Name)}, helpers.TabifyStringSlice(getValidationErrors, "    - ")...)
 			}
+			// ensure all key columns actually exist
+			getValidationErrors = append(getValidationErrors, t.ValidateColumnsExist(t.Get.KeyColumns)...)
 		}
 	}
 
@@ -168,7 +170,19 @@ func (t *Table) validateKeyColumns() []string {
 		if len(listValidationErrors) > 0 {
 			listValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid List config:", t.Name)}, helpers.TabifyStringSlice(listValidationErrors, "    - ")...)
 		}
+		// ensure all key columns actually exist
+		listValidationErrors = append(listValidationErrors, t.ValidateColumnsExist(t.List.KeyColumns)...)
 	}
 
 	return append(getValidationErrors, listValidationErrors...)
+}
+
+func (t *Table) ValidateColumnsExist(keyColumns KeyColumnSlice) []string {
+	var res []string
+	for _, c := range keyColumns {
+		if t.getColumn(c.Name) == nil {
+			res = append(res, fmt.Sprintf("key column '%s' does not exist in table '%s'", c.Name, t.Name))
+		}
+	}
+	return res
 }
