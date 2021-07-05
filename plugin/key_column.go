@@ -40,23 +40,38 @@ func (k *KeyColumn) SingleEqualsQual() bool {
 	return len(k.Operators) == 1 && k.Operators[0] == "="
 }
 
+// InitialiseOperators adds a default '=' operator is no operators are set, and converts "!=" to "<>"
+func (k *KeyColumn) InitialiseOperators() {
+	// if there are no operators, add a single equals operator
+	if len(k.Operators) == 0 {
+		k.Operators = []string{"="}
+		return
+
+	}
+	for i, op := range k.Operators {
+		// convert "!=" to "<>"
+		if op == "!=" {
+			k.Operators[i] = "<>"
+		}
+	}
+}
+
+// Validate ensures 'Operators' and 'Require' are valid
 func (k *KeyColumn) Validate() []string {
+	// first set default operator and convert "!=" to "<>"
+	k.InitialiseOperators()
 	// ensure operators are valid
 
-	// map "!=" operator to "<>"
 	validOperators := []string{"=", "<>", "<", "<=", ">", ">="}
 	validRequire := []string{Required, Optional, AnyOf}
 	var res []string
 
 	for _, op := range k.Operators {
-		// convert "!=" to "<>"
-		if op == "!=" {
-			op = "<>"
-		}
 		if !helpers.StringSliceContains(validOperators, op) {
 			res = append(res, fmt.Sprintf("operator %s is not valid, it must be one of: %s", op, strings.Join(validOperators, ",")))
 		}
 	}
+
 	// default Require to Required
 	if k.Require == "" {
 		k.Require = Required

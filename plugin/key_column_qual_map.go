@@ -127,7 +127,7 @@ func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*
 
 	columnQuals, ok := qualMap[keyColumn.Name]
 	if !ok {
-		log.Printf("[TRACE] getMatchingQuals returning false - qualMap does not contain any quals for colums %s", keyColumn.Name)
+		log.Printf("[TRACE] getMatchingQuals returning false - qualMap does not contain any quals for column %s", keyColumn.Name)
 		return nil
 	}
 

@@ -25,7 +25,7 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	// the map entries are strings - ensure they correpond to actual functions
 	validationErrors = append(validationErrors, t.validateHydrateDependencies()...)
 
-	// verify any ALL key kolumns do not duplicate columns between ALL fields
+	// verify any ALL key columns do not duplicate columns between ALL fields
 
 	return validationErrors
 }
@@ -151,17 +151,15 @@ func (t *Table) validateKeyColumns() []string {
 	// get key columns should only have equals operators
 	var getValidationErrors []string
 	var listValidationErrors []string
-	if t.Get != nil {
-		if len(t.Get.KeyColumns) > 0 {
-			getValidationErrors = append(getValidationErrors, t.Get.KeyColumns.Validate()...)
-			if !t.Get.KeyColumns.AllEquals() {
-				getValidationErrors = append(getValidationErrors, fmt.Sprintf("table '%s' Get key columns must only use '=' operators", t.Name))
-			}
-			if len(getValidationErrors) > 0 {
-				getValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid Get config:", t.Name)}, helpers.TabifyStringSlice(getValidationErrors, "    - ")...)
-			}
-			// ensure all key columns actually exist
-			getValidationErrors = append(getValidationErrors, t.ValidateColumnsExist(t.Get.KeyColumns)...)
+	if t.Get != nil && len(t.Get.KeyColumns) > 0 {
+		getValidationErrors = t.Get.KeyColumns.Validate()
+		if !t.Get.KeyColumns.AllEquals() {
+			getValidationErrors = append(getValidationErrors, fmt.Sprintf("table '%s' Get key columns must only use '=' operators", t.Name))
+		}
+		// ensure all key columns actually exist
+		getValidationErrors = append(getValidationErrors, t.ValidateColumnsExist(t.Get.KeyColumns)...)
+		if len(getValidationErrors) > 0 {
+			getValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid Get config:", t.Name)}, helpers.TabifyStringSlice(getValidationErrors, "    - ")...)
 		}
 	}
 
