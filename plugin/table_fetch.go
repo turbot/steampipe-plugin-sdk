@@ -132,7 +132,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 }
 
 // execute a get call for a single key column qual value
-// if a matrix is defined, defined for every atrix item2
+// if a matrix is defined, call for every matrix item
 func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem interface{}) (err error) {
 	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
 	defer func() {
