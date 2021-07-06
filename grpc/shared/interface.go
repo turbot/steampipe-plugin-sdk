@@ -29,7 +29,7 @@ type WrapperPluginServer interface {
 
 type WrapperPluginClient interface {
 	GetSchema(request *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
-	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.CancelFunc, error)
+	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error)
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 }
 
