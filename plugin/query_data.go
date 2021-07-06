@@ -76,7 +76,9 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	d.StreamListItem = d.streamListItem
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
 	d.StreamLeafListItem = d.streamLeafListItem
-	d.SetFetchType(table)
+	d.setFetchType(table)
+	// any property defined in the matrix is automatically treated as a key column qual
+	d.addMatrixPropertiesIntoQuals()
 
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	ensureColumns(queryContext, table)
@@ -123,9 +125,9 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	return clone
 }
 
-// SetFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
-func (d *QueryData) SetFetchType(table *Table) {
-	log.Printf("[TRACE] SetFetchType")
+// setFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
+func (d *QueryData) setFetchType(table *Table) {
+	log.Printf("[TRACE] setFetchType")
 	if table.Get != nil {
 		// default to get, even before checking the quals
 		// this handles the case of a get call only
@@ -156,6 +158,39 @@ func (d *QueryData) SetFetchType(table *Table) {
 			d.KeyColumnQuals = d.Quals.ToEqualsQualValueMap()
 		}
 		d.logQualMaps()
+	}
+}
+
+func (d *QueryData) addMatrixPropertiesIntoQuals() {
+	// d.Matrix is an array of maps, each of which contains a set of one or more matrix key value pairs
+	// we can just look at the first matrix item
+	if len(d.Matrix) == 0 {
+		return
+	}
+	log.Printf("[TRACE] addMatrixPropertiesIntoQuals adding matrix items into KeyColumnQuals\n")
+
+	// build a keycolumn slice from the matrix items
+	var matrixKeyColumns KeyColumnSlice
+	for column := range d.Matrix[0] {
+		matrixKeyColumns = append(matrixKeyColumns, &KeyColumn{
+			Name:      column,
+			Operators: []string{"="},
+		})
+	}
+	// now see which of these key columns are satisfied by the provided quals
+	matrixQualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, matrixKeyColumns)
+
+	log.Printf("[TRACE] matrixKeyColumns %v", matrixKeyColumns)
+	log.Printf("[TRACE] matrixQualMap %v", matrixQualMap)
+
+	// now add this into Quals and KeyColumnQuals
+	for col, quals := range matrixQualMap {
+		d.Quals[col] = quals
+
+		if quals.SingleEqualsQual() {
+			log.Printf("[TRACE] Add key column qual %s %v", col, quals.Quals[0].Value)
+			d.KeyColumnQuals[col] = quals.Quals[0].Value
+		}
 	}
 }
 
