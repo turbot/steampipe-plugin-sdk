@@ -195,15 +195,11 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 	var results []*resultWithMetadata
 
 	for _, matrixItem := range queryData.Matrix {
-		// check whether there is a single equals qual for each matrix item property and if so, check whether
-		// the matrix item property values satisfy the conditions
-		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[TRACE] getForEach: matrix item item does not meet quals %v\n", matrixItem)
-			continue
-		}
+
 		// increment our own wait group
 		wg.Add(1)
 
+		// pass matrixItem into goroutine to avoid async timing issues
 		go func(matrixItem map[string]interface{}) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -219,15 +215,21 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 			retryConfig, shouldIgnoreError := t.buildGetConfig()
 
-			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
+			// clone the query data and add the matrix properties to quals
+			matrixQueryData := queryData.ShallowCopy()
+			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
+
+			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
+			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 
 			if err != nil {
+				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
 				errorChan <- err
 			} else if item != nil {
 				// stream the get item AND the matrix item
 				resultChan <- &resultWithMetadata{item, matrixItem}
 			}
-		}(matrixItem) // pass matrixItem into goroutine to avoid async timing issues
+		}(matrixItem)
 	}
 
 	// convert wg to channel so we can select it
@@ -395,7 +397,8 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 		fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 		wg.Add(1)
 
-		go func() {
+		// pass matrixItem into goroutine to avoid async timing issues
+		go func(matrixItem map[string]interface{}) {
 			defer func() {
 				if r := recover(); r != nil {
 					queryData.streamError(helpers.ToError(r))
@@ -404,12 +407,20 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			}()
 			rd := newRowData(queryData, nil)
 
+			// clone the query data and add the matrix properties to quals
+			matrixQueryData := queryData.ShallowCopy()
+			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
+
 			retryConfig, shouldIgnoreError := t.buildListConfig()
-			_, err := rd.callHydrateWithRetries(fetchContext, queryData, listCall, retryConfig, shouldIgnoreError)
+
+			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
+
+			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, retryConfig, shouldIgnoreError)
 			if err != nil {
+				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
 				queryData.streamError(err)
 			}
-		}()
+		}(matrixItem)
 	}
 	wg.Wait()
 }

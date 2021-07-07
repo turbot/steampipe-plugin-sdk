@@ -43,8 +43,9 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 
 	return &RowData{
 		Item:           item,
-		matrixItem:     map[string]interface{}{},
-		hydrateResults: map[string]interface{}{},
+		matrixItem:     make(map[string]interface{}),
+		hydrateResults: make(map[string]interface{}),
+		hydrateErrors:  make(map[string]error),
 		waitChan:       make(chan bool),
 		table:          d.Table,
 		errorChan:      errorChan,
@@ -168,6 +169,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	// handle panics in the row hydrate function
 	defer func() {
 		if p := recover(); p != nil {
+			log.Printf("[WARN] callHydrate recover: %v", p)
 			r.errorChan <- status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
 		}
 		r.wg.Done()
@@ -198,7 +200,10 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 	hydrateWithIgnoreError := WrapHydrate(hydrateFunc, shouldIgnoreError)
 	hydrateResult, err := hydrateWithIgnoreError(ctx, d, hydrateData)
 	if err != nil {
+		log.Printf("[TRACE] hydrateWithIgnoreError returned error %v", err)
+
 		if shouldRetryError(err, d, retryConfig) {
+			log.Printf("[TRACE] retrying hydrate")
 			hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrateFunc, retryConfig)
 		}

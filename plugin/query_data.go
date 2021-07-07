@@ -8,9 +8,12 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
+	typehelpers "github.com/turbot/go-kit/types"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
 )
 
 const itemBufferSize = 100
@@ -77,8 +80,9 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
 	d.StreamLeafListItem = d.streamLeafListItem
 	d.setFetchType(table)
-	// any property defined in the matrix is automatically treated as a key column qual
-	d.addMatrixPropertiesIntoQuals()
+	// if we have key column quals for any matrix properties, filter the matrix
+	// to exclude items which do not satisfy the quals
+	d.filterMatrixItems()
 
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	ensureColumns(queryContext, table)
@@ -125,6 +129,25 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	return clone
 }
 
+// KeyColumnQualString looks for the specified key column quals and if it exists, return the value as a string
+func (d *QueryData) KeyColumnQualString(key string) string {
+	qualValue, ok := d.KeyColumnQuals[key]
+	if !ok {
+		return ""
+	}
+	return typehelpers.ToString(grpc.GetQualValue(qualValue).(string))
+}
+
+// add matrix item into KeyColumnQuals and Quals
+func (d *QueryData) updateQualsWithMatrixItem(matrixItem map[string]interface{}) {
+	for col, value := range matrixItem {
+		qualValue := proto.NewQualValue(value)
+		// replace any existing entry for both Quals and KeyColumnQuals
+		d.KeyColumnQuals[col] = qualValue
+		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Value: qualValue}}}
+	}
+}
+
 // setFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) setFetchType(table *Table) {
 	log.Printf("[TRACE] setFetchType")
@@ -161,13 +184,13 @@ func (d *QueryData) setFetchType(table *Table) {
 	}
 }
 
-func (d *QueryData) addMatrixPropertiesIntoQuals() {
-	// d.Matrix is an array of maps, each of which contains a set of one or more matrix key value pairs
-	// we can just look at the first matrix item
+func (d *QueryData) filterMatrixItems() {
 	if len(d.Matrix) == 0 {
 		return
 	}
-	log.Printf("[TRACE] addMatrixPropertiesIntoQuals adding matrix items into KeyColumnQuals\n")
+	log.Printf("[TRACE] filterMatrixItems - there are %d matrix items", len(d.Matrix))
+	log.Printf("[TRACE] unfiltered matrix: %v", d.Matrix)
+	var filteredMatrix []map[string]interface{}
 
 	// build a keycolumn slice from the matrix items
 	var matrixKeyColumns KeyColumnSlice
@@ -180,18 +203,57 @@ func (d *QueryData) addMatrixPropertiesIntoQuals() {
 	// now see which of these key columns are satisfied by the provided quals
 	matrixQualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, matrixKeyColumns)
 
-	log.Printf("[TRACE] matrixKeyColumns %v", matrixKeyColumns)
-	log.Printf("[TRACE] matrixQualMap %v", matrixQualMap)
+	for _, m := range d.Matrix {
+		log.Printf("[TRACE] matrix item %v", m)
+		// do all key columns which exist for this matrix item match the matrix values?
+		includeMatrixItem := true
 
-	// now add this into Quals and KeyColumnQuals
-	for col, quals := range matrixQualMap {
-		d.Quals[col] = quals
+		for col, val := range m {
+			log.Printf("[TRACE] col %s val %s", col, val)
+			// is there a quals for this matrix column?
 
-		if quals.SingleEqualsQual() {
-			log.Printf("[TRACE] Add key column qual %s %v", col, quals.Quals[0].Value)
-			d.KeyColumnQuals[col] = quals.Quals[0].Value
+			if quals, ok := matrixQualMap[col]; ok {
+				log.Printf("[TRACE] quals found for matrix column: %v", quals)
+				// if there IS a single equals qual which DOES NOT match this matrix item, exclude the matrix item
+				if quals.SingleEqualsQual() {
+					log.Printf("[TRACE] there is a single equals qual")
+					// if the value is an array, this is an IN query - check whether the array contains the matrix value
+					if listValue := quals.Quals[0].Value.GetListValue(); listValue != nil {
+						log.Printf("[TRACE] the qual value is a list: %v", listValue)
+						valListContainsMatrixValue := false
+						for _, qv := range listValue.Values {
+							if grpc.GetQualValue(qv) == val {
+								log.Printf("[TRACE] qual value list contains matrix value %v", val)
+								valListContainsMatrixValue = true
+								break
+							}
+						}
+						if !valListContainsMatrixValue {
+							log.Printf("[TRACE] qual value list doesn't contain matix value, exclude matrix item")
+							includeMatrixItem = false
+						}
+					} else {
+						if grpc.GetQualValue(quals.Quals[0].Value) != val {
+							log.Printf("[TRACE] qual value does NOT match matrix value")
+							includeMatrixItem = false
+						}
+					}
+				}
+			} else {
+				log.Printf("[TRACE] quals found for matrix column: %s", col)
+			}
+		}
+
+		if includeMatrixItem {
+			log.Printf("[TRACE] INCLUDE matrix item")
+			filteredMatrix = append(filteredMatrix, m)
+		} else {
+			log.Printf("[TRACE] EXCLUDE matrix item")
 		}
 	}
+	d.Matrix = filteredMatrix
+	log.Printf("[TRACE] filtered matrix: %v", d.Matrix)
+
 }
 
 func (d *QueryData) logQualMaps() {
