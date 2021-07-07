@@ -57,7 +57,8 @@ type QueryData struct {
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
-	parentItem interface{}
+	parentItem     interface{}
+	filteredMatrix []map[string]interface{}
 }
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
@@ -82,6 +83,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	d.setFetchType(table)
 	// if we have key column quals for any matrix properties, filter the matrix
 	// to exclude items which do not satisfy the quals
+	// this populates the property filteredMatrix
 	d.filterMatrixItems()
 
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
@@ -216,28 +218,7 @@ func (d *QueryData) filterMatrixItems() {
 				log.Printf("[TRACE] quals found for matrix column: %v", quals)
 				// if there IS a single equals qual which DOES NOT match this matrix item, exclude the matrix item
 				if quals.SingleEqualsQual() {
-					log.Printf("[TRACE] there is a single equals qual")
-					// if the value is an array, this is an IN query - check whether the array contains the matrix value
-					if listValue := quals.Quals[0].Value.GetListValue(); listValue != nil {
-						log.Printf("[TRACE] the qual value is a list: %v", listValue)
-						valListContainsMatrixValue := false
-						for _, qv := range listValue.Values {
-							if grpc.GetQualValue(qv) == val {
-								log.Printf("[TRACE] qual value list contains matrix value %v", val)
-								valListContainsMatrixValue = true
-								break
-							}
-						}
-						if !valListContainsMatrixValue {
-							log.Printf("[TRACE] qual value list doesn't contain matix value, exclude matrix item")
-							includeMatrixItem = false
-						}
-					} else {
-						if grpc.GetQualValue(quals.Quals[0].Value) != val {
-							log.Printf("[TRACE] qual value does NOT match matrix value")
-							includeMatrixItem = false
-						}
-					}
+					includeMatrixItem = d.shouldIncludeMatrixItem(quals, val)
 				}
 			} else {
 				log.Printf("[TRACE] quals found for matrix column: %s", col)
@@ -251,9 +232,28 @@ func (d *QueryData) filterMatrixItems() {
 			log.Printf("[TRACE] EXCLUDE matrix item")
 		}
 	}
-	d.Matrix = filteredMatrix
+	d.filteredMatrix = filteredMatrix
 	log.Printf("[TRACE] filtered matrix: %v", d.Matrix)
 
+}
+
+func (d *QueryData) shouldIncludeMatrixItem(quals *KeyColumnQuals, matrixVal interface{}) bool {
+	log.Printf("[TRACE] there is a single equals qual")
+
+	// if the value is an array, this is an IN query - check whether the array contains the matrix value
+	if listValue := quals.Quals[0].Value.GetListValue(); listValue != nil {
+		log.Printf("[TRACE] the qual value is a list: %v", listValue)
+		for _, qv := range listValue.Values {
+			if grpc.GetQualValue(qv) == matrixVal {
+				log.Printf("[TRACE] qual value list contains matrix value %v", matrixVal)
+				return true
+			}
+		}
+		return false
+	}
+
+	// otherwise it is a single qual value
+	return grpc.GetQualValue(quals.Quals[0].Value) == matrixVal
 }
 
 func (d *QueryData) logQualMaps() {
