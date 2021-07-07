@@ -4,7 +4,6 @@ package transform
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/url"
 	"reflect"
 	"strings"
@@ -366,25 +365,25 @@ func ToDouble(_ context.Context, d *TransformData) (interface{}, error) {
 	return types.ToFloat64(d.Value)
 }
 
-// UnixToTimestamp convert unix time format to RFC3339 format
+// UnixToTimestamp convert unix time format to go time object
+// (which will later be converted to RFC3339 format by the FDW)
 func UnixToTimestamp(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value != nil {
-		epochTime, err := types.ToFloat64(d.Value)
+		epochTime, err := types.ToInt64(d.Value)
 		if err != nil {
 			return nil, err
 		}
 		if epochTime == 0 {
 			return nil, nil
 		}
-		sec, dec := math.Modf(epochTime)
-		timestamp := time.Unix(int64(sec), int64(dec*(1e9)))
-		timestampRFC3339Format := timestamp.Format(time.RFC3339)
-		return timestampRFC3339Format, nil
+		t := time.Unix(epochTime, 0)
+		return t, nil
 	}
 	return nil, nil
 }
 
-// UnixMsToTimestamp convert unix time in milliseconds to RFC3339 format
+// UnixMsToTimestamp convert unix time in milliseconds to go time object
+// (which will later be converted to RFC3339 format by the FDW)
 func UnixMsToTimestamp(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value != nil {
 		epochTime, err := types.ToInt64(d.Value)
@@ -394,9 +393,9 @@ func UnixMsToTimestamp(_ context.Context, d *TransformData) (interface{}, error)
 		if epochTime == 0 {
 			return nil, nil
 		}
-		timeIn := time.Unix(0, epochTime*int64(time.Millisecond))
-		timestampRFC3339Format := timeIn.Format(time.RFC3339)
-		return timestampRFC3339Format, nil
+		nanoSeconds := epochTime * 1000000
+		t := time.Unix(0, nanoSeconds)
+		return t, nil
 	}
 	return nil, nil
 }
