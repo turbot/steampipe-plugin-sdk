@@ -195,12 +195,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 	var results []*resultWithMetadata
 
 	for _, matrixItem := range queryData.Matrix {
-		// check whether there is a single equals qual for each matrix item property and if so, check whether
-		// the matrix item property values satisfy the conditions
-		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[TRACE] getForEach: matrix item item does not meet quals %v\n", matrixItem)
-			continue
-		}
+
 		// increment our own wait group
 		wg.Add(1)
 
@@ -219,7 +214,11 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 			retryConfig, shouldIgnoreError := t.buildGetConfig()
 
-			item, err := rd.callHydrateWithRetries(fetchContext, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
+			// clone the query data and add the matrix properties to quals
+			matrixQueryData := queryData.ShallowCopy()
+			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
+
+			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 
 			if err != nil {
 				errorChan <- err
@@ -404,8 +403,12 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			}()
 			rd := newRowData(queryData, nil)
 
+			// clone the query data and add the matrix properties to quals
+			matrixQueryData := queryData.ShallowCopy()
+			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
+
 			retryConfig, shouldIgnoreError := t.buildListConfig()
-			_, err := rd.callHydrateWithRetries(fetchContext, queryData, listCall, retryConfig, shouldIgnoreError)
+			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, retryConfig, shouldIgnoreError)
 			if err != nil {
 				queryData.streamError(err)
 			}
