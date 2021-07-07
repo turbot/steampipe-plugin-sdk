@@ -194,7 +194,9 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 	resultChan := make(chan *resultWithMetadata, len(queryData.Matrix))
 	var results []*resultWithMetadata
 
-	for _, matrixItem := range queryData.Matrix {
+	// NOTE - we use the filtered matrix - which means we may not actually run any hydrate calls
+	// if the quals have filtered out all matrix items (e.g. select where region = 'invalid')
+	for _, matrixItem := range queryData.filteredMatrix {
 
 		// increment our own wait group
 		wg.Add(1)
@@ -384,7 +386,9 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
 	log.Printf("[TRACE] listForEach: %v\n", queryData.Matrix)
 	var wg sync.WaitGroup
-	for _, matrixItem := range queryData.Matrix {
+	// NOTE - we use the filtered matrix - which means we may not actually run any hydrate calls
+	// if the quals have filtered out all matrix items (e.g. select where region = 'invalid')
+	for _, matrixItem := range queryData.filteredMatrix {
 
 		// check whether there is a single equals qual for each matrix item property and if so, check whether
 		// the matrix item property values satisfy the conditions
