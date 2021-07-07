@@ -3,6 +3,7 @@ package transform
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 type TransformTest struct {
@@ -599,35 +600,35 @@ Statement:
 			Param:       []string{"GetColumn", "ListColumn"},
 		},
 		function: FieldValue,
-		expected: "ERROR",
+		expected: nil,
 	},
 	"UnixToTimestamp time conversion int64": {
 		d: &TransformData{
 			Value: 1611061921,
 		},
 		function: UnixToTimestamp,
-		expected: "2021-01-19T18:42:01+05:30",
+		expected: time.Unix(1611061921, 0),
 	},
 	"UnixToTimestamp time conversion string": {
 		d: &TransformData{
 			Value: "1610821712",
 		},
 		function: UnixToTimestamp,
-		expected: "2021-01-16T23:58:32+05:30",
+		expected: time.Unix(1610821712, 0),
 	},
 	"UnixToTimestamp time conversion float": {
 		d: &TransformData{
 			Value: 915148799.75,
 		},
 		function: UnixToTimestamp,
-		expected: "1999-01-01T05:29:59+05:30",
+		expected: time.Unix(915148799, 0),
 	},
 	"UnixToTimestamp time conversion float string": {
 		d: &TransformData{
 			Value: "999999999.75",
 		},
 		function: UnixToTimestamp,
-		expected: "2001-09-09T07:16:39+05:30",
+		expected: "ERROR",
 	},
 	"UnixToTimestamp time conversion zero": {
 		d: &TransformData{
@@ -659,19 +660,19 @@ Statement:
 	},
 	"UnixMsToTimestamp time conversion string": {
 		d: &TransformData{
-			Value: "1611057198070",
+			Value: "1611057198500",
 		},
 		function: UnixMsToTimestamp,
-		expected: "2021-01-19T17:23:18+05:30",
+		expected: time.Unix(1611057198, 500000000),
 	},
 	"UnixMsToTimestamp time conversion int64": {
 		d: &TransformData{
-			Value: 1611057198070,
+			Value: 1611057198500,
 		},
 		function: UnixMsToTimestamp,
-		expected: "2021-01-19T17:23:18+05:30",
+		expected: time.Unix(1611057198, 500000000),
 	},
-	"UnixMsToTimestamp string": {
+	"UnixMsToTimestamp bad string": {
 		d: &TransformData{
 			Value: "stringtest",
 		},
