@@ -199,6 +199,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 		// increment our own wait group
 		wg.Add(1)
 
+		// pass matrixItem into goroutine to avoid async timing issues
 		go func(matrixItem map[string]interface{}) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -218,15 +219,17 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			matrixQueryData := queryData.ShallowCopy()
 			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
 
+			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
 			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 
 			if err != nil {
+				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
 				errorChan <- err
 			} else if item != nil {
 				// stream the get item AND the matrix item
 				resultChan <- &resultWithMetadata{item, matrixItem}
 			}
-		}(matrixItem) // pass matrixItem into goroutine to avoid async timing issues
+		}(matrixItem)
 	}
 
 	// convert wg to channel so we can select it
@@ -394,7 +397,8 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 		fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 		wg.Add(1)
 
-		go func() {
+		// pass matrixItem into goroutine to avoid async timing issues
+		go func(matrixItem map[string]interface{}) {
 			defer func() {
 				if r := recover(); r != nil {
 					queryData.streamError(helpers.ToError(r))
@@ -408,11 +412,15 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
 
 			retryConfig, shouldIgnoreError := t.buildListConfig()
+
+			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
+
 			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, retryConfig, shouldIgnoreError)
 			if err != nil {
+				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
 				queryData.streamError(err)
 			}
-		}()
+		}(matrixItem)
 	}
 	wg.Wait()
 }
