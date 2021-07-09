@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 
@@ -18,4 +19,8 @@ func GetMatrixItem(ctx context.Context) map[string]interface{} {
 		return nil
 	}
 	return value.(map[string]interface{})
+}
+
+func ContextCancelled(ctx context.Context) bool {
+	return errors.Is(ctx.Err(), context.Canceled)
 }
