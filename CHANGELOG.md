@@ -1,4 +1,4 @@
-## v1.3.0  [2021-07-07]
+## v1.3.0  [2021-07-09]
 
 _What's new_
 * When defining key columns it is now possible to specify supported operators for each column (defaulting to '='). ([#121](https://github.com/turbot/steampipe-plugin-sdk/issues/121))
