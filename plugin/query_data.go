@@ -334,7 +334,13 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 	listFunction := helpers.GetFunctionName(d.Table.List.Hydrate)
 	listParentFunction := helpers.GetFunctionName(d.Table.List.ParentHydrate)
 	if callingFunction != listFunction && callingFunction != listParentFunction {
-		return false
+		// if the calling function is NOT one of the other registered hydrate functions,
+		//it must be an anonymous function so let it go
+		for _, c := range d.Table.Columns {
+			if c.Hydrate != nil && helpers.GetFunctionName(c.Hydrate) == callingFunction {
+				return false
+			}
+		}
 	}
 	return true
 }
