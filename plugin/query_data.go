@@ -55,13 +55,14 @@ type QueryData struct {
 	stream             proto.WrapperPlugin_ExecuteServer
 
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
-	listWg sync.WaitGroup
+	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
 	parentItem     interface{}
 	filteredMatrix []map[string]interface{}
 }
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
+	var wg sync.WaitGroup
 	d := &QueryData{
 		ConnectionManager: connectionManager,
 		Table:             table,
@@ -76,6 +77,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		rowDataChan: make(chan *RowData, itemBufferSize),
 		errorChan:   make(chan error, 1),
 		stream:      stream,
+		listWg:      &wg,
 	}
 	d.StreamListItem = d.streamListItem
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
