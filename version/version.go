@@ -5,4 +5,4 @@ package version
 var ProtocolVersion int64 = 20210701
 
 // Version is the semantic version number reflecting the current release.
-var Version = "1.3.0"
+var Version = "1.3.1"

@@ -1,3 +1,8 @@
+## v1.3.1  [2021-07-15]
+_Bug fixes_
+* Fix crash caused by thread sync issue with multi-region union queries. ([#149](https://github.com/turbot/steampipe-plugin-sdk/issues/149))
+* When checking if StreamListItem is called from a non-list function, do not through errors for anonymous functions. ([#147](https://github.com/turbot/steampipe-plugin-sdk/issues/147))
+
 ## v1.3.0  [2021-07-09]
 
 _What's new_
