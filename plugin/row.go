@@ -58,11 +58,14 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 	// (this is a data structure containing fetch specific data, e.g. region)
 	// store this in the context for use by the transform functions
 	rowDataCtx := context.WithValue(ctx, context_key.MatrixItem, r.matrixItem)
+	// clone the query data and add the matrix properties to quals
+	rowQueryData := r.queryData.ShallowCopy()
+	rowQueryData.updateQualsWithMatrixItem(r.matrixItem)
 
 	// make any required hydrate function calls
 	// - these populate the row with data entries corresponding to the hydrate function name
 
-	if err := r.startAllHydrateCalls(rowDataCtx); err != nil {
+	if err := r.startAllHydrateCalls(rowDataCtx, rowQueryData); err != nil {
 		log.Printf("[WARN] startAllHydrateCalls failed with error %v", err)
 		return nil, err
 	}
@@ -71,7 +74,7 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 }
 
 // keep looping round hydrate functions until they are all started
-func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context) error {
+func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData *QueryData) error {
 
 	// make a map of started hydrate calls for this row - this is used the determine which calls have not started yet
 	var callsStarted = map[string]bool{}
@@ -88,7 +91,7 @@ func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context) error {
 			// so call needs to start - can it?
 			if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
 				// execute the hydrate call asynchronously
-				call.Start(rowDataCtx, r, hydrateFuncName, r.queryData.concurrencyManager)
+				call.Start(rowDataCtx, r, rowQueryData, hydrateFuncName, r.queryData.concurrencyManager)
 				callsStarted[hydrateFuncName] = true
 			} else {
 				allStarted = false
