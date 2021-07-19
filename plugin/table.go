@@ -56,6 +56,8 @@ type ListConfig struct {
 // build a list of required hydrate function calls which must be executed, based on the columns which have been requested
 // NOTE: 'get' and 'list' calls are hydration functions, but they must be omitted from this list as they are called
 // first. BEFORE the other hydration functions
+// NOTE2: this function also populates the resolvedHydrateName for each column (used to retrieve column values),
+// and the hydrateColumnMap (used to determine which columns to return)
 func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*HydrateCall {
 	log.Printf("[TRACE] requiredHydrateCalls, table '%s' fetchType %s colsUsed %v\n", t.Name, fetchType, colsUsed)
 
@@ -70,15 +72,18 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 	// populate a map keyed by function name to ensure we only store each hydrate function once
 	for _, column := range t.Columns {
 		// see if this column specifies a hydrate function
-		hydrateFunc := column.Hydrate
+
 		var hydrateName string
-		if hydrateFunc == nil {
-			// so there is no hydrate call registered for the column - the resolvedHydrateName is the fetch call
+		if hydrateFunc := column.Hydrate; hydrateFunc == nil {
+			// so there is NO hydrate call registered for the column
+			// the column is provided by the fetch call
 			// do not add to map of hydrate functions as the fetch call will always be called
 			hydrateFunc = fetchFunc
 			hydrateName = fetchCallName
 		} else {
+			// there is a hydrate call registered
 			hydrateName = helpers.GetFunctionName(hydrateFunc)
+			// if this column was requested in query, add the hydrate call to required calls
 			if helpers.StringSliceContains(colsUsed, column.Name) {
 				requiredCallBuilder.Add(hydrateFunc)
 			}
@@ -86,6 +91,7 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 
 		// now update hydrateColumnMap
 		t.hydrateColumnMap[hydrateName] = append(t.hydrateColumnMap[hydrateName], column.Name)
+		// store the hydrate name in the column object
 		column.resolvedHydrateName = hydrateName
 	}
 	log.Printf("[WARN] requiredHydrateCalls %v hydrateColumnMap %v", requiredCallBuilder.Get(), t.hydrateColumnMap)

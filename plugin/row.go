@@ -265,7 +265,6 @@ func (r *RowData) getHydrateKeys() []string {
 
 // GetColumnData returns the root item, and, if this column has a hydrate function registered, the associated hydrate data
 func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
-
 	if column.resolvedHydrateName == "" {
 		return nil, fmt.Errorf("column %s has no resolved hydrate function name", column.Name)
 	}
