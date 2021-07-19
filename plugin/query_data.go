@@ -470,7 +470,7 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
 	defer func() {
 		if r := recover(); r != nil {
-			d.streamError(ToError(r))
+			d.streamError(helpers.ToError(r))
 		}
 		wg.Done()
 	}()
@@ -491,14 +491,4 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	logging.DisplayProfileData(10 * time.Millisecond)
 	log.Println("[TRACE] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
-}
-
-// ToError is used to return an error or format the supplied value as error.
-// Can be removed once go-kit version 0.2.0 is released
-func ToError(val interface{}) error {
-	if e, ok := val.(error); ok {
-		return e
-	} else {
-		return fmt.Errorf("%v", val)
-	}
 }
