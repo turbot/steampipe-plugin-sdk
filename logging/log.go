@@ -8,6 +8,7 @@ import (
 
 // NewLogger :: create a hclog logger with the level specified by the SP_LOG env var
 func NewLogger(options *hclog.LoggerOptions) hclog.Logger {
+
 	if options.Level == hclog.NoLevel {
 		level := LogLevel()
 		if options == nil {
