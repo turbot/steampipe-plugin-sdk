@@ -28,6 +28,8 @@ type Table struct {
 	// definitions of dependencies between hydrate functions
 	HydrateDependencies []HydrateDependencies
 	HydrateConfig       []HydrateConfig
+	// map of hydrate function name to columns it provides
+	hydrateColumnMap map[string][]string
 }
 
 type GetConfig struct {
@@ -58,34 +60,45 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 	log.Printf("[TRACE] requiredHydrateCalls, table '%s' fetchType %s colsUsed %v\n", t.Name, fetchType, colsUsed)
 
 	// what is the name of the fetch call (i.e. the get/list call)
-	var fetchCallName string
-	if fetchType == fetchTypeList {
-		fetchCallName = helpers.GetFunctionName(t.List.Hydrate)
-	} else {
-		fetchCallName = helpers.GetFunctionName(t.Get.Hydrate)
-	}
+	fetchFunc := t.getFetchFunc(fetchType)
+	fetchCallName := helpers.GetFunctionName(fetchFunc)
 
+	// initialise hydrateColumnMap
+	t.hydrateColumnMap = make(map[string][]string)
 	requiredCallBuilder := newRequiredHydrateCallBuilder(t, fetchCallName)
 
 	// populate a map keyed by function name to ensure we only store each hydrate function once
 	for _, column := range t.Columns {
-		if helpers.StringSliceContains(colsUsed, column.Name) {
-
-			// see if this column specifies a hydrate function
-			hydrateFunc := column.Hydrate
-			if hydrateFunc != nil {
-				hydrateName := helpers.GetFunctionName(hydrateFunc)
-				column.resolvedHydrateName = hydrateName
+		// see if this column specifies a hydrate function
+		hydrateFunc := column.Hydrate
+		var hydrateName string
+		if hydrateFunc == nil {
+			// so there is no hydrate call registered for the column - the resolvedHydrateName is the fetch call
+			// do not add to map of hydrate functions as the fetch call will always be called
+			hydrateFunc = fetchFunc
+			hydrateName = fetchCallName
+		} else {
+			hydrateName = helpers.GetFunctionName(hydrateFunc)
+			if helpers.StringSliceContains(colsUsed, column.Name) {
 				requiredCallBuilder.Add(hydrateFunc)
-			} else {
-				column.resolvedHydrateName = fetchCallName
-				// so there is no hydrate call registered for the column - the resolvedHydrateName is the fetch call
-				// do not add to map of hydrate functions as the fetch call will always be called
 			}
 		}
-	}
 
+		// now update hydrateColumnMap
+		t.hydrateColumnMap[hydrateName] = append(t.hydrateColumnMap[hydrateName], column.Name)
+		column.resolvedHydrateName = hydrateName
+	}
+	log.Printf("[WARN] requiredHydrateCalls %v hydrateColumnMap %v", requiredCallBuilder.Get(), t.hydrateColumnMap)
 	return requiredCallBuilder.Get()
+}
+
+func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
+
+	if fetchType == fetchTypeList {
+		return t.List.Hydrate
+	}
+	return t.Get.Hydrate
+
 }
 
 func (t *Table) getHydrateDependencies(hydrateFuncName string) []HydrateFunc {

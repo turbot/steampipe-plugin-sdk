@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
@@ -318,7 +317,7 @@ func hydrateArrayToString(calls []*HydrateCall) string {
 }
 
 func hydrateCallToString(call *HydrateCall) string {
-	str := fmt.Sprintf("Func: %s", helpers.GetFunctionName(call.Func))
+	str := fmt.Sprintf("Func: %s", call.Name)
 	if len(call.Depends) > 0 {
 		str += "\n  Depends:"
 	}

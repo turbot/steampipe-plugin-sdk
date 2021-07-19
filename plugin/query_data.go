@@ -46,14 +46,18 @@ type QueryData struct {
 	// event for the child list of a parent child list call
 	StreamLeafListItem func(ctx context.Context, item interface{})
 	// internal
+
+	// a list of the required hydrate calls (EXCLUDING the fetch call)
 	hydrateCalls []*HydrateCall
+	// all the columns that will be returned by this query
+	columns []string
 
 	concurrencyManager *ConcurrencyManager
 	rowDataChan        chan *RowData
 	errorChan          chan error
 	streamCount        int
-	stream             proto.WrapperPlugin_ExecuteServer
 
+	stream proto.WrapperPlugin_ExecuteServer
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
@@ -92,9 +96,26 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	ensureColumns(queryContext, table)
 
 	d.hydrateCalls = table.requiredHydrateCalls(queryContext.Columns, d.FetchType)
+	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
 
 	return d
+}
+
+func (d *QueryData) populateColumns() {
+	fetchName := helpers.GetFunctionName(d.Table.getFetchFunc(d.FetchType))
+
+	d.addColumnsForHydrate(fetchName)
+
+	for _, h := range d.hydrateCalls {
+		d.addColumnsForHydrate(h.Name)
+	}
+}
+
+func (d *QueryData) addColumnsForHydrate(hydrateName string) {
+	for _, columnName := range d.Table.hydrateColumnMap[hydrateName] {
+		d.columns = append(d.columns, columnName)
+	}
 }
 
 // ShallowCopy creates a shallow copy of the QueryData
