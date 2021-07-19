@@ -95,27 +95,34 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	ensureColumns(queryContext, table)
 
+	// build list of required hydrate calls, based on requested columns
 	d.hydrateCalls = table.requiredHydrateCalls(queryContext.Columns, d.FetchType)
+	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
 
 	return d
 }
 
+// build list of all columns returned by the fetch call and required hydrate calls
 func (d *QueryData) populateColumns() {
+	// add columns returned by fetch call
 	fetchName := helpers.GetFunctionName(d.Table.getFetchFunc(d.FetchType))
+	d.columns = append(d.columns, d.addColumnsForHydrate(fetchName)...)
 
-	d.addColumnsForHydrate(fetchName)
-
+	// add columns returned by required hydrate calls
 	for _, h := range d.hydrateCalls {
-		d.addColumnsForHydrate(h.Name)
+		d.columns = append(d.columns, d.addColumnsForHydrate(h.Name)...)
 	}
 }
 
-func (d *QueryData) addColumnsForHydrate(hydrateName string) {
+// get the column returned by the given hydrate call
+func (d *QueryData) addColumnsForHydrate(hydrateName string) []string {
+	var cols []string
 	for _, columnName := range d.Table.hydrateColumnMap[hydrateName] {
-		d.columns = append(d.columns, columnName)
+		cols = append(cols, columnName)
 	}
+	return cols
 }
 
 // ShallowCopy creates a shallow copy of the QueryData
