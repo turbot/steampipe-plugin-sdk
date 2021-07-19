@@ -14,7 +14,7 @@ _What's new_
 
 _Breaking changes_
 * The property `QueryData.QueryContext.Quals` has been renamed to `QueryContext.UnsafeQuals`. This property contains all quals, not just key columns. These quals should not be used for filtering data as this may break the FDW row data caching, which is keyed based on key column quals. Instead, use the new property `QueryData.Quals`which contains only key column quals. ([#119](https://github.com/turbot/steampipe-plugin-sdk/issues/119))
-* Plugins built with `v1.3` of the sdk will only be loaded by Steampipe `v1.7` onwards.
+* Plugins built with `v1.3` of the sdk will only be loaded by Steampipe `v0.6.2` onwards.
 
 ## v0.2.10 [2021-06-09]
 _What's new_
