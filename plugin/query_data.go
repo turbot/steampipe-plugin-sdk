@@ -115,6 +115,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		rowDataChan:        d.rowDataChan,
 		errorChan:          d.errorChan,
 		stream:             d.stream,
+		streamCount:        d.streamCount,
 		listWg:             d.listWg,
 	}
 

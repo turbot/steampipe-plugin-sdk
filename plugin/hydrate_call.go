@@ -81,13 +81,13 @@ func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager 
 }
 
 // Start starts a hydrate call
-func (h *HydrateCall) Start(ctx context.Context, r *RowData, hydrateFuncName string, concurrencyManager *ConcurrencyManager) {
+func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, hydrateFuncName string, concurrencyManager *ConcurrencyManager) {
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, r.queryData, h.Func, hydrateFuncName, h.Config.RetryConfig, h.Config.ShouldIgnoreError)
+		r.callHydrate(ctx, d, h.Func, hydrateFuncName, h.Config.RetryConfig, h.Config.ShouldIgnoreError)
 		// decrement number of hydrate functions running
 		concurrencyManager.Finished(hydrateFuncName)
 	}()
