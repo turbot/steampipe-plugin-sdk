@@ -148,15 +148,10 @@ func (r *RowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 // generate the column values for for all requested columns
 func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 	row := &proto.Row{Columns: make(map[string]*proto.Column)}
-	for _, columnName := range r.queryData.columns {
-		// get columns schema
-		column := r.table.getColumn(columnName)
-		if column == nil {
-			// postgres asked for a non existent column. Shouldn't happen but just ignore
-			return nil, fmt.Errorf("hydrateColumnMap contains non existent column %s", columnName)
-		}
 
-		val, err := r.table.getColumnValue(ctx, r, column)
+	// queryData.columns contains all columns returned by the hydrate calls which have been executed
+	for _, columnName := range r.queryData.columns {
+		val, err := r.table.getColumnValue(ctx, r, columnName)
 		if err != nil {
 			return nil, err
 		}
