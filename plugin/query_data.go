@@ -18,6 +18,8 @@ import (
 
 const itemBufferSize = 100
 
+// NOTE - any field added here must also be added to ShallowCopy
+
 type QueryData struct {
 	// The table this query is associated with
 	Table *Table
@@ -104,27 +106,6 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	return d
 }
 
-// build list of all columns returned by the fetch call and required hydrate calls
-func (d *QueryData) populateColumns() {
-	// add columns returned by fetch call
-	fetchName := helpers.GetFunctionName(d.Table.getFetchFunc(d.FetchType))
-	d.columns = append(d.columns, d.addColumnsForHydrate(fetchName)...)
-
-	// add columns returned by required hydrate calls
-	for _, h := range d.hydrateCalls {
-		d.columns = append(d.columns, d.addColumnsForHydrate(h.Name)...)
-	}
-}
-
-// get the column returned by the given hydrate call
-func (d *QueryData) addColumnsForHydrate(hydrateName string) []string {
-	var cols []string
-	for _, columnName := range d.Table.hydrateColumnMap[hydrateName] {
-		cols = append(cols, columnName)
-	}
-	return cols
-}
-
 // ShallowCopy creates a shallow copy of the QueryData
 // this is used to pass different quals to multiple list/get calls, when an in() clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
@@ -145,6 +126,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		stream:             d.stream,
 		streamCount:        d.streamCount,
 		listWg:             d.listWg,
+		columns:            d.columns,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -160,6 +142,27 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	clone.StreamListItem = clone.streamListItem
 	clone.StreamLeafListItem = clone.streamLeafListItem
 	return clone
+}
+
+// build list of all columns returned by the fetch call and required hydrate calls
+func (d *QueryData) populateColumns() {
+	// add columns returned by fetch call
+	fetchName := helpers.GetFunctionName(d.Table.getFetchFunc(d.FetchType))
+	d.columns = append(d.columns, d.addColumnsForHydrate(fetchName)...)
+
+	// add columns returned by required hydrate calls
+	for _, h := range d.hydrateCalls {
+		d.columns = append(d.columns, d.addColumnsForHydrate(h.Name)...)
+	}
+}
+
+// get the column returned by the given hydrate call
+func (d *QueryData) addColumnsForHydrate(hydrateName string) []string {
+	var cols []string
+	for _, columnName := range d.Table.hydrateColumnMap[hydrateName] {
+		cols = append(cols, columnName)
+	}
+	return cols
 }
 
 // KeyColumnQualString looks for the specified key column quals and if it exists, return the value as a string
