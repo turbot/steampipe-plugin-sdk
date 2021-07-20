@@ -1,3 +1,7 @@
+## v1.4.1  [2021-07-20]
+_Bug fixes_
+* Extraneous log output removed
+
 ## v1.4.0  [2021-07-20]
 _What's new_
 * Return all columns provided by hydrate functions, not just requested columns. ([#156](https://github.com/turbot/steampipe-plugin-sdk/issues/156))
