@@ -94,7 +94,6 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 		// store the hydrate name in the column object
 		column.resolvedHydrateName = hydrateName
 	}
-	log.Printf("[WARN] requiredHydrateCalls %v hydrateColumnMap %v", requiredCallBuilder.Get(), t.hydrateColumnMap)
 	return requiredCallBuilder.Get()
 }
 
