@@ -1,3 +1,10 @@
+## v1.4.0  [2021-07-20]
+_What's new_
+* Return all columns provided by hydrate functions, not just requested columns. ([#156](https://github.com/turbot/steampipe-plugin-sdk/issues/156))
+
+_Bug fixes_
+* Fix matrix parameters not being added to the KeyColumns map passed to hydrate functions. ([#151](https://github.com/turbot/steampipe-plugin-sdk/issues/151))
+
 ## v1.3.1  [2021-07-15]
 _Bug fixes_
 * Fix crash caused by thread sync issue with multi-region union queries. ([#149](https://github.com/turbot/steampipe-plugin-sdk/issues/149))
