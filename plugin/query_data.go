@@ -18,6 +18,8 @@ import (
 
 const itemBufferSize = 100
 
+// NOTE - any field added here must also be added to ShallowCopy
+
 type QueryData struct {
 	// The table this query is associated with
 	Table *Table
@@ -46,14 +48,18 @@ type QueryData struct {
 	// event for the child list of a parent child list call
 	StreamLeafListItem func(ctx context.Context, item interface{})
 	// internal
+
+	// a list of the required hydrate calls (EXCLUDING the fetch call)
 	hydrateCalls []*HydrateCall
+	// all the columns that will be returned by this query
+	columns []string
 
 	concurrencyManager *ConcurrencyManager
 	rowDataChan        chan *RowData
 	errorChan          chan error
 	streamCount        int
-	stream             proto.WrapperPlugin_ExecuteServer
 
+	stream proto.WrapperPlugin_ExecuteServer
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
@@ -91,7 +97,10 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	ensureColumns(queryContext, table)
 
+	// build list of required hydrate calls, based on requested columns
 	d.hydrateCalls = table.requiredHydrateCalls(queryContext.Columns, d.FetchType)
+	// build list of all columns returned by these hydrate calls (and the fetch call)
+	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
 
 	return d
@@ -117,6 +126,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		stream:             d.stream,
 		streamCount:        d.streamCount,
 		listWg:             d.listWg,
+		columns:            d.columns,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -132,6 +142,27 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	clone.StreamListItem = clone.streamListItem
 	clone.StreamLeafListItem = clone.streamLeafListItem
 	return clone
+}
+
+// build list of all columns returned by the fetch call and required hydrate calls
+func (d *QueryData) populateColumns() {
+	// add columns returned by fetch call
+	fetchName := helpers.GetFunctionName(d.Table.getFetchFunc(d.FetchType))
+	d.columns = append(d.columns, d.addColumnsForHydrate(fetchName)...)
+
+	// add columns returned by required hydrate calls
+	for _, h := range d.hydrateCalls {
+		d.columns = append(d.columns, d.addColumnsForHydrate(h.Name)...)
+	}
+}
+
+// get the column returned by the given hydrate call
+func (d *QueryData) addColumnsForHydrate(hydrateName string) []string {
+	var cols []string
+	for _, columnName := range d.Table.hydrateColumnMap[hydrateName] {
+		cols = append(cols, columnName)
+	}
+	return cols
 }
 
 // KeyColumnQualString looks for the specified key column quals and if it exists, return the value as a string
@@ -442,7 +473,7 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
 	defer func() {
 		if r := recover(); r != nil {
-			d.streamError(ToError(r))
+			d.streamError(helpers.ToError(r))
 		}
 		wg.Done()
 	}()
@@ -463,14 +494,4 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	logging.DisplayProfileData(10 * time.Millisecond)
 	log.Println("[TRACE] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
-}
-
-// ToError is used to return an error or format the supplied value as error.
-// Can be removed once go-kit version 0.2.0 is released
-func ToError(val interface{}) error {
-	if e, ok := val.(error); ok {
-		return e
-	} else {
-		return fmt.Errorf("%v", val)
-	}
 }

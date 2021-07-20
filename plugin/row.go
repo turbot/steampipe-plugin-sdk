@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
@@ -82,7 +81,7 @@ func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 	for {
 		var allStarted = true
 		for _, call := range r.queryData.hydrateCalls {
-			hydrateFuncName := helpers.GetFunctionName(call.Func)
+			hydrateFuncName := call.Name
 			// if it is already started, continue to next call
 			if callsStarted[hydrateFuncName] {
 				continue
@@ -91,7 +90,7 @@ func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 			// so call needs to start - can it?
 			if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
 				// execute the hydrate call asynchronously
-				call.Start(rowDataCtx, r, rowQueryData, hydrateFuncName, r.queryData.concurrencyManager)
+				call.Start(rowDataCtx, r, rowQueryData, r.queryData.concurrencyManager)
 				callsStarted[hydrateFuncName] = true
 			} else {
 				allStarted = false
@@ -149,21 +148,16 @@ func (r *RowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 // generate the column values for for all requested columns
 func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 	row := &proto.Row{Columns: make(map[string]*proto.Column)}
-	// only populate columns which have been asked for
-	for _, columnName := range r.queryData.QueryContext.Columns {
-		// get columns schema
-		column := r.table.getColumn(columnName)
-		if column == nil {
-			// postgres asked for a non existent column. Shouldn't happen but just ignore
-			continue
-		}
 
-		var err error
-		row.Columns[columnName], err = r.table.getColumnValue(ctx, r, column)
+	// queryData.columns contains all columns returned by the hydrate calls which have been executed
+	for _, columnName := range r.queryData.columns {
+		val, err := r.table.getColumnValue(ctx, r, columnName)
 		if err != nil {
 			return nil, err
 		}
+		row.Columns[columnName] = val
 	}
+
 	return row, nil
 }
 
@@ -223,6 +217,7 @@ func shouldRetryError(err error, d *QueryData, retryConfig *RetryConfig) bool {
 	if d.streamCount != 0 {
 		return false
 	}
+
 	shouldRetryErrorFunc := retryConfig.ShouldRetryError
 	if shouldRetryErrorFunc == nil {
 		return false
@@ -265,7 +260,6 @@ func (r *RowData) getHydrateKeys() []string {
 
 // GetColumnData returns the root item, and, if this column has a hydrate function registered, the associated hydrate data
 func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
-
 	if column.resolvedHydrateName == "" {
 		return nil, fmt.Errorf("column %s has no resolved hydrate function name", column.Name)
 	}

@@ -51,10 +51,15 @@ type HydrateCall struct {
 	// the dependencies expressed using function name
 	Depends []string
 	Config  *HydrateConfig
+	Name    string
 }
 
 func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall {
-	res := &HydrateCall{Func: hydrateFunc, Config: config}
+	res := &HydrateCall{
+		Name:   helpers.GetFunctionName(hydrateFunc),
+		Func:   hydrateFunc,
+		Config: config,
+	}
 	for _, f := range config.Depends {
 		res.Depends = append(res.Depends, helpers.GetFunctionName(f))
 	}
@@ -81,14 +86,14 @@ func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager 
 }
 
 // Start starts a hydrate call
-func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, hydrateFuncName string, concurrencyManager *ConcurrencyManager) {
+func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, concurrencyManager *ConcurrencyManager) {
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, d, h.Func, hydrateFuncName, h.Config.RetryConfig, h.Config.ShouldIgnoreError)
+		r.callHydrate(ctx, d, h.Func, h.Name, h.Config.RetryConfig, h.Config.ShouldIgnoreError)
 		// decrement number of hydrate functions running
-		concurrencyManager.Finished(hydrateFuncName)
+		concurrencyManager.Finished(h.Name)
 	}()
 }

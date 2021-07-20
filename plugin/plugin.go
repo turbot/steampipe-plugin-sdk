@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"syscall"
 
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
-
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/go-kit/helpers"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
@@ -159,7 +159,7 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("SetConnectionConfig failed: %s", ToError(r).Error())
+			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
 		} else {
 			p.Logger.Debug("SetConnectionConfig finished")
 		}

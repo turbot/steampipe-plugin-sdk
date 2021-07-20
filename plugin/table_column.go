@@ -33,7 +33,14 @@ func (t *Table) getColumnType(columnName string) proto.ColumnType {
 }
 
 // take the raw value returned by the get/list/hydrate call, apply transforms and convert to protobuf value
-func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *Column) (*proto.Column, error) {
+func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, columnName string) (*proto.Column, error) {
+	// get columns schema
+	column := t.getColumn(columnName)
+	if column == nil {
+		// postgres asked for a non existent column. Shouldn't happen.
+		return nil, fmt.Errorf("hydrateColumnMap contains non existent column %s", columnName)
+	}
+
 	hydrateItem, err := rowData.GetColumnData(column)
 	if err != nil {
 		log.Printf("[ERROR] table '%s' failed to get column data: %v\n", t.Name, err)
