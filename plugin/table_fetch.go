@@ -300,9 +300,9 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}()
 
 	// verify we have the necessary quals
-	isSatisfied, unsatisfiedColumns := queryData.Quals.SatisfiesKeyColumns(t.List.KeyColumns)
-	if !isSatisfied {
-		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: \n%s", unsatisfiedColumns.String()))
+	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.List.KeyColumns)
+	if len(unsatisfiedColumns) > 0 {
+		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: %s", unsatisfiedColumns.String()))
 		queryData.streamError(err)
 		return
 	}

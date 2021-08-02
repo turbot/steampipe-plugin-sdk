@@ -39,22 +39,22 @@ func (m KeyColumnQualMap) String() string {
 	return strings.Join(strs, "\n")
 }
 
-func (m KeyColumnQualMap) SatisfiesKeyColumns(columns KeyColumnSlice) (bool, KeyColumnSlice) {
-	log.Printf("[TRACE] SatisfiesKeyColumns %v", columns)
+func (m KeyColumnQualMap) GetUnsatisfiedKeyColumns(columns KeyColumnSlice) KeyColumnSlice {
+	log.Printf("[TRACE] GetUnsatisfiedKeyColumns %v", columns)
 
 	if columns == nil {
-		return true, nil
+		return nil
 	}
 	var unsatisfiedKeyColumns KeyColumnSlice
-	satisfiedCount := map[string]int{
-		Required: 0,
-		AnyOf:    0,
-		Optional: 0,
+	satisfiedMap := map[string]KeyColumnSlice{
+		Required: {},
+		AnyOf:    {},
+		Optional: {},
 	}
-	unsatisfiedCount := map[string]int{
-		Required: 0,
-		AnyOf:    0,
-		Optional: 0,
+	unsatisfiedMap := map[string]KeyColumnSlice{
+		Required: {},
+		AnyOf:    {},
+		Optional: {},
 	}
 
 	for _, keyColumn := range columns {
@@ -62,25 +62,33 @@ func (m KeyColumnQualMap) SatisfiesKeyColumns(columns KeyColumnSlice) (bool, Key
 		k := m[keyColumn.Name]
 		satisfied := k != nil && k.SatisfiesKeyColumn(keyColumn)
 		if satisfied {
-			satisfiedCount[keyColumn.Require]++
-
+			satisfiedMap[keyColumn.Require] = append(satisfiedMap[keyColumn.Require], keyColumn)
 			log.Printf("[TRACE] key column satisfied %v", keyColumn)
 
 		} else {
-			unsatisfiedCount[keyColumn.Require]++
-			unsatisfiedKeyColumns = append(unsatisfiedKeyColumns, keyColumn)
+			unsatisfiedMap[keyColumn.Require] = append(unsatisfiedMap[keyColumn.Require], keyColumn)
 			log.Printf("[TRACE] key column NOT satisfied %v", keyColumn)
-			// if this was NOT an optional key column, we are not satisfied
 		}
 	}
 
 	// we are satisfied if:
 	// all Required key columns are satisfied
 	// either there is at least 1 satisfied AnyOf key columns, or there are no AnyOf columns
-	res := unsatisfiedCount[Required] == 0 && (satisfiedCount[AnyOf] > 0 || unsatisfiedCount[AnyOf] == 0)
+	anyOfSatisfied := len(satisfiedMap[AnyOf]) > 0 || len(unsatisfiedMap[AnyOf]) == 0
+	if !anyOfSatisfied {
+		unsatisfiedKeyColumns = unsatisfiedMap[AnyOf]
+	}
+	// if any 'required' are unsatisfied, we are unsatisfied
+	requiredSatisfied := len(unsatisfiedMap[Required]) == 0
+	if !requiredSatisfied {
+		unsatisfiedKeyColumns = append(unsatisfiedKeyColumns, unsatisfiedMap[Required]...)
+	}
 
-	log.Printf("[TRACE] SatisfiesKeyColumns result: %v\nsatisfiedCount %v\nunsatisfiedCount %v\nunsatisfiedKeyColumns %v", res, satisfiedCount, unsatisfiedCount, unsatisfiedKeyColumns)
-	return res, unsatisfiedKeyColumns
+	log.Printf("[TRACE] satisfied: %v", satisfiedMap)
+	log.Printf("[TRACE] unsatisfied: %v", unsatisfiedMap)
+	log.Printf("[TRACE] unsatisfied required KeyColumns %v", unsatisfiedKeyColumns)
+
+	return unsatisfiedKeyColumns
 }
 
 // ToQualMap converts the map into a simpler map of column to []Quals
