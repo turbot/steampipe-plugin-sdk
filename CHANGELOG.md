@@ -1,3 +1,9 @@
+## v1.5.0  [2021-08-06]
+_What's new_ 
+* Add cache functions `SetWithTTL` and `Delete`. ([#163](https://github.com/turbot/steampipe-plugin-sdk/issues/163))
+
+_Bug fixes_
+* When listing missing quals, only report required quals. ([#159](https://github.com/turbot/steampipe-plugin-sdk/issues/159))
 ## v1.4.1  [2021-07-20]
 _Bug fixes_
 * Extraneous log output removed
