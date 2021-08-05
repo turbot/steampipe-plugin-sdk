@@ -27,7 +27,10 @@ func NewCache(config *ristretto.Config) *Cache {
 }
 
 func (cache *Cache) Set(key string, value interface{}) bool {
-	ttl := 1 * time.Hour
+	return cache.SetWithTTL(key, value, 1*time.Hour)
+}
+
+func (cache *Cache) SetWithTTL(key string, value interface{}, ttl time.Duration) bool {
 	res := cache.cache.SetWithTTL(key, value, 1, ttl)
 	// wait for value to pass through buffers
 	time.Sleep(10 * time.Millisecond)
@@ -36,4 +39,8 @@ func (cache *Cache) Set(key string, value interface{}) bool {
 
 func (cache *Cache) Get(key string) (interface{}, bool) {
 	return cache.cache.Get(key)
+}
+
+func (cache *Cache) Delete(key string) {
+	cache.cache.Del(key)
 }
