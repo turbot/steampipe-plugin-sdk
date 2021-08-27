@@ -96,7 +96,7 @@ func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 			if !helpers.StringSliceContains(errorMessages, errorString) {
 				errorMessages = append(errorMessages, errorString)
 				// now add in the subject and add to the output array
-				if diag.Subject != nil {
+				if diag.Subject != nil && len(diag.Subject.Filename) > 0 {
 					errorString += fmt.Sprintf("\n(%s)", diag.Subject.String())
 				}
 				errorStrings = append(errorStrings, errorString)
