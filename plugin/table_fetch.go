@@ -180,7 +180,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 // enables multi-partition fetching
 func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
 
-	log.Printf("[TRACE] getForEach, matrixItem list: %v\n", queryData.Matrix)
+	log.Printf("[TRACE] getForEach, matrixItem list: %v\n", queryData.filteredMatrix)
 
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(queryData.Matrix))
