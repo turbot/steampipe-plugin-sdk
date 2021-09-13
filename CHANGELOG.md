@@ -1,3 +1,7 @@
+## v1.5.1  [2021-09-13]
+_Bug fixes_
+* Fix `get` call returning nothing if there is an `in` clause for the key column, and matrix parameters are used. ([#170](https://github.com/turbot/steampipe-plugin-sdk/issues/170))
+
 ## v1.5.0  [2021-08-06]
 _What's new_ 
 * Add cache functions `SetWithTTL` and `Delete`. ([#163](https://github.com/turbot/steampipe-plugin-sdk/issues/163))
