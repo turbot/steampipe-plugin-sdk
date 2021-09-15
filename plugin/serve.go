@@ -20,7 +20,6 @@ type NewPluginOptions struct {
 	ConnectionConfig string
 }
 type PluginFunc func(context.Context) *Plugin
-type CreatePluginWithOptionsFunc func(context.Context, *NewPluginOptions) *Plugin
 
 func Serve(opts *ServeOpts) {
 
