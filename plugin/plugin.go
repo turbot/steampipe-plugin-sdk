@@ -33,6 +33,8 @@ type Plugin struct {
 	Connections map[string]*Connection
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
+	// function used to initialise tables - if it existis it will be called from SetConnectionCConfig
+	CreateTables func(p *Plugin) error
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -182,6 +184,11 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		return err
 	}
 	p.Connections[connectionName] = &Connection{connectionName, config}
+
+	// if the plugin defines a CreateTables func, call it now
+	if p.CreateTables != nil {
+		return p.CreateTables(p)
+	}
 	return nil
 }
 
