@@ -29,8 +29,8 @@ type Plugin struct {
 	// every table must implement these columns
 	RequiredColumns        []*Column
 	ConnectionConfigSchema *ConnectionConfigSchema
-	// a map of connection name to connection structs
-	Connections map[string]*Connection
+	// connection this plugin is instantiated for
+	Connection *Connection
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
 	// function used to initialise tables - if it existis it will be called from SetConnectionCConfig
@@ -39,13 +39,8 @@ type Plugin struct {
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
 func (p *Plugin) Initialise() {
-	//  initialise the connection map
-	p.Connections = make(map[string]*Connection)
 	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionManager = connection_manager.NewManager()
-
-	// NOTE update tables to have a reference to the plugin
-	p.claimTables()
 
 	// time will be provided by the plugin logger
 	p.Logger = logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
@@ -79,6 +74,11 @@ func (p *Plugin) setuLimit() {
 }
 
 func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
+	// the connection property must be set already
+	if p.Connection == nil {
+		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config %p %v", p.Connection, p.Connection == nil)
+	}
+
 	// first validate the plugin
 	if validationErrors := p.Validate(); validationErrors != "" {
 		return nil, fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
@@ -104,8 +104,13 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}()
 
+	// the connection property must be set already
+	if p.Connection == nil {
+		return fmt.Errorf("plugin.Execute called before setting connection config")
+	}
+
 	logging.LogTime("Start execute")
-	p.Logger.Debug("Execute ", "connection", req.Connection, "connection config", p.Connections, "table", req.Table)
+	p.Logger.Trace("Execute ", "connection", req.Connection, "connection config", p.Connection, "table", req.Table)
 
 	queryContext := NewQueryContext(req.QueryContext)
 	table, ok := p.TableMap[req.Table]
@@ -126,19 +131,13 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	ctx := context.WithValue(stream.Context(), context_key.Logger, p.Logger)
 
 	var matrixItem []map[string]interface{}
-	var connection *Connection
-
-	// NOTE: req.Connection parameter is only populated in version 0.2.0 of Steampipe - check whether it exists
-	if req.Connection != "" {
-		connection = p.Connections[req.Connection]
-	}
 
 	// get the matrix item
 	if table.GetMatrixItem != nil {
-		matrixItem = table.GetMatrixItem(ctx, connection)
+		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
 
-	queryData := newQueryData(queryContext, table, stream, connection, matrixItem, p.ConnectionManager)
+	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
 	// asyncronously fetch items
@@ -158,7 +157,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 // SetConnectionConfig parses the connection config string, and populate the connection data for this connection
 // NOTE: we always pass and store connection config BY VALUE
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
-
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
@@ -171,30 +169,41 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	if validationErrors := p.Validate(); validationErrors != "" {
 		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
-	if connectionConfigString == "" {
-		return nil
-	}
-	if p.ConnectionConfigSchema == nil {
-		return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
-	}
 
-	// ask plugin for a struct to deserialise the config into
-	config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
-	if err != nil {
-		return err
+	// create connection object
+	p.Connection = &Connection{Name: connectionName}
+
+	// if config was provided, parse it
+	if connectionConfigString != "" {
+		if p.ConnectionConfigSchema == nil {
+			return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+		}
+		// ask plugin for a struct to deserialise the config into
+		config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
+		if err != nil {
+			return err
+		}
+		p.Connection.Config = config
 	}
-	p.Connections[connectionName] = &Connection{connectionName, config}
 
 	// if the plugin defines a CreateTables func, call it now
-	if p.CreateTables != nil {
-		return p.CreateTables(p)
-	}
-	return nil
+	return p.initialiseTables()
+
 }
 
-// slightly hacky - called on startup to set a plugin pointer in each table
-func (p *Plugin) claimTables() {
+// initialiseTables does 2 things:
+// 1) if a CreateTable function was provided by the plugin, call it
+// 2) update tables to have a reference to the plugin
+func (p *Plugin) initialiseTables() error {
+	if p.CreateTables != nil {
+		if err := p.CreateTables(p); err != nil {
+			return err
+		}
+	}
+
+	// update tables to have a reference to the plugin
 	for _, table := range p.TableMap {
 		table.Plugin = p
 	}
+	return nil
 }
