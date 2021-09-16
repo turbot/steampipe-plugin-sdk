@@ -33,8 +33,8 @@ type Plugin struct {
 	Connection *Connection
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
-	// function used to initialise tables - if it existis it will be called from SetConnectionCConfig
-	CreateTables      func(p *Plugin) error
+	// callback function used to create tables for th eplugin - if it exists it will be called from SetConnectionCConfig
+	TableMapFunc      func(p *Plugin) error
 	SteampipeMetadata *proto.SteampipeMetadata
 }
 
@@ -199,8 +199,8 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 // 1) if a CreateTable function was provided by the plugin, call it
 // 2) update tables to have a reference to the plugin
 func (p *Plugin) initialiseTables() error {
-	if p.CreateTables != nil {
-		if err := p.CreateTables(p); err != nil {
+	if p.TableMapFunc != nil {
+		if err := p.TableMapFunc(p); err != nil {
 			return err
 		}
 	}
