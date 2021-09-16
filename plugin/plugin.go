@@ -77,7 +77,7 @@ func (p *Plugin) setuLimit() {
 func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
 	// the connection property must be set already
 	if p.Connection == nil {
-		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config %p %v", p.Connection, p.Connection == nil)
+		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
 	}
 
 	// first validate the plugin
