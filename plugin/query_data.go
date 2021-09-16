@@ -63,11 +63,12 @@ type QueryData struct {
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
-	parentItem     interface{}
-	filteredMatrix []map[string]interface{}
+	parentItem        interface{}
+	filteredMatrix    []map[string]interface{}
+	SteampipeMetadata *proto.SteampipeMetadata
 }
 
-func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
+func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager, steampipeMetadata *proto.SteampipeMetadata) *QueryData {
 	var wg sync.WaitGroup
 	d := &QueryData{
 		ConnectionManager: connectionManager,
@@ -77,7 +78,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		Matrix:            matrix,
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
-
+		SteampipeMetadata: steampipeMetadata,
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
 		rowDataChan: make(chan *RowData, itemBufferSize),
