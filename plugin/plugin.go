@@ -34,7 +34,8 @@ type Plugin struct {
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
 	// function used to initialise tables - if it existis it will be called from SetConnectionCConfig
-	CreateTables func(p *Plugin) error
+	CreateTables      func(p *Plugin) error
+	SteampipeMetadata *proto.SteampipeMetadata
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -137,7 +138,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
 
-	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
+	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, p.SteampipeMetadata)
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
 	// asyncronously fetch items
@@ -156,7 +157,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 // SetConnectionConfig parses the connection config string, and populate the connection data for this connection
 // NOTE: we always pass and store connection config BY VALUE
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, steampipeMetadata *proto.SteampipeMetadata) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
@@ -169,6 +170,9 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	if validationErrors := p.Validate(); validationErrors != "" {
 		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
+
+	// set the steampipe metadata
+	p.SteampipeMetadata = steampipeMetadata
 
 	// create connection object
 	p.Connection = &Connection{Name: connectionName}

@@ -82,6 +82,11 @@ message GetSchemaResponse {
 message SetConnectionConfigRequest{
   string connection_name = 1;
   string connection_config = 2;
+  SteampipeMetadata steampipe_metadata = 3;
+}
+
+message SteampipeMetadata{
+  string steampipe_version = 1;
 }
 message SetConnectionConfigResponse{}
 
