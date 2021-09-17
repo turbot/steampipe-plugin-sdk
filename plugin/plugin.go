@@ -34,8 +34,8 @@ type Plugin struct {
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
 	// function used to populate the table map - if it exists it will be called from SetConnectionConfig
-	TableMapFunc      func(p *Plugin) (map[string]*Table, error)
-	SteampipeMetadata *proto.SteampipeMetadata
+	TableMapFunc   func(p *Plugin) (map[string]*Table, error)
+	ClientMetadata *proto.ClientMetadata
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -79,7 +79,7 @@ func (p *Plugin) setuLimit() {
 // SetConnectionConfig is always called before any other plugin function
 // it parses the connection config string, and populate the connection data for this connection
 // it also calls the table creation factory function, if provided by the plugin
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, steampipeMetadata *proto.SteampipeMetadata) (err error) {
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, clientMetadata *proto.ClientMetadata) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
@@ -94,7 +94,7 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	}
 
 	// set the steampipe metadata
-	p.SteampipeMetadata = steampipeMetadata
+	p.ClientMetadata = clientMetadata
 
 	// create connection object
 	p.Connection = &Connection{Name: connectionName}
@@ -195,7 +195,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
 
-	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, p.SteampipeMetadata)
+	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, p.ClientMetadata)
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
 	// asyncronously fetch items
