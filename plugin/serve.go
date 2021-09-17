@@ -20,6 +20,7 @@ type NewPluginOptions struct {
 	ConnectionConfig string
 }
 type PluginFunc func(context.Context) *Plugin
+type CreatePlugin func(context.Context, string) (*Plugin, error)
 
 func Serve(opts *ServeOpts) {
 
@@ -31,5 +32,5 @@ func Serve(opts *ServeOpts) {
 	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
 	p.Initialise()
 
-	grpc.NewPluginServer(p.Name, p.GetSchema, p.Execute, p.SetConnectionConfig).Serve()
+	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.GetSchema, p.Execute).Serve()
 }

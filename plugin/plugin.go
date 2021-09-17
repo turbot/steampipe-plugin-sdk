@@ -33,8 +33,8 @@ type Plugin struct {
 	Connection *Connection
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
-	// callback function used to create tables for th eplugin - if it exists it will be called from SetConnectionCConfig
-	TableMapFunc      func(p *Plugin) error
+	// function used to populate the table map - if it exists it will be called from SetConnectionConfig
+	TableMapFunc      func(p *Plugin) (map[string]*Table, error)
 	SteampipeMetadata *proto.SteampipeMetadata
 }
 
@@ -74,15 +74,72 @@ func (p *Plugin) setuLimit() {
 	}
 }
 
+// GRPC Server callback functions
+
+// SetConnectionConfig is always called before any other plugin function
+// it parses the connection config string, and populate the connection data for this connection
+// it also calls the table creation factory function, if provided by the plugin
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, steampipeMetadata *proto.SteampipeMetadata) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
+		} else {
+			p.Logger.Debug("SetConnectionConfig finished")
+		}
+	}()
+
+	// first validate the plugin
+	if validationErrors := p.Validate(); validationErrors != "" {
+		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
+	}
+
+	// set the steampipe metadata
+	p.SteampipeMetadata = steampipeMetadata
+
+	// create connection object
+	p.Connection = &Connection{Name: connectionName}
+
+	// if config was provided, parse it
+	if connectionConfigString != "" {
+		if p.ConnectionConfigSchema == nil {
+			return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+		}
+		// ask plugin for a struct to deserialise the config into
+		config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
+		if err != nil {
+			return err
+		}
+		p.Connection.Config = config
+	}
+
+	// if the plugin defines a CreateTables func, call it now
+	return p.initialiseTables()
+
+}
+
+// initialiseTables does 2 things:
+// 1) if a TableMapFunc factory function was provided by the plugin, call it
+// 2) update tables to have a reference to the plugin
+func (p *Plugin) initialiseTables() error {
+	if p.TableMapFunc != nil {
+		if tableMap, err := p.TableMapFunc(p); err != nil {
+			return err
+		} else {
+			p.TableMap = tableMap
+		}
+	}
+
+	// update tables to have a reference to the plugin
+	for _, table := range p.TableMap {
+		table.Plugin = p
+	}
+	return nil
+}
+
 func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
 	// the connection property must be set already
 	if p.Connection == nil {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
-	}
-
-	// first validate the plugin
-	if validationErrors := p.Validate(); validationErrors != "" {
-		return nil, fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
 
 	schema := map[string]*proto.TableSchema{}
@@ -153,61 +210,4 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	logging.LogTime("Calling build Stream")
 	// asyncronously stream rows
 	return queryData.streamRows(ctx, rowChan)
-}
-
-// SetConnectionConfig parses the connection config string, and populate the connection data for this connection
-// NOTE: we always pass and store connection config BY VALUE
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, steampipeMetadata *proto.SteampipeMetadata) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
-		} else {
-			p.Logger.Debug("SetConnectionConfig finished")
-		}
-	}()
-
-	// first validate the plugin
-	if validationErrors := p.Validate(); validationErrors != "" {
-		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
-	}
-
-	// set the steampipe metadata
-	p.SteampipeMetadata = steampipeMetadata
-
-	// create connection object
-	p.Connection = &Connection{Name: connectionName}
-
-	// if config was provided, parse it
-	if connectionConfigString != "" {
-		if p.ConnectionConfigSchema == nil {
-			return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
-		}
-		// ask plugin for a struct to deserialise the config into
-		config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
-		if err != nil {
-			return err
-		}
-		p.Connection.Config = config
-	}
-
-	// if the plugin defines a CreateTables func, call it now
-	return p.initialiseTables()
-
-}
-
-// initialiseTables does 2 things:
-// 1) if a CreateTable function was provided by the plugin, call it
-// 2) update tables to have a reference to the plugin
-func (p *Plugin) initialiseTables() error {
-	if p.TableMapFunc != nil {
-		if err := p.TableMapFunc(p); err != nil {
-			return err
-		}
-	}
-
-	// update tables to have a reference to the plugin
-	for _, table := range p.TableMap {
-		table.Plugin = p
-	}
-	return nil
 }
