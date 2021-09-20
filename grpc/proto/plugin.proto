@@ -86,7 +86,7 @@ message SetConnectionConfigRequest{
 }
 
 message ClientMetadata{
-  string version = 1;
+  string user_agent = 1;
 }
 message SetConnectionConfigResponse{}
 
