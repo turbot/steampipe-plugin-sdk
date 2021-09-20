@@ -77,7 +77,6 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		Matrix:            matrix,
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
-
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
 		rowDataChan: make(chan *RowData, itemBufferSize),

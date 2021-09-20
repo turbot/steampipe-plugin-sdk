@@ -22,7 +22,7 @@ type PluginServer struct {
 	getSchemaFunc           GetSchemaFunc
 }
 
-func NewPluginServer(pluginName string, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc, setConnectionConfigFunc SetConnectionConfigFunc) *PluginServer {
+func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc) *PluginServer {
 	return &PluginServer{
 		pluginName:              pluginName,
 		executeFunc:             executeFunc,
