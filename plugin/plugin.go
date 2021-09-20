@@ -19,9 +19,14 @@ import (
 
 // Plugin is an object used to build all necessary data for a given query
 type Plugin struct {
-	Name               string
-	Logger             hclog.Logger
-	TableMap           map[string]*Table
+	Name     string
+	Logger   hclog.Logger
+	TableMap map[string]*Table
+	// TableMapFunc is a callback function which can be used to populate the table map
+	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
+	// (connection config is not available at plugin creation time)
+	TableMapFunc func(p *Plugin) (map[string]*Table, error)
+
 	DefaultTransform   *transform.ColumnTransforms
 	DefaultGetConfig   *GetConfig
 	DefaultConcurrency *DefaultConcurrencyConfig
@@ -33,8 +38,7 @@ type Plugin struct {
 	Connection *Connection
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
-	// function used to populate the table map - if it exists it will be called from SetConnectionConfig
-	TableMapFunc   func(p *Plugin) (map[string]*Table, error)
+	// client metadata contains client specific details - it is populated in the SetConnectionConfig call
 	ClientMetadata *proto.ClientMetadata
 }
 
@@ -195,7 +199,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
 
-	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, p.ClientMetadata)
+	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
 	// asyncronously fetch items

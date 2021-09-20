@@ -67,7 +67,7 @@ type QueryData struct {
 	filteredMatrix []map[string]interface{}
 }
 
-func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager, ClientMetadata *proto.ClientMetadata) *QueryData {
+func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
 	var wg sync.WaitGroup
 	d := &QueryData{
 		ConnectionManager: connectionManager,
