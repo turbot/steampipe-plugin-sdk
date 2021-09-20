@@ -106,6 +106,23 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	return d
 }
 
+// ShouldStreamListItem determines whether there is a need to stream any more data
+// if  the context has been cancelled, or enough items have been streamed to satisfy the query limit (if passed),
+// then it returns false
+func (d *QueryData) ShouldStreamListItem(ctx context.Context) bool {
+	if IsCancelled(ctx) {
+		log.Printf("[TRACE] ShouldStreamListItem returning false: context is cancelled")
+		return false
+	}
+
+	if d.QueryContext.Limit != nil && int64(d.streamCount) >= *d.QueryContext.Limit {
+		log.Printf("[TRACE] ShouldStreamListItem returning false: already streamed %d items, limit is %d", d.streamCount, *d.QueryContext.Limit)
+		return false
+	}
+
+	return true
+}
+
 // ShallowCopy creates a shallow copy of the QueryData
 // this is used to pass different quals to multiple list/get calls, when an in() clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
@@ -322,13 +339,10 @@ func ensureColumns(queryContext *QueryContext, table *Table) {
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	callingFunction := helpers.GetCallingFunction(1)
 
-	// if the calling function was the ParentHydrate function from the list config,
-	// stream the results to the child list hydrate function and return
-	d.streamCount++
-
+	// if this table has no parent hydrate function, just call steramLeafListItem directly
 	parentListHydrate := d.Table.List.ParentHydrate
 	if parentListHydrate == nil {
-		d.StreamLeafListItem(ctx, item)
+		d.streamLeafListItem(ctx, item)
 		return
 	}
 
@@ -381,6 +395,13 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
+	// have we streamed enough already?
+	if !d.ShouldStreamListItem(ctx) {
+		log.Printf("[TRACE] streamLeafListItem NOT streaming item")
+		return
+	}
+	// increment the stream count
+	d.streamCount++
 
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
