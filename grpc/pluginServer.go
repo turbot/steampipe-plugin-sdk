@@ -11,7 +11,7 @@ import (
 
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 type GetSchemaFunc func() (map[string]*proto.TableSchema, error)
-type SetConnectionConfigFunc func(string, string, *proto.ClientMetadata) error
+type SetConnectionConfigFunc func(string, string) error
 
 // PluginServer :: server for a single plugin
 type PluginServer struct {
@@ -62,7 +62,7 @@ func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest)
 			err = helpers.ToError(r)
 		}
 	}()
-	err = s.setConnectionConfigFunc(req.ConnectionName, req.ConnectionConfig, req.ClientMetadata)
+	err = s.setConnectionConfigFunc(req.ConnectionName, req.ConnectionConfig)
 	return &proto.SetConnectionConfigResponse{}, err
 }
 

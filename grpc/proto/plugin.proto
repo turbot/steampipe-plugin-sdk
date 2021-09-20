@@ -82,12 +82,8 @@ message GetSchemaResponse {
 message SetConnectionConfigRequest{
   string connection_name = 1;
   string connection_config = 2;
-  ClientMetadata client_metadata = 3;
 }
 
-message ClientMetadata{
-  string user_agent = 1;
-}
 message SetConnectionConfigResponse{}
 
 service WrapperPlugin {

@@ -38,8 +38,6 @@ type Plugin struct {
 	Connection *Connection
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
-	// client metadata contains client specific details - it is populated in the SetConnectionConfig call
-	ClientMetadata *proto.ClientMetadata
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -83,7 +81,7 @@ func (p *Plugin) setuLimit() {
 // SetConnectionConfig is always called before any other plugin function
 // it parses the connection config string, and populate the connection data for this connection
 // it also calls the table creation factory function, if provided by the plugin
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, clientMetadata *proto.ClientMetadata) (err error) {
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
@@ -96,9 +94,6 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	if validationErrors := p.Validate(); validationErrors != "" {
 		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
-
-	// set the steampipe metadata
-	p.ClientMetadata = clientMetadata
 
 	// create connection object
 	p.Connection = &Connection{Name: connectionName}
