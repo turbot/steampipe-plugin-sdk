@@ -119,8 +119,15 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 // initialiseTables does 2 things:
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
 // 2) update tables to have a reference to the plugin
-func (p *Plugin) initialiseTables() error {
+func (p *Plugin) initialiseTables() (err error) {
 	if p.TableMapFunc != nil {
+		// handle panic in factory function
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("failed to plugin initialise plugin '%s': TableMapFunc '%s' had unhandled error: %v", p.Name, helpers.GetFunctionName(p.TableMapFunc), helpers.ToError(r))
+			}
+		}()
+
 		if tableMap, err := p.TableMapFunc(p); err != nil {
 			return err
 		} else {
