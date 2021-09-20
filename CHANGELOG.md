@@ -1,3 +1,10 @@
+## v1.6.0  [2021-09-20]
+_What's new_
+* Add `ShouldStreamListItem` function which performs context cancellation and limit checking to determine if more data is required. ([#177](https://github.com/turbot/steampipe-plugin-sdk/issues/177))
+  * This function is used internally by StreamListItem to avoid calling hydrate functions once sufficient data has been returned. 
+  * It may also be called directly by the plugin to avoid retrieving unneeded data from the external API
+* Enable plugin table creation to use the connection config. New plugin property has been added: `TableMapFunc`. This can be set to a table creation function which, when invoked, has access to the parsed connection config. ([#180](https://github.com/turbot/steampipe-plugin-sdk/issues/180))
+
 ## v1.5.1  [2021-09-13]
 _Bug fixes_
 * Fix `get` call returning nothing if there is an `in` clause for the key column, and matrix parameters are used. ([#170](https://github.com/turbot/steampipe-plugin-sdk/issues/170))
