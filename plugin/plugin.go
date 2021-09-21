@@ -25,7 +25,7 @@ type Plugin struct {
 	// TableMapFunc is a callback function which can be used to populate the table map
 	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
 	// (connection config is not available at plugin creation time)
-	TableMapFunc func(p *Plugin) (map[string]*Table, error)
+	TableMapFunc func(ctx context.Context, p *Plugin) (map[string]*Table, error)
 
 	DefaultTransform   *transform.ColumnTransforms
 	DefaultGetConfig   *GetConfig
@@ -111,15 +111,15 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		p.Connection.Config = config
 	}
 
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 	// if the plugin defines a CreateTables func, call it now
-	return p.initialiseTables()
-
+	return p.initialiseTables(ctx)
 }
 
 // initialiseTables does 2 things:
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
 // 2) update tables to have a reference to the plugin
-func (p *Plugin) initialiseTables() (err error) {
+func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 	if p.TableMapFunc != nil {
 		// handle panic in factory function
 		defer func() {
@@ -128,7 +128,7 @@ func (p *Plugin) initialiseTables() (err error) {
 			}
 		}()
 
-		if tableMap, err := p.TableMapFunc(p); err != nil {
+		if tableMap, err := p.TableMapFunc(ctx, p); err != nil {
 			return err
 		} else {
 			p.TableMap = tableMap
@@ -150,9 +150,13 @@ func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
 
 	schema := map[string]*proto.TableSchema{}
 
+	var tables []string
 	for tableName, table := range p.TableMap {
+
 		schema[tableName] = table.GetSchema()
+		tables = append(tables, tableName)
 	}
+	//return schema, fmt.Errorf("GET SCHEMA %s", strings.Join(tables))
 	return schema, nil
 }
 
