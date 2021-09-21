@@ -1,3 +1,7 @@
+## v1.6.1  [2021-09-21
+_Bug fixes_
+* Pass context to table creation callback `TableMapFunc`. ([#183](https://github.com/turbot/steampipe-plugin-sdk/issues/183))
+
 ## v1.6.0  [2021-09-21]
 _What's new_
 * Add `QueryStatus.RowsRemaining` function which performs context cancellation and limit checking to determine how much more data the plugin should provide. ([#177](https://github.com/turbot/steampipe-plugin-sdk/issues/177))
