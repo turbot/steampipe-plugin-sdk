@@ -214,7 +214,7 @@ func shouldRetryError(err error, d *QueryData, retryConfig *RetryConfig) bool {
 		return false
 	}
 	// if we have started streaming, we cannot retry
-	if d.streamCount != 0 {
+	if d.QueryStatus.rowsStreamed != 0 {
 		return false
 	}
 

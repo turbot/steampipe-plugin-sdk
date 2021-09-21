@@ -34,6 +34,8 @@ type QueryData struct {
 	FetchType fetchType
 	// query context data passed from postgres - this includes the requested columns and the quals
 	QueryContext *QueryContext
+	// the status of the in-progress query
+	QueryStatus *QueryStatus
 	// connection details - the connection name and any config declared in the connection config file
 	Connection *Connection
 	// Matrix is an array of parameter maps (MatrixItems)
@@ -57,7 +59,6 @@ type QueryData struct {
 	concurrencyManager *ConcurrencyManager
 	rowDataChan        chan *RowData
 	errorChan          chan error
-	streamCount        int
 
 	stream proto.WrapperPlugin_ExecuteServer
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
@@ -102,24 +103,11 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
 
+	// populate the query status
+	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
+	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
+
 	return d
-}
-
-// ShouldStreamListItem determines whether there is a need to stream any more data
-// if  the context has been cancelled, or enough items have been streamed to satisfy the query limit (if passed),
-// then it returns false
-func (d *QueryData) ShouldStreamListItem(ctx context.Context) bool {
-	if IsCancelled(ctx) {
-		log.Printf("[TRACE] ShouldStreamListItem returning false: context is cancelled")
-		return false
-	}
-
-	if d.QueryContext.Limit != nil && int64(d.streamCount) >= *d.QueryContext.Limit {
-		log.Printf("[TRACE] ShouldStreamListItem returning false: already streamed %d items, limit is %d", d.streamCount, *d.QueryContext.Limit)
-		return false
-	}
-
-	return true
 }
 
 // ShallowCopy creates a shallow copy of the QueryData
@@ -141,11 +129,14 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		rowDataChan:        d.rowDataChan,
 		errorChan:          d.errorChan,
 		stream:             d.stream,
-		streamCount:        d.streamCount,
 		listWg:             d.listWg,
 		columns:            d.columns,
 	}
 
+	clone.QueryStatus = &QueryStatus{
+		rowsRequired: d.QueryStatus.rowsRequired,
+		rowsStreamed: d.QueryStatus.rowsStreamed,
+	}
 	// NOTE: we create a deep copy of the keyColumnQuals
 	// - this is so they can be updated in the copied QueryData without mutating the original
 	for k, v := range d.KeyColumnQuals {
@@ -333,6 +324,24 @@ func ensureColumns(queryContext *QueryContext, table *Table) {
 	queryContext.Columns = []string{col}
 }
 
+func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
+	if d.Table.List == nil {
+		return false
+	}
+	listFunction := helpers.GetFunctionName(d.Table.List.Hydrate)
+	listParentFunction := helpers.GetFunctionName(d.Table.List.ParentHydrate)
+	if callingFunction != listFunction && callingFunction != listParentFunction {
+		// if the calling function is NOT one of the other registered hydrate functions,
+		//it must be an anonymous function so let it go
+		for _, c := range d.Table.Columns {
+			if c.Hydrate != nil && helpers.GetFunctionName(c.Hydrate) == callingFunction {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // stream an item returned from the list call
 // wrap in a rowData object
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
@@ -375,32 +384,14 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	}()
 }
 
-func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
-	if d.Table.List == nil {
-		return false
-	}
-	listFunction := helpers.GetFunctionName(d.Table.List.Hydrate)
-	listParentFunction := helpers.GetFunctionName(d.Table.List.ParentHydrate)
-	if callingFunction != listFunction && callingFunction != listParentFunction {
-		// if the calling function is NOT one of the other registered hydrate functions,
-		//it must be an anonymous function so let it go
-		for _, c := range d.Table.Columns {
-			if c.Hydrate != nil && helpers.GetFunctionName(c.Hydrate) == callingFunction {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	// have we streamed enough already?
-	if !d.ShouldStreamListItem(ctx) {
-		log.Printf("[TRACE] streamLeafListItem NOT streaming item")
+	if d.QueryStatus.RowsRemaining(ctx) == 0 {
+		log.Printf("[TRACE] d.QueryStatus.RowsRemaining is 0 - streamLeafListItem NOT streaming item")
 		return
 	}
 	// increment the stream count
-	d.streamCount++
+	d.QueryStatus.rowsStreamed++
 
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
