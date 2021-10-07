@@ -3,7 +3,7 @@ package utils
 import "reflect"
 
 // InterfaceIsNil returns whether an interface is nil
-// this is needed as a simple 'val == nil' check does not work for na interface
+// this is needed as a simple 'val == nil' check does not work for an interface
 // https://mangatmodi.medium.com/go-check-nil-interface-the-right-way-d142776edef1
 func InterfaceIsNil(i interface{}) bool {
 	if i == nil {
