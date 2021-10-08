@@ -1,4 +1,9 @@
-## v1.6.1  [2021-09-21
+## v1.6.2  [2021-10-08]
+_Bug fixes_
+* Fix `in` clause not working when the table has `any_of` key columns. ([#189](https://github.com/turbot/steampipe-plugin-sdk/issues/189))
+* Fix transform functions being called with null data when the `Get` call returns a null item but no error. ([#186](https://github.com/turbot/steampipe-plugin-sdk/issues/186))
+
+## v1.6.1  [2021-09-21]
 _Bug fixes_
 * Pass context to table creation callback `TableMapFunc`. ([#183](https://github.com/turbot/steampipe-plugin-sdk/issues/183))
 
