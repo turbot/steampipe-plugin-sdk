@@ -84,17 +84,9 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	}()
 
 	// queryData.KeyColumnQuals is a map of column to qual value
-	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
+	// NOTE: if there is a SINGLE or ANY key columns, the qual value may be a list of values
 	// in this case we call get for each value
-	var qualValueList *proto.QualValueList
-	keyColumn := t.Get.KeyColumns.SingleEqualsQual()
-	if keyColumn != nil {
-		qualValueList = queryData.KeyColumnQuals[keyColumn.Name].GetListValue()
-	} else if t.Get.KeyColumns.IsAnyOf() {
-		for _, keyColumn = range t.Get.KeyColumns {
-			qualValueList = queryData.KeyColumnQuals[keyColumn.Name].GetListValue()
-		}
-	}
+	qualValueList, keyColumn := t.getQualValueList(queryData)
 	if qualValueList != nil {
 		return t.doGetForQualValues(ctx, queryData, keyColumn.Name, qualValueList)
 	}
@@ -102,6 +94,27 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// so there is NOT a list of qual values, just call get once
 	// call doGet passing nil hydrate item
 	return t.doGet(ctx, queryData, nil)
+}
+
+// if there is a SINGLE or ANY key columns, determine whether the qual value is a list of values
+// if so return the list and the key column
+func (t *Table) getQualValueList(queryData *QueryData) (*proto.QualValueList, *KeyColumn) {
+	var qualValueList *proto.QualValueList
+
+	// is there a single equals key column
+	if keyColumn := t.Get.KeyColumns.SingleEqualsQual(); keyColumn != nil {
+		return queryData.KeyColumnQuals[keyColumn.Name].GetListValue(), keyColumn
+	}
+
+	// if any_of key columns are defined, check each ofd them to see if a 'list qual value was passed
+	if t.Get.KeyColumns.IsAnyOf() {
+		for _, keyColumn := range t.Get.KeyColumns {
+			if qualValueList = queryData.KeyColumnQuals[keyColumn.Name].GetListValue(); qualValueList != nil {
+				return qualValueList, keyColumn
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList) error {
@@ -159,6 +172,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	if len(queryData.Matrix) == 0 {
 		retryConfig, shouldIgnoreError := t.buildGetConfig()
 
+		log.Printf("[WARN] doing GET %v", queryData.KeyColumnQuals)
 		// just invoke callHydrateWithRetries()
 		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 

@@ -50,6 +50,7 @@ func (k KeyColumnSlice) SingleEqualsQual() *KeyColumn {
 	return nil
 }
 
+// IsAnyOf returns whether all key columns have Require == AnyOf
 func (k KeyColumnSlice) IsAnyOf() bool {
 	for _, kc := range k {
 		if kc.Require != AnyOf {
