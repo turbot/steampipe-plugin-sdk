@@ -151,7 +151,6 @@ func (t *Table) interfaceToColumnValue(column *Column, val interface{}) (*proto.
 			columnValue = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: []byte(strValue)}}
 		} else {
 			res, err := json.Marshal(val)
-			//log.Printf("[WARN] column %s ColumnType %s var %v json %s", column.Name, column.Type, val, res)
 			if err != nil {
 				log.Printf("[ERROR] failed to marshal value to json: %v\n", err)
 				return nil, fmt.Errorf("%s: %v ", column.Name, err)

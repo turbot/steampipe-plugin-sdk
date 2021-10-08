@@ -8,11 +8,10 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
