@@ -13,6 +13,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -165,7 +166,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	}
 
 	// if there is no error and the getItem is nil, we assume the item does not exist
-	if getItem != nil {
+	if !helpers.IsNil(getItem) {
 		// set the rowData Item to the result of the Get hydrate call - this will be passed through to all other hydrate calls
 		rd.Item = getItem
 		// NOTE: explicitly set the get hydrate results on rowData
@@ -227,7 +228,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			if err != nil {
 				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
 				errorChan <- err
-			} else if item != nil {
+			} else if !helpers.IsNil(item) {
 				// stream the get item AND the matrix item
 				resultChan <- &resultWithMetadata{item, matrixItem}
 			}
