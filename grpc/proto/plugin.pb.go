@@ -8,6 +8,9 @@ package proto
 
 import (
 	context "context"
+	reflect "reflect"
+	sync "sync"
+
 	proto "github.com/golang/protobuf/proto"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
@@ -15,8 +18,6 @@ import (
 	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (
@@ -1976,10 +1977,10 @@ var file_plugin_proto_depIdxs = []int32{
 	8,  // 24: proto.QueryContext.QualsEntry.value:type_name -> proto.Quals
 	22, // 25: proto.Row.ColumnsEntry.value:type_name -> proto.Column
 	18, // 26: proto.Schema.SchemaEntry.value:type_name -> proto.TableSchema
-	13, // 27: proto.WrapperPlugin.GetSchema:input_type -> proto.GetSchemaRequest
+	13, // 27: proto.WrapperPlugin.getSchema:input_type -> proto.GetSchemaRequest
 	11, // 28: proto.WrapperPlugin.Execute:input_type -> proto.ExecuteRequest
 	15, // 29: proto.WrapperPlugin.SetConnectionConfig:input_type -> proto.SetConnectionConfigRequest
-	14, // 30: proto.WrapperPlugin.GetSchema:output_type -> proto.GetSchemaResponse
+	14, // 30: proto.WrapperPlugin.getSchema:output_type -> proto.GetSchemaResponse
 	12, // 31: proto.WrapperPlugin.Execute:output_type -> proto.ExecuteResponse
 	16, // 32: proto.WrapperPlugin.SetConnectionConfig:output_type -> proto.SetConnectionConfigResponse
 	30, // [30:33] is the sub-list for method output_type
@@ -2321,7 +2322,7 @@ func NewWrapperPluginClient(cc grpc.ClientConnInterface) WrapperPluginClient {
 
 func (c *wrapperPluginClient) GetSchema(ctx context.Context, in *GetSchemaRequest, opts ...grpc.CallOption) (*GetSchemaResponse, error) {
 	out := new(GetSchemaResponse)
-	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/GetSchema", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/getSchema", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2381,7 +2382,7 @@ type UnimplementedWrapperPluginServer struct {
 }
 
 func (*UnimplementedWrapperPluginServer) GetSchema(context.Context, *GetSchemaRequest) (*GetSchemaResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetSchema not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method getSchema not implemented")
 }
 func (*UnimplementedWrapperPluginServer) Execute(*ExecuteRequest, WrapperPlugin_ExecuteServer) error {
 	return status.Errorf(codes.Unimplemented, "method Execute not implemented")
@@ -2404,7 +2405,7 @@ func _WrapperPlugin_GetSchema_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.WrapperPlugin/GetSchema",
+		FullMethod: "/proto.WrapperPlugin/getSchema",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(WrapperPluginServer).GetSchema(ctx, req.(*GetSchemaRequest))
@@ -2456,7 +2457,7 @@ var _WrapperPlugin_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*WrapperPluginServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetSchema",
+			MethodName: "getSchema",
 			Handler:    _WrapperPlugin_GetSchema_Handler,
 		},
 		{

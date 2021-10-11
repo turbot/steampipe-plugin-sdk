@@ -66,6 +66,9 @@ message ExecuteRequest {
   string table = 1;
   QueryContext query_context = 2;
   string connection = 3;
+  bool cache_enabled = 4;
+  int64 cache_ttl = 5;
+
 }
 
 message ExecuteResponse {

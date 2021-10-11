@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/turbot/steampipe-plugin-sdk/cache"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
@@ -24,6 +26,14 @@ const (
 )
 
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
+
+type PluginState int
+
+const (
+	StateCreated PluginState = iota
+	StateInitialised
+	StateRequireRestart
+)
 
 // Plugin is an object used to build all necessary data for a given query
 type Plugin struct {
@@ -48,6 +58,15 @@ type Plugin struct {
 	ConnectionManager *connection_manager.Manager
 	// is this a static or dynamic schema
 	SchemaMode string
+	Schema     map[string]*proto.TableSchema
+
+	// ConnectionConfigChangedFunc is a callback function executed every time the connection config is updated
+	// NOTE: it is NOT executed when it is ste for the first time (???)
+	ConnectionConfigChangedFunc func() error
+	// query cache
+	QueryCache *cache.QueryCache
+	// plugin state
+	State PluginState
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -70,6 +89,12 @@ func (p *Plugin) Initialise() {
 	p.setuLimit()
 }
 
+// SetSchemaChanged indicates that the schema has changed and that the plugin requireds a restart.
+// This is intended to be called from the ConnectionConfigChangedFunc callback
+func (p *Plugin) SetSchemaChanged() {
+	p.State = StateRequireRestart
+}
+
 const uLimitEnvVar = "STEAMPIPE_ULIMIT"
 const uLimitDefault = 2560
 
@@ -90,8 +115,6 @@ func (p *Plugin) setuLimit() {
 		p.Logger.Error("Error Setting Ulimit", "error", err)
 	}
 }
-
-// GRPC Server callback functions
 
 // SetConnectionConfig is always called before any other plugin function
 // it parses the connection config string, and populate the connection data for this connection
@@ -123,7 +146,18 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 	// if the plugin defines a CreateTables func, call it now
-	return p.initialiseTables(ctx)
+	if err := p.initialiseTables(ctx); err != nil {
+		return err
+	}
+	// populate the plugin schema
+	p.Schema, err = p.populateSchema()
+	if err != nil {
+		return err
+	}
+
+	// create the cache
+	err = p.onConnectionConfigChange()
+	return err
 }
 
 // initialiseTables does 2 things:
@@ -145,9 +179,10 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 		}
 	}
 
-	// update tables to have a reference to the plugin
-	for _, table := range p.TableMap {
-		table.Plugin = p
+	// populate the plugin schema
+	p.Schema, err = p.populateSchema()
+	if err != nil {
+		return err
 	}
 	// now validate the plugin
 	// NOTE: must do this after calling TableMapFunc
@@ -155,7 +190,9 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
 
-	return nil
+	// create the cache
+	err = p.onConnectionConfigChange()
+	return err
 }
 
 func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
@@ -187,6 +224,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 		}
 	}()
+
+	if err := p.verifyState(); err != nil {
+		return err
+	}
 
 	// the connection property must be set already
 	if p.Connection == nil {
@@ -236,4 +277,93 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	logging.LogTime("Calling build Stream")
 	// asyncronously stream rows
 	return queryData.streamRows(ctx, rowChan)
+}
+
+// if query cache does not exist, create
+// if the query cache exists, update the schema
+func (p *Plugin) onConnectionConfigChange() error {
+	if p.QueryCache != nil {
+		// so there is already a cache - that means the config has been updated, not set for the first time
+
+		// update the schema on the conneciton cache
+		p.QueryCache.PluginSchema = p.Schema
+
+		// if the plugin defines a connection config changed callback cal it
+		if p.ConnectionConfigChangedFunc != nil {
+			return p.ConnectionConfigChangedFunc()
+		}
+		return nil
+	}
+
+	queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema)
+	if err != nil {
+		return err
+	}
+
+	p.QueryCache = queryCache
+	p.State = StateInitialised
+	return nil
+}
+
+// initialiseTables does 2 things:
+// 1) if a TableMapFunc factory function was provided by the plugin, call it
+// 2) update tables to have a reference to the plugin
+func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
+	if p.TableMapFunc != nil {
+		// handle panic in factory function
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("failed to plugin initialise plugin '%s': TableMapFunc '%s' had unhandled error: %v", p.Name, helpers.GetFunctionName(p.TableMapFunc), helpers.ToError(r))
+			}
+		}()
+
+		if tableMap, err := p.TableMapFunc(ctx, p); err != nil {
+			return err
+		} else {
+			p.TableMap = tableMap
+		}
+	}
+
+	// update tables to have a reference to the plugin
+	for _, table := range p.TableMap {
+		table.Plugin = p
+	}
+	return nil
+}
+
+func (p *Plugin) populateSchema() (map[string]*proto.TableSchema, error) {
+
+	// the connection property must be set already
+	if p.Connection == nil {
+		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
+	}
+	schema := map[string]*proto.TableSchema{}
+
+	var tables []string
+	for tableName, table := range p.TableMap {
+
+		schema[tableName] = table.GetSchema()
+		tables = append(tables, tableName)
+	}
+	//return schema, fmt.Errorf("GET SCHEMA %s", strings.Join(tables))
+	return schema, nil
+}
+
+type PluginRestartRequiredError struct{}
+
+func (e PluginRestartRequiredError) Error() string {
+	return "plugin restar required"
+}
+func (p *Plugin) verifyState() error {
+	caller := helpers.GetCallingFunction(1)
+	switch p.State {
+	case StateCreated:
+		return fmt.Errorf("SetConnectionConfig must be called before calling %s", caller)
+	case StateInitialised:
+		return nil
+	case StateRequireRestart:
+		return PluginRestartRequiredError{}
+	default:
+		return fmt.Errorf("invalid plugin state %d", p.State)
+	}
 }
