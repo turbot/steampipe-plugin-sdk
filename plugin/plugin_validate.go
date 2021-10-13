@@ -17,9 +17,6 @@ func (p *Plugin) Validate() string {
 	if p.ConnectionConfigSchema != nil {
 		validationErrors = append(validationErrors, p.ConnectionConfigSchema.Validate()...)
 	}
-	if p.TableMap != nil && p.TableMapFunc != nil {
-		validationErrors = append(validationErrors, "plugin defines both TableMap and TableMapFunc")
-	}
 
 	// validate the schema mode
 	if !helpers.StringSliceContains(validSchemaModes, p.SchemaMode) {
