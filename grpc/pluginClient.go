@@ -10,7 +10,8 @@ import (
 
 // PluginClient is the client object used by clients of the plugin
 type PluginClient struct {
-	Name   string
+	Name string
+	// TODO NEEDED???
 	Path   string
 	Client *plugin.Client
 	Stub   pluginshared.WrapperPluginClient
