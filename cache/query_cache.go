@@ -59,12 +59,12 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	// write to the result cache
 	// set the insertion time
 	result.InsertionTime = time.Now()
-	resultKey := c.BuildResultKey(table, qualMap, columns)
+	resultKey := c.BuildResultKey(c.connectionName, table, qualMap, columns)
 	c.cache.SetWithTTL(resultKey, result, 1, ttl)
 
 	// now update the index
 	// get the index bucket for this table and quals
-	indexBucketKey := c.BuildIndexKey(table, qualMap)
+	indexBucketKey := c.BuildIndexKey(c.connectionName, table, qualMap)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 
 	log.Printf("[TRACE] QueryCache Set() index key %s, result key %s", indexBucketKey, resultKey)
@@ -83,7 +83,7 @@ func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns 
 	// - this contains cache keys for all cache entries for specified table and quals
 
 	// get the index bucket for this table and quals
-	indexBucketKey := c.BuildIndexKey(table, qualMap)
+	indexBucketKey := c.BuildIndexKey(c.connectionName, table, qualMap)
 	log.Printf("[TRACE] QueryCache Get() - index bucket key: %s\n", indexBucketKey)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 	if !ok {
@@ -144,15 +144,17 @@ func (c *QueryCache) getResult(resultKey string) (*QueryCacheResult, bool) {
 	return result.(*QueryCacheResult), true
 }
 
-func (c *QueryCache) BuildIndexKey(table string, qualMap map[string]*proto.Quals) string {
-	str := c.sanitiseKey(fmt.Sprintf("index__%s%s",
+func (c *QueryCache) BuildIndexKey(connectionName, table string, qualMap map[string]*proto.Quals) string {
+	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
+		connectionName,
 		table,
 		c.formatQualMapForKey(table, qualMap)))
 	return str
 }
 
-func (c *QueryCache) BuildResultKey(table string, qualMap map[string]*proto.Quals, columns []string) string {
-	str := c.sanitiseKey(fmt.Sprintf("%s%s%s",
+func (c *QueryCache) BuildResultKey(connectionName, table string, qualMap map[string]*proto.Quals, columns []string) string {
+	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
+		connectionName,
 		table,
 		c.formatQualMapForKey(table, qualMap),
 		strings.Join(columns, ",")))

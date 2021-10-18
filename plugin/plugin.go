@@ -27,14 +27,6 @@ const (
 
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
-type PluginState int
-
-const (
-	StateCreated PluginState = iota
-	StateInitialised
-	StateRequireRestart
-)
-
 // Plugin is an object used to build all necessary data for a given query
 type Plugin struct {
 	Name     string
@@ -65,8 +57,6 @@ type Plugin struct {
 	ConnectionConfigChangedFunc func() error
 	// query cache
 	QueryCache *cache.QueryCache
-	// plugin state
-	State PluginState
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -87,12 +77,6 @@ func (p *Plugin) Initialise() {
 
 	// set file limit
 	p.setuLimit()
-}
-
-// SetSchemaChanged indicates that the schema has changed and that the plugin requireds a restart.
-// This is intended to be called from the ConnectionConfigChangedFunc callback
-func (p *Plugin) SetSchemaChanged() {
-	p.State = StateRequireRestart
 }
 
 const uLimitEnvVar = "STEAMPIPE_ULIMIT"
@@ -127,6 +111,12 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 			p.Logger.Debug("SetConnectionConfig finished")
 		}
 	}()
+
+	// TODO if the client making this request has an out of date version of the schema, fail
+	// if err := p.verifySchemaHash(); err != nil {
+	//	return err
+	//}
+	// ??? NEEDED HERE???
 
 	// create connection object
 	p.Connection = &Connection{Name: connectionName}
@@ -190,7 +180,15 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
 
-	// create the cache
+	if p.QueryCache == nil {
+		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema)
+		if err != nil {
+			return err
+		}
+
+		p.QueryCache = queryCache
+	}
+	// if needed  and respond to
 	err = p.onConnectionConfigChange()
 	return err
 }
@@ -225,9 +223,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}()
 
-	if err := p.verifyState(); err != nil {
-		return err
-	}
+	// TODO if the client making this request has an out of date version of the schema, fail
+	// if err := p.verifySchemaHash(); err != nil {
+	//	return err
+	//}
 
 	// the connection property must be set already
 	if p.Connection == nil {
@@ -285,7 +284,7 @@ func (p *Plugin) onConnectionConfigChange() error {
 	if p.QueryCache != nil {
 		// so there is already a cache - that means the config has been updated, not set for the first time
 
-		// update the schema on the conneciton cache
+		// update the schema on the query cache
 		p.QueryCache.PluginSchema = p.Schema
 
 		// if the plugin defines a connection config changed callback cal it
@@ -301,7 +300,6 @@ func (p *Plugin) onConnectionConfigChange() error {
 	}
 
 	p.QueryCache = queryCache
-	p.State = StateInitialised
 	return nil
 }
 
@@ -332,7 +330,6 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 }
 
 func (p *Plugin) populateSchema() (map[string]*proto.TableSchema, error) {
-
 	// the connection property must be set already
 	if p.Connection == nil {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
@@ -345,25 +342,5 @@ func (p *Plugin) populateSchema() (map[string]*proto.TableSchema, error) {
 		schema[tableName] = table.GetSchema()
 		tables = append(tables, tableName)
 	}
-	//return schema, fmt.Errorf("GET SCHEMA %s", strings.Join(tables))
 	return schema, nil
-}
-
-type PluginRestartRequiredError struct{}
-
-func (e PluginRestartRequiredError) Error() string {
-	return "plugin restar required"
-}
-func (p *Plugin) verifyState() error {
-	caller := helpers.GetCallingFunction(1)
-	switch p.State {
-	case StateCreated:
-		return fmt.Errorf("SetConnectionConfig must be called before calling %s", caller)
-	case StateInitialised:
-		return nil
-	case StateRequireRestart:
-		return PluginRestartRequiredError{}
-	default:
-		return fmt.Errorf("invalid plugin state %d", p.State)
-	}
 }
