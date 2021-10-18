@@ -11,11 +11,19 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
+	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
+
+const (
+	SchemaModeStatic  = "static"
+	SchemaModeDynamic = "dynamic"
+)
+
+var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
 // Plugin is an object used to build all necessary data for a given query
 type Plugin struct {
@@ -38,6 +46,8 @@ type Plugin struct {
 	Connection *Connection
 	// object to handle caching of connection specific data
 	ConnectionManager *connection_manager.Manager
+	// is this a static or dynamic schema
+	SchemaMode string
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -50,6 +60,11 @@ func (p *Plugin) Initialise() {
 	log.SetOutput(p.Logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
+
+	// default the schema mode to static
+	if p.SchemaMode == "" {
+		p.SchemaMode = SchemaModeStatic
+	}
 
 	// set file limit
 	p.setuLimit()
@@ -120,6 +135,10 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
 // 2) update tables to have a reference to the plugin
 func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
+	if p.TableMap != nil && p.TableMapFunc != nil {
+		return fmt.Errorf("plugin %s validation failed: plugin defines both TableMap and TableMapFunc", p.Name)
+	}
+
 	if p.TableMapFunc != nil {
 		// handle panic in factory function
 		defer func() {
@@ -142,21 +161,21 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 	return nil
 }
 
-func (p *Plugin) GetSchema() (map[string]*proto.TableSchema, error) {
+func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 	// the connection property must be set already
 	if p.Connection == nil {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
 	}
 
-	schema := map[string]*proto.TableSchema{}
+	schemaMap := map[string]*proto.TableSchema{}
 
 	var tables []string
 	for tableName, table := range p.TableMap {
 
-		schema[tableName] = table.GetSchema()
+		schemaMap[tableName] = table.GetSchema()
 		tables = append(tables, tableName)
 	}
-	//return schema, fmt.Errorf("GET SCHEMA %s", strings.Join(tables))
+	schema := &grpc.PluginSchema{Schema: schemaMap, Mode: p.SchemaMode}
 	return schema, nil
 }
 

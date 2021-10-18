@@ -9,8 +9,12 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/version"
 )
 
+type PluginSchema struct {
+	Schema map[string]*proto.TableSchema
+	Mode   string
+}
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
-type GetSchemaFunc func() (map[string]*proto.TableSchema, error)
+type GetSchemaFunc func() (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 
 // PluginServer :: server for a single plugin
@@ -40,7 +44,8 @@ func (s PluginServer) GetSchema(_ *proto.GetSchemaRequest) (res *proto.GetSchema
 	schema, err := s.getSchemaFunc()
 	return &proto.GetSchemaResponse{
 		Schema: &proto.Schema{
-			Schema:          schema,
+			Schema:          schema.Schema,
+			Mode:            schema.Mode,
 			SdkVersion:      version.String(),
 			ProtocolVersion: version.ProtocolVersion,
 		},
