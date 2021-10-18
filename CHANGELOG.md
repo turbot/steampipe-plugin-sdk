@@ -1,3 +1,7 @@
+## v1.7.0  [2021-10-]
+_What's new_
+* Add dynamic schema support - add `SchemaMode` property to Plugin. If this is set to `dynamic`, Steampipe will check for plugin schema changes on startup. ([#195](https://github.com/turbot/steampipe-plugin-sdk/issues/195))
+
 ## v1.6.2  [2021-10-08]
 _Bug fixes_
 * Fix `in` clause not working when the table has `any_of` key columns. ([#189](https://github.com/turbot/steampipe-plugin-sdk/issues/189))
