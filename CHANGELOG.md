@@ -1,4 +1,4 @@
-## v1.7.0  [2021-10-]
+## v1.7.0  [2021-10-18]
 _What's new_
 * Add dynamic schema support - add `SchemaMode` property to Plugin. If this is set to `dynamic`, Steampipe will check for plugin schema changes on startup. ([#195](https://github.com/turbot/steampipe-plugin-sdk/issues/195))
 
