@@ -134,18 +134,29 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		p.Connection.Config = config
 	}
 
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 	// if the plugin defines a CreateTables func, call it now
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 	if err := p.initialiseTables(ctx); err != nil {
 		return err
 	}
+
 	// populate the plugin schema
-	p.Schema, err = p.populateSchema()
+	p.schema, err = p.populateSchema()
 	if err != nil {
 		return err
 	}
 
-	// create the cache
+	// if we have not created the query cache yet, create now
+	if p.QueryCache == nil {
+		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.schema)
+		if err != nil {
+			return err
+		}
+
+		p.QueryCache = queryCache
+	}
+
+	// if plugin provided a connection config callback function, call it
 	err = p.onConnectionConfigChange()
 	return err
 }
@@ -169,28 +180,17 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 		}
 	}
 
-	// populate the plugin schema
-	p.Schema, err = p.populateSchema()
-	if err != nil {
-		return err
+	// update tables to have a reference to the plugin
+	for _, table := range p.TableMap {
+		table.Plugin = p
 	}
+
 	// now validate the plugin
 	// NOTE: must do this after calling TableMapFunc
 	if validationErrors := p.Validate(); validationErrors != "" {
 		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
-
-	if p.QueryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema)
-		if err != nil {
-			return err
-		}
-
-		p.QueryCache = queryCache
-	}
-	// if needed  and respond to
-	err = p.onConnectionConfigChange()
-	return err
+	return nil
 }
 
 func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
@@ -199,15 +199,7 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
 	}
 
-	schemaMap := map[string]*proto.TableSchema{}
-
-	var tables []string
-	for tableName, table := range p.TableMap {
-
-		schemaMap[tableName] = table.GetSchema()
-		tables = append(tables, tableName)
-	}
-	schema := &grpc.PluginSchema{Schema: schemaMap, Mode: p.SchemaMode}
+	schema := &grpc.PluginSchema{Schema: p.schema, Mode: p.SchemaMode}
 	return schema, nil
 }
 
@@ -285,7 +277,7 @@ func (p *Plugin) onConnectionConfigChange() error {
 		// so there is already a cache - that means the config has been updated, not set for the first time
 
 		// update the schema on the query cache
-		p.QueryCache.PluginSchema = p.Schema
+		p.QueryCache.PluginSchema = p.schema
 
 		// if the plugin defines a connection config changed callback cal it
 		if p.ConnectionConfigChangedFunc != nil {
@@ -294,38 +286,12 @@ func (p *Plugin) onConnectionConfigChange() error {
 		return nil
 	}
 
-	queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema)
+	queryCache, err := cache.NewQueryCache(p.Connection.Name, p.schema)
 	if err != nil {
 		return err
 	}
 
 	p.QueryCache = queryCache
-	return nil
-}
-
-// initialiseTables does 2 things:
-// 1) if a TableMapFunc factory function was provided by the plugin, call it
-// 2) update tables to have a reference to the plugin
-func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
-	if p.TableMapFunc != nil {
-		// handle panic in factory function
-		defer func() {
-			if r := recover(); r != nil {
-				err = fmt.Errorf("failed to plugin initialise plugin '%s': TableMapFunc '%s' had unhandled error: %v", p.Name, helpers.GetFunctionName(p.TableMapFunc), helpers.ToError(r))
-			}
-		}()
-
-		if tableMap, err := p.TableMapFunc(ctx, p); err != nil {
-			return err
-		} else {
-			p.TableMap = tableMap
-		}
-	}
-
-	// update tables to have a reference to the plugin
-	for _, table := range p.TableMap {
-		table.Plugin = p
-	}
 	return nil
 }
 
@@ -338,9 +304,10 @@ func (p *Plugin) populateSchema() (map[string]*proto.TableSchema, error) {
 
 	var tables []string
 	for tableName, table := range p.TableMap {
-
 		schema[tableName] = table.GetSchema()
 		tables = append(tables, tableName)
 	}
+	// TODO set schema hash
+
 	return schema, nil
 }
