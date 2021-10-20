@@ -3,6 +3,9 @@ package grpc
 import (
 	"context"
 
+	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/steampipe-plugin-sdk/logging"
+
 	"github.com/hashicorp/go-plugin"
 	pbsdk "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/grpc/shared"
@@ -11,10 +14,52 @@ import (
 // PluginClient is the client object used by clients of the plugin
 type PluginClient struct {
 	Name   string
-	Client *plugin.Client
+	client *plugin.Client
 	Stub   pluginshared.WrapperPluginClient
 }
 
+func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string, disableLogger bool) (*PluginClient, error) {
+	// create the plugin map
+	pluginMap := map[string]plugin.Plugin{
+		pluginName: &pluginshared.WrapperPlugin{},
+	}
+	// avoid logging if the plugin is being invoked by refreshConnections
+	loggOpts := &hclog.LoggerOptions{Name: "plugin"}
+	if disableLogger {
+		loggOpts.Exclude = func(hclog.Level, string, ...interface{}) bool { return true }
+	}
+	logger := logging.NewLogger(loggOpts)
+
+	// create grpc client
+	client := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig:  pluginshared.Handshake,
+		Plugins:          pluginMap,
+		Reattach:         reattach,
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		Logger:           logger,
+	})
+
+	// connect via RPC
+	rpcClient, err := client.Client()
+	if err != nil {
+		return nil, err
+	}
+
+	// request the plugin
+	raw, err := rpcClient.Dispense(pluginName)
+	if err != nil {
+		return nil, err
+	}
+	// we should have a stub plugin now
+	p := raw.(pluginshared.WrapperPluginClient)
+	res := &PluginClient{
+		Name:   pluginName,
+		client: client,
+		Stub:   p,
+	}
+	return res, nil
+
+}
 func (c *PluginClient) SetConnectionConfig(req *pbsdk.SetConnectionConfigRequest) error {
 	_, err := c.Stub.SetConnectionConfig(req)
 	if err != nil {
@@ -34,4 +79,9 @@ func (c *PluginClient) GetSchema() (*pbsdk.Schema, error) {
 
 func (c *PluginClient) Execute(req *pbsdk.ExecuteRequest) (pbsdk.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error) {
 	return c.Stub.Execute(req)
+}
+
+// Kill kills our underlying GRPC client
+func (c *PluginClient) Kill() {
+	c.client.Kill()
 }
