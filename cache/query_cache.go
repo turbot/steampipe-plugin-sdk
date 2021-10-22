@@ -13,6 +13,9 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
+// insert all data with this fixed large ttl - each client may specify its own ttl requirements when reading the cache
+const ttl = 24 * time.Hour
+
 type QueryCache struct {
 	cache          *ristretto.Cache
 	Stats          *CacheStats
@@ -46,7 +49,7 @@ func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSc
 	return cache, nil
 }
 
-func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryCacheResult, ttl time.Duration) bool {
+func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryCacheResult) bool {
 	// if any data was returned, extract the columns from the first row
 	if len(result.Rows) > 0 {
 		for col := range result.Rows[0] {

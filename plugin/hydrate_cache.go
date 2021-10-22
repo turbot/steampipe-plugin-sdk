@@ -43,11 +43,9 @@ func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 			// look in the cache to see if the data is there
 			cachedData, ok := d.ConnectionManager.Cache.Get(cacheKey)
 			if ok {
-				log.Printf("[TRACE] WithCache CACHE HIT key %s", cacheKey)
 				// we got the data
 				return cachedData, nil
 			}
-			log.Printf("[TRACE] WithCache CACHE MISS key %s", cacheKey)
 
 			// so there is no cached data - call the hydrate function and cache the result
 			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey)

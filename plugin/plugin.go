@@ -53,10 +53,10 @@ type Plugin struct {
 	Schema     map[string]*proto.TableSchema
 
 	// ConnectionConfigChangedFunc is a callback function executed every time the connection config is updated
-	// NOTE: it is NOT executed when it is ste for the first time (???)
+	// NOTE: it is NOT executed when it is set for the first time (???)
 	ConnectionConfigChangedFunc func() error
 	// query cache
-	QueryCache *cache.QueryCache
+	queryCache *cache.QueryCache
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -146,19 +146,14 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		return err
 	}
 
-	// if we have not created the query cache yet, create now
-	if p.QueryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.schema)
-		if err != nil {
-			return err
-		}
-
-		p.QueryCache = queryCache
+	// if this is NOT the first time we have set the conneciton config,
+	// call the connection config changed callback (if the plugin defines one)
+	if p.queryCache != nil && p.ConnectionConfigChangedFunc != nil {
+		return p.ConnectionConfigChangedFunc()
 	}
 
-	// if plugin provided a connection config callback function, call it
-	err = p.onConnectionConfigChange()
-	return err
+	// create the cache or update the schema if it already exists
+	return p.ensureCache()
 }
 
 // initialiseTables does 2 things:
@@ -256,6 +251,15 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
+	// can we satisfy this request from the cache?
+	if req.CacheEnabled {
+		cachedResult := p.queryCache.Get(table.Name, queryContext.UnsafeQuals, queryContext.Columns, queryContext.Limit, req.CacheTtl)
+		if cachedResult != nil {
+			// we have cache data - return a cache iterator
+			return newCacheIterator(connectionName, cachedResult), nil
+		}
+	}
+
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {
 		p.Logger.Warn("fetchItems returned an error", "table", table.Name, "error", err)
@@ -272,26 +276,20 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 // if query cache does not exist, create
 // if the query cache exists, update the schema
-func (p *Plugin) onConnectionConfigChange() error {
-	if p.QueryCache != nil {
+func (p *Plugin) ensureCache() error {
+	if p.queryCache == nil {
+		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.schema)
+		if err != nil {
+			return err
+		}
+		p.queryCache = queryCache
+	} else {
 		// so there is already a cache - that means the config has been updated, not set for the first time
 
 		// update the schema on the query cache
-		p.QueryCache.PluginSchema = p.schema
-
-		// if the plugin defines a connection config changed callback cal it
-		if p.ConnectionConfigChangedFunc != nil {
-			return p.ConnectionConfigChangedFunc()
-		}
-		return nil
+		p.queryCache.PluginSchema = p.schema
 	}
 
-	queryCache, err := cache.NewQueryCache(p.Connection.Name, p.schema)
-	if err != nil {
-		return err
-	}
-
-	p.QueryCache = queryCache
 	return nil
 }
 
