@@ -210,6 +210,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}()
 
+	log.Printf("[WARN] Execute ***************")
 	// TODO if the client making this request has an out of date version of the schema, fail
 	// if err := p.verifySchemaHash(); err != nil {
 	//	return err

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"log"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
@@ -19,6 +20,7 @@ type PluginClient struct {
 }
 
 func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string, disableLogger bool) (*PluginClient, error) {
+	log.Printf("[WARN] NewPluginClient ***************")
 	// create the plugin map
 	pluginMap := map[string]plugin.Plugin{
 		pluginName: &pluginshared.WrapperPlugin{},
@@ -26,7 +28,7 @@ func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string, disable
 	// avoid logging if the plugin is being invoked by refreshConnections
 	loggOpts := &hclog.LoggerOptions{Name: "plugin"}
 	if disableLogger {
-		loggOpts.Exclude = func(hclog.Level, string, ...interface{}) bool { return true }
+		//loggOpts.Exclude = func(hclog.Level, string, ...interface{}) bool { return true }
 	}
 	logger := logging.NewLogger(loggOpts)
 
