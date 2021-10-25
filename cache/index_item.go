@@ -56,7 +56,7 @@ func (i IndexItem) SatisfiesColumns(columns []string) bool {
 }
 
 func (i IndexItem) SatisfiesLimit(limit int64) bool {
-	// if there is no limit, it will be -1
+	// if index item has is no limit, it will be -1
 	if i.Limit == -1 {
 		log.Printf("[TRACE] SatisfiesLimit limit %d, no item limit - satisfied", limit)
 		return true

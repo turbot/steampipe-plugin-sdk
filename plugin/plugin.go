@@ -251,12 +251,21 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
+	// convert limit from *int64 to an int64 (where -1 means no limit)
+	var limit int64 = -1
+	if queryContext.Limit != nil {
+		limit = *queryContext.Limit
+	}
 	// can we satisfy this request from the cache?
 	if req.CacheEnabled {
-		cachedResult := p.queryCache.Get(table.Name, queryContext.UnsafeQuals, queryContext.Columns, queryContext.Limit, req.CacheTtl)
+		log.Printf("[WARN] CacheEnabled")
+		cachedResult := p.queryCache.Get(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
 		if cachedResult != nil {
-			// we have cache data - return a cache iterator
-			return newCacheIterator(connectionName, cachedResult), nil
+			log.Printf("[WARN] GOT CACHED RESULT")
+			for _, r := range cachedResult.Rows {
+				queryData.streamRow(r)
+			}
+			return
 		}
 	}
 
@@ -271,7 +280,16 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	rowChan := queryData.buildRows(ctx)
 	logging.LogTime("Calling build Stream")
 	// asyncronously stream rows
-	return queryData.streamRows(ctx, rowChan)
+	rows, err := queryData.streamRows(ctx, rowChan)
+	if err != nil {
+		return err
+	}
+	if req.CacheEnabled {
+		log.Printf("[WARN] WRITING TO CACHE")
+		cacheResult := &cache.QueryCacheResult{Rows: rows}
+		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
+	}
+	return nil
 }
 
 // if query cache does not exist, create

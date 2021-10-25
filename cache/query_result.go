@@ -1,12 +1,16 @@
 package cache
 
-import "time"
+import (
+	"time"
+
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+)
 
 type QueryCacheResult struct {
-	Rows          []map[string]interface{}
+	Rows          []*proto.Row
 	InsertionTime time.Time
 }
 
-func (q *QueryCacheResult) Append(row map[string]interface{}) {
+func (q *QueryCacheResult) Append(row *proto.Row) {
 	q.Rows = append(q.Rows, row)
 }

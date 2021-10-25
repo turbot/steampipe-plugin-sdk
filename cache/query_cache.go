@@ -52,7 +52,7 @@ func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSc
 func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryCacheResult) bool {
 	// if any data was returned, extract the columns from the first row
 	if len(result.Rows) > 0 {
-		for col := range result.Rows[0] {
+		for col := range result.Rows[0].Columns {
 			columns = append(columns, col)
 		}
 	}
@@ -81,7 +81,7 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	return c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl)
 }
 
-func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int) *QueryCacheResult {
+func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
 
