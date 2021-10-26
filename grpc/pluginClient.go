@@ -8,7 +8,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 
 	"github.com/hashicorp/go-plugin"
-	pbsdk "github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/grpc/shared"
 )
 
@@ -62,7 +62,7 @@ func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string, disable
 	return res, nil
 
 }
-func (c *PluginClient) SetConnectionConfig(req *pbsdk.SetConnectionConfigRequest) error {
+func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) error {
 	_, err := c.Stub.SetConnectionConfig(req)
 	if err != nil {
 		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
@@ -71,15 +71,23 @@ func (c *PluginClient) SetConnectionConfig(req *pbsdk.SetConnectionConfigRequest
 	return nil
 }
 
-func (c *PluginClient) GetSchema() (*pbsdk.Schema, error) {
-	resp, err := c.Stub.GetSchema(&pbsdk.GetSchemaRequest{})
+func (c *PluginClient) GetSupportedOperations() (*proto.GetSupportedOperationsResponse, error) {
+	resp, err := c.Stub.GetSupportedOperations(&proto.GetSupportedOperationsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (c *PluginClient) GetSchema() (*proto.Schema, error) {
+	resp, err := c.Stub.GetSchema(&proto.GetSchemaRequest{})
 	if err != nil {
 		return nil, err
 	}
 	return resp.Schema, nil
 }
 
-func (c *PluginClient) Execute(req *pbsdk.ExecuteRequest) (pbsdk.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error) {
+func (c *PluginClient) Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error) {
 	return c.Stub.Execute(req)
 }
 

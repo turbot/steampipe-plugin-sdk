@@ -25,12 +25,14 @@ type WrapperPluginServer interface {
 	GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
+	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
 }
 
 type WrapperPluginClient interface {
 	GetSchema(request *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error)
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
+	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
 }
 
 // This is the implementation of plugin.GRPCServer so we can serve/consume this.

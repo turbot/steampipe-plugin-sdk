@@ -189,6 +189,8 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 }
 
 func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
+	log.Printf("[WARN] Get Schema ***************")
+
 	// the connection property must be set already
 	if p.Connection == nil {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
