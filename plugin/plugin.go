@@ -189,8 +189,6 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 }
 
 func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
-	log.Printf("[WARN] Get Schema ***************")
-
 	// the connection property must be set already
 	if p.Connection == nil {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
@@ -212,7 +210,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}()
 
-	log.Printf("[WARN] Execute ***************")
 	// TODO if the client making this request has an out of date version of the schema, fail
 	// if err := p.verifySchemaHash(); err != nil {
 	//	return err
@@ -224,7 +221,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 
 	logging.LogTime("Start execute")
-	p.Logger.Trace("Execute ", "connection", req.Connection, "connection config", p.Connection, "table", req.Table)
+	p.Logger.Trace("Execute ", "connection", req.Connection, "table", req.Table)
 
 	queryContext := NewQueryContext(req.QueryContext)
 	table, ok := p.TableMap[req.Table]
@@ -261,7 +258,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 	// can we satisfy this request from the cache?
 	if req.CacheEnabled {
-		log.Printf("[WARN] CacheEnabled")
 		cachedResult := p.queryCache.Get(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
 		if cachedResult != nil {
 			log.Printf("[WARN] GOT CACHED RESULT")
@@ -285,10 +281,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// asyncronously stream rows
 	rows, err := queryData.streamRows(ctx, rowChan)
 	if err != nil {
+		log.Printf("[WARN] Execute - streamRows returned error table %s, quals %s, error %s\n", table.Name, queryData.Quals, err)
 		return err
 	}
 	if req.CacheEnabled {
-		log.Printf("[WARN] WRITING TO CACHE")
 		cacheResult := &cache.QueryCacheResult{Rows: rows}
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
 	}

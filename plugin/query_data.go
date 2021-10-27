@@ -427,7 +427,10 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) ([]*p
 		select {
 		case err := <-d.errorChan:
 			log.Printf("[ERROR] streamRows error chan select: %v\n", err)
-			return nil, err
+			d.streamError(err)
+			d.concurrencyManager.Close()
+			// channel closed return what we have sent
+			return rows, nil
 		case row := <-rowChan:
 			if row == nil {
 				// tell the concurrency manage we are done (it may log the concurrency stats)

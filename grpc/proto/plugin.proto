@@ -73,6 +73,7 @@ message ExecuteRequest {
 
 message ExecuteResponse {
   Row row = 1;
+  string Error = 2;
 }
 
 message GetSchemaRequest {
