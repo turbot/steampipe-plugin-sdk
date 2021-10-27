@@ -3,6 +3,7 @@ package grpc
 import (
 	"errors"
 	"log"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,4 +26,8 @@ func IgnoreNotImplementedError(err error, connection, call string) error {
 	}
 
 	return errors.New(status.Message())
+}
+
+func IsGRPCConnectivityError(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "error reading from server: EOF") || strings.Contains(err.Error(), "transport: error while dialing:"))
 }

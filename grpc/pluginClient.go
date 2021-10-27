@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -85,11 +86,35 @@ func (c *PluginClient) GetSchema() (*proto.Schema, error) {
 	return resp.Schema, nil
 }
 
-func (c *PluginClient) Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error) {
-	return c.Stub.Execute(req)
+func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc, err error) {
+	// TODO tidyt/ make generic use exp backoff
+	retried := false
+	for attempt := 1; attempt <= 5; attempt++ {
+		str, ctx, cancel, err = c.Stub.Execute(req)
+		if !c.ShouldRetry(err) {
+			if retried == true && err == nil {
+				log.Printf("[WARN] RETRY WORKED++++++++++++++++++++++++++\n")
+			}
+			break
+		}
+		log.Printf("[WARN] Execute RETRYING %v\n", err)
+		time.Sleep(20 * time.Millisecond)
+		retried = true
+	}
+	return
+
 }
 
 // Kill kills our underlying GRPC client
 func (c *PluginClient) Kill() {
 	c.client.Kill()
+}
+
+func (c *PluginClient) ShouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+	res := IsGRPCConnectivityError(err)
+	log.Printf("[WARN] ShouldRetry %s = %v\n", err.Error(), res)
+	return res
 }
