@@ -2,14 +2,14 @@ package grpc
 
 import (
 	"context"
+	"io/ioutil"
 	"log"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/logging"
-
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/logging"
 )
 
 // PluginClient is the client object used by clients of the plugin
@@ -19,17 +19,15 @@ type PluginClient struct {
 	Stub   pluginshared.WrapperPluginClient
 }
 
-func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string, disableLogger bool) (*PluginClient, error) {
+func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
 	log.Printf("[WARN] NewPluginClient ***************")
 	// create the plugin map
 	pluginMap := map[string]plugin.Plugin{
 		pluginName: &pluginshared.WrapperPlugin{},
 	}
-	// avoid logging if the plugin is being invoked by refreshConnections
-	loggOpts := &hclog.LoggerOptions{Name: "plugin"}
-	if disableLogger {
-		//loggOpts.Exclude = func(hclog.Level, string, ...interface{}) bool { return true }
-	}
+	// discard logging from the client (plugin logs will still flow through)
+	// TODO does this do the same aslog.SetOutput(ioutil.Discard) ?
+	loggOpts := &hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard}
 	logger := logging.NewLogger(loggOpts)
 
 	// create grpc client
