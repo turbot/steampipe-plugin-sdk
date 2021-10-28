@@ -13,6 +13,8 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
+// TODO do not use unsafe quals use quals map and  remove key column qual logic
+
 // insert all data with this fixed large ttl - each client may specify its own ttl requirements when reading the cache
 const ttl = 24 * time.Hour
 

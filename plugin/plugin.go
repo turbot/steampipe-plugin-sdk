@@ -260,7 +260,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if req.CacheEnabled {
 		cachedResult := p.queryCache.Get(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
 		if cachedResult != nil {
-			log.Printf("[WARN] GOT CACHED RESULT")
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
 			}
@@ -279,11 +278,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	rowChan := queryData.buildRows(ctx)
 	logging.LogTime("Calling build Stream")
 	// asyncronously stream rows
-	rows, err := queryData.streamRows(ctx, rowChan)
-	if err != nil {
-		log.Printf("[WARN] Execute - streamRows returned error table %s, quals %s, error %s\n", table.Name, queryData.Quals, err)
-		return err
-	}
+	rows := queryData.streamRows(ctx, rowChan)
+
 	if req.CacheEnabled {
 		cacheResult := &cache.QueryCacheResult{Rows: rows}
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)

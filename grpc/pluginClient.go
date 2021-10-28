@@ -4,7 +4,6 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -21,7 +20,7 @@ type PluginClient struct {
 }
 
 func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
-	log.Printf("[WARN] NewPluginClient ***************")
+	log.Printf("[WARN] ************ NewPluginClient ***************")
 	// create the plugin map
 	pluginMap := map[string]plugin.Plugin{
 		pluginName: &pluginshared.WrapperPlugin{},
@@ -87,34 +86,16 @@ func (c *PluginClient) GetSchema() (*proto.Schema, error) {
 }
 
 func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc, err error) {
-	// TODO tidyt/ make generic use exp backoff
-	retried := false
-	for attempt := 1; attempt <= 5; attempt++ {
-		str, ctx, cancel, err = c.Stub.Execute(req)
-		if !c.ShouldRetry(err) {
-			if retried == true && err == nil {
-				log.Printf("[WARN] RETRY WORKED++++++++++++++++++++++++++\n")
-			}
-			break
-		}
-		log.Printf("[WARN] Execute RETRYING %v\n", err)
-		time.Sleep(20 * time.Millisecond)
-		retried = true
-	}
-	return
+	return c.Stub.Execute(req)
 
 }
 
-// Kill kills our underlying GRPC client
+// Exited returned whether the underlying client has exited, i.e. th eplugin has terminated
+func (c *PluginClient) Exited() bool {
+	return c.client.Exited()
+}
+
+//Kill kills our underlying GRPC client
 func (c *PluginClient) Kill() {
 	c.client.Kill()
-}
-
-func (c *PluginClient) ShouldRetry(err error) bool {
-	if err == nil {
-		return false
-	}
-	res := IsGRPCConnectivityError(err)
-	log.Printf("[WARN] ShouldRetry %s = %v\n", err.Error(), res)
-	return res
 }
