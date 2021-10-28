@@ -20,7 +20,7 @@ type PluginClient struct {
 }
 
 func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
-	log.Printf("[WARN] ************ NewPluginClient ***************")
+	log.Printf("[WARN] NewPluginClient ***************")
 	// create the plugin map
 	pluginMap := map[string]plugin.Plugin{
 		pluginName: &pluginshared.WrapperPlugin{},
@@ -87,7 +87,6 @@ func (c *PluginClient) GetSchema() (*proto.Schema, error) {
 
 func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc, err error) {
 	return c.Stub.Execute(req)
-
 }
 
 // Exited returned whether the underlying client has exited, i.e. th eplugin has terminated
@@ -95,7 +94,7 @@ func (c *PluginClient) Exited() bool {
 	return c.client.Exited()
 }
 
-//Kill kills our underlying GRPC client
+// Kill kills our underlying GRPC client
 func (c *PluginClient) Kill() {
 	c.client.Kill()
 }
