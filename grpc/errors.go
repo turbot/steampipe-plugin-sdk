@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func IgnoreNotImplementedError(err error, connection, call string) error {
+func HandleGrpcError(err error, connection, call string) error {
 	if err == nil {
 		return nil
 	}
