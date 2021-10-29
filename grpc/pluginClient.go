@@ -17,18 +17,17 @@ type PluginClient struct {
 	Name   string
 	client *plugin.Client
 	Stub   pluginshared.WrapperPluginClient
+	Pid    int
 }
 
 func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
-	log.Printf("[WARN] NewPluginClient ***************")
+	log.Printf("[WARN] *************** NewPluginClient %s ***************", pluginName)
 	// create the plugin map
 	pluginMap := map[string]plugin.Plugin{
 		pluginName: &pluginshared.WrapperPlugin{},
 	}
-	// discard logging from the client (plugin logs will still flow through)
-	// TODO does this do the same aslog.SetOutput(ioutil.Discard) ?
-	loggOpts := &hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard}
-	logger := logging.NewLogger(loggOpts)
+	// discard logging from the client (plugin logs will still flow through to the log file as the plugin manager set this up)
+	logger := logging.NewLogger(&hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard})
 
 	// create grpc client
 	client := plugin.NewClient(&plugin.ClientConfig{
@@ -56,6 +55,7 @@ func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*Plugi
 		Name:   pluginName,
 		client: client,
 		Stub:   p,
+		Pid:    reattach.Pid,
 	}
 	return res, nil
 
@@ -92,9 +92,4 @@ func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlug
 // Exited returned whether the underlying client has exited, i.e. th eplugin has terminated
 func (c *PluginClient) Exited() bool {
 	return c.client.Exited()
-}
-
-// Kill kills our underlying GRPC client
-func (c *PluginClient) Kill() {
-	c.client.Kill()
 }

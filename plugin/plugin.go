@@ -64,7 +64,7 @@ func (p *Plugin) Initialise() {
 	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionManager = connection_manager.NewManager()
 
-	// time will be provided by the plugin logger
+	// time will be provided by the plugin manager logger
 	p.Logger = logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
 	log.SetOutput(p.Logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
@@ -202,6 +202,7 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			log.Printf("[WARN] EXECUTE RECOVER callId: %s table: %s error: %v  *******", req.CallId, req.Table, r)
 			if e, ok := r.(error); ok {
 				err = e
 			} else {
@@ -209,7 +210,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 		}
 	}()
-
+	log.Printf("[WARN] EXECUTE callId: %s table: %s *******", req.CallId, req.Table)
+	defer log.Printf("[WARN] *********** END EXECUTE callId: %s table: %s ", req.CallId, req.Table)
 	// TODO if the client making this request has an out of date version of the schema, fail
 	// if err := p.verifySchemaHash(); err != nil {
 	//	return err
@@ -228,6 +230,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if !ok {
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
+	log.Printf("[WARN] built NewQueryContext callId: %s *******", req.CallId)
 
 	p.Logger.Trace("Got query context",
 		"table", req.Table,
@@ -251,6 +254,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
+	log.Printf("[WARN] built queryData callId: %s *******", req.CallId)
+
 	// convert limit from *int64 to an int64 (where -1 means no limit)
 	var limit int64 = -1
 	if queryContext.Limit != nil {
@@ -258,8 +263,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 	// can we satisfy this request from the cache?
 	if req.CacheEnabled {
+		log.Printf("[WARN] req.CacheEnabled callId: %s *******", req.CallId)
 		cachedResult := p.queryCache.Get(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
 		if cachedResult != nil {
+			log.Printf("[WARN] stream cached result callId: %s *******", req.CallId)
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
 			}

@@ -1,6 +1,10 @@
 package grpc
 
 import (
+	"log"
+	"sync"
+	"time"
+
 	"github.com/turbot/go-kit/helpers"
 
 	"github.com/hashicorp/go-plugin"
@@ -24,6 +28,8 @@ type PluginServer struct {
 	executeFunc             ExecuteFunc
 	setConnectionConfigFunc SetConnectionConfigFunc
 	getSchemaFunc           GetSchemaFunc
+	timingLock              sync.Mutex
+	lastScanTime            time.Time
 }
 
 func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc) *PluginServer {
@@ -58,7 +64,22 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 			err = helpers.ToError(r)
 		}
 	}()
+	s.throttle()
 	return s.executeFunc(req, stream)
+}
+
+func (s PluginServer) throttle() {
+	minScanInterval := 50 * time.Millisecond
+	s.timingLock.Lock()
+	defer s.timingLock.Unlock()
+	timeSince := time.Since(s.lastScanTime)
+	if timeSince < minScanInterval {
+
+		sleepTime := minScanInterval - timeSince
+		log.Printf("[WARN] *********  PluginServer Execute timeSince %dms, sleeping %dms", timeSince.Milliseconds(), sleepTime.Milliseconds())
+		time.Sleep(sleepTime)
+	}
+	s.lastScanTime = time.Now()
 }
 
 func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) {
