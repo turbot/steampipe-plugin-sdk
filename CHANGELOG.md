@@ -1,3 +1,8 @@
+## v1.7.1  [2021-11-01]
+_Bug fixes_
+* `FromValue` transform should fall back to next property path if a property value is nil. ([#197](https://github.com/turbot/steampipe-plugin-sdk/issues/197))
+* Avoid nil data being passed to hydrate calls if plugin calls StreamListItem with a nil item. ([#198](https://github.com/turbot/steampipe-plugin-sdk/issues/198))
+
 ## v1.7.0  [2021-10-18]
 _What's new_
 * Add dynamic schema support - add `SchemaMode` property to Plugin. If this is set to `dynamic`, Steampipe will check for plugin schema changes on startup. ([#195](https://github.com/turbot/steampipe-plugin-sdk/issues/195))
