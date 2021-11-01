@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"syscall"
 
 	"github.com/turbot/steampipe-plugin-sdk/cache"
@@ -57,6 +58,9 @@ type Plugin struct {
 	ConnectionConfigChangedFunc func() error
 	// query cache
 	queryCache *cache.QueryCache
+
+	concurrencyLock  sync.Mutex
+	concurrencyCount int
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -200,7 +204,15 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 
 // Execute executes a query and stream the results
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+	p.concurrencyLock.Lock()
+	p.concurrencyCount++
+	log.Printf("[WARN] EXECUTE callId: %s table: %s concurrency %d *******", req.CallId, req.Table, p.concurrencyCount)
+	p.concurrencyLock.Unlock()
+
 	defer func() {
+		p.concurrencyLock.Lock()
+		p.concurrencyCount--
+		p.concurrencyLock.Unlock()
 		if r := recover(); r != nil {
 			log.Printf("[WARN] EXECUTE RECOVER callId: %s table: %s error: %v  *******", req.CallId, req.Table, r)
 			if e, ok := r.(error); ok {
@@ -210,7 +222,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 		}
 	}()
-	log.Printf("[WARN] EXECUTE callId: %s table: %s *******", req.CallId, req.Table)
+
 	defer log.Printf("[WARN] *********** END EXECUTE callId: %s table: %s ", req.CallId, req.Table)
 	// TODO if the client making this request has an out of date version of the schema, fail
 	// if err := p.verifySchemaHash(); err != nil {
@@ -250,8 +262,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
-
+	p.concurrencyLock.Lock()
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
+	p.concurrencyLock.Unlock()
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
 	log.Printf("[WARN] built queryData callId: %s *******", req.CallId)
@@ -274,6 +287,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}
 
+	log.Printf("[WARN] fetch items callId: %s *******", req.CallId)
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {
 		p.Logger.Warn("fetchItems returned an error", "table", table.Name, "error", err)
@@ -281,13 +295,20 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 	logging.LogTime("Calling build Rows")
 
+	log.Printf("[WARN] buildRows callId: %s *******", req.CallId)
+
 	// asyncronously build rows
 	rowChan := queryData.buildRows(ctx)
-	logging.LogTime("Calling build Stream")
+
+	log.Printf("[WARN] streamRows callId: %s *******", req.CallId)
+
+	logging.LogTime("Calling streamRows")
 	// asyncronously stream rows
 	rows := queryData.streamRows(ctx, rowChan)
 
 	if req.CacheEnabled {
+		log.Printf("[WARN] queryCache.Set callId: %s *******", req.CallId)
+
 		cacheResult := &cache.QueryCacheResult{Rows: rows}
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
 	}
