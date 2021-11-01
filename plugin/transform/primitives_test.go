@@ -12,6 +12,11 @@ type TransformTest struct {
 	expected interface{}
 }
 
+type child struct {
+	A string
+	B int
+	C *string
+}
 type taggedStruct struct {
 	ID       int     `json:"id,omitempty"`
 	NodeID   *string `json:"node_id,omitempty"`
@@ -19,6 +24,7 @@ type taggedStruct struct {
 	CloneURL string  `json:"clone_url,omitempty"`
 	GitURL   string  `json:"git_url,omitempty"`
 	NoTag    string
+	Child    child
 }
 
 var nodeId = "id1"
@@ -29,6 +35,11 @@ var taggedStructInstance = &taggedStruct{
 	CloneURL: "www.turbot2.com",
 	GitURL:   "www.github.com",
 	NoTag:    "no tag for some reason",
+	Child: child{
+		A: "a value",
+		B: 1234,
+		C: nil,
+	},
 }
 
 type testStruct struct {
@@ -586,13 +597,53 @@ Statement:
 		function: FieldValue,
 		expected: taggedStructInstance.GitURL,
 	},
-	"FieldValue string double value": {
+	"FieldValue string multiple value first missing": {
 		d: &TransformData{
 			HydrateItem: taggedStructInstance,
-			Param:       []string{"GetColumn", "NodeID"},
+			Param:       []string{"MissingProperty", "NodeID"},
 		},
 		function: FieldValue,
 		expected: taggedStructInstance.NodeID,
+	},
+	"FieldValue nested multiple value first present": {
+		d: &TransformData{
+			HydrateItem: taggedStructInstance,
+			Param:       []string{"HTMLURL", "GetColumn"},
+		},
+		function: FieldValue,
+		expected: taggedStructInstance.HTMLURL,
+	},
+	"FieldValue nested single value": {
+		d: &TransformData{
+			HydrateItem: taggedStructInstance,
+			Param:       "Child.A",
+		},
+		function: FieldValue,
+		expected: taggedStructInstance.Child.A,
+	},
+	"FieldValue string multiple nested value first missing": {
+		d: &TransformData{
+			HydrateItem: taggedStructInstance,
+			Param:       []string{"Child.missing", "Child.A"},
+		},
+		function: FieldValue,
+		expected: taggedStructInstance.Child.A,
+	},
+	"FieldValue string multiple nested value first nil": {
+		d: &TransformData{
+			HydrateItem: taggedStructInstance,
+			Param:       []string{"Child.C", "Child.A"},
+		},
+		function: FieldValue,
+		expected: taggedStructInstance.Child.A,
+	},
+	"FieldValue string multiple value first present": {
+		d: &TransformData{
+			HydrateItem: taggedStructInstance,
+			Param:       []string{"Child.A", "Child.missing"},
+		},
+		function: FieldValue,
+		expected: taggedStructInstance.Child.A,
 	},
 	"FieldValue Invalid Value": {
 		d: &TransformData{

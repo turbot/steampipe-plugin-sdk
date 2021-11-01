@@ -24,7 +24,8 @@ import (
 
 // FieldValue function is intended for the start of a transform chain.
 // This returns a field value of either the hydrate call result (if present)  or the root item if not
-// the field name is in the 'Param'
+// the 'Param' is a list of field names
+// - Each field is tried in turn. If the property does not exist or is nil, the next field is tried
 func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	var item = d.HydrateItem
 	var fieldNames []string
@@ -37,14 +38,11 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("'FieldValue' requires one or more string parameters containing property path but received %v", d.Param)
 	}
-
 	for _, propertyPath := range fieldNames {
 		fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, propertyPath)
-		if ok {
+		if ok && !helpers.IsNil(fieldValue) {
 			return fieldValue, nil
-
 		}
-
 	}
 	return nil, nil
 }
