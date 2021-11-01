@@ -68,8 +68,7 @@ message ExecuteRequest {
   string connection = 3;
   bool cache_enabled = 4;
   int64 cache_ttl = 5;
-  string schema_hash = 6;
-  string call_id = 7;
+  string call_id = 6;
 }
 
 message ExecuteResponse {

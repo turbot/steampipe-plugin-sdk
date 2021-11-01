@@ -9,10 +9,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/turbot/steampipe-plugin-sdk/cache"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/cache"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
@@ -59,8 +58,7 @@ type Plugin struct {
 	// query cache
 	queryCache *cache.QueryCache
 
-	concurrencyLock  sync.Mutex
-	concurrencyCount int
+	concurrencyLock sync.Mutex
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -116,12 +114,6 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		}
 	}()
 
-	// TODO if the client making this request has an out of date version of the schema, fail
-	// if err := p.verifySchemaHash(); err != nil {
-	//	return err
-	//}
-	// ??? NEEDED HERE???
-
 	// create connection object
 	p.Connection = &Connection{Name: connectionName}
 
@@ -145,7 +137,7 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	}
 
 	// populate the plugin schema
-	p.schema, err = p.populateSchema()
+	p.Schema, err = p.buildSchema()
 	if err != nil {
 		return err
 	}
@@ -204,17 +196,11 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 
 // Execute executes a query and stream the results
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
-	p.concurrencyLock.Lock()
-	p.concurrencyCount++
-	log.Printf("[WARN] EXECUTE callId: %s table: %s concurrency %d *******", req.CallId, req.Table, p.concurrencyCount)
-	p.concurrencyLock.Unlock()
+	log.Printf("[WARN] EXECUTE callId: %s table: %s ", req.CallId, req.Table)
 
 	defer func() {
-		p.concurrencyLock.Lock()
-		p.concurrencyCount--
-		p.concurrencyLock.Unlock()
 		if r := recover(); r != nil {
-			log.Printf("[WARN] EXECUTE RECOVER callId: %s table: %s error: %v  *******", req.CallId, req.Table, r)
+			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", req.CallId, req.Table, r)
 			if e, ok := r.(error); ok {
 				err = e
 			} else {
@@ -223,11 +209,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}()
 
-	defer log.Printf("[WARN] *********** END EXECUTE callId: %s table: %s ", req.CallId, req.Table)
-	// TODO if the client making this request has an out of date version of the schema, fail
-	// if err := p.verifySchemaHash(); err != nil {
-	//	return err
-	//}
+	defer log.Printf("[TRACE] Execute complete callId: %s table: %s ", req.CallId, req.Table)
 
 	// the connection property must be set already
 	if p.Connection == nil {
@@ -242,7 +224,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if !ok {
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
-	log.Printf("[WARN] built NewQueryContext callId: %s *******", req.CallId)
 
 	p.Logger.Trace("Got query context",
 		"table", req.Table,
@@ -262,12 +243,11 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
-	p.concurrencyLock.Lock()
+	//p.concurrencyLock.Lock()
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
-	p.concurrencyLock.Unlock()
-	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
+	//p.concurrencyLock.Unlock()
 
-	log.Printf("[WARN] built queryData callId: %s *******", req.CallId)
+	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
 	// convert limit from *int64 to an int64 (where -1 means no limit)
 	var limit int64 = -1
@@ -276,10 +256,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 	// can we satisfy this request from the cache?
 	if req.CacheEnabled {
-		log.Printf("[WARN] req.CacheEnabled callId: %s *******", req.CallId)
+		log.Printf("[TRACE] CacheEnabled callId: %s", req.CallId)
 		cachedResult := p.queryCache.Get(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
 		if cachedResult != nil {
-			log.Printf("[WARN] stream cached result callId: %s *******", req.CallId)
+			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
 			}
@@ -287,7 +267,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}
 
-	log.Printf("[WARN] fetch items callId: %s *******", req.CallId)
+	log.Printf("[TRACE] fetch items callId: %s", req.CallId)
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {
 		p.Logger.Warn("fetchItems returned an error", "table", table.Name, "error", err)
@@ -295,19 +275,19 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 	logging.LogTime("Calling build Rows")
 
-	log.Printf("[WARN] buildRows callId: %s *******", req.CallId)
+	log.Printf("[TRACE] buildRows callId: %s", req.CallId)
 
 	// asyncronously build rows
 	rowChan := queryData.buildRows(ctx)
 
-	log.Printf("[WARN] streamRows callId: %s *******", req.CallId)
+	log.Printf("[TRACE] streamRows callId: %s", req.CallId)
 
 	logging.LogTime("Calling streamRows")
 	// asyncronously stream rows
 	rows := queryData.streamRows(ctx, rowChan)
 
 	if req.CacheEnabled {
-		log.Printf("[WARN] queryCache.Set callId: %s *******", req.CallId)
+		log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
 
 		cacheResult := &cache.QueryCacheResult{Rows: rows}
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
@@ -334,7 +314,7 @@ func (p *Plugin) ensureCache() error {
 	return nil
 }
 
-func (p *Plugin) populateSchema() (map[string]*proto.TableSchema, error) {
+func (p *Plugin) buildSchema() (map[string]*proto.TableSchema, error) {
 	// the connection property must be set already
 	if p.Connection == nil {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
@@ -346,7 +326,6 @@ func (p *Plugin) populateSchema() (map[string]*proto.TableSchema, error) {
 		schema[tableName] = table.GetSchema()
 		tables = append(tables, tableName)
 	}
-	// TODO set schema hash
 
 	return schema, nil
 }
