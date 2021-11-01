@@ -47,6 +47,7 @@ func (s PluginServer) GetSchema(_ *proto.GetSchemaRequest) (res *proto.GetSchema
 			err = helpers.ToError(r)
 		}
 	}()
+	s.throttle()
 	schema, err := s.getSchemaFunc()
 	return &proto.GetSchemaResponse{
 		Schema: &proto.Schema{
@@ -68,31 +69,19 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 	return s.executeFunc(req, stream)
 }
 
-func (s PluginServer) throttle() {
-	minScanInterval := 50 * time.Millisecond
-	s.timingLock.Lock()
-	defer s.timingLock.Unlock()
-	timeSince := time.Since(s.lastScanTime)
-	if timeSince < minScanInterval {
-
-		sleepTime := minScanInterval - timeSince
-		log.Printf("[WARN] *********  PluginServer Execute timeSince %dms, sleeping %dms", timeSince.Milliseconds(), sleepTime.Milliseconds())
-		time.Sleep(sleepTime)
-	}
-	s.lastScanTime = time.Now()
-}
-
 func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = helpers.ToError(r)
 		}
 	}()
+	s.throttle()
 	err = s.setConnectionConfigFunc(req.ConnectionName, req.ConnectionConfig)
 	return &proto.SetConnectionConfigResponse{}, err
 }
 
 func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
+	s.throttle()
 	return &proto.GetSupportedOperationsResponse{
 		QueryCache: true,
 	}, nil
@@ -109,4 +98,18 @@ func (s PluginServer) Serve() {
 		// A non-nil value here enables gRPC serving for this plugin...
 		HandshakeConfig: pluginshared.Handshake,
 	})
+}
+
+func (s PluginServer) throttle() {
+	minScanInterval := 50 * time.Millisecond
+	s.timingLock.Lock()
+	defer s.timingLock.Unlock()
+	timeSince := time.Since(s.lastScanTime)
+	if timeSince < minScanInterval {
+
+		sleepTime := minScanInterval - timeSince
+		log.Printf("[WARN] *********  PluginServer Execute timeSince %dms, sleeping %dms", timeSince.Milliseconds(), sleepTime.Milliseconds())
+		time.Sleep(sleepTime)
+	}
+	s.lastScanTime = time.Now()
 }
