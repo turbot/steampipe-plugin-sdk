@@ -347,6 +347,11 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	callingFunction := helpers.GetCallingFunction(1)
 
+	// do a deep nil check on item - if nil, just return
+	if helpers.IsNil(item) {
+		return
+	}
+
 	// if this table has no parent hydrate function, just call steramLeafListItem directly
 	parentListHydrate := d.Table.List.ParentHydrate
 	if parentListHydrate == nil {
@@ -385,6 +390,10 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
+	// do a deep nil check on item - if nil, just return
+	if helpers.IsNil(item) {
+		return
+	}
 	// have we streamed enough already?
 	if d.QueryStatus.RowsRemaining(ctx) == 0 {
 		log.Printf("[TRACE] d.QueryStatus.RowsRemaining is 0 - streamLeafListItem NOT streaming item")
