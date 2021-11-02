@@ -14,10 +14,12 @@ import (
 
 // PluginClient is the client object used by clients of the plugin
 type PluginClient struct {
-	Name   string
+	Name string
+	Stub pluginshared.WrapperPluginClient
+	Pid  int
+	// TODO remove once Steampipe is updated
+	Path   string
 	client *plugin.Client
-	Stub   pluginshared.WrapperPluginClient
-	Pid    int
 }
 
 func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
