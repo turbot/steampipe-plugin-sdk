@@ -196,7 +196,7 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 
 // Execute executes a query and stream the results
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
-	log.Printf("[WARN] EXECUTE callId: %s table: %s ", req.CallId, req.Table)
+	log.Printf("[TRACE] EXECUTE callId: %s table: %s ", req.CallId, req.Table)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -243,9 +243,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
-	//p.concurrencyLock.Lock()
+	p.concurrencyLock.Lock()
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
-	//p.concurrencyLock.Unlock()
+	p.concurrencyLock.Unlock()
 
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 

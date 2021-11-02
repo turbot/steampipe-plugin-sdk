@@ -21,7 +21,7 @@ type PluginClient struct {
 }
 
 func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
-	log.Printf("[WARN] *************** NewPluginClient %s ***************", pluginName)
+	log.Printf("[TRACE]  NewPluginClient for plugin %s", pluginName)
 	// create the plugin map
 	pluginMap := map[string]plugin.Plugin{
 		pluginName: &pluginshared.WrapperPlugin{},
