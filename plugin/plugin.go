@@ -135,10 +135,6 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
 // 2) update tables to have a reference to the plugin
 func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
-	if p.TableMap != nil && p.TableMapFunc != nil {
-		return fmt.Errorf("plugin %s validation failed: plugin defines both TableMap and TableMapFunc", p.Name)
-	}
-
 	if p.TableMapFunc != nil {
 		// handle panic in factory function
 		defer func() {
