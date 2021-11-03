@@ -1,3 +1,8 @@
+## v1.7.2  [2021-11-03]
+_Bug fixes_
+* Fix KeyColumn `Require` and `Operators` properties not being set to default if a TableMapFunc is used. ([#206](https://github.com/turbot/steampipe-plugin-sdk/issues/206))
+* Remove unnecessary TableMapFunc validation from plugin - this breaks dynamic plugins when plugin manager is used. Closes #204 ([#198](https://github.com/turbot/steampipe-plugin-sdk/issues/204))
+
 ## v1.7.1  [2021-11-01]
 _Bug fixes_
 * `FromValue` transform should fall back to next property path if a property value is nil. ([#197](https://github.com/turbot/steampipe-plugin-sdk/issues/197))
