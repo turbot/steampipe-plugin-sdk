@@ -105,11 +105,6 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		}
 	}()
 
-	// first validate the plugin
-	if validationErrors := p.Validate(); validationErrors != "" {
-		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
-	}
-
 	// create connection object
 	p.Connection = &Connection{Name: connectionName}
 
@@ -154,6 +149,12 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 	for _, table := range p.TableMap {
 		table.Plugin = p
 	}
+	// now validate the plugin
+	// NOTE: must do this after calling TableMapFunc
+	if validationErrors := p.Validate(); validationErrors != "" {
+		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
+	}
+
 	return nil
 }
 
