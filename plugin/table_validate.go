@@ -18,7 +18,8 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	// verify all required columns exist
 	validationErrors = t.validateRequiredColumns(requiredColumns)
 
-	// validated list config
+	// validated list and get config
+	// NOTE: this also sets key column require and operators to default value if not specified
 	validationErrors = append(validationErrors, t.validateListAndGetConfig()...)
 
 	// verify hydrate dependencies are valid
@@ -74,6 +75,8 @@ func columnTypeToString(columnType proto.ColumnType) string {
 	}
 }
 
+// validate list and get config
+// NOTE: this initialises key column properties to their defaults
 func (t *Table) validateListAndGetConfig() []string {
 	var validationErrors []string
 	// either get or list must be defined
@@ -96,6 +99,7 @@ func (t *Table) validateListAndGetConfig() []string {
 	}
 
 	// verify any key columns defined for GET only use '=' operators
+	// also set key column require and operators to default value if not specified
 	validationErrors = append(validationErrors, t.validateKeyColumns()...)
 
 	return validationErrors
@@ -122,6 +126,7 @@ func (t *Table) validateHydrateDependencies() []string {
 	}
 	return validationErrors
 }
+
 func (t *Table) detectCyclicHydrateDependencies() string {
 	var dependencies = topsort.NewGraph()
 	dependencies.AddNode("root")
@@ -147,6 +152,8 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 	return ""
 }
 
+// validate key columns
+// also set key column require and operators to default value if not specified
 func (t *Table) validateKeyColumns() []string {
 	// get key columns should only have equals operators
 	var getValidationErrors []string

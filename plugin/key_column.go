@@ -61,7 +61,6 @@ func (k *KeyColumn) Validate() []string {
 	// first set default operator and convert "!=" to "<>"
 	k.InitialiseOperators()
 	// ensure operators are valid
-
 	validOperators := []string{"=", "<>", "<", "<=", ">", ">="}
 	validRequire := []string{Required, Optional, AnyOf}
 	var res []string
