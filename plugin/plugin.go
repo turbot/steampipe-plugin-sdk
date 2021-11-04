@@ -190,7 +190,7 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
 	}
 
-	schema := &grpc.PluginSchema{Schema: p.schema, Mode: p.SchemaMode}
+	schema := &grpc.PluginSchema{Schema: p.Schema, Mode: p.SchemaMode}
 	return schema, nil
 }
 
@@ -299,7 +299,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 // if the query cache exists, update the schema
 func (p *Plugin) ensureCache() error {
 	if p.queryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.schema)
+		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema)
 		if err != nil {
 			return err
 		}
@@ -308,7 +308,7 @@ func (p *Plugin) ensureCache() error {
 		// so there is already a cache - that means the config has been updated, not set for the first time
 
 		// update the schema on the query cache
-		p.queryCache.PluginSchema = p.schema
+		p.queryCache.PluginSchema = p.Schema
 	}
 
 	return nil
