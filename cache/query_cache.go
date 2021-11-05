@@ -80,7 +80,7 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 		// create new index bucket
 		indexBucket = newIndexBucket().Append(NewIndexItem(columns, resultKey, limit))
 	}
-	return false //c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl)
+	return c.cache.SetWithTTL(indexBucketKey, "FOOOO", 1, ttl)
 }
 
 func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
