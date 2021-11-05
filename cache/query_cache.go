@@ -87,8 +87,6 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
-
-	return nil
 	// get the index bucket for this table and quals
 	indexBucketKey := c.BuildIndexKey(c.connectionName, table, qualMap)
 	log.Printf("[TRACE] QueryCache Get() - index bucket key: %s\n", indexBucketKey)
