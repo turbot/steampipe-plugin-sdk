@@ -289,9 +289,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return err
 	}
 
-	// TODO hack to fix tests
-	if false {
+	if req.CacheEnabled {
 		log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
+
 		cacheResult := &cache.QueryCacheResult{Rows: rows}
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
 	}
