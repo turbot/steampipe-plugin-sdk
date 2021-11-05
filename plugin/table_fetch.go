@@ -69,7 +69,8 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 //  execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	logger := t.Plugin.Logger
-	logger.Trace("executeGetCall", "table", t.Name, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
+	log.Printf("[WARN] executeGetCall key columns %v", t.Get.KeyColumns)
+	logger.Warn("executeGetCall", "table", t.Name, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
 	// verify we have the necessary quals
 	if len(queryData.KeyColumnQuals) == 0 {
 		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.String()))
@@ -171,6 +172,8 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 
 	if len(queryData.Matrix) == 0 {
 		retryConfig, shouldIgnoreError := t.buildGetConfig()
+
+		log.Printf("[WARN] doing GET %v", queryData.KeyColumnQuals)
 		// just invoke callHydrateWithRetries()
 		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
 
