@@ -50,14 +50,6 @@ jobs:
         with:
           bats-version: 1.2.1
 
-      - name: Stop steampipe service
-        run: |
-          steampipe service stop --force
-
-      - name: Start steampipe service
-        run: |
-          steampipe service start
-
       - name: Run Test Suite
         run: |
           chmod +x /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
