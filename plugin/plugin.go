@@ -289,7 +289,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return err
 	}
 
-	if false {
+	if req.CacheEnabled {
 		log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
 
 		cacheResult := &cache.QueryCacheResult{Rows: rows}
