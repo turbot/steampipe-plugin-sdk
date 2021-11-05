@@ -284,7 +284,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	logging.LogTime("Calling streamRows")
 	// asyncronously stream rows
-	rows := queryData.streamRows(ctx, rowChan)
+	rows, err := queryData.streamRows(ctx, rowChan)
+	if err != nil {
+		return err
+	}
 
 	if req.CacheEnabled {
 		log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
