@@ -420,24 +420,31 @@ func (d *QueryData) fetchComplete() {
 }
 
 // read rows from rowChan and stream back
-func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) error {
+// (also return the rows so we can cache them when complete)
+func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
+	var rows []*proto.Row
+	defer func() {
+		// tell the concurrency manage we are done (it may log the concurrency stats)
+		d.concurrencyManager.Close()
+	}()
 	for {
 		// wait for either an item or an error
 		select {
 		case err := <-d.errorChan:
 			log.Printf("[ERROR] streamRows error chan select: %v\n", err)
-			return err
+			// return what what we have sent
+			return nil, err
 		case row := <-rowChan:
+			// nil row means we are done streaming
 			if row == nil {
-				// tell the concurrency manage we are done (it may log the concurrency stats)
 				log.Println("[TRACE] row chan closed, stop streaming")
-				d.concurrencyManager.Close()
-				// channel closed
-				return nil
+				return rows, nil
 			}
 			if err := d.streamRow(row); err != nil {
-				return err
+				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
+				return nil, err
 			}
+			rows = append(rows, row)
 		}
 	}
 }
