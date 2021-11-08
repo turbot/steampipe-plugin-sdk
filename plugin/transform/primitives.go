@@ -38,13 +38,20 @@ func FieldValue(_ context.Context, d *TransformData) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("'FieldValue' requires one or more string parameters containing property path but received %v", d.Param)
 	}
+	// try each element of field names in turn -
+	// if the property does not exist, or has a nil value, continue to the next property
+	// NOTE: if a property exists but has a nil value,
+	// we will fall back to returning this if no non nil value is found
+	// - this is so that any casting code in the plugin still works
+	var fieldValue interface{} = nil
 	for _, propertyPath := range fieldNames {
-		fieldValue, ok := helpers.GetNestedFieldValueFromInterface(item, propertyPath)
-		if ok && !helpers.IsNil(fieldValue) {
-			return fieldValue, nil
+		fieldValue, _ = helpers.GetNestedFieldValueFromInterface(item, propertyPath)
+		if !helpers.IsNil(fieldValue) {
+			break
 		}
 	}
-	return nil, nil
+	// return whatever value of fieldValue we have found, even if it is nil
+	return fieldValue, nil
 }
 
 // FieldValueCamelCase is intended for the start of a transform chain
