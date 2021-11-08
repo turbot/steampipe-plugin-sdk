@@ -243,6 +243,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
+
+	// lock access to the newQueryData - otherwise plugin crashes were observed
 	p.concurrencyLock.Lock()
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
 	p.concurrencyLock.Unlock()
