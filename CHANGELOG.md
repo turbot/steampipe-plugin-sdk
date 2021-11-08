@@ -1,3 +1,7 @@
+## v1.7.3  [2021-11-08]
+_Bug fixes_
+* FromField transform should return nil property value if property is nil, rather than nil interface value. ([#212](https://github.com/turbot/steampipe-plugin-sdk/issues/212))
+
 ## v1.7.2  [2021-11-03]
 _Bug fixes_
 * Fix KeyColumn `Require` and `Operators` properties not being set to default if a TableMapFunc is used. ([#206](https://github.com/turbot/steampipe-plugin-sdk/issues/206))
