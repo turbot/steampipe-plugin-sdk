@@ -362,8 +362,7 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	parentHydrateName := helpers.GetFunctionName(parentListHydrate)
 	Logger(ctx).Trace("StreamListItem: called from parent hydrate function - streaming result to child hydrate function",
 		"parent hydrate", parentHydrateName,
-		"child hydrate", helpers.GetFunctionName(d.Table.List.Hydrate),
-		"item", item)
+		"child hydrate", helpers.GetFunctionName(d.Table.List.Hydrate))
 	d.listWg.Add(1)
 
 	go func() {
