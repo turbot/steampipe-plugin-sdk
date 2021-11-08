@@ -17,7 +17,7 @@ type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_Exec
 type GetSchemaFunc func() (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 
-// PluginServer :: server for a single plugin
+// PluginServer is the server for a single plugin
 type PluginServer struct {
 	proto.UnimplementedWrapperPluginServer
 	pluginName              string
@@ -69,6 +69,12 @@ func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest)
 	}()
 	err = s.setConnectionConfigFunc(req.ConnectionName, req.ConnectionConfig)
 	return &proto.SetConnectionConfigResponse{}, err
+}
+
+func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
+	return &proto.GetSupportedOperationsResponse{
+		QueryCache: true,
+	}, nil
 }
 
 func (s PluginServer) Serve() {

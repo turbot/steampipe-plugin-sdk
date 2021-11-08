@@ -1,4 +1,4 @@
-syntax = "proto3";
+ syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 package proto;
 option go_package = ".;proto";
@@ -66,6 +66,9 @@ message ExecuteRequest {
   string table = 1;
   QueryContext query_context = 2;
   string connection = 3;
+  bool cache_enabled = 4;
+  int64 cache_ttl = 5;
+  string call_id = 6;
 }
 
 message ExecuteResponse {
@@ -79,6 +82,12 @@ message GetSchemaResponse {
   Schema schema = 1;
 }
 
+message GetSupportedOperationsRequest{}
+message GetSupportedOperationsResponse{
+  bool query_cache = 1;
+}
+
+
 message SetConnectionConfigRequest{
   string connection_name = 1;
   string connection_config = 2;
@@ -90,6 +99,7 @@ service WrapperPlugin {
   rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
   rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
   rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
+  rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
 }
 
 message Row {

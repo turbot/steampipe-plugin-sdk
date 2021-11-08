@@ -30,7 +30,11 @@ func (c *GRPCClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) 
 	return c.client.SetConnectionConfig(c.ctx, req)
 }
 
-// Here is the gRPC server that GRPCClient talks to.
+func (c *GRPCClient) GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
+	return c.client.GetSupportedOperations(c.ctx, req)
+}
+
+// GRPCServer is the gRPC server that GRPCClient talks to.
 type GRPCServer struct {
 	// This is the real implementation
 	Impl WrapperPluginServer
@@ -47,4 +51,8 @@ func (m *GRPCServer) Execute(req *proto.ExecuteRequest, server proto.WrapperPlug
 
 func (m *GRPCServer) SetConnectionConfig(_ context.Context, req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) {
 	return m.Impl.SetConnectionConfig(req)
+}
+
+func (m *GRPCServer) GetSupportedOperations(_ context.Context, req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
+	return m.Impl.GetSupportedOperations(req)
 }
