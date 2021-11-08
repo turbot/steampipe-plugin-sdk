@@ -89,7 +89,7 @@ func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns 
 
 	// get the index bucket for this table and quals
 	indexBucketKey := c.BuildIndexKey(c.connectionName, table, qualMap)
-	log.Printf("[TRACE] QueryCache Get() - index bucket key: %s\n", indexBucketKey)
+	log.Printf("[WARN] QueryCache Get() - index bucket key: %s\n", indexBucketKey)
 	indexBucket, ok := c.getIndex(indexBucketKey)
 	if !ok {
 		c.Stats.Misses++
