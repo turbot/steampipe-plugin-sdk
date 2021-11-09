@@ -62,14 +62,14 @@ func (c *QueryCache) waitForPendingItem(pendingItem *pendingIndexItem, indexBuck
 		c.pendingDataLock.Unlock()
 
 	case <-transferCompleteChan:
-		log.Printf("[TRACE] transfer complete - trying cache again")
+		log.Printf("[INFO] transfer complete - trying cache again")
 
 		// now try to read from the cache again
 		res = c.getCachedResult(indexBucketKey, columns, limit, ttlSeconds)
-		log.Printf("[TRACE] retrieved %p from cache", res)
+		log.Printf("[INFO] retrieved %p from cache", res)
 		// if the data is still not in the cache, create a pending item
 		if res == nil {
-			log.Printf("[TRACE] item still not in the cache - add pending item")
+			log.Printf("[INFO] item still not in the cache - add pending item")
 			// lock access to pending results map
 			c.pendingDataLock.Lock()
 			// add a new pending item, within the lock

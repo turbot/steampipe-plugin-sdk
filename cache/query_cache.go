@@ -118,7 +118,7 @@ func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns 
 
 	// there was no cached result - is there data fetch in progress?
 	if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit); pendingItem != nil {
-		log.Printf("[TRACE] found pending item - waiting for it")
+		log.Printf("[INFO] found pending item - waiting for it")
 		// so there is a pending result, wait for it
 		return c.waitForPendingItem(pendingItem, indexBucketKey, table, qualMap, columns, limit, ttlSeconds)
 	}
