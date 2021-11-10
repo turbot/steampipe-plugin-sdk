@@ -42,7 +42,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 func (c *QueryCache) waitForPendingItem(pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) *QueryCacheResult {
 	var res *QueryCacheResult
 
-	log.Printf("[TRACE] waitForPendingItem")
+	log.Printf("[TRACE] waitForPendingItem indexBucketKey: %s", indexBucketKey)
 
 	transferCompleteChan := make(chan (bool), 1)
 	go func() {
@@ -51,7 +51,8 @@ func (c *QueryCache) waitForPendingItem(pendingItem *pendingIndexItem, indexBuck
 	}()
 	select {
 	case <-time.After(pendingQueryTimeout):
-		log.Printf("[WARN] timed out waiting for pending transfer")
+		log.Printf("[WARN] waitForPendingItem timed out waiting for pending transfer, indexBucketKey: %s", indexBucketKey)
+
 		// remove the pending result from the map
 		// lock access to pending results map
 		c.pendingDataLock.Lock()
@@ -62,19 +63,21 @@ func (c *QueryCache) waitForPendingItem(pendingItem *pendingIndexItem, indexBuck
 		c.pendingDataLock.Unlock()
 
 	case <-transferCompleteChan:
-		log.Printf("[INFO] transfer complete - trying cache again")
+		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, indexBucketKey: %s", indexBucketKey)
 
 		// now try to read from the cache again
 		res = c.getCachedResult(indexBucketKey, columns, limit, ttlSeconds)
-		log.Printf("[INFO] retrieved %p from cache", res)
 		// if the data is still not in the cache, create a pending item
 		if res == nil {
-			log.Printf("[INFO] item still not in the cache - add pending item")
+			log.Printf("[TRACE] waitForPendingItem item still not in the cache - add pending item, indexBucketKey: %s", indexBucketKey)
 			// lock access to pending results map
 			c.pendingDataLock.Lock()
 			// add a new pending item, within the lock
 			c.addPendingResult(indexBucketKey, table, qualMap, columns, limit)
 			c.pendingDataLock.Unlock()
+		} else {
+			log.Printf("[TRACE] waitForPendingItem retrieved from cache, indexBucketKey: %s", indexBucketKey)
+
 		}
 
 	}
@@ -130,6 +133,7 @@ func (c *QueryCache) pendingItemComplete(table string, qualMap map[string]*proto
 			pendingItem = pendingIndexBucket.Get(columns, limit)
 		}
 		if len(pendingIndexBucket.Items) == 0 {
+			log.Printf("[TRACE] pending bucket now empty - deleting key %s", indexBucketKey)
 			delete(c.pendingData, indexBucketKey)
 		}
 	}

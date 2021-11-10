@@ -61,6 +61,10 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 			log.Printf("[WARN] QueryCache Set suffered a panic: %s", helpers.ToError(r))
 			res = false
 		}
+
+		// clear the corresponding pending item - we have completed the transfer
+		// (we need to do this even if the cache set fails)
+		c.pendingItemComplete(table, qualMap, columns, limit)
 	}()
 
 	// if any data was returned, extract the columns from the first row
@@ -97,9 +101,14 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 		return res
 	}
 
-	// now clear the corresponding pending item - we have completed the transfer
-	c.pendingItemComplete(table, qualMap, columns, limit)
 	return true
+}
+
+// CancelPendingItem cancels a pending item - called when an execute call fails for any reason
+func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Quals, columns []string, limit int64) {
+	log.Printf("[Trace] QueryCache CancelPendingItem %s", table)
+	// clear the corresponding pending item
+	c.pendingItemComplete(table, qualMap, columns, limit)
 }
 
 func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
@@ -206,6 +215,10 @@ func (c *QueryCache) buildResultKey(table string, qualMap map[string]*proto.Qual
 }
 
 func (c *QueryCache) formatQualMapForKey(table string, qualMap map[string]*proto.Quals) string {
+	if len(qualMap) == 0 {
+		return ""
+	}
+
 	var strs = make([]string, len(qualMap))
 	// first build list of keys, then sort them
 	keys := make([]string, len(qualMap))
@@ -214,7 +227,6 @@ func (c *QueryCache) formatQualMapForKey(table string, qualMap map[string]*proto
 		keys[idx] = key
 		idx++
 	}
-	log.Printf("[TRACE] formatQualMapForKey unsorted keys %v\n", keys)
 	sort.Strings(keys)
 	log.Printf("[TRACE] formatQualMapForKey sorted keys %v\n", keys)
 
