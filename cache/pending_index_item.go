@@ -32,8 +32,9 @@ func (b *pendingIndexBucket) delete(pendingItem *pendingIndexItem) {
 // pendingIndexItem stores the columns and cached index for a single pending query result
 // note - this index item it tied to a specific table and set of quals
 type pendingIndexItem struct {
-	item  *IndexItem
-	lock  *sync.WaitGroup
+	item *IndexItem
+	lock *sync.WaitGroup
+	// used for logging purposes only (as we cannot access wait groups count)
 	count int
 }
 
