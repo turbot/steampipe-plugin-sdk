@@ -8,7 +8,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-var cacheableHydrateFunctionsPending = make(map[string]*sync.Mutex)
+var cacheableHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
 var cacheableHydrateLock sync.Mutex
 
 // WithCache is a chainable function which wraps a hydrate call with caching and checks for
@@ -33,9 +33,7 @@ func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 			// a hydrate function is running - or it has completed
 			// unlock the global lock and try to lock the functionLock
 			cacheableHydrateLock.Unlock()
-			(*functionLock).Lock()
-			// ensure we unlock the function lock before return
-			defer (*functionLock).Unlock()
+			functionLock.Wait()
 
 			// we have the function lock
 			// so at this point, there is no hydrate function running - we hope the data is in the cache
@@ -54,11 +52,11 @@ func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 			log.Printf("[TRACE] WithCache no function lock key %s", cacheKey)
 			// there is no lock for this function, which means it has not been run yet
 			// create a lock
-			functionLock = &sync.Mutex{}
+			functionLock = new(sync.WaitGroup)
 			// lock it
-			(*functionLock).Lock()
+			functionLock.Add(1)
 			// ensure we unlock before return
-			defer (*functionLock).Unlock()
+			defer functionLock.Done()
 			// add to map
 			cacheableHydrateFunctionsPending[cacheKey] = functionLock
 			// unlock the global lock

@@ -207,6 +207,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				err = fmt.Errorf("%v", r)
 			}
 		}
+
 	}()
 
 	defer log.Printf("[TRACE] Execute complete callId: %s table: %s ", req.CallId, req.Table)
@@ -267,6 +268,16 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 			return
 		}
+
+		// so cache is enabled but the data is not in the cache
+		// the cache will have added a pending item for this transfer
+		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
+		defer func() {
+			if err != nil {
+				log.Printf("[WARN] Execute call failed - cancelling pending item in cache")
+				p.queryCache.CancelPendingItem(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit)
+			}
+		}()
 	} else {
 		log.Printf("[INFO] Cache DISABLED callId: %s", req.CallId)
 	}
