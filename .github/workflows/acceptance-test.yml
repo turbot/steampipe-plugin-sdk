@@ -43,6 +43,7 @@ jobs:
           echo "PATH=$PATH:$HOME/build::/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
           go get github.com/turbot/steampipe-plugin-sdk@${{ github.event.pull_request.head.sha }}
+          go mod download
           make
 
       - name: Setup BATS
