@@ -1,3 +1,6 @@
+## v1.8.0  [2021-11-10]
+* Add support for query result caching with stampede prevention, and concurrent query execution.  ([#211](https://github.com/turbot/steampipe-plugin-sdk/issues/211))
+
 ## v1.7.3  [2021-11-08]
 _Bug fixes_
 * FromField transform should return nil property value if property is nil, rather than nil interface value. ([#212](https://github.com/turbot/steampipe-plugin-sdk/issues/212))
