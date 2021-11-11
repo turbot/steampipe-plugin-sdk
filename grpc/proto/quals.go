@@ -1,12 +1,39 @@
 package proto
 
 import (
+	"fmt"
+
 	"github.com/golang/protobuf/ptypes/timestamp"
 	typehelpers "github.com/turbot/go-kit/types"
 )
 
 func (x *Quals) Append(q *Qual) {
 	x.Quals = append(x.Quals, q)
+}
+
+func (x *Quals) IsASubsetOf(other *Quals) bool {
+	// all quals in x must exist in other
+	for _, q := range x.Quals {
+		if !other.Contains(q) {
+			return false
+		}
+	}
+	return true
+}
+
+func (x *Quals) Contains(otherQual *Qual) bool {
+	for _, q := range x.Quals {
+		if q.Equals(otherQual) {
+			return true
+		}
+	}
+	return false
+}
+
+func (x *Qual) Equals(other *Qual) bool {
+	return fmt.Sprintf("%v", x.Value.Value) == fmt.Sprintf("%v", other.Value.Value) &&
+		x.FieldName == other.FieldName &&
+		x.Operator == other.Operator
 }
 
 // NewQualValue creates a QualValue object from a raw value

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
 // IndexBucket contains index items for all cache results for a given table and qual set
@@ -22,9 +23,9 @@ func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {
 }
 
 // Get finds an index item which satisfies all columns
-func (b *IndexBucket) Get(columns []string, limit int64) *IndexItem {
+func (b *IndexBucket) Get(qualMap map[string]*proto.Quals, columns []string, limit int64) *IndexItem {
 	for _, item := range b.Items {
-		if item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) {
+		if item.SatisfiesQuals(qualMap) && item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) {
 			return item
 		}
 	}
@@ -37,13 +38,15 @@ type IndexItem struct {
 	Columns []string
 	Key     string
 	Limit   int64
+	Quals   map[string]*proto.Quals
 }
 
-func NewIndexItem(columns []string, key string, limit int64) *IndexItem {
+func NewIndexItem(columns []string, key string, limit int64, quals map[string]*proto.Quals) *IndexItem {
 	return &IndexItem{
 		Columns: columns,
 		Key:     key,
 		Limit:   limit,
+		Quals:   quals,
 	}
 }
 
@@ -77,4 +80,23 @@ func (i IndexItem) SatisfiesLimit(limit int64) bool {
 	log.Printf("[TRACE] satisfied = %v", res)
 	return res
 
+}
+
+// SatisfiesQuals
+//check quals must be MORE restrictive the our quals
+//   i.e. our quals must be a subset of check quals
+//   eg
+//our quals [], check quals [id="1"] 				-> SATISFIED
+//our quals [id="1"], check quals [id="1"] 		-> SATISFIED
+//our quals [id="1"], check quals [id="1", foo=2] -> SATISFIED
+//our quals [id="1", foo=2], check quals [id="1"] -> NOT SATISFIED
+func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals) bool {
+	for col, indexQuals := range i.Quals {
+		// if we have quals the passed in map does not, we DO NOT satisfy
+		checkQuals, ok := checkQualMap[col]
+		if !ok || !indexQuals.IsASubsetOf(checkQuals) {
+			return false
+		}
+	}
+	return true
 }

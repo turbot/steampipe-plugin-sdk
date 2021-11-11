@@ -77,7 +77,7 @@ func (p *pendingIndexItem) Wait() {
 
 func NewPendingIndexItem(columns []string, key string, limit int64) *pendingIndexItem {
 	res := &pendingIndexItem{
-		item: NewIndexItem(columns, key, limit),
+		item: NewIndexItem(columns, key, limit, nil),
 		lock: new(sync.WaitGroup),
 	}
 	// increment wait group - indicate this item is pending
