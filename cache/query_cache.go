@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sort"
@@ -70,7 +71,9 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	// if any data was returned, extract the columns from the first row
 	if len(result.Rows) > 0 {
 		for col := range result.Rows[0].Columns {
-			columns = append(columns, col)
+			if !helpers.StringSliceContains(columns, col) {
+				columns = append(columns, col)
+			}
 		}
 	}
 	sort.Strings(columns)
@@ -111,7 +114,7 @@ func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Q
 	c.pendingItemComplete(table, qualMap, columns, limit)
 }
 
-func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
+func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
 	indexBucketKey := c.buildIndexKey(c.connectionName, table, qualMap)
@@ -121,6 +124,7 @@ func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns 
 	// do we have a cached result?
 	res := c.getCachedResult(indexBucketKey, columns, limit, ttlSeconds)
 	if res != nil {
+		log.Printf("[INFO] CACHE HIT")
 		// cache hit!
 		return res
 	}
@@ -129,9 +133,10 @@ func (c *QueryCache) Get(table string, qualMap map[string]*proto.Quals, columns 
 	if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit); pendingItem != nil {
 		log.Printf("[INFO] found pending item - waiting for it")
 		// so there is a pending result, wait for it
-		return c.waitForPendingItem(pendingItem, indexBucketKey, table, qualMap, columns, limit, ttlSeconds)
+		return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, qualMap, columns, limit, ttlSeconds)
 	}
 
+	log.Printf("[INFO] CACHE MISS")
 	// cache miss
 	return nil
 }
@@ -145,7 +150,7 @@ func (c *QueryCache) getCachedResult(indexBucketKey string, columns []string, li
 	indexBucket, ok := c.getIndexBucket(indexBucketKey)
 	if !ok {
 		c.Stats.Misses++
-		log.Printf("[INFO] CACHE MISS - no index")
+		log.Printf("[TRACE] getCachedResult - no index bucket")
 		return nil
 	}
 
@@ -157,7 +162,7 @@ func (c *QueryCache) getCachedResult(indexBucketKey string, columns []string, li
 			limitString = fmt.Sprintf("%d", limit)
 		}
 		c.Stats.Misses++
-		log.Printf("[INFO] CACHE MISS - no cached data covers columns %v, limit %s\n", columns, limitString)
+		log.Printf("[TRACE] getCachedResult - no cached data covers columns %v, limit %s\n", columns, limitString)
 		return nil
 	}
 
@@ -165,16 +170,15 @@ func (c *QueryCache) getCachedResult(indexBucketKey string, columns []string, li
 	result, ok := c.getResult(indexItem.Key)
 	if !ok {
 		c.Stats.Misses++
-		log.Printf("[INFO] CACHE MISS - no item retrieved for cache key %s", indexItem.Key)
+		log.Printf("[TRACE] getCachedResult - no item retrieved for cache key %s", indexItem.Key)
 		return nil
 	}
 	if time.Since(result.InsertionTime) > time.Duration(ttlSeconds)*time.Second {
 		c.Stats.Misses++
-		log.Printf("[INFO] CACHE MISS - cache ttl %d has expired", ttlSeconds)
+		log.Printf("[TRACE] cache ttl %d has expired", ttlSeconds)
 		return nil
 	}
 	c.Stats.Hits++
-	log.Printf("[INFO] CACHE HIT")
 
 	return result
 }
