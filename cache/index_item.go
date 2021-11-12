@@ -91,10 +91,17 @@ func (i IndexItem) SatisfiesLimit(limit int64) bool {
 //our quals [id="1"], check quals [id="1", foo=2] -> SATISFIED
 //our quals [id="1", foo=2], check quals [id="1"] -> NOT SATISFIED
 func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals) bool {
+	log.Printf("[INFO] SatisfiesQuals")
 	for col, indexQuals := range i.Quals {
+		log.Printf("[INFO] col %s", col)
 		// if we have quals the passed in map does not, we DO NOT satisfy
 		checkQuals, ok := checkQualMap[col]
-		if !ok || !indexQuals.IsASubsetOf(checkQuals) {
+		var isSubset bool
+		if ok {
+			isSubset = indexQuals.IsASubsetOf(checkQuals)
+		}
+		log.Printf("[INFO] get check qual %v, isSubset %v", ok, isSubset)
+		if !ok || !isSubset {
 			return false
 		}
 	}

@@ -67,7 +67,7 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 		// (we need to do this even if the cache set fails)
 		c.pendingItemComplete(table, qualMap, columns, limit)
 	}()
-
+	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 	// if any data was returned, extract the columns from the first row
 	if len(result.Rows) > 0 {
 		for col := range result.Rows[0].Columns {
@@ -83,7 +83,7 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	// write to the result cache
 	// set the insertion time
 	result.InsertionTime = time.Now()
-	resultKey := c.buildResultKey(table, qualMap, columns)
+	resultKey := c.buildResultKey(table, cacheQualMap, columns)
 	c.cache.SetWithTTL(resultKey, result, 1, ttl)
 
 	// now update the index
@@ -94,10 +94,10 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	log.Printf("[INFO] index key %s, result key %s", indexBucketKey, resultKey)
 
 	if ok {
-		indexBucket.Append(&IndexItem{Columns: columns, Key: resultKey, Limit: limit, Quals: qualMap})
+		indexBucket.Append(&IndexItem{Columns: columns, Key: resultKey, Limit: limit, Quals: cacheQualMap})
 	} else {
 		// create new index bucket
-		indexBucket = newIndexBucket().Append(NewIndexItem(columns, resultKey, limit, qualMap))
+		indexBucket = newIndexBucket().Append(NewIndexItem(columns, resultKey, limit, cacheQualMap))
 	}
 	if res := c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl); !res {
 		log.Printf("[INFO] Set failed")
@@ -124,16 +124,8 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 
 	log.Printf("[INFO] QueryCache Get - indexBucketKey %s", indexBucketKey)
 
-	// build a map containing only the quals which we sue for building a cache key
-	shouldIncludeQual := c.getShouldIncludeQualInKey(table)
-	cacheQualMap := make(map[string]*proto.Quals)
-	for col, quals := range qualMap {
-		log.Printf("[INFO] col %s", col)
-		if shouldIncludeQual(col) {
-			log.Printf("[INFO] sgould include %v", shouldIncludeQual(col))
-			cacheQualMap[col] = quals
-		}
-	}
+	// build a map containing only the quals which we use for building a cache key (i.e. key column quals)
+	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 	log.Printf("[INFO] getCachedResult")
 	// do we have a cached result?
 	res := c.getCachedResult(indexBucketKey, table, cacheQualMap, columns, limit, ttlSeconds)
@@ -154,6 +146,18 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	log.Printf("[INFO] CACHE MISS")
 	// cache miss
 	return nil
+}
+
+func (c *QueryCache) buildCacheQualMap(table string, qualMap map[string]*proto.Quals) map[string]*proto.Quals {
+	shouldIncludeQual := c.getShouldIncludeQualInKey(table)
+	cacheQualMap := make(map[string]*proto.Quals)
+	for col, quals := range qualMap {
+		log.Printf("[INFO] col %s", col)
+		if shouldIncludeQual(col) {
+			cacheQualMap[col] = quals
+		}
+	}
+	return cacheQualMap
 }
 
 func (c *QueryCache) Clear() {
@@ -249,29 +253,17 @@ func (c *QueryCache) formatQualMapForKey(table string, qualMap map[string]*proto
 	log.Printf("[INFO] formatQualMapForKey sorted keys %v\n", keys)
 
 	// now construct cache key from ordered quals
-
-	// get a predicate function which tells us whether to include a qual
-	shouldIncludeQualInKey := c.getShouldIncludeQualInKey(table)
-
 	for i, key := range keys {
-		strs[i] = c.formatQualsForKey(qualMap[key], shouldIncludeQualInKey)
-	}
-	return strings.Join(strs, "-")
-}
-
-func (c *QueryCache) formatQualsForKey(quals *proto.Quals, shouldIncludeQualInKey func(string) bool) string {
-	var strs []string
-	for _, q := range quals.Quals {
-		if shouldIncludeQualInKey(q.FieldName) {
+		for _, q := range qualMap[key].Quals {
 			strs = append(strs, fmt.Sprintf("%s-%s-%v", q.FieldName, q.GetStringValue(), grpc.GetQualValue(q.Value)))
 		}
+		strs[i] = strings.Join(strs, "-")
 	}
 	return strings.Join(strs, "-")
 }
 
 // only include key column quals and optional quals
 func (c *QueryCache) getShouldIncludeQualInKey(table string) func(string) bool {
-
 	// build a list of all key columns
 	tableSchema, ok := c.PluginSchema[table]
 	if !ok {

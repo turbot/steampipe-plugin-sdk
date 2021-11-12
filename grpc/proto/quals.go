@@ -1,7 +1,7 @@
 package proto
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	typehelpers "github.com/turbot/go-kit/types"
@@ -12,8 +12,10 @@ func (x *Quals) Append(q *Qual) {
 }
 
 func (x *Quals) IsASubsetOf(other *Quals) bool {
+	log.Printf("[INFO] IsASubsetOf")
 	// all quals in x must exist in other
 	for _, q := range x.Quals {
+
 		if !other.Contains(q) {
 			return false
 		}
@@ -23,17 +25,55 @@ func (x *Quals) IsASubsetOf(other *Quals) bool {
 
 func (x *Quals) Contains(otherQual *Qual) bool {
 	for _, q := range x.Quals {
+		log.Printf("[INFO] Contains me %+v, other %+v", q, otherQual)
 		if q.Equals(otherQual) {
 			return true
 		}
+		log.Printf("[INFO] !=")
 	}
 	return false
 }
 
 func (x *Qual) Equals(other *Qual) bool {
-	return fmt.Sprintf("%v", x.Value.Value) == fmt.Sprintf("%v", other.Value.Value) &&
-		x.FieldName == other.FieldName &&
-		x.Operator == other.Operator
+	log.Printf("[INFO]  me %s, other %s", x.String(), other.String())
+	return x.String() == other.String()
+}
+
+func (x *Qual) IsASubsetOf(other *Qual) bool {
+	operator, ok := x.Operator.(*Qual_StringValue)
+	if !ok {
+		return false
+	}
+	otherOperator, ok := x.Operator.(*Qual_StringValue)
+	if !ok {
+		return false
+	}
+
+	// if operators are different then we are not a subset
+	if operator != otherOperator {
+		return false
+	}
+	// if operators are both equals then the quals must be equal
+	if operator.StringValue == "=" {
+		return x.Equals(other)
+	}
+
+	switch x.Value.Value.(type) {
+	//case *QualValue_StringValue:
+	case *QualValue_Int64Value:
+	case *QualValue_DoubleValue:
+		// whiuch operatros can ewe handle for this subset check
+		operators := []string{""}
+		if
+	//case *QualValue_BoolValue:
+	//case *QualValue_InetValue	:
+	//case *QualValue_JsonbValue:
+	case *QualValue_TimestampValue:
+	case *QualValue_ListValue:
+
+	}
+	log.Printf("[INFO]  me %s, other %s", x.String(), other.String())
+	return x.String() == other.String()
 }
 
 // NewQualValue creates a QualValue object from a raw value

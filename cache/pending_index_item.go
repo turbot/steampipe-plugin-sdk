@@ -20,7 +20,9 @@ func newPendingIndexBucket() *pendingIndexBucket {
 // GetItemWhichSatisfiesColumnsAndLimit finds an index item which satisfies all columns
 // used to find an IndexItem to satisfy a cache Get request
 func (b *pendingIndexBucket) GetItemWhichSatisfiesColumnsAndLimit(columns []string, limit int64) *pendingIndexItem {
+	log.Printf("[TRACE] found pending index item to satisfy columns %v and limit %d", columns, limit)
 	for _, item := range b.Items {
+
 		if item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) {
 			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d", strings.Join(columns, ","), limit)
 			return item

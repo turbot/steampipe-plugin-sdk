@@ -45,7 +45,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 
 	log.Printf("[TRACE] waitForPendingItem indexBucketKey: %s", indexBucketKey)
 
-	transferCompleteChan := make(chan (bool), 1)
+	transferCompleteChan := make(chan bool, 1)
 	go func() {
 		pendingItem.Wait()
 		close(transferCompleteChan)
