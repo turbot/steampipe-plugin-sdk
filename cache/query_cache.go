@@ -104,6 +104,9 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 		return res
 	}
 
+	// wait for value to pass through cache buffers
+	time.Sleep(10 * time.Millisecond)
+
 	return true
 }
 
