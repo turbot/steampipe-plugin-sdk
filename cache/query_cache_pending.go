@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -23,7 +24,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 		log.Printf("[TRACE] got pending index bucket, checking for pending item")
 		// is there a pending index bucket for this query
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
-		pendingItem = pendingIndexBucket.Get(columns, limit)
+		pendingItem = pendingIndexBucket.GetItemWhichSatisfiesColumnsAndLimit(columns, limit)
 	}
 
 	// if there was no pending result  -  we assume the calling code will fetch the data and add it to the cache
@@ -39,7 +40,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) *QueryCacheResult {
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) *QueryCacheResult {
 	var res *QueryCacheResult
 
 	log.Printf("[TRACE] waitForPendingItem indexBucketKey: %s", indexBucketKey)
@@ -50,6 +51,9 @@ func (c *QueryCache) waitForPendingItem(pendingItem *pendingIndexItem, indexBuck
 		close(transferCompleteChan)
 	}()
 	select {
+	case <-ctx.Done():
+		log.Printf("[WARN] waitForPendingItem aborting as context cancelled")
+
 	case <-time.After(pendingQueryTimeout):
 		log.Printf("[WARN] waitForPendingItem timed out waiting for pending transfer, indexBucketKey: %s", indexBucketKey)
 
@@ -77,9 +81,7 @@ func (c *QueryCache) waitForPendingItem(pendingItem *pendingIndexItem, indexBuck
 			c.pendingDataLock.Unlock()
 		} else {
 			log.Printf("[TRACE] waitForPendingItem retrieved from cache, indexBucketKey: %s", indexBucketKey)
-
 		}
-
 	}
 	return res
 }
@@ -121,16 +123,14 @@ func (c *QueryCache) pendingItemComplete(table string, qualMap map[string]*proto
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
 		log.Printf("[TRACE] got pending index bucket, len %d", len(pendingIndexBucket.Items))
 		// the may be more than one pending item which is satisfied by this request - clear them all
-		for pendingItem := pendingIndexBucket.Get(columns, limit); pendingItem != nil; {
+		pendingItems := pendingIndexBucket.GetItemsSatisfiedByColumns(columns, limit)
+		for _, pendingItem := range pendingItems {
 			log.Printf("[TRACE] got pending item %s - removing from map as it is complete", pendingItem.item.Key)
 			// unlock the item
 			pendingItem.Unlock()
 			// remove it from the map
 			delete(pendingIndexBucket.Items, pendingItem.item.Key)
 			log.Printf("[TRACE] deleted from pending, len %d", len(pendingIndexBucket.Items))
-
-			// get next pending item
-			pendingItem = pendingIndexBucket.Get(columns, limit)
 		}
 		if len(pendingIndexBucket.Items) == 0 {
 			log.Printf("[TRACE] pending bucket now empty - deleting key %s", indexBucketKey)
