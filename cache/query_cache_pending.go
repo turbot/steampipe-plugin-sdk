@@ -8,8 +8,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-const pendingQueryTimeout = 90 * time.Second
-
 func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *pendingIndexItem {
 	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, columns, limit)
 	var pendingItem *pendingIndexItem
@@ -54,7 +52,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 	case <-ctx.Done():
 		log.Printf("[WARN] waitForPendingItem aborting as context cancelled")
 
-	case <-time.After(pendingQueryTimeout):
+	case <-time.After(c.pendingQueryTimeout):
 		log.Printf("[WARN] waitForPendingItem timed out waiting for pending transfer, indexBucketKey: %s", indexBucketKey)
 
 		// remove the pending result from the map

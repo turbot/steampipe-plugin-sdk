@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -11,9 +12,12 @@ import (
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/turbot/go-kit/helpers"
+	typeHelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
+
+const PendingQueryTimeoutEnvVar = "STEAMPIPE_CACHE_PENDING_QUERY_TIMEOUT"
 
 // TODO do not use unsafe quals use quals map and  remove key column qual logic
 
@@ -21,12 +25,13 @@ import (
 const ttl = 24 * time.Hour
 
 type QueryCache struct {
-	cache           *ristretto.Cache
-	Stats           *CacheStats
-	connectionName  string
-	PluginSchema    map[string]*proto.TableSchema
-	pendingData     map[string]*pendingIndexBucket
-	pendingDataLock sync.Mutex
+	cache               *ristretto.Cache
+	Stats               *CacheStats
+	connectionName      string
+	PluginSchema        map[string]*proto.TableSchema
+	pendingData         map[string]*pendingIndexBucket
+	pendingDataLock     sync.Mutex
+	pendingQueryTimeout time.Duration
 }
 
 type CacheStats struct {
@@ -53,6 +58,13 @@ func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSc
 		return nil, err
 	}
 	log.Printf("[INFO] query cache created")
+
+	cache.pendingQueryTimeout = 90 * time.Second
+	if timeout, ok := os.LookupEnv(PendingQueryTimeoutEnvVar); ok {
+		if timeoutSecs, err := typeHelpers.ToInt64(timeout); err != nil {
+			cache.pendingQueryTimeout = time.Duration(timeoutSecs) * time.Second
+		}
+	}
 	return cache, nil
 }
 
