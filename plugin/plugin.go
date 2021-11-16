@@ -3,12 +3,11 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/os_specific"
 	"log"
 	"os"
 	"strconv"
 	"sync"
-	"syscall"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/cache"
@@ -91,12 +90,7 @@ func (p *Plugin) setuLimit() {
 			ulimit = ulimitEnv
 		}
 	}
-
-	var rLimit syscall.Rlimit
-	rLimit.Max = ulimit
-	rLimit.Cur = ulimit
-	p.Logger.Trace("Setting Ulimit", "ulimit", ulimit)
-	err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	err := os_specific.SetRlimit(ulimit, p.Logger)
 	if err != nil {
 		p.Logger.Error("Error Setting Ulimit", "error", err)
 	}
