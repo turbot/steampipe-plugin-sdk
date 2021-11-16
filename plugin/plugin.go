@@ -3,7 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/plugin/os_specific"
+
 	"log"
 	"os"
 	"strconv"
@@ -16,6 +16,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/os_specific"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
 
