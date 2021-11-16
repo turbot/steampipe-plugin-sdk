@@ -1,4 +1,10 @@
+## v1.8.1  [tbd]
+_Bug fixes_
+* Fix timeout waiting for pending cache transfer to complete. ([#218](https://github.com/turbot/steampipe-plugin-sdk/issues/218))
+* Support cancellation while waiting for pending cache transfer. ([#219](https://github.com/turbot/steampipe-plugin-sdk/issues/219))
+
 ## v1.8.0  [2021-11-10]
+_What's new_
 * Add support for query result caching with stampede prevention, and concurrent query execution.  ([#211](https://github.com/turbot/steampipe-plugin-sdk/issues/211))
 
 ## v1.7.3  [2021-11-08]
@@ -6,7 +12,7 @@ _Bug fixes_
 * FromField transform should return nil property value if property is nil, rather than nil interface value. ([#212](https://github.com/turbot/steampipe-plugin-sdk/issues/212))
 
 ## v1.7.2  [2021-11-03]
-_Bug fixes_
+_Bug_ _fixes_
 * Fix KeyColumn `Require` and `Operators` properties not being set to default if a TableMapFunc is used. ([#206](https://github.com/turbot/steampipe-plugin-sdk/issues/206))
 * Remove unnecessary TableMapFunc validation from plugin - this breaks dynamic plugins when plugin manager is used. ([#204](https://github.com/turbot/steampipe-plugin-sdk/issues/204))
 

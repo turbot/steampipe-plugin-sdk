@@ -48,7 +48,7 @@ func NewIndexItem(columns []string, key string, limit int64) *IndexItem {
 }
 
 // SatisfiesColumns returns whether this index item satisfies the given columns
-// used when detemrining whether this IndexItem satisfies a cache reques
+// used when determining whether this IndexItem satisfies a cache reques
 func (i IndexItem) SatisfiesColumns(columns []string) bool {
 	for _, c := range columns {
 		if !helpers.StringSliceContains(i.Columns, c) {
@@ -60,7 +60,7 @@ func (i IndexItem) SatisfiesColumns(columns []string) bool {
 }
 
 // SatisfiesLimit returns whether this index item satisfies the given limit
-// used when detemrining whether this IndexItem satisfies a cache reques
+// used when determining whether this IndexItem satisfies a cache reques
 func (i IndexItem) SatisfiesLimit(limit int64) bool {
 	// if index item has is no limit, it will be -1
 	if i.Limit == -1 {
