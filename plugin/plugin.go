@@ -273,7 +273,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		// the cache will have added a pending item for this transfer
 		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
 		defer func() {
-			if err != nil {
+			if err != nil || ctx.Err() != nil {
 				log.Printf("[WARN] Execute call failed - cancelling pending item in cache")
 				p.queryCache.CancelPendingItem(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit)
 			}

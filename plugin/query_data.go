@@ -395,7 +395,6 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	}
 	// have we streamed enough already?
 	if d.QueryStatus.RowsRemaining(ctx) == 0 {
-		log.Printf("[TRACE] d.QueryStatus.RowsRemaining is 0 - streamLeafListItem NOT streaming item")
 		return
 	}
 	// increment the stream count

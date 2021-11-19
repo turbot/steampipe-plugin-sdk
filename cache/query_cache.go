@@ -68,6 +68,7 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 		c.pendingItemComplete(table, qualMap, columns, limit)
 	}()
 	cacheQualMap := c.buildCacheQualMap(table, qualMap)
+
 	// if any data was returned, extract the columns from the first row
 	if len(result.Rows) > 0 {
 		for col := range result.Rows[0].Columns {
@@ -90,17 +91,15 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	// get the index bucket for this table and quals
 	indexBucketKey := c.buildIndexKey(c.connectionName, table)
 	indexBucket, ok := c.getIndexBucket(indexBucketKey)
-
-	log.Printf("[INFO] index key %s, result key %s", indexBucketKey, resultKey)
-
-	if ok {
-		indexBucket.Append(&IndexItem{Columns: columns, Key: resultKey, Limit: limit, Quals: cacheQualMap})
-	} else {
+	indexItem := NewIndexItem(columns, resultKey, limit, cacheQualMap)
+	if !ok {
 		// create new index bucket
-		indexBucket = newIndexBucket().Append(NewIndexItem(columns, resultKey, limit, cacheQualMap))
+		indexBucket = newIndexBucket()
 	}
+	indexBucket.Append(indexItem)
+
 	if res := c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl); !res {
-		log.Printf("[INFO] Set failed")
+		log.Printf("[WARN] cache Set failed")
 		return res
 	}
 

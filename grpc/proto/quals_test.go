@@ -17,126 +17,126 @@ type isSubsetTest struct {
 
 var now = time.Now()
 var testCasesIsSubset = map[string]isSubsetTest{
-	"= same string": {
+	"both = same string": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		true,
 	},
-	"= same int64": {
+	"both = same int64": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		true,
 	},
-	"= same double": {
+	"both = same double": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		true,
 	},
-	"= same inet": {
+	"both = same inet": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: ToInet("192.168.0.1")}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: ToInet("192.168.0.1")}},
 		true,
 	},
-	"= same bool": {
+	"both = same bool": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
 		true,
 	},
-	"= same jsonb": {
+	"both = same jsonb": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
 		true,
 	},
-	"= same timestamp": {
+	"both = same timestamp": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now)},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now)},
 		true,
 	},
-	"= same list": {
+	"both = same list": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
 		true,
 	},
-	"= subset list": {
+	"both = subset list": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a")},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
 		true,
 	},
-	"!= same string": {
+	"both != same string": {
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		true,
 	},
-	"!= same int64": {
+	"both != same int64": {
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		true,
 	},
-	"!= same double": {
+	"both != same double": {
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		true,
 	},
-	"!= same inet": {
+	"both != same inet": {
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: ToInet("192.168.0.1")}},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: ToInet("192.168.0.1")}},
 		true,
 	},
-	"!= same bool": {
+	"both != same bool": {
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
 		true,
 	},
-	"!= same jsonb": {
+	"both != same jsonb": {
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
 		true,
 	},
-	"!= same timestamp": {
+	"both != same timestamp": {
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: getTimestampValue(now)},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: getTimestampValue(now)},
 		true,
 	},
-	"!= same list": {&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: toStringList("a", "b")},
+	"both != same list": {&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: toStringList("a", "b")},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: toStringList("a", "b")},
 		true,
 	},
-	"int64 < smaller number": {
+	"both int64 < smaller number": {
 		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
 		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		true,
 	},
-	"int64 <= smaller number": {
+	"both int64 <= smaller number": {
 		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
 		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		true,
 	},
-	"int64 > bigger number": {
+	"both int64 > bigger number": {
 		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
 		true,
 	},
-	"int64 >= bigger number": {
+	"both int64 >= bigger number": {
 		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
 		true,
 	},
-	"double < smaller number": {
+	"both double < smaller number": {
 		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 10}}},
 		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		true,
 	},
-	"double <= smaller number": {
+	"both double <= smaller number": {
 		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 10}}},
 		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		true,
 	},
-	"double > bigger number": {
+	"both double > bigger number": {
 		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 10}}},
 		true,
 	},
-	"double >= bigger number": {
+	"both double >= bigger number": {
 		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 10}}},
 		true,
@@ -145,67 +145,67 @@ var testCasesIsSubset = map[string]isSubsetTest{
 		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: getTimestampValue(now.Add(1 * time.Second))},
 		true,
 	},
-	"timestamp <= earlier": {
+	"both timestamp <= earlier": {
 		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: getTimestampValue(now)},
 		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: getTimestampValue(now.Add(1 * time.Second))},
 		true,
 	},
-	"timestamp > later": {
+	"both timestamp > later": {
 		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: getTimestampValue(now.Add(1 * time.Second))},
 		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: getTimestampValue(now)},
 		true,
 	},
-	"timestamp >= later": {
+	"both timestamp >= later": {
 		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: getTimestampValue(now.Add(1 * time.Second))},
 		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: getTimestampValue(now)},
 		true,
 	},
-	"= same string different field": {
+	"both = same string different field": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f2", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		false,
 	},
-	"= same string different operator": {
+	"both = same string different operator": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f2", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		false,
 	},
-	"Different string": {
+	"different string": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "b"}}},
 		false,
 	},
-	"Different int64": {
+	"different int64": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 101}}},
 		false,
 	},
-	"Different double": {
+	"different double": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 101}}},
 		false,
 	},
-	"Different inet": {
+	"different inet": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: ToInet("192.168.0.1")}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: ToInet("192.168.0.2")}},
 		false,
 	},
-	"Different bool": {
+	"different bool": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: false}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
 		false,
 	},
-	"Different jsonb": {
+	"different jsonb": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "101"}}},
 		false,
 	},
-	"Different timestamp": {
+	"different timestamp": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now)},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now.Add(1 * time.Second))},
 		false,
 	},
-	"Different list": {&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
+	"different list": {&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b", "c")},
 		false,
 	},

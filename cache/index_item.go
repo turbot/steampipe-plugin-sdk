@@ -83,24 +83,30 @@ func (i IndexItem) SatisfiesLimit(limit int64) bool {
 }
 
 // SatisfiesQuals
-//check quals must be MORE restrictive the our quals
-//   i.e. our quals must be a subset of check quals
+// does this index item satisfy the check quals
+// all data returned by check quals is returned by index quals
+//   i.e. check quals must be a 'subset' of index quals
 //   eg
-//our quals [], check quals [id="1"] 				-> SATISFIED
-//our quals [id="1"], check quals [id="1"] 		-> SATISFIED
-//our quals [id="1"], check quals [id="1", foo=2] -> SATISFIED
-//our quals [id="1", foo=2], check quals [id="1"] -> NOT SATISFIED
+//      our quals [], check quals [id="1"] 				-> SATISFIED
+//      our quals [id="1"], check quals [id="1"] 		-> SATISFIED
+//      our quals [id="1"], check quals [id="1", foo=2] -> SATISFIED
+//      our quals [id="1", foo=2], check quals [id="1"] -> NOT SATISFIED
 func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals) bool {
-	log.Printf("[INFO] SatisfiesQuals")
+	log.Printf("[TRACE] SatisfiesQuals")
 	for col, indexQuals := range i.Quals {
-		log.Printf("[INFO] col %s", col)
-		// if we have quals the passed in map does not, we DO NOT satisfy
+		log.Printf("[TRACE] col %s", col)
+		// if we have quals the check quals do not, we DO NOT satisfy
 		checkQuals, ok := checkQualMap[col]
 		var isSubset bool
 		if ok {
-			isSubset = indexQuals.IsASubsetOf(checkQuals)
+			log.Printf("[TRACE] SatisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
+			log.Printf("[TRACE] indexQuals %+v, checkQuals %+v", indexQuals, checkQuals)
+			// isSubset means all data returned by check quals is returned by index quals
+			isSubset = checkQuals.IsASubsetOf(indexQuals)
+		} else {
+			log.Printf("[TRACE] SatisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED")
 		}
-		log.Printf("[INFO] get check qual %v, isSubset %v", ok, isSubset)
+		log.Printf("[TRACE] get check qual %v, isSubset %v", ok, isSubset)
 		if !ok || !isSubset {
 			return false
 		}
