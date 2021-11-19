@@ -42,11 +42,6 @@ var testCasesIsSubset = map[string]isSubsetTest{
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
 		true,
 	},
-	"both = same jsonb": {
-		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
-		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
-		true,
-	},
 	"both = same timestamp": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now)},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now)},
@@ -87,20 +82,95 @@ var testCasesIsSubset = map[string]isSubsetTest{
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
 		true,
 	},
-	"both != same jsonb": {
-		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
-		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
-		true,
-	},
 	"both != same timestamp": {
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: getTimestampValue(now)},
 		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: getTimestampValue(now)},
 		true,
 	},
-	"both != same list": {&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: toStringList("a", "b")},
-		&Qual{Operator: &Qual_StringValue{"!="}, FieldName: "f1", Value: toStringList("a", "b")},
+	// int64 =
+	"int64 =, < NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	"int64 =, < subset": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 9}}},
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
 		true,
 	},
+	"int64 =, <= NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 11}}},
+		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	"int64 =, <= subset": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		true,
+	},
+	"int64 =, > NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	"int64 =, > subset": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 11}}},
+		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		true,
+	},
+	"int64 =, >= NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 9}}},
+		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	"int64 =, >= subset": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		true,
+	},
+	// int64 <
+	"int64 <, <= NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 12}}},
+		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	"int64 <, <= subset": {
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 11}}},
+		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		true,
+	},
+	"int64 <, > NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	"int64 <, >= NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	// int64 <
+	"int64 <=, < NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	"int64 <=, < subset": {
+		&Qual{Operator: &Qual_StringValue{"<="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 9}}},
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		true,
+	},
+	"int64 <=, > NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{">"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+	"int64 <=, >= NOT subset": {
+		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
+		false,
+	},
+
 	"both int64 < smaller number": {
 		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 10}}},
 		&Qual{Operator: &Qual_StringValue{"<"}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
@@ -195,25 +265,25 @@ var testCasesIsSubset = map[string]isSubsetTest{
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
 		false,
 	},
-	"different jsonb": {
-		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "10"}}},
-		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_JsonbValue{JsonbValue: "101"}}},
-		false,
-	},
 	"different timestamp": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now)},
-		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now.Add(1 * time.Second))},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now.Add(1 * time.Minute))},
 		false,
 	},
-	"different list": {&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
-		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b", "c")},
+	"overlapping different list": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("b", "c", "d")},
+		false,
+	},
+	"different list": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("c", "d", "e")},
 		false,
 	},
 }
 
 func getTimestampValue(t time.Time) *QualValue {
 	return &QualValue{Value: &QualValue_TimestampValue{TimestampValue: &timestamppb.Timestamp{Seconds: t.Unix()}}}
-
 }
 
 func TestIsSubset(t *testing.T) {
