@@ -36,7 +36,7 @@ func (x *Quals) QualIsASubset(otherQual *Qual) bool {
 		log.Printf("[TRACE] otherQual %+v IS a subset of %+v", otherQual, q)
 	}
 
-	log.Printf("[WARN] QualIsASubset returning true")
+	log.Printf("[TRACE] QualIsASubset returning true")
 	return true
 }
 
