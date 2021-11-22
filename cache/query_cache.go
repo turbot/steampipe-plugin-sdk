@@ -17,8 +17,8 @@ import (
 
 // TODO do not use unsafe quals use quals map and  remove key column qual logic
 
-// insert all data with this fixed large ttl - each client may specify its own ttl requirements when reading the cache
-const ttl = 24 * time.Hour
+// default ttl - increase this if any client has a larger ttl
+const defaultTTL = 5 * time.Minute
 
 type QueryCache struct {
 	cache           *ristretto.Cache
@@ -27,6 +27,8 @@ type QueryCache struct {
 	PluginSchema    map[string]*proto.TableSchema
 	pendingData     map[string]*pendingIndexBucket
 	pendingDataLock sync.Mutex
+	ttlLock         sync.Mutex
+	ttl             time.Duration
 }
 
 type CacheStats struct {
@@ -41,12 +43,14 @@ func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSc
 		connectionName: connectionName,
 		PluginSchema:   pluginSchema,
 		pendingData:    make(map[string]*pendingIndexBucket),
+		ttl:            defaultTTL,
 	}
 
 	config := &ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
 		MaxCost:     1 << 30, // maximum cost of cache (1GB).
 		BufferItems: 64,      // number of keys per Get buffer.
+		Metrics:     true,
 	}
 	var err error
 	if cache.cache, err = ristretto.NewCache(config); err != nil {
@@ -69,6 +73,9 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	}()
 	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 
+	// get ttl - read here in case the property is updated  between the 2 uses below
+	ttl := c.ttl
+
 	// if any data was returned, extract the columns from the first row
 	if len(result.Rows) > 0 {
 		for col := range result.Rows[0].Columns {
@@ -85,7 +92,10 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	// set the insertion time
 	result.InsertionTime = time.Now()
 	resultKey := c.buildResultKey(table, cacheQualMap, columns)
-	c.cache.SetWithTTL(resultKey, result, 1, ttl)
+	// estimate cost at 8 bytes per column value
+	cost := len(result.Rows) * len(columns) * 8
+	log.Printf("[TRACE] cache item cost = %d (%d rows, %d columns)", cost, len(result.Rows), len(columns))
+	c.cache.SetWithTTL(resultKey, result, int64(cost), ttl)
 
 	// now update the index
 	// get the index bucket for this table and quals
@@ -105,6 +115,7 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 
 	// wait for value to pass through cache buffers
 	time.Sleep(10 * time.Millisecond)
+	c.logMetrics()
 
 	return true
 }
@@ -116,7 +127,17 @@ func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Q
 	c.pendingItemComplete(table, qualMap, columns, limit)
 }
 
-func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
+func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) *QueryCacheResult {
+	clientTTL := time.Duration(clientTTLSeconds) * time.Second
+	// if the client TTL is greater than the cache TTL, update the cache value to match the client value
+	// lock to handle concurrent updates
+	c.ttlLock.Lock()
+	if clientTTL > c.ttl {
+		log.Printf("[INFO] QueryCache.Get %p client TTL %s is greater than cache TTL %s - updating cache value", c, clientTTL.String(), c.ttl.String())
+		c.ttl = clientTTL
+	}
+	c.ttlLock.Unlock()
+
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
 	indexBucketKey := c.buildIndexKey(c.connectionName, table)
@@ -127,7 +148,7 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 
 	// do we have a cached result?
-	res := c.getCachedResult(indexBucketKey, table, cacheQualMap, columns, limit, ttlSeconds)
+	res := c.getCachedResult(indexBucketKey, table, cacheQualMap, columns, limit, clientTTLSeconds)
 	if res != nil {
 		log.Printf("[INFO] CACHE HIT")
 		// cache hit!
@@ -138,7 +159,7 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	if pendingItem := c.getPendingResultItem(indexBucketKey, table, cacheQualMap, columns, limit); pendingItem != nil {
 		log.Printf("[TRACE] found pending item - waiting for it")
 		// so there is a pending result, wait for it
-		return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, cacheQualMap, columns, limit, ttlSeconds)
+		return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, cacheQualMap, columns, limit, clientTTLSeconds)
 	}
 
 	log.Printf("[INFO] CACHE MISS")
@@ -291,4 +312,16 @@ func (c *QueryCache) sanitiseKey(str string) string {
 	str = strings.Replace(str, "\n", "", -1)
 	str = strings.Replace(str, "\t", "", -1)
 	return str
+}
+
+func (c *QueryCache) logMetrics() {
+	log.Printf("[TRACE] ------------------------------------ ")
+	log.Printf("[TRACE] Cache Metrics ")
+	log.Printf("[TRACE] ------------------------------------ ")
+	log.Printf("[TRACE] MaxCost: %d", c.cache.MaxCost)
+	log.Printf("[TRACE] KeysAdded: %d", c.cache.Metrics.KeysAdded())
+	log.Printf("[TRACE] CostAdded: %d", c.cache.Metrics.CostAdded())
+	log.Printf("[TRACE] KeysEvicted: %d", c.cache.Metrics.KeysEvicted())
+	log.Printf("[TRACE] CostEvicted: %d", c.cache.Metrics.CostEvicted())
+	log.Printf("[TRACE] ------------------------------------ ")
 }
