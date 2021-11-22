@@ -1,5 +1,11 @@
 ## v1.8.1  [2021-11-22]
 _What's new_
+* Query cache TTL defaults to 5 minutes and is increased to match the TTL of incoming queries. ([#226](https://github.com/turbot/steampipe-plugin-sdk/issues/226))
+* Set cache cost of items based on number of rows and columns inserted. ([#227](https://github.com/turbot/steampipe-plugin-sdk/issues/227))
+* Add logging for query cache usage. ([#229](https://github.com/turbot/steampipe-plugin-sdk/issues/229))
+
+## v1.8.1  [2021-11-22]
+_What's new_
 * Query result caching now determines whether a cache request is a subset of an existing cached item, taking the quals into account.  ([#224](https://github.com/turbot/steampipe-plugin-sdk/issues/224))
 
 _Bug fixes_
