@@ -259,7 +259,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 	// can we satisfy this request from the cache?
 	if req.CacheEnabled {
-		log.Printf("[INFO] Cache ENABLED callId: %s", req.CallId)
+		log.Printf("[TRACE] Cache ENABLED callId: %s", req.CallId)
 		cachedResult := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
 		if cachedResult != nil {
 			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
@@ -279,7 +279,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 		}()
 	} else {
-		log.Printf("[INFO] Cache DISABLED callId: %s", req.CallId)
+		log.Printf("[TRACE] Cache DISABLED callId: %s", req.CallId)
 	}
 
 	log.Printf("[TRACE] fetch items callId: %s", req.CallId)
