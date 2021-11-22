@@ -410,29 +410,29 @@ func timeOperatorIsASubset(operator string, value *timestamppb.Timestamp, otherO
 	case "=":
 		switch otherOperator {
 		case "=":
-			return timeVal == otherTimeVal
+			return timeVal.Equal(otherTimeVal)
 		case "<":
 			return timeVal.Before(otherTimeVal)
 		case "<=":
-			return timeVal.Before(otherTimeVal) || timeVal == otherTimeVal
+			return timeVal.Before(otherTimeVal) || timeVal.Equal(otherTimeVal)
 		case ">":
 			return timeVal.After(otherTimeVal)
 		case ">=":
-			return timeVal.After(otherTimeVal) || timeVal == otherTimeVal
+			return timeVal.After(otherTimeVal) || timeVal.Equal(otherTimeVal)
 		default:
 			return false
 		}
 	case "!=":
 		switch otherOperator {
 		case "!=":
-			return timeVal == otherTimeVal
+			return timeVal.Equal(otherTimeVal)
 		default:
 			return false
 		}
 	case "<":
 		switch otherOperator {
 		case "<", "<=":
-			return timeVal.Before(otherTimeVal) || timeVal == otherTimeVal
+			return timeVal.Before(otherTimeVal) || timeVal.Equal(otherTimeVal)
 		default:
 			return false
 		}
@@ -441,14 +441,14 @@ func timeOperatorIsASubset(operator string, value *timestamppb.Timestamp, otherO
 		case "<":
 			return timeVal.Before(otherTimeVal)
 		case "<=":
-			return timeVal.Before(otherTimeVal) || timeVal == otherTimeVal
+			return timeVal.Before(otherTimeVal) || timeVal.Equal(otherTimeVal)
 		default:
 			return false
 		}
 	case ">":
 		switch otherOperator {
 		case ">", ">=":
-			return timeVal.After(otherTimeVal) || timeVal == otherTimeVal
+			return timeVal.After(otherTimeVal) || timeVal.Equal(otherTimeVal)
 		default:
 			return false
 		}
@@ -457,7 +457,7 @@ func timeOperatorIsASubset(operator string, value *timestamppb.Timestamp, otherO
 		case ">":
 			return timeVal.After(otherTimeVal)
 		case ">=":
-			return timeVal.After(otherTimeVal) || timeVal == otherTimeVal
+			return timeVal.After(otherTimeVal) || timeVal.Equal(otherTimeVal)
 		default:
 			return false
 		}
