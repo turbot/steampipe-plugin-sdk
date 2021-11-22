@@ -1,4 +1,7 @@
-## v1.8.1  [tbd]
+## v1.8.1  [2021-11-22]
+_What's new_
+* Query result caching now determines whether a cache request is a subset of an existing cached item, taking the quals into account.  ([#224](https://github.com/turbot/steampipe-plugin-sdk/issues/224))
+
 _Bug fixes_
 * Fix timeout waiting for pending cache transfer to complete. ([#218](https://github.com/turbot/steampipe-plugin-sdk/issues/218))
 * Support cancellation while waiting for pending cache transfer. ([#219](https://github.com/turbot/steampipe-plugin-sdk/issues/219))
