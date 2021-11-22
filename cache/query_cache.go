@@ -121,7 +121,7 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	// - this contains cache keys for all cache entries for specified table and quals
 	indexBucketKey := c.buildIndexKey(c.connectionName, table)
 
-	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s", indexBucketKey)
+	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, quals", indexBucketKey)
 
 	// build a map containing only the quals which we use for building a cache key (i.e. key column quals)
 	cacheQualMap := c.buildCacheQualMap(table, qualMap)
@@ -150,8 +150,12 @@ func (c *QueryCache) buildCacheQualMap(table string, qualMap map[string]*proto.Q
 	shouldIncludeQual := c.getShouldIncludeQualInKey(table)
 	cacheQualMap := make(map[string]*proto.Quals)
 	for col, quals := range qualMap {
+		log.Printf("[TRACE] buildCacheQualMap col %s, quals %+v", col, quals)
 		if shouldIncludeQual(col) {
+			log.Printf("[TRACE] INCLUDING COLUMN")
 			cacheQualMap[col] = quals
+		} else {
+			log.Printf("[TRACE] EXCLUDING COLUMN")
 		}
 	}
 	return cacheQualMap
