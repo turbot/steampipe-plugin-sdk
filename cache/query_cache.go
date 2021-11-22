@@ -67,6 +67,7 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 		// (we need to do this even if the cache set fails)
 		c.pendingItemComplete(table, qualMap, columns, limit)
 	}()
+	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 
 	// if any data was returned, extract the columns from the first row
 	if len(result.Rows) > 0 {
@@ -83,24 +84,22 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	// write to the result cache
 	// set the insertion time
 	result.InsertionTime = time.Now()
-	resultKey := c.buildResultKey(table, qualMap, columns)
+	resultKey := c.buildResultKey(table, cacheQualMap, columns)
 	c.cache.SetWithTTL(resultKey, result, 1, ttl)
 
 	// now update the index
 	// get the index bucket for this table and quals
-	indexBucketKey := c.buildIndexKey(c.connectionName, table, qualMap)
+	indexBucketKey := c.buildIndexKey(c.connectionName, table)
 	indexBucket, ok := c.getIndexBucket(indexBucketKey)
-
-	log.Printf("[TRACE] index key %s, result key %s", indexBucketKey, resultKey)
-
-	if ok {
-		indexBucket.Append(&IndexItem{columns, resultKey, limit})
-	} else {
+	indexItem := NewIndexItem(columns, resultKey, limit, cacheQualMap)
+	if !ok {
 		// create new index bucket
-		indexBucket = newIndexBucket().Append(NewIndexItem(columns, resultKey, limit))
+		indexBucket = newIndexBucket()
 	}
+	indexBucket.Append(indexItem)
+
 	if res := c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl); !res {
-		log.Printf("[TRACE] Set failed")
+		log.Printf("[WARN] cache Set failed")
 		return res
 	}
 
@@ -112,7 +111,7 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 
 // CancelPendingItem cancels a pending item - called when an execute call fails for any reason
 func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Quals, columns []string, limit int64) {
-	log.Printf("[Trace] QueryCache CancelPendingItem %s", table)
+	log.Printf("[TRACE] QueryCache CancelPendingItem table: %s", table)
 	// clear the corresponding pending item
 	c.pendingItemComplete(table, qualMap, columns, limit)
 }
@@ -120,12 +119,15 @@ func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Q
 func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
-	indexBucketKey := c.buildIndexKey(c.connectionName, table, qualMap)
+	indexBucketKey := c.buildIndexKey(c.connectionName, table)
 
-	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s", indexBucketKey)
+	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, quals", indexBucketKey)
+
+	// build a map containing only the quals which we use for building a cache key (i.e. key column quals)
+	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 
 	// do we have a cached result?
-	res := c.getCachedResult(indexBucketKey, columns, limit, ttlSeconds)
+	res := c.getCachedResult(indexBucketKey, table, cacheQualMap, columns, limit, ttlSeconds)
 	if res != nil {
 		log.Printf("[INFO] CACHE HIT")
 		// cache hit!
@@ -133,10 +135,10 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	}
 
 	// there was no cached result - is there data fetch in progress?
-	if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit); pendingItem != nil {
-		log.Printf("[INFO] found pending item - waiting for it")
+	if pendingItem := c.getPendingResultItem(indexBucketKey, table, cacheQualMap, columns, limit); pendingItem != nil {
+		log.Printf("[TRACE] found pending item - waiting for it")
 		// so there is a pending result, wait for it
-		return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, qualMap, columns, limit, ttlSeconds)
+		return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, cacheQualMap, columns, limit, ttlSeconds)
 	}
 
 	log.Printf("[INFO] CACHE MISS")
@@ -144,11 +146,26 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	return nil
 }
 
+func (c *QueryCache) buildCacheQualMap(table string, qualMap map[string]*proto.Quals) map[string]*proto.Quals {
+	shouldIncludeQual := c.getShouldIncludeQualInKey(table)
+	cacheQualMap := make(map[string]*proto.Quals)
+	for col, quals := range qualMap {
+		log.Printf("[TRACE] buildCacheQualMap col %s, quals %+v", col, quals)
+		if shouldIncludeQual(col) {
+			log.Printf("[TRACE] INCLUDING COLUMN")
+			cacheQualMap[col] = quals
+		} else {
+			log.Printf("[TRACE] EXCLUDING COLUMN")
+		}
+	}
+	return cacheQualMap
+}
+
 func (c *QueryCache) Clear() {
 	c.cache.Clear()
 }
 
-func (c *QueryCache) getCachedResult(indexBucketKey string, columns []string, limit int64, ttlSeconds int64) *QueryCacheResult {
+func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) *QueryCacheResult {
 	log.Printf("[TRACE] QueryCache getCachedResult - index bucket key: %s\n", indexBucketKey)
 	indexBucket, ok := c.getIndexBucket(indexBucketKey)
 	if !ok {
@@ -157,8 +174,8 @@ func (c *QueryCache) getCachedResult(indexBucketKey string, columns []string, li
 		return nil
 	}
 
-	// now check whether we have a cache entry that covers the required columns - check the index
-	indexItem := indexBucket.Get(columns, limit)
+	// now check whether we have a cache entry that covers the required quals and columns - check the index
+	indexItem := indexBucket.Get(qualMap, columns, limit)
 	if indexItem == nil {
 		limitString := "NONE"
 		if limit != -1 {
@@ -204,11 +221,10 @@ func (c *QueryCache) getResult(resultKey string) (*QueryCacheResult, bool) {
 	return result.(*QueryCacheResult), true
 }
 
-func (c *QueryCache) buildIndexKey(connectionName, table string, qualMap map[string]*proto.Quals) string {
-	str := c.sanitiseKey(fmt.Sprintf("index__%s%s%s",
+func (c *QueryCache) buildIndexKey(connectionName, table string) string {
+	str := c.sanitiseKey(fmt.Sprintf("index__%s%s",
 		connectionName,
-		table,
-		c.formatQualMapForKey(table, qualMap)))
+		table))
 	return str
 }
 
@@ -238,29 +254,17 @@ func (c *QueryCache) formatQualMapForKey(table string, qualMap map[string]*proto
 	log.Printf("[TRACE] formatQualMapForKey sorted keys %v\n", keys)
 
 	// now construct cache key from ordered quals
-
-	// get a predicate function which tells us whether to include a qual
-	shouldIncludeQualInKey := c.getShouldIncludeQualInKey(table)
-
 	for i, key := range keys {
-		strs[i] = c.formatQualsForKey(qualMap[key], shouldIncludeQualInKey)
-	}
-	return strings.Join(strs, "-")
-}
-
-func (c *QueryCache) formatQualsForKey(quals *proto.Quals, shouldIncludeQualInKey func(string) bool) string {
-	var strs []string
-	for _, q := range quals.Quals {
-		if shouldIncludeQualInKey(q.FieldName) {
+		for _, q := range qualMap[key].Quals {
 			strs = append(strs, fmt.Sprintf("%s-%s-%v", q.FieldName, q.GetStringValue(), grpc.GetQualValue(q.Value)))
 		}
+		strs[i] = strings.Join(strs, "-")
 	}
 	return strings.Join(strs, "-")
 }
 
 // only include key column quals and optional quals
 func (c *QueryCache) getShouldIncludeQualInKey(table string) func(string) bool {
-
 	// build a list of all key columns
 	tableSchema, ok := c.PluginSchema[table]
 	if !ok {

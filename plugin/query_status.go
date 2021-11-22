@@ -28,7 +28,6 @@ func newQueryStatus(limit *int64) *QueryStatus {
 // - if  the context has been cancelled, it will return zero
 func (s *QueryStatus) RowsRemaining(ctx context.Context) int {
 	if IsCancelled(ctx) {
-		log.Printf("[TRACE] RowsRemaining returning 0: context is cancelled")
 		return 0
 	}
 	rowsRemaining := s.rowsRequired - s.rowsStreamed

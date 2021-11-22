@@ -45,7 +45,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 
 	log.Printf("[TRACE] waitForPendingItem indexBucketKey: %s", indexBucketKey)
 
-	transferCompleteChan := make(chan (bool), 1)
+	transferCompleteChan := make(chan bool, 1)
 	go func() {
 		pendingItem.Wait()
 		close(transferCompleteChan)
@@ -70,7 +70,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, indexBucketKey: %s", indexBucketKey)
 
 		// now try to read from the cache again
-		res = c.getCachedResult(indexBucketKey, columns, limit, ttlSeconds)
+		res = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, ttlSeconds)
 		// if the data is still not in the cache, create a pending item
 		if res == nil {
 			log.Printf("[TRACE] waitForPendingItem item still not in the cache - add pending item, indexBucketKey: %s", indexBucketKey)
@@ -110,7 +110,7 @@ func (c *QueryCache) addPendingResult(indexBucketKey, table string, qualMap map[
 
 // unlock pending result items from the map
 func (c *QueryCache) pendingItemComplete(table string, qualMap map[string]*proto.Quals, columns []string, limit int64) {
-	indexBucketKey := c.buildIndexKey(c.connectionName, table, qualMap)
+	indexBucketKey := c.buildIndexKey(c.connectionName, table)
 
 	log.Printf("[TRACE] pendingItemComplete indexBucketKey %s, columns %v, limit %d", indexBucketKey, columns, limit)
 	defer log.Printf("[TRACE] pendingItemComplete done")
