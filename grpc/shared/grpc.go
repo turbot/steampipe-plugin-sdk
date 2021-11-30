@@ -36,6 +36,7 @@ func (c *GRPCClient) GetSupportedOperations(req *proto.GetSupportedOperationsReq
 
 // GRPCServer is the gRPC server that GRPCClient talks to.
 type GRPCServer struct {
+	proto.UnimplementedWrapperPluginServer
 	// This is the real implementation
 	Impl WrapperPluginServer
 }
