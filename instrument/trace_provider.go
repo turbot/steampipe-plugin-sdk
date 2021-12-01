@@ -22,7 +22,7 @@ var (
 	TRACER_ENDPOINT = "http://localhost:55681/api/traces"
 )
 
-func NeedsInit() bool{
+func NeedsInit() {
 	return otel.GetTracerProvider() == nil
 }
 
