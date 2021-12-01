@@ -62,6 +62,10 @@ message NullableInt {
   int64 value=1;
 }
 
+message SpanCarrier {
+  map<string,string> value = 1;
+}
+
 message ExecuteRequest {
   string table = 1;
   QueryContext query_context = 2;
@@ -69,6 +73,7 @@ message ExecuteRequest {
   bool cache_enabled = 4;
   int64 cache_ttl = 5;
   string call_id = 6;
+  SpanCarrier otel_carrier = 7;
 }
 
 message ExecuteResponse {
