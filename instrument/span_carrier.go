@@ -6,12 +6,12 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-func CreateCarrierFromContext(ctx context.Context) *proto.Tracer {
-	return &proto.Tracer{Value: ""}
+func CreateCarrierFromContext(ctx context.Context) *proto.TraceContext {
+	return &proto.TraceContext{Value: ""}
 }
 
-func ExtractContextFromCarrier(carrier *proto.Tracer) context.Context {
-	if carrier == nil || len(carrier.Value) == 0 {
+func ExtractContextFromCarrier(traceCtx *proto.TraceContext) context.Context {
+	if traceCtx == nil || len(traceCtx.Value) == 0 {
 		return context.Background()
 	}
 	return context.TODO()

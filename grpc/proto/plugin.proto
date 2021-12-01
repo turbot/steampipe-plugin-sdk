@@ -62,7 +62,7 @@ message NullableInt {
   int64 value=1;
 }
 
-message Tracer {
+message TraceContext {
   string value = 1;
 }
 
@@ -73,7 +73,7 @@ message ExecuteRequest {
   bool cache_enabled = 4;
   int64 cache_ttl = 5;
   string call_id = 6;
-  Tracer tracer = 7;
+  TraceContext trace_context = 7;
 }
 
 message ExecuteResponse {
