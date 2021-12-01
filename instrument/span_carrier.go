@@ -2,14 +2,14 @@ package instrument
 
 import (
 	"context"
+
+	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-type SpanCarrier map[string]string
-
-func CreateCarrierFromContext(ctx context.Context) SpanCarrier {
-	return map[string]string{}
+func CreateCarrierFromContext(ctx context.Context) *proto.SpanCarrier {
+	return &proto.SpanCarrier{Value: map[string]string{}}
 }
 
-func ExtractContextFromCarrier(carrier SpanCarrier) context.Context {
+func ExtractContextFromCarrier(carrier *proto.SpanCarrier) context.Context {
 	return context.TODO()
 }
