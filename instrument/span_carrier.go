@@ -1,5 +1,9 @@
 package instrument
 
+import (
+	"context"
+)
+
 type SpanCarrier map[string]string
 
 func CreateCarrierFromContext(ctx context.Context) SpanCarrier {
@@ -7,5 +11,5 @@ func CreateCarrierFromContext(ctx context.Context) SpanCarrier {
 }
 
 func ExtractContextFromCarrier(carrier SpanCarrier) context.Context {
-	return context.Todo()
+	return context.TODO()
 }
