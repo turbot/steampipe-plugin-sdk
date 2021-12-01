@@ -11,5 +11,8 @@ func CreateCarrierFromContext(ctx context.Context) *proto.SpanCarrier {
 }
 
 func ExtractContextFromCarrier(carrier *proto.SpanCarrier) context.Context {
+	if carrier == nil || len(carrier.Value) == 0 {
+		return context.Background()
+	}
 	return context.TODO()
 }
