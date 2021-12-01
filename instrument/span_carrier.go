@@ -2,17 +2,39 @@ package instrument
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 func CreateCarrierFromContext(ctx context.Context) *proto.TraceContext {
-	return &proto.TraceContext{Value: ""}
+	// Inject trace context information from context onto the carrier
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+
+	// Transform carrier data to be sent back as a string value
+	carrierData, err := json.Marshal(carrier)
+	if err != nil {
+		return &proto.TraceContext{Value: ""}
+	}
+	return &proto.TraceContext{Value: string(carrierData)}
 }
 
 func ExtractContextFromCarrier(traceCtx *proto.TraceContext) context.Context {
 	if traceCtx == nil || len(traceCtx.Value) == 0 {
 		return context.Background()
 	}
-	return context.TODO()
+
+	carrier := propagation.MapCarrier{}
+
+	// Convert raw trace context data into MapCarrier
+	err := json.Unmarshal([]byte(traceCtx.Value), &carrier)
+	if err != nil {
+		return context.Background()
+	}
+
+	// Frame a new context with extracted trace context information from carrier
+	return otel.GetTextMapPropagator().Extract(context.Background(), carrier)
 }
