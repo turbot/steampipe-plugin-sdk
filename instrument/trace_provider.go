@@ -22,8 +22,8 @@ var (
 	TRACER_ENDPOINT = "http://localhost:55681/api/traces"
 )
 
-func NeedsInit() {
-	return (otel.GetTracerProvider() == nil)
+func NeedsInit() bool{
+	return otel.GetTracerProvider() == nil
 }
 
 // tracerProvider returns an OpenTelemetry TracerProvider configured to use
