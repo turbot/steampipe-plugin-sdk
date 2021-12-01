@@ -15,9 +15,11 @@ import (
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const (
@@ -220,15 +222,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	logging.LogTime("Start execute")
 	p.Logger.Trace("Execute ", "connection", req.Connection, "table", req.Table)
 
-	queryContext := NewQueryContext(req.QueryContext)
 	table, ok := p.TableMap[req.Table]
 	if !ok {
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
-
-	p.Logger.Trace("Got query context",
-		"table", req.Table,
-		"cols", queryContext.Columns)
 
 	// async approach
 	// 1) call list() in a goroutine. This writes pages of items to the rowDataChan. When complete it closes the channel
@@ -238,17 +235,32 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 5) Range over rowChan - for each row, send on results stream
 	ctx := context.WithValue(stream.Context(), context_key.Logger, p.Logger)
 
+	// create a traceable context from the stream context
+	ctx = instrument.ExtractContextFromCarrier(ctx, req.TraceContext)
+	traceCtx, span := instrument.StartSpan(ctx, "Plugin.Execute")
+
 	var matrixItem []map[string]interface{}
 
 	// get the matrix item
 	if table.GetMatrixItem != nil {
-		matrixItem = table.GetMatrixItem(ctx, p.Connection)
+		matrixItem = table.GetMatrixItem(traceCtx, p.Connection)
 	}
+
+	queryContext := NewQueryContext(req.QueryContext)
+	p.Logger.Trace("Got query context",
+		"table", req.Table,
+		"cols", queryContext.Columns,
+	)
 
 	// lock access to the newQueryData - otherwise plugin crashes were observed
 	p.concurrencyLock.Lock()
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
 	p.concurrencyLock.Unlock()
+
+	span.SetAttributes(
+		attribute.String("table", table.Name),
+		attribute.Int64("limit", *queryContext.Limit),
+	)
 
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
@@ -262,12 +274,18 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		log.Printf("[TRACE] Cache ENABLED callId: %s", req.CallId)
 		cachedResult := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
 		if cachedResult != nil {
+			span.SetAttributes(
+				attribute.Bool("cache-hit", true),
+			)
 			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
 			}
 			return
 		}
+		span.SetAttributes(
+			attribute.Bool("cache-hit", false),
+		)
 
 		// so cache is enabled but the data is not in the cache
 		// the cache will have added a pending item for this transfer

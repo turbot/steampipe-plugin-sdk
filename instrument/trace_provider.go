@@ -22,6 +22,10 @@ var (
 	TRACER_ENDPOINT = "http://localhost:55681/api/traces"
 )
 
+func NeedsInit() {
+	return (otel.GetTracerProvider() == nil)
+}
+
 // tracerProvider returns an OpenTelemetry TracerProvider configured to use
 // the Jaeger exporter that will send spans to the provided url. The returned
 // TracerProvider will also use a Resource configured with all the information
