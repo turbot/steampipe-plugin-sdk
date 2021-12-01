@@ -23,9 +23,9 @@ func CreateCarrierFromContext(ctx context.Context) *proto.TraceContext {
 	return &proto.TraceContext{Value: string(carrierData)}
 }
 
-func ExtractContextFromCarrier(traceCtx *proto.TraceContext) context.Context {
+func ExtractContextFromCarrier(ctx context.Context, traceCtx *proto.TraceContext) context.Context {
 	if traceCtx == nil || len(traceCtx.Value) == 0 {
-		return context.Background()
+		return ctx
 	}
 
 	carrier := propagation.MapCarrier{}
@@ -33,9 +33,9 @@ func ExtractContextFromCarrier(traceCtx *proto.TraceContext) context.Context {
 	// Convert raw trace context data into MapCarrier
 	err := json.Unmarshal([]byte(traceCtx.Value), &carrier)
 	if err != nil {
-		return context.Background()
+		return ctx
 	}
 
 	// Frame a new context with extracted trace context information from carrier
-	return propagator.Extract(context.Background(), carrier)
+	return propagator.Extract(ctx, carrier)
 }
