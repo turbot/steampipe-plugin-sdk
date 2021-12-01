@@ -2,44 +2,67 @@ package instrument
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/turbot/steampipe/constants"
-	"github.com/turbot/steampipe/version"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
-const (
+var (
 	TRACER_NAME     = "fdw"
-	TRACER_ENDPOINT = "http://localhost:14268/api/traces"
+	TRACER_ENDPOINT = "http://localhost:55681/api/traces"
 )
 
 // tracerProvider returns an OpenTelemetry TracerProvider configured to use
 // the Jaeger exporter that will send spans to the provided url. The returned
 // TracerProvider will also use a Resource configured with all the information
 // about the application.
-func InitTracing() error {
-	// Create the Jaeger exporter
-	jaegerExporter, _ := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(TRACER_ENDPOINT)))
+func InitTracing(componentName string, componentVersion string) error {
+	exporter, err := getJaegerExporter()
+	if err != nil {
+		return err
+	}
 	tp := tracesdk.NewTracerProvider(
 		// Always be sure to batch in production.
-		tracesdk.WithBatcher(jaegerExporter),
+		tracesdk.WithBatcher(exporter),
 		// Record information about this application in a Resource.
 		tracesdk.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("CLI"),
-			semconv.ServiceVersionKey.String(version.String()),
+			semconv.ServiceNameKey.String(componentName),
+			semconv.ServiceVersionKey.String(componentVersion),
 		)),
 	)
 
 	otel.SetTracerProvider(tp)
 
 	return nil
+}
+
+func getHttpTracerExporter() (*otlptrace.Exporter, error) {
+	client := otlptracehttp.NewClient(
+		otlptracehttp.WithEndpoint("localhost:55681"),
+		otlptracehttp.WithInsecure(),
+	)
+	return otlptrace.New(context.Background(), client)
+}
+
+func getStdOutExporter() (*stdouttrace.Exporter, error) {
+	return stdouttrace.New()
+}
+
+func getJaegerExporter() (*jaeger.Exporter, error) {
+	return jaeger.New(
+		jaeger.WithCollectorEndpoint(
+			jaeger.WithEndpoint("http://localhost:14268/api/traces")))
 }
 
 func ShutdownTracing() {
@@ -68,13 +91,11 @@ func StartRootSpan(id string) (context.Context, trace.Span) {
 	id = "callId"
 	traceContext, span := tr.Start(context.Background(), id)
 	span.SetAttributes(attribute.Key(id).String(id))
-	// span.SetAttributes(attribute.Key(fmt.Sprintf("flag-%s", f.Name)).String(f.Value.String()))
-	// span.SetAttributes(attribute.Key("args").StringSlice(flags.Args()))
 
 	return traceContext, span
 }
 
-func StartSpan(baseCtx context.Context, name string) (context.Context, trace.Span) {
+func StartSpan(baseCtx context.Context, format string, args ...interface{}) (context.Context, trace.Span) {
 	tr := GetTracer()
-	return tr.Start(baseCtx, name)
+	return tr.Start(baseCtx, fmt.Sprintf(format, args))
 }
