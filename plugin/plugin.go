@@ -237,13 +237,17 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	// create a traceable context from the stream context
 	ctx = instrument.ExtractContextFromCarrier(ctx, req.TraceContext)
-	traceCtx, span := instrument.StartSpan(ctx, "Plugin.Execute")
+	ctx, span := instrument.StartSpan(ctx, "Plugin.Execute")
+	defer func() {
+		span.End()
+		instrument.FlushTraces()
+	}()
 
 	var matrixItem []map[string]interface{}
 
 	// get the matrix item
 	if table.GetMatrixItem != nil {
-		matrixItem = table.GetMatrixItem(traceCtx, p.Connection)
+		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
 
 	queryContext := NewQueryContext(req.QueryContext)
@@ -259,7 +263,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	span.SetAttributes(
 		attribute.String("table", table.Name),
-		attribute.Int64("limit", *queryContext.Limit),
 	)
 
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)

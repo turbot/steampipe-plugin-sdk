@@ -2,9 +2,12 @@ package plugin
 
 import (
 	"context"
+	"fmt"
+	"log"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 )
@@ -31,6 +34,14 @@ func Serve(opts *ServeOpts) {
 
 	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
 	p.Initialise()
+
+	instrument.InitTracing(fmt.Sprintf("%s-plugin", p.Name), "0.0.0")
+	defer func() {
+		log.Println("[TRACE] FLUSHING instrumentation")
+		instrument.FlushTraces()
+		log.Println("[TRACE] Shutdown instrumentation")
+		instrument.ShutdownTracing()
+	}()
 
 	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.GetSchema, p.Execute).Serve()
 }

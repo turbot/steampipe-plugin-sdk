@@ -13,6 +13,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 )
 
 // TODO do not use unsafe quals use quals map and  remove key column qual logic
@@ -128,6 +129,9 @@ func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Q
 }
 
 func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) *QueryCacheResult {
+	ctx, span := instrument.StartSpan(ctx, "QUeryCache.Get")
+	defer span.End()
+
 	clientTTL := time.Duration(clientTTLSeconds) * time.Second
 	// if the client TTL is greater than the cache TTL, update the cache value to match the client value
 	// lock to handle concurrent updates

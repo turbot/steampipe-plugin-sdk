@@ -3,14 +3,12 @@ package instrument
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/turbot/steampipe/constants"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
@@ -22,15 +20,12 @@ var (
 	TRACER_ENDPOINT = "http://localhost:55681/api/traces"
 )
 
-func NeedsInit() bool {
-	return otel.GetTracerProvider() == nil
-}
-
 // tracerProvider returns an OpenTelemetry TracerProvider configured to use
 // the Jaeger exporter that will send spans to the provided url. The returned
 // TracerProvider will also use a Resource configured with all the information
 // about the application.
 func InitTracing(componentName string, componentVersion string) error {
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(e error) { log.Println("[ERROR] otel:", e) }))
 	exporter, err := getJaegerExporter()
 	if err != nil {
 		return err
@@ -47,21 +42,20 @@ func InitTracing(componentName string, componentVersion string) error {
 	)
 
 	otel.SetTracerProvider(tp)
-
 	return nil
 }
 
-func getHttpTracerExporter() (*otlptrace.Exporter, error) {
-	client := otlptracehttp.NewClient(
-		otlptracehttp.WithEndpoint("localhost:55681"),
-		otlptracehttp.WithInsecure(),
-	)
-	return otlptrace.New(context.Background(), client)
-}
+// func getHttpTracerExporter() (*otlptrace.Exporter, error) {
+// 	client := otlptracehttp.NewClient(
+// 		otlptracehttp.WithEndpoint("localhost:55681"),
+// 		otlptracehttp.WithInsecure(),
+// 	)
+// 	return otlptrace.New(context.Background(), client)
+// }
 
-func getStdOutExporter() (*stdouttrace.Exporter, error) {
-	return stdouttrace.New()
-}
+// func getStdOutExporter() (*stdouttrace.Exporter, error) {
+// 	return stdouttrace.New()
+// }
 
 func getJaegerExporter() (*jaeger.Exporter, error) {
 	return jaeger.New(
@@ -92,7 +86,6 @@ func GetTracer() trace.Tracer {
 
 func StartRootSpan(id string) (context.Context, trace.Span) {
 	tr := GetTracer()
-	id = "callId"
 	traceContext, span := tr.Start(context.Background(), id)
 	span.SetAttributes(attribute.Key(id).String(id))
 
@@ -101,5 +94,5 @@ func StartRootSpan(id string) (context.Context, trace.Span) {
 
 func StartSpan(baseCtx context.Context, format string, args ...interface{}) (context.Context, trace.Span) {
 	tr := GetTracer()
-	return tr.Start(baseCtx, fmt.Sprintf(format, args))
+	return tr.Start(baseCtx, fmt.Sprintf(format, args...))
 }

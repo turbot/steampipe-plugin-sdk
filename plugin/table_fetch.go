@@ -10,6 +10,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
@@ -49,6 +50,8 @@ When executing for each matrix item, the matrix item is put into the context, av
 
 // call either 'get' or 'list'.
 func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
+	ctx, span := instrument.StartSpan(ctx, "Table.fetchItems")
+	defer span.End()
 	// if the query contains a single 'equals' constrains for all key columns, then call the 'get' function
 	if queryData.FetchType == fetchTypeGet && t.Get != nil {
 		logging.LogTime("executeGetCall")
@@ -310,6 +313,9 @@ func buildSingleError(errors []error) error {
 }
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
+	ctx, span := instrument.StartSpan(ctx, "Table.executeListCall")
+	defer span.End()
+
 	log.Printf("[TRACE] executeListCall")
 	defer func() {
 		if r := recover(); r != nil {
@@ -387,6 +393,9 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 }
 
 func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+	ctx, span := instrument.StartSpan(ctx, "Table.doList")
+	defer span.End()
+
 	rd := newRowData(queryData, nil)
 
 	retryConfig, shouldIgnoreError := t.buildListConfig()
@@ -404,6 +413,9 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 // ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+	ctx, span := instrument.StartSpan(ctx, "Table.listForEach")
+	defer span.End()
+
 	log.Printf("[TRACE] listForEach: %v\n", queryData.Matrix)
 	var wg sync.WaitGroup
 	// NOTE - we use the filtered matrix - which means we may not actually run any hydrate calls

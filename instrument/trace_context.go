@@ -8,11 +8,10 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 )
 
-var propagator = propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
-
 func CreateCarrierFromContext(ctx context.Context) *proto.TraceContext {
 	// Inject trace context information from context onto the carrier
 	carrier := propagation.MapCarrier{}
+	propagator := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
 	propagator.Inject(ctx, carrier)
 
 	// Transform carrier data to be sent back as a string value
@@ -28,6 +27,7 @@ func ExtractContextFromCarrier(ctx context.Context, traceCtx *proto.TraceContext
 		return ctx
 	}
 
+	propagator := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
 	carrier := propagation.MapCarrier{}
 
 	// Convert raw trace context data into MapCarrier

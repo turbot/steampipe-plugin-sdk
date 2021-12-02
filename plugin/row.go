@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
 	"google.golang.org/grpc/codes"
@@ -192,6 +193,9 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
 func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) (interface{}, error) {
+	ctx, span := instrument.StartSpan(ctx, "RowData.callHydrateWithRetries")
+	defer span.End()
+
 	hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
 	hydrateWithIgnoreError := WrapHydrate(hydrateFunc, shouldIgnoreError)

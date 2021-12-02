@@ -12,6 +12,7 @@ import (
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
 )
@@ -419,7 +420,10 @@ func (d *QueryData) fetchComplete() {
 
 // read rows from rowChan and stream back
 // (also return the rows so we can cache them when complete)
-func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
+func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
+	_, span := instrument.StartSpan(ctx, "QueryData.streamRows")
+	defer span.End()
+
 	var rows []*proto.Row
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
