@@ -33,3 +33,11 @@ Our [Code of Conduct](https://github.com/turbot/steampipe/blob/main/CODE_OF_COND
 ### Contributing
 
 Please see [CONTRIBUTING.md](https://github.com/turbot/steampipe/blob/main/CONTRIBUTING.md).
+
+#### Darwin
+
+To compile the SDK repo, you must install protoc.
+```
+brew install protoc
+brew install protoc-gen-go-grpc
+```
