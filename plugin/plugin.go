@@ -200,11 +200,11 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			} else {
 				err = fmt.Errorf("%v", r)
 			}
+			return
 		}
 
+		log.Printf("[TRACE] Execute complete callId: %s table: %s ", req.CallId, req.Table)
 	}()
-
-	defer log.Printf("[TRACE] Execute complete callId: %s table: %s ", req.CallId, req.Table)
 
 	// the connection property must be set already
 	if p.Connection == nil {

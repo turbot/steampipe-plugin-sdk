@@ -46,6 +46,7 @@ func (x *Qual) Equals(other *Qual) bool {
 }
 
 func (x *Qual) IsASubsetOf(other *Qual) bool {
+	log.Printf("[TRACE] IsASubsetOf me %+v, other %+v", x, other)
 	operator, ok := x.Operator.(*Qual_StringValue)
 	if !ok {
 		log.Printf("[TRACE] IsASubsetOf my operator is not a string - returning false")
@@ -56,8 +57,8 @@ func (x *Qual) IsASubsetOf(other *Qual) bool {
 		log.Printf("[TRACE] IsASubsetOf other operator is not a string - returning false")
 		return false
 	}
-	if x.FieldName != other.FieldName {
-		log.Printf("[TRACE] IsASubsetOf field names different - returning false")
+	if x.Value == nil {
+		log.Printf("[TRACE] IsASubsetOf Value nil - returning false")
 		return false
 	}
 
