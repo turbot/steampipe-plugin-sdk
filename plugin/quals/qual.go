@@ -19,8 +19,24 @@ func NewQual(q *proto.Qual) *Qual {
 	}
 }
 
+func (q *Qual) Equals(other *Qual) bool {
+	return q.Column == other.Column && q.Operator == other.Operator && q.Value.String() == other.Value.String()
+}
+
 type QualSlice []*Qual
 
 func (s QualSlice) SingleEqualsQual() bool {
 	return len(s) == 1 && s[0].Operator == "="
+}
+
+func (s QualSlice) Contains(other *Qual) bool {
+	alreadyExists := false
+	for _, existingQual := range s {
+		if existingQual.Equals(other) {
+			alreadyExists = true
+			break
+		}
+	}
+
+	return alreadyExists
 }
