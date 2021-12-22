@@ -2,7 +2,11 @@
 
 package os_specific
 
-import "github.com/hashicorp/go-hclog"
+import (
+	"syscall"
+
+	"github.com/hashicorp/go-hclog"
+)
 
 func SetRlimit(ulimit uint64, logger hclog.Logger ) error {
 	var rLimit syscall.Rlimit
