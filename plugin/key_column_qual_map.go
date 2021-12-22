@@ -114,8 +114,13 @@ func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumns KeyCol
 
 			// if there is already an entry for this column, add a value to the array
 			if mapEntry, mapEntryExists := res[col.Name]; mapEntryExists {
-				mapEntry.Quals = append(mapEntry.Quals, qual)
-				res[col.Name] = mapEntry
+				log.Printf("[TRACE] NewKeyColumnQualValueMap entry exists for col %s", col.Name)
+				// check whether we have this value in the list of quals yet
+				if !mapEntry.Quals.Contains(qual) {
+					log.Printf("[TRACE] this qual not found - adding %+v", qual)
+					mapEntry.Quals = append(mapEntry.Quals, qual)
+					res[col.Name] = mapEntry
+				}
 			} else {
 				// create a new map entry for this column
 				res[col.Name] = &KeyColumnQuals{
