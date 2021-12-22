@@ -7,8 +7,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"syscall"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/cache"
@@ -17,6 +15,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/logging"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/os_specific"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
 
@@ -91,12 +90,7 @@ func (p *Plugin) setuLimit() {
 			ulimit = ulimitEnv
 		}
 	}
-
-	var rLimit syscall.Rlimit
-	rLimit.Max = ulimit
-	rLimit.Cur = ulimit
-	p.Logger.Trace("Setting Ulimit", "ulimit", ulimit)
-	err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit)
+	err := os_specific.SetRlimit(ulimit, p.Logger)
 	if err != nil {
 		p.Logger.Error("Error Setting Ulimit", "error", err)
 	}
