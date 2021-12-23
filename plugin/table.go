@@ -4,9 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
-
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
 )
 
 type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}

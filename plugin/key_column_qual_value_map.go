@@ -21,3 +21,14 @@ func (m KeyColumnEqualsQualMap) String() string {
 	}
 	return strings.Join(strs, "\n")
 }
+
+// GetListQualValues returns a map of all qual values with a List value
+func (m KeyColumnEqualsQualMap) GetListQualValues() map[string]*proto.QualValueList {
+	res := make(map[string]*proto.QualValueList)
+	for k, v := range m {
+		if listValue := v.GetListValue(); listValue != nil {
+			res[k] = listValue
+		}
+	}
+	return res
+}

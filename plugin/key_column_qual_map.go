@@ -40,7 +40,7 @@ func (m KeyColumnQualMap) String() string {
 }
 
 func (m KeyColumnQualMap) GetUnsatisfiedKeyColumns(columns KeyColumnSlice) KeyColumnSlice {
-	log.Printf("[TRACE] GetUnsatisfiedKeyColumns %v", columns)
+	log.Printf("[TRACE] GetUnsatisfiedKeyColumns for columns %v", columns)
 
 	if columns == nil {
 		return nil
@@ -86,7 +86,7 @@ func (m KeyColumnQualMap) GetUnsatisfiedKeyColumns(columns KeyColumnSlice) KeyCo
 
 	log.Printf("[TRACE] satisfied: %v", satisfiedMap)
 	log.Printf("[TRACE] unsatisfied: %v", unsatisfiedMap)
-	log.Printf("[TRACE] unsatisfied required KeyColumns %v", unsatisfiedKeyColumns)
+	log.Printf("[TRACE] unsatisfied required KeyColumns: %v", unsatisfiedKeyColumns)
 
 	return unsatisfiedKeyColumns
 }
@@ -105,26 +105,27 @@ func (m KeyColumnQualMap) ToQualMap() map[string]quals.QualSlice {
 func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumns KeyColumnSlice) KeyColumnQualMap {
 	res := KeyColumnQualMap{}
 
-	for _, col := range keyColumns {
-		matchingQuals := getMatchingQuals(col, qualMap)
+	// find which of the provided quals match the key columns
+	for _, keyColumn := range keyColumns {
+		matchingQuals := getMatchingQuals(keyColumn, qualMap)
 
 		for _, q := range matchingQuals {
 			// convert proto.Qual into a qual.Qual (which is easier to use)
 			qual := quals.NewQual(q)
 
 			// if there is already an entry for this column, add a value to the array
-			if mapEntry, mapEntryExists := res[col.Name]; mapEntryExists {
-				log.Printf("[TRACE] NewKeyColumnQualValueMap entry exists for col %s", col.Name)
+			if mapEntry, mapEntryExists := res[keyColumn.Name]; mapEntryExists {
+				log.Printf("[TRACE] NewKeyColumnQualValueMap entry exists for col %s", keyColumn.Name)
 				// check whether we have this value in the list of quals yet
 				if !mapEntry.Quals.Contains(qual) {
 					log.Printf("[TRACE] this qual not found - adding %+v", qual)
 					mapEntry.Quals = append(mapEntry.Quals, qual)
-					res[col.Name] = mapEntry
+					res[keyColumn.Name] = mapEntry
 				}
 			} else {
 				// create a new map entry for this column
-				res[col.Name] = &KeyColumnQuals{
-					Name:  col.Name,
+				res[keyColumn.Name] = &KeyColumnQuals{
+					Name:  keyColumn.Name,
 					Quals: quals.QualSlice{qual},
 				}
 			}

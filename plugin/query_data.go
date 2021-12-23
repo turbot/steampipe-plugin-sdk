@@ -194,16 +194,17 @@ func (d *QueryData) updateQualsWithMatrixItem(matrixItem map[string]interface{})
 
 // setFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) setFetchType(table *Table) {
-	log.Printf("[TRACE] setFetchType")
+	log.Printf("[TRACE] setFetchType %v", d.QueryContext.UnsafeQuals)
 	if table.Get != nil {
 		// default to get, even before checking the quals
 		// this handles the case of a get call only
 		d.FetchType = fetchTypeGet
 
-		// build a qual map from Get key columns
+		// build a qual map from whichever quals match the Get key columns
 		qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.Get.KeyColumns)
-		// now see whether the qual map has everything required for the get call
+		// now see whether this qual map has everything required for the get call
 		if unsatisfiedColumns := qualMap.GetUnsatisfiedKeyColumns(table.Get.KeyColumns); len(unsatisfiedColumns) == 0 {
+			// so this IS a get call - all quals are satisfied
 			log.Printf("[TRACE] Set fetchType to fetchTypeGet")
 			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
 			d.Quals = qualMap
