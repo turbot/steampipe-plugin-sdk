@@ -1,7 +1,7 @@
 ## v1.8.3  [2021-12-23]
 _What's new_
-* Updated `missing required quals` error to include table name.  ([#166](https://github.com/turbot/steampipe-plugin-sdk/issues/166))
-* Move setting R Limit to OS specific code to allow compilation on Windows systems
+* Updated `missing required quals` error to include table name. ([#166](https://github.com/turbot/steampipe-plugin-sdk/issues/166))
+* Move setting R Limit to OS specific code to allow compilation on Windows systems.
 * Update makefile and GRPCServer to support protoc-gen-go-grpc 1.1.0_2.
 
 _Bug fixes_
