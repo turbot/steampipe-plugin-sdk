@@ -72,7 +72,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	logger.Trace("executeGetCall", "table", t.Name, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
 	// verify we have the necessary quals
 	if len(queryData.KeyColumnQuals) == 0 {
-		return status.Error(codes.Internal, fmt.Sprintf("'Get' call requires an '=' qual for %s", t.Get.KeyColumns.String()))
+		return status.Error(codes.Internal, fmt.Sprintf("'Get' call for table '%s' requires an '=' qual for %s", t.Name, t.Get.KeyColumns.String()))
 	}
 
 	defer func() {
@@ -322,7 +322,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	// verify we have the necessary quals
 	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.List.KeyColumns)
 	if len(unsatisfiedColumns) > 0 {
-		err := status.Error(codes.Internal, fmt.Sprintf("'List' call is missing required quals: %s", unsatisfiedColumns.String()))
+		err := status.Error(codes.Internal, fmt.Sprintf("'List' call table '%s' is missing required quals: %s", t.Name, unsatisfiedColumns.String()))
 		queryData.streamError(err)
 		return
 	}
