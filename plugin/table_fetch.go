@@ -90,9 +90,9 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// queryData.KeyColumnQuals is a map of column to qual value
 	// NOTE: if there is a SINGLE or ANY key columns, the qual value may be a list of values
 	// in this case we call get for each value
-	qualValueList, keyColumn := t.getQualValueList(queryData)
-	if qualValueList != nil {
-		return t.doGetForQualValues(ctx, queryData, keyColumn.Name, qualValueList)
+	keyColumnName, keyColumnQualList := t.getQualValueList(queryData)
+	if keyColumnQualList != nil {
+		return t.doGetForQualValues(ctx, queryData, keyColumnName, keyColumnQualList)
 	}
 
 	// so there is NOT a list of qual values, just call get once
@@ -117,26 +117,39 @@ func (t *Table) buildMissingKeyColumnError(operation string, unsatisfiedColumns 
 
 // if there is a SINGLE or ANY key columns, determine whether the qual value is a list of values
 // if so return the list and the key column
-func (t *Table) getQualValueList(queryData *QueryData) (*proto.QualValueList, *KeyColumn) {
-	var qualValueList *proto.QualValueList
+func (t *Table) getQualValueList(queryData *QueryData) (string, *proto.QualValueList) {
+	k := t.Get.KeyColumns
 
-	// is there a single equals key column
-	if keyColumn := t.Get.KeyColumns.SingleEqualsQual(); keyColumn != nil {
-		return queryData.KeyColumnQuals[keyColumn.Name].GetListValue(), keyColumn
+	log.Printf("[TRACE] getQualValueList %d key column quals: %s ", len(k), k)
+
+	// get map of all the key columns quals which have a list value
+	listValueMap := queryData.KeyColumnQuals.GetListQualValues()
+	if len(listValueMap) == 0 {
+		return "", nil
 	}
 
-	// if any_of key columns are defined, check each ofd them to see if a 'list qual value was passed
+	// if 'any_of' key columns are defined, check each of them to see if a 'list qual value was passed
 	if t.Get.KeyColumns.IsAnyOf() {
 		for _, keyColumn := range t.Get.KeyColumns {
-			if qualValueList = queryData.KeyColumnQuals[keyColumn.Name].GetListValue(); qualValueList != nil {
-				return qualValueList, keyColumn
+			if listValue, ok := listValueMap[keyColumn.Name]; ok {
+				return keyColumn.Name, listValue
 			}
 		}
 	}
-	return nil, nil
+
+	// is ONE of the key column quals a list?
+	if len(listValueMap) == 1 {
+		for keyColumnName, listValue := range listValueMap {
+			return keyColumnName, listValue
+		}
+	} else {
+		log.Printf("[WARN] more than 1 key column qual has a list value - this is unsupported")
+	}
+
+	return "", nil
 }
 
-func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList) error {
+func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, keyColumnName string, qualValueList *proto.QualValueList) error {
 	logger := t.Plugin.Logger
 	logger.Warn("executeGetCall - single qual, qual value is a list - executing get for each qual value item", "qualValueList", qualValueList)
 
@@ -147,7 +160,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 	for _, qv := range qualValueList.Values {
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
-		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		queryDataCopy.KeyColumnQuals[keyColumnName] = qv
 		getWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
