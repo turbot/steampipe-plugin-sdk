@@ -1,4 +1,16 @@
+## v1.8.3  [2021-12-23]
+_What's new_
+* Error "call is missing required quals" should include table name.  ([#166](https://github.com/turbot/steampipe-plugin-sdk/issues/166))
+* Move setting R Limit to OS specific code to allow compilation on Windows systems
+* Update makefile and GRPCServer to support protoc-gen-go-grpc 1.1.0_2.
+
+_Bug fixes_
+* Fix 'in' clause not being correctly evaluated when more than one key column qual is specified. ([#239](https://github.com/turbot/steampipe-plugin-sdk/issues/239))
+* Fix invalid memory address error when joining on a column with null value. ([#233](https://github.com/turbot/steampipe-plugin-sdk/issues/233))
+* Avoid adding duplicate quals to KeyColumnQualMap. Was causing invalid key column errors.  ([#236](https://github.com/turbot/steampipe-plugin-sdk/issues/236))
+
 ## v1.8.2  [2021-11-22]
+
 _What's new_
 * Query cache TTL defaults to 5 minutes and is increased to match the TTL of incoming queries. ([#226](https://github.com/turbot/steampipe-plugin-sdk/issues/226))
 * Set cache cost of items based on number of rows and columns inserted. ([#227](https://github.com/turbot/steampipe-plugin-sdk/issues/227))
