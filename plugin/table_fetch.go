@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
@@ -70,9 +71,12 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	logger := t.Plugin.Logger
 	logger.Trace("executeGetCall", "table", t.Name, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
+	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.Get.KeyColumns)
+
 	// verify we have the necessary quals
-	if len(queryData.KeyColumnQuals) == 0 {
-		return status.Error(codes.Internal, fmt.Sprintf("'Get' call for table '%s' requires an '=' qual for %s", t.Name, t.Get.KeyColumns.String()))
+	if len(unsatisfiedColumns) > 0 {
+		err := t.buildMissingKeyColumnError("Get", unsatisfiedColumns)
+		return err
 	}
 
 	defer func() {
@@ -94,6 +98,21 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// so there is NOT a list of qual values, just call get once
 	// call doGet passing nil hydrate item
 	return t.doGet(ctx, queryData, nil)
+}
+
+func (t *Table) buildMissingKeyColumnError(operation string, unsatisfiedColumns KeyColumnSlice) error {
+	unsatisfied := unsatisfiedColumns.String()
+	if len(unsatisfiedColumns) > 1 {
+		unsatisfied = fmt.Sprintf("\n%s", helpers.Tabify(unsatisfied, "    "))
+	}
+	err := status.Error(codes.Internal, fmt.Sprintf("'%s' call for table '%s' is missing %d required %s: %s\n",
+		operation,
+		t.Name,
+		len(unsatisfiedColumns),
+		pluralize.NewClient().Pluralize("qual", len(unsatisfiedColumns), false),
+		unsatisfied,
+	))
+	return err
 }
 
 // if there is a SINGLE or ANY key columns, determine whether the qual value is a list of values
@@ -322,7 +341,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	// verify we have the necessary quals
 	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.List.KeyColumns)
 	if len(unsatisfiedColumns) > 0 {
-		err := status.Error(codes.Internal, fmt.Sprintf("'List' call table '%s' is missing required quals: %s", t.Name, unsatisfiedColumns.String()))
+		err := t.buildMissingKeyColumnError("List", unsatisfiedColumns)
 		queryData.streamError(err)
 		return
 	}
