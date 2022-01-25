@@ -511,6 +511,9 @@ func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan
 		log.Printf("[WARN] getRow failed with error %v", err)
 		d.streamError(err)
 	} else {
+		// NOTE: add the Steampipe connection column value
+		row.Columns[ConnectionColumnName] = &proto.Column{Value: &proto.Column_StringValue{StringValue: d.Connection.Name}}
+
 		rowChan <- row
 	}
 }

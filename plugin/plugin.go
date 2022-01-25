@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/cache"
@@ -335,7 +336,11 @@ func (p *Plugin) buildSchema() (map[string]*proto.TableSchema, error) {
 
 	var tables []string
 	for tableName, table := range p.TableMap {
-		schema[tableName] = table.GetSchema()
+		tableSchema, err := table.GetSchema()
+		if err != nil {
+			return nil, err
+		}
+		schema[tableName] = tableSchema
 		tables = append(tables, tableName)
 	}
 

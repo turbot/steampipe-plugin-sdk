@@ -115,7 +115,6 @@ func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 
 // wait for all hydrate calls to complete
 func (r *RowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*proto.Row, error) {
-
 	var row *proto.Row
 
 	// start a go routine which signals via the wait chan when all calls are complete
