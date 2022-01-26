@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -511,11 +512,16 @@ func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan
 		log.Printf("[WARN] getRow failed with error %v", err)
 		d.streamError(err)
 	} else {
-		// NOTE: add the Steampipe connection column value
-		row.Columns[ConnectionColumnName] = &proto.Column{Value: &proto.Column_StringValue{StringValue: d.Connection.Name}}
+		// NOTE: add the Steampipecontext data to the row
+		d.addContextData(row)
 
 		rowChan <- row
 	}
+}
+
+func (d *QueryData) addContextData(row *proto.Row) {
+	jsonValue, _ := json.Marshal(map[string]string{"connection_name": d.Connection.Name})
+	row.Columns[ContextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
