@@ -66,10 +66,10 @@ func columnTypeToString(columnType proto.ColumnType) string {
 		return "ColumnType_IPADDR"
 	case proto.ColumnType_CIDR:
 		return "ColumnType_CIDR"
-	//case proto.ColumnType_INET:
-	//	return "ColumnType_INET"
 	case proto.ColumnType_TIMESTAMP:
 		return "ColumnType_TIMESTAMP"
+	case proto.ColumnType_LTREE:
+		return "ColumnType_LTREE"
 	default:
 		return fmt.Sprintf("Unknown column type: %v", columnType)
 	}
