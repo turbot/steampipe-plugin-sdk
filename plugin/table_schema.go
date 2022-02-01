@@ -14,7 +14,7 @@ func (t Table) GetSchema() (*proto.TableSchema, error) {
 		Description: t.Description,
 	}
 
-	// NOTE: we add a column "steampipe_connection" to all tables.
+	// NOTE: we add a column "_ctx" to all tables.
 	// This is therefore a reserved column name
 	// column schema
 	for i, column := range t.Columns {
@@ -27,11 +27,11 @@ func (t Table) GetSchema() (*proto.TableSchema, error) {
 			Description: column.Description,
 		}
 	}
-	// add steampipe_connection column
+	// add _ctx column
 	schema.Columns[len(t.Columns)] = &proto.ColumnDefinition{
 		Name:        ContextColumnName,
 		Type:        proto.ColumnType_JSON,
-		Description: "additional context data",
+		Description: "context data",
 	}
 
 	// key columns
