@@ -1,3 +1,8 @@
+## v1.9.0  [2022-02-01]
+_What's new_
+* Add support for `ltree` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/248))
+* Add `_ctx` column to all tables and populate with connection name. ([#246](https://github.com/turbot/steampipe-plugin-sdk/issues/246))
+
 ## v1.8.3  [2021-12-23]
 _What's new_
 * Updated `missing required quals` error to include table name. ([#166](https://github.com/turbot/steampipe-plugin-sdk/issues/166))
