@@ -37,7 +37,6 @@ jobs:
           repository: turbot/steampipe-plugin-chaos
           path: steampipe-plugin-chaos
           submodules: true
-          ref: test_stop
 
       - name: Update go.mod and build plugin chaos
         run: |
@@ -54,4 +53,3 @@ jobs:
         run: |
           chmod +x /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
           /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
-        timeout-minutes: 15
