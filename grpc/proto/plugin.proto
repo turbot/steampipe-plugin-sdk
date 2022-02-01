@@ -84,10 +84,10 @@ message GetSchemaResponse {
 }
 
 message GetSupportedOperationsRequest{}
-message GetSupportedOperationsResponse{
+
+ message GetSupportedOperationsResponse{
   bool query_cache = 1;
 }
-
 
 message SetConnectionConfigRequest{
   string connection_name = 1;
