@@ -38,6 +38,7 @@ message QualValue {
     string jsonb_value = 6;
     google.protobuf.Timestamp timestamp_value = 7;
     QualValueList list_value = 8;
+    string ltree_value = 9;
   }
 }
 
@@ -83,10 +84,10 @@ message GetSchemaResponse {
 }
 
 message GetSupportedOperationsRequest{}
-message GetSupportedOperationsResponse{
+
+ message GetSupportedOperationsResponse{
   bool query_cache = 1;
 }
-
 
 message SetConnectionConfigRequest{
   string connection_name = 1;
@@ -162,6 +163,8 @@ message Column {
     string ip_addr_value = 9;
     // Represents an cidr range value
     string cidr_range_value = 10;
+    // Represents an ltree value
+    string ltree_value = 11;
   }
 }
 
@@ -191,6 +194,6 @@ enum ColumnType {
   IPADDR = 6;
   CIDR = 7;
   TIMESTAMP = 8;
-//  INET = 9;
+  LTREE = 10;
   UNKNOWN = -1;
 }

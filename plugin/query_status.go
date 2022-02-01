@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"log"
 	"math"
 )
 
@@ -31,8 +30,5 @@ func (s *QueryStatus) RowsRemaining(ctx context.Context) int {
 		return 0
 	}
 	rowsRemaining := s.rowsRequired - s.rowsStreamed
-	if rowsRemaining == 0 {
-		log.Printf("[TRACE] RowsRemaining returning 0")
-	}
 	return rowsRemaining
 }
