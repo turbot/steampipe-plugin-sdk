@@ -32,11 +32,12 @@ jobs:
         run: steampipe plugin install chaos
 
       - name: Checkout Chaos plugin
-        uses: actions/checkout@test_stop
+        uses: actions/checkout@main
         with:
           repository: turbot/steampipe-plugin-chaos
           path: steampipe-plugin-chaos
           submodules: true
+          ref: test_stop
 
       - name: Update go.mod and build plugin chaos
         run: |
