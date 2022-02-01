@@ -32,7 +32,7 @@ jobs:
         run: steampipe plugin install chaos
 
       - name: Checkout Chaos plugin
-        uses: actions/checkout@main
+        uses: actions/checkout@test_stop
         with:
           repository: turbot/steampipe-plugin-chaos
           path: steampipe-plugin-chaos
@@ -53,3 +53,4 @@ jobs:
         run: |
           chmod +x /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
           /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
+        timeout-minutes: 15
