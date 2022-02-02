@@ -97,7 +97,7 @@ func (c *QueryCache) addPendingResult(indexBucketKey, table string, qualMap map[
 		pendingIndexBucket = newPendingIndexBucket()
 	}
 	// build a result key
-	resultKey := c.buildResultKey(table, qualMap, columns)
+	resultKey := c.buildResultKey(table, qualMap, columns, limit)
 
 	// this pending item _may_ already exist - if we have previously fetched the same data (perhaps the ttl expired)
 	// create a new one anyway to replace that one
