@@ -85,13 +85,12 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 		}
 	}
 	sort.Strings(columns)
-	log.Printf("[TRACE] QueryCache Set - connectionName: %s, table: %s, columns: %s\n", c.connectionName, table, columns)
+	log.Printf("[TRACE] QueryCache Set - connectionName: %s, table: %s, columns: %s, limit %d\n", c.connectionName, table, columns, limit)
 	defer log.Printf("[TRACE] QueryCache Set() DONE")
 
 	// write to the result cache
 	// set the insertion time
-	result.InsertionTime = time.Now()
-	resultKey := c.buildResultKey(table, cacheQualMap, columns)
+	resultKey := c.buildResultKey(table, cacheQualMap, columns, limit)
 	// estimate cost at 8 bytes per column value
 	cost := len(result.Rows) * len(columns) * 8
 	log.Printf("[TRACE] cache item cost = %d (%d rows, %d columns)", cost, len(result.Rows), len(columns))
@@ -187,7 +186,7 @@ func (c *QueryCache) Clear() {
 }
 
 func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) *QueryCacheResult {
-	log.Printf("[TRACE] QueryCache getCachedResult - index bucket key: %s\n", indexBucketKey)
+	log.Printf("[TRACE] QueryCache getCachedResult - index bucket key: %s ttlSeconds %d\n", indexBucketKey, ttlSeconds)
 	indexBucket, ok := c.getIndexBucket(indexBucketKey)
 	if !ok {
 		c.Stats.Misses++
@@ -196,7 +195,7 @@ func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[s
 	}
 
 	// now check whether we have a cache entry that covers the required quals and columns - check the index
-	indexItem := indexBucket.Get(qualMap, columns, limit)
+	indexItem := indexBucket.Get(qualMap, columns, limit, ttlSeconds)
 	if indexItem == nil {
 		limitString := "NONE"
 		if limit != -1 {
@@ -214,11 +213,7 @@ func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[s
 		log.Printf("[TRACE] getCachedResult - no item retrieved for cache key %s", indexItem.Key)
 		return nil
 	}
-	if time.Since(result.InsertionTime) > time.Duration(ttlSeconds)*time.Second {
-		c.Stats.Misses++
-		log.Printf("[TRACE] cache ttl %d has expired", ttlSeconds)
-		return nil
-	}
+
 	c.Stats.Hits++
 
 	return result
@@ -249,12 +244,13 @@ func (c *QueryCache) buildIndexKey(connectionName, table string) string {
 	return str
 }
 
-func (c *QueryCache) buildResultKey(table string, qualMap map[string]*proto.Quals, columns []string) string {
-	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
+func (c *QueryCache) buildResultKey(table string, qualMap map[string]*proto.Quals, columns []string, limit int64) string {
+	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s%d",
 		c.connectionName,
 		table,
 		c.formatQualMapForKey(table, qualMap),
-		strings.Join(columns, ",")))
+		strings.Join(columns, ","),
+		limit))
 	return str
 }
 
