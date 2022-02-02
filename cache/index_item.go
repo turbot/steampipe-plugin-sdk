@@ -92,9 +92,11 @@ func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals) bool {
 	return true
 }
 
+// SatisfiesTtl
+// does this index item satisfy the ttl requirement
 func (i IndexItem) SatisfiesTtl(ttlSeconds int64) bool {
 	timeSince := time.Since(i.InsertionTime)
-	if timeSince <= time.Duration(ttlSeconds)*time.Second {
+	if timeSince > time.Duration(ttlSeconds)*time.Second {
 		log.Printf("[TRACE] SatisfiesTtl: cache ttl %d has expired (%fs)", ttlSeconds, timeSince.Seconds())
 		return false
 	}
