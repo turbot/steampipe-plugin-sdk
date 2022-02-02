@@ -3,51 +3,29 @@ package cache
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
 )
 
-// IndexBucket contains index items for all cache results for a given table and qual set
-type IndexBucket struct {
-	Items []*IndexItem
-}
-
-func newIndexBucket() *IndexBucket {
-	return &IndexBucket{}
-}
-
-func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {
-	b.Items = append(b.Items, item)
-	return b
-}
-
-// Get finds an index item which satisfies all columns
-func (b *IndexBucket) Get(qualMap map[string]*proto.Quals, columns []string, limit int64) *IndexItem {
-	for _, item := range b.Items {
-		if item.SatisfiesQuals(qualMap) && item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) {
-			return item
-		}
-	}
-	return nil
-}
-
 // IndexItem stores the columns and cached index for a single cached query result
 // note - this index item it tied to a specific table and set of quals
 type IndexItem struct {
-	Columns []string
-	Key     string
-	Limit   int64
-	Quals   map[string]*proto.Quals
+	Columns       []string
+	Key           string
+	Limit         int64
+	Quals         map[string]*proto.Quals
+	InsertionTime time.Time
 }
 
 func NewIndexItem(columns []string, key string, limit int64, quals map[string]*proto.Quals) *IndexItem {
 	return &IndexItem{
-		Columns: columns,
-		Key:     key,
-		Limit:   limit,
-		Quals:   quals,
-	}
+		Columns:       columns,
+		Key:           key,
+		Limit:         limit,
+		Quals:         quals,
+		InsertionTime: time.Now()}
 }
 
 // SatisfiesColumns returns whether this index item satisfies the given columns
@@ -112,4 +90,18 @@ func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals) bool {
 		}
 	}
 	return true
+}
+
+// SatisfiesTtl
+// does this index item satisfy the ttl requirement
+func (i IndexItem) SatisfiesTtl(ttlSeconds int64) bool {
+	timeSince := time.Since(i.InsertionTime)
+	if timeSince > time.Duration(ttlSeconds)*time.Second {
+		log.Printf("[TRACE] SatisfiesTtl: cache ttl %d has expired (%fs)", ttlSeconds, timeSince.Seconds())
+		return false
+	}
+	log.Printf("[TRACE] SatisfiesTtl: cache ttl %d has NOT expired (%fs)", ttlSeconds, timeSince.Seconds())
+
+	return true
+
 }
