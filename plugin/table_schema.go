@@ -31,7 +31,7 @@ func (t Table) GetSchema() (*proto.TableSchema, error) {
 	schema.Columns[len(t.Columns)] = &proto.ColumnDefinition{
 		Name:        ContextColumnName,
 		Type:        proto.ColumnType_JSON,
-		Description: "context data",
+		Description: "Steampipe context in JSON form, e.g. connection_name.",
 	}
 
 	// key columns
