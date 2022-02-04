@@ -1,4 +1,11 @@
-## v1.8.3  [2021-12-23]
+## v0.2.0  [2022-02-04]
+_Changed behaviour_
+* A `_ctx` column is now added to all tables. This is a JSON field which specified the Steampipe connection name. ([#246](https://github.com/turbot/steampipe-plugin-sdk/issues/246))
+
+_Bug fixes_
+* Fix a query cache bug which under very specific circumstances would lead to an incomplete data set being returned. ([#254](https://github.com/turbot/steampipe-plugin-sdk/issues/254))
+
+ ## v1.8.3  [2021-12-23]
 _What's new_
 * Updated `missing required quals` error to include table name. ([#166](https://github.com/turbot/steampipe-plugin-sdk/issues/166))
 * Move setting R Limit to OS specific code to allow compilation on Windows systems.
