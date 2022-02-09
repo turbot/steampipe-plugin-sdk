@@ -1,3 +1,7 @@
+## v0.2.1  [tbd]
+_Bug fixes_
+* Fix ` requires hydrate data from xxxx but none is available` error  - avoid mutating Column objects, which may be shared between tables. ([#259](https://github.com/turbot/steampipe-plugin-sdk/issues/229))
+
 ## v0.2.0  [2022-02-04]
 _Changed behaviour_
 * A `_ctx` column is now added to all tables. This is a JSON field which specified the Steampipe connection name. ([#246](https://github.com/turbot/steampipe-plugin-sdk/issues/246))
