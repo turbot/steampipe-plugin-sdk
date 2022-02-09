@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"log"
 
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
@@ -58,8 +57,6 @@ type ListConfig struct {
 // NOTE2: this function also populates the resolvedHydrateName for each column (used to retrieve column values),
 // and the hydrateColumnMap (used to determine which columns to return)
 func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*HydrateCall {
-	log.Printf("[TRACE] requiredHydrateCalls, table '%s' fetchType %s colsUsed %v\n", t.Name, fetchType, colsUsed)
-
 	// what is the name of the fetch call (i.e. the get/list call)
 	fetchFunc := t.getFetchFunc(fetchType)
 	fetchCallName := helpers.GetFunctionName(fetchFunc)
@@ -90,8 +87,6 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 
 		// now update hydrateColumnMap
 		t.hydrateColumnMap[hydrateName] = append(t.hydrateColumnMap[hydrateName], column.Name)
-		// store the hydrate name in the column object
-		column.resolvedHydrateName = hydrateName
 	}
 	return requiredCallBuilder.Get()
 }

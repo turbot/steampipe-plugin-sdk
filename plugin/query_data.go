@@ -47,21 +47,23 @@ type QueryData struct {
 
 	// streaming funcs
 	StreamListItem func(ctx context.Context, item interface{})
+
+	// internal
+	callId string
+
 	// deprecated - plugins should no longer call StreamLeafListItem directly and should just call StreamListItem
 	// event for the child list of a parent child list call
 	StreamLeafListItem func(ctx context.Context, item interface{})
-	// internal
-
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
 	hydrateCalls []*HydrateCall
-	// all the columns that will be returned by this query
-	columns []string
 
+	// all the columns that will be returned by this query
+	columns            []*QueryColumn
 	concurrencyManager *ConcurrencyManager
 	rowDataChan        chan *RowData
-	errorChan          chan error
 
-	stream proto.WrapperPlugin_ExecuteServer
+	errorChan chan error
+	stream    proto.WrapperPlugin_ExecuteServer
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
@@ -69,7 +71,7 @@ type QueryData struct {
 	filteredMatrix []map[string]interface{}
 }
 
-func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager) *QueryData {
+func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager, callId string) *QueryData {
 	var wg sync.WaitGroup
 	d := &QueryData{
 		ConnectionManager: connectionManager,
@@ -79,6 +81,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		Matrix:            matrix,
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
+		callId:            callId,
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
 		rowDataChan: make(chan *RowData, itemBufferSize),
@@ -166,10 +169,14 @@ func (d *QueryData) populateColumns() {
 }
 
 // get the column returned by the given hydrate call
-func (d *QueryData) addColumnsForHydrate(hydrateName string) []string {
-	var cols []string
+func (d *QueryData) addColumnsForHydrate(hydrateName string) []*QueryColumn {
+	var cols []*QueryColumn
 	for _, columnName := range d.Table.hydrateColumnMap[hydrateName] {
-		cols = append(cols, columnName)
+		// get the column from the table
+		column := d.Table.getColumn(columnName)
+		// NOTE: use this to instantiate a QueryColumn
+		// (we cannot use the column directly as we cannot mutate columns as they mayu be shared between tables)
+		cols = append(cols, NewQueryColumn(column, hydrateName))
 	}
 	return cols
 }
