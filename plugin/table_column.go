@@ -33,17 +33,10 @@ func (t *Table) getColumnType(columnName string) proto.ColumnType {
 }
 
 // take the raw value returned by the get/list/hydrate call, apply transforms and convert to protobuf value
-func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, columnName string) (*proto.Column, error) {
-	// get columns schema
-	column := t.getColumn(columnName)
-	if column == nil {
-		// postgres asked for a non existent column. Shouldn't happen.
-		return nil, fmt.Errorf("hydrateColumnMap contains non existent column %s", columnName)
-	}
-
+func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *QueryColumn) (*proto.Column, error) {
 	hydrateItem, err := rowData.GetColumnData(column)
 	if err != nil {
-		log.Printf("[ERROR] table '%s' failed to get column data: %v\n", t.Name, err)
+		log.Printf("[ERROR] table '%s' failed to get column data, callId %s: %v", t.Name, rowData.queryData.callId, err)
 		return nil, err
 	}
 	// are there any generate transforms defined? if not apply default generate
@@ -70,7 +63,7 @@ func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, columnName
 
 // if there are any column transforms defined return them
 // otherwise return either the table default (if it exists) or the base default Transform function
-func (t *Table) getColumnTransforms(column *Column) *transform.ColumnTransforms {
+func (t *Table) getColumnTransforms(column *QueryColumn) *transform.ColumnTransforms {
 	columnTransform := column.Transform
 	if columnTransform == nil {
 		columnTransform = t.getDefaultColumnTransform(column)
@@ -78,7 +71,7 @@ func (t *Table) getColumnTransforms(column *Column) *transform.ColumnTransforms 
 	return columnTransform
 }
 
-func (t *Table) getDefaultColumnTransform(column *Column) *transform.ColumnTransforms {
+func (t *Table) getDefaultColumnTransform(column *QueryColumn) *transform.ColumnTransforms {
 	var columnTransform *transform.ColumnTransforms
 	if defaultTransform := t.DefaultTransform; defaultTransform != nil {
 		//did the table define a default transform
@@ -95,7 +88,7 @@ func (t *Table) getDefaultColumnTransform(column *Column) *transform.ColumnTrans
 }
 
 // convert a value of unknown type to a valid protobuf column value.type
-func (t *Table) interfaceToColumnValue(column *Column, val interface{}) (*proto.Column, error) {
+func (t *Table) interfaceToColumnValue(column *QueryColumn, val interface{}) (*proto.Column, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			panic(fmt.Errorf("%s: %v", column.Name, r))

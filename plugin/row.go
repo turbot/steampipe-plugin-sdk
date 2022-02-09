@@ -75,7 +75,7 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 // keep looping round hydrate functions until they are all started
 func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData *QueryData) error {
 
-	// make a map of started hydrate calls for this row - this is used the determine which calls have not started yet
+	// make a map of started hydrate calls for this row - this is used to determine which calls have not started yet
 	var callsStarted = map[string]bool{}
 
 	for {
@@ -144,17 +144,17 @@ func (r *RowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 	}
 }
 
-// generate the column values for for all requested columns
+// generate the column values for all requested columns
 func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 	row := &proto.Row{Columns: make(map[string]*proto.Column)}
 
 	// queryData.columns contains all columns returned by the hydrate calls which have been executed
-	for _, columnName := range r.queryData.columns {
-		val, err := r.table.getColumnValue(ctx, r, columnName)
+	for _, column := range r.queryData.columns {
+		val, err := r.table.getColumnValue(ctx, r, column)
 		if err != nil {
 			return nil, err
 		}
-		row.Columns[columnName] = val
+		row.Columns[column.Name] = val
 	}
 
 	return row, nil
@@ -258,20 +258,19 @@ func (r *RowData) getHydrateKeys() []string {
 }
 
 // GetColumnData returns the root item, and, if this column has a hydrate function registered, the associated hydrate data
-func (r *RowData) GetColumnData(column *Column) (interface{}, error) {
-	if column.resolvedHydrateName == "" {
+func (r *RowData) GetColumnData(column *QueryColumn) (interface{}, error) {
+	if column.hydrateName == "" {
 		return nil, fmt.Errorf("column %s has no resolved hydrate function name", column.Name)
 	}
 
-	if hydrateItem, ok := r.hydrateResults[column.resolvedHydrateName]; !ok {
+	if hydrateItem, ok := r.hydrateResults[column.hydrateName]; !ok {
 		var errorString string
-		err, ok := r.hydrateErrors[column.resolvedHydrateName]
+		err, ok := r.hydrateErrors[column.hydrateName]
 		if ok {
-			errorString = fmt.Sprintf("table '%s' column '%s' requires hydrate data from %s, which failed with error %v.\n", r.table.Name, column.Name, column.resolvedHydrateName, err)
+			errorString = fmt.Sprintf("table '%s' column '%s' requires hydrate data from %s, which failed with error %v.\n", r.table.Name, column.Name, column.hydrateName, err)
 		} else {
-			errorString = fmt.Sprintf("table '%s' column '%s' requires hydrate data from %s but none is available.\n", r.table.Name, column.Name, column.resolvedHydrateName)
+			errorString = fmt.Sprintf("table '%s' column '%s' requires hydrate data from %s but none is available.\n", r.table.Name, column.Name, column.hydrateName)
 		}
-		log.Printf("[Error] %s\n", errorString)
 		return nil, fmt.Errorf(errorString)
 	} else {
 		return hydrateItem, nil
