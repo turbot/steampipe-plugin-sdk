@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
@@ -191,7 +192,7 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 
 // Execute executes a query and stream the results
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
-	log.Printf("[TRACE] EXECUTE callId: %s table: %s ", req.CallId, req.Table)
+	log.Printf("[TRACE] EXECUTE callId: %s table: %s cols: %s", req.CallId, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -242,7 +243,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	// lock access to the newQueryData - otherwise plugin crashes were observed
 	p.concurrencyLock.Lock()
-	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager)
+	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, req.CallId)
 	p.concurrencyLock.Unlock()
 
 	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
