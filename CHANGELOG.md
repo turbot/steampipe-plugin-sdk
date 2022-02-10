@@ -1,4 +1,4 @@
-v0.3.0 [tbd]
+## v0.3.0 [tbd]
 _What's new_
 * Add support for `ltree` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/248))
 
