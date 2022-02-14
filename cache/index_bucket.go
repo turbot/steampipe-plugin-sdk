@@ -3,7 +3,7 @@ package cache
 import (
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 )
 
 // IndexBucket contains index items for all cache results for a given table and qual set

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 )
 
 //// isGet ////

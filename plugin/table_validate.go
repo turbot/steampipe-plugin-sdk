@@ -6,7 +6,7 @@ import (
 
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 )
 
 func (t *Table) validate(name string, requiredColumns []*Column) []string {

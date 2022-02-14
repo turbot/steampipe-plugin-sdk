@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"google.golang.org/grpc"
 )
 

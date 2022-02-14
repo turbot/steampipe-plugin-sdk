@@ -3,7 +3,7 @@ package plugin
 import (
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 )
 
 type KeyColumnSlice []*KeyColumn

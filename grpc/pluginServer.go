@@ -4,9 +4,9 @@ import (
 	"github.com/turbot/go-kit/helpers"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	pluginshared "github.com/turbot/steampipe-plugin-sdk/grpc/shared"
-	"github.com/turbot/steampipe-plugin-sdk/version"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	pluginshared "github.com/turbot/steampipe-plugin-sdk/v3/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/v3/version"
 )
 
 type PluginSchema struct {
