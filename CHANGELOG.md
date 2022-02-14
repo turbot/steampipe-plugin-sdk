@@ -1,3 +1,7 @@
+## v2.0.3  [2022-02-14]
+_What's new_
+* Update all references to use `github.com/turbot/steampipe-plugin-sdk/v2`. ([#272](https://github.com/turbot/steampipe-plugin-sdk/issues/272))
+
 ## v2.0.2  [2022-02-14]
 _What's new_
 * Update package name to `github.com/turbot/steampipe-plugin-sdk/v2`. ([#272](https://github.com/turbot/steampipe-plugin-sdk/issues/272))
