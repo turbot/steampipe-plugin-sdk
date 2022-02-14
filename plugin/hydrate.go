@@ -14,13 +14,11 @@ import (
 
 // RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attemptes before throwing error
 func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (interface{}, error) {
-	backoff, err := retry.NewFibonacci(100 * time.Millisecond)
-	if err != nil {
-		return nil, err
-	}
+	backoff := retry.NewFibonacci(100 * time.Millisecond)
 	var hydrateResult interface{}
-	shouldRetryErrorFunc := retryConfig.ShouldRetryError
+	var err error
 
+	shouldRetryErrorFunc := retryConfig.ShouldRetryError
 	err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
 		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
 		if err != nil && shouldRetryErrorFunc(err) {
