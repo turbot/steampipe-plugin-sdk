@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/logging"
-	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v2/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v2/plugin/context_key"
 )
 
 // ServeOpts are the configurations to serve a plugin.

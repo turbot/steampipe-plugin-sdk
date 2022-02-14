@@ -6,7 +6,7 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
 const (

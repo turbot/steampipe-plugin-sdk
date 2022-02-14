@@ -11,8 +11,8 @@ import (
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
 // TODO do not use unsafe quals use quals map and  remove key column qual logic

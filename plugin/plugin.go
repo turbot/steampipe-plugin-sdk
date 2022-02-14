@@ -11,14 +11,14 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/cache"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/logging"
-	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/plugin/os_specific"
-	"github.com/turbot/steampipe-plugin-sdk/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v2/cache"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v2/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v2/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v2/plugin/os_specific"
+	"github.com/turbot/steampipe-plugin-sdk/v2/plugin/transform"
 )
 
 const (

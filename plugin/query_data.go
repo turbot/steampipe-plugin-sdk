@@ -10,11 +10,11 @@ import (
 
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/connection"
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/logging"
-	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v2/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v2/plugin/quals"
 )
 
 const itemBufferSize = 100

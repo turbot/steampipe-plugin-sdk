@@ -5,11 +5,11 @@ import (
 	"log"
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/plugin/quals"
 )
 
 // KeyColumnQualMap is a map of KeyColumnQuals keyed by column name

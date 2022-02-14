@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc"
 
 	"github.com/ghodss/yaml"
 	"github.com/iancoleman/strcase"

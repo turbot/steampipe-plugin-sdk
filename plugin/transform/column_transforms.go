@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v2/plugin/quals"
 )
 
 // TransformData is the input to a transform function.

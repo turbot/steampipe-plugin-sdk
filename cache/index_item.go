@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
 // IndexItem stores the columns and cached index for a single cached query result

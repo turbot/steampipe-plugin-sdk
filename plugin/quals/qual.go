@@ -1,7 +1,7 @@
 package quals
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
 // Qual is a struct which represents a database qual in a more easily digestible form that proto.Qual

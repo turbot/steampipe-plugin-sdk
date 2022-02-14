@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
 const pendingQueryTimeout = 90 * time.Second

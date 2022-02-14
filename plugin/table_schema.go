@@ -3,7 +3,7 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
 const ContextColumnName = "_ctx"

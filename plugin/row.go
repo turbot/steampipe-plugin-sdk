@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/logging"
-	"github.com/turbot/steampipe-plugin-sdk/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v2/plugin/context_key"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

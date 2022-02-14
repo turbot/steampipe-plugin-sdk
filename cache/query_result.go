@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
 type QueryCacheResult struct {
