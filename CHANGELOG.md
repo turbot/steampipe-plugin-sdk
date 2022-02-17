@@ -2,6 +2,14 @@
 _What's new_
 * Add support for `ltree` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/248))
 
+## v2.0.3  [2022-02-14]
+_What's new_
+* Update all references to use `github.com/turbot/steampipe-plugin-sdk/v2`. ([#272](https://github.com/turbot/steampipe-plugin-sdk/issues/272))
+
+## v2.0.2  [2022-02-14]
+_What's new_
+* Update package name to `github.com/turbot/steampipe-plugin-sdk/v2`. ([#272](https://github.com/turbot/steampipe-plugin-sdk/issues/272))
+
 ## v2.0.1  [2022-02-10]
 _Bug fixes_
 * Fix `requires hydrate data from xxxx but none is available` error  - avoid mutating Column objects, which may be shared between tables. ([#259](https://github.com/turbot/steampipe-plugin-sdk/issues/229))
