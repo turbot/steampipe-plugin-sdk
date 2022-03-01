@@ -1,9 +1,8 @@
 package grpc
 
 import (
-	"github.com/turbot/go-kit/helpers"
-
 	"github.com/hashicorp/go-plugin"
+	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/v3/grpc/shared"
 	"github.com/turbot/steampipe-plugin-sdk/v3/version"
@@ -42,6 +41,10 @@ func (s PluginServer) GetSchema(_ *proto.GetSchemaRequest) (res *proto.GetSchema
 		}
 	}()
 	schema, err := s.getSchemaFunc()
+	if err != nil {
+		return nil, err
+	}
+
 	return &proto.GetSchemaResponse{
 		Schema: &proto.Schema{
 			Schema:          schema.Schema,
