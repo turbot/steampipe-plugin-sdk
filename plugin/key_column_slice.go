@@ -41,15 +41,6 @@ func (k KeyColumnSlice) AllEquals() bool {
 	return true
 }
 
-// SingleEqualsQual determines whether this key column slice has a single qual with a single = operator
-// and if so returns it
-func (k KeyColumnSlice) SingleEqualsQual() *KeyColumn {
-	if len(k) == 1 && k[0].SingleEqualsQual() {
-		return k[0]
-	}
-	return nil
-}
-
 // IsAnyOf returns whether all key columns have Require == AnyOf
 func (k KeyColumnSlice) IsAnyOf() bool {
 	for _, kc := range k {
@@ -67,4 +58,14 @@ func (k KeyColumnSlice) Validate() []string {
 		res = append(res, col.Validate()...)
 	}
 	return res
+}
+
+// Find looks for a key column with the given name and returns it if found
+func (k *KeyColumnSlice) Find(name string) *KeyColumn {
+	for _, keyColumn := range *k {
+		if keyColumn.Name == name {
+			return keyColumn
+		}
+	}
+	return nil
 }
