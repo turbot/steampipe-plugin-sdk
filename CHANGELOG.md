@@ -2,6 +2,13 @@
 _What's new_
 * Add support for `ltree` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/248))
 
+## v2.1.0  [2022-03-04]
+_What's new_
+* Add support for `is null` and `is not null` quals. ([#286](https://github.com/turbot/steampipe-plugin-sdk/issues/286))
+
+_Bug fixes_
+* Fix list call not respecting `in` qual if list config has multiple key columns. ([#275](https://github.com/turbot/steampipe-plugin-sdk/issues/275))
+
 ## v2.0.3  [2022-02-14]
 _What's new_
 * Update all references to use `github.com/turbot/steampipe-plugin-sdk/v2`. ([#272](https://github.com/turbot/steampipe-plugin-sdk/issues/272))
