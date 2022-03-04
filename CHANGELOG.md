@@ -10,7 +10,6 @@ _Bug fixes_
 * Fix list call not respecting `in` qual if list config has multiple key columns. ([#275](https://github.com/turbot/steampipe-plugin-sdk/issues/275))
 
 ## v2.0.3  [2022-02-14]
-
 _What's new_
 * Update all references to use `github.com/turbot/steampipe-plugin-sdk/v2`. ([#272](https://github.com/turbot/steampipe-plugin-sdk/issues/272))
 
