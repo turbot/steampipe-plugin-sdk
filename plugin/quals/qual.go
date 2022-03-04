@@ -4,6 +4,9 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
+const QualOperatorIsNull = "is null"
+const QualOperatorIsNotNull = "is not null"
+
 // Qual is a struct which represents a database qual in a more easily digestible form that proto.Qual
 type Qual struct {
 	Column   string
