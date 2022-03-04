@@ -7,6 +7,7 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
 )
 
 const (
@@ -61,7 +62,7 @@ func (k *KeyColumn) Validate() []string {
 	// first set default operator and convert "!=" to "<>"
 	k.InitialiseOperators()
 	// ensure operators are valid
-	validOperators := []string{"=", "<>", "<", "<=", ">", ">="}
+	validOperators := []string{"=", "<>", "<", "<=", ">", ">=", quals.QualOperatorIsNull, quals.QualOperatorIsNotNull}
 	validRequire := []string{Required, Optional, AnyOf}
 	var res []string
 
