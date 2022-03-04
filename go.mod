@@ -18,7 +18,7 @@ require (
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
 	github.com/turbot/go-kit v0.3.0
-	github.com/zclconf/go-cty v1.8.2
+	github.com/zclconf/go-cty v1.10.0
 	golang.org/x/sys v0.0.0-20211102061401-a2f17f7b995c // indirect
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
