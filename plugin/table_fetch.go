@@ -410,7 +410,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		// list are there any list quals left to process?
 		if len(qualsWithListValues) == 1 {
 			listQual := qualsWithListValues[0]
-			log.Printf("[TRACE] one quasl with list value will be processed: %v", *listQual)
+			log.Printf("[TRACE] one qual with list value will be processed: %v", *listQual)
 			qualValueList := listQual.Value.GetListValue()
 			t.doListForQualValues(ctx, queryData, listQual.Column, qualValueList, listCall)
 			return
