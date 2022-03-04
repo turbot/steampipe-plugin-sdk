@@ -90,7 +90,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	// queryData.KeyColumnQuals is a map of column to qual value
 	// NOTE: if there is a SINGLE or ANY key columns, the qual value may be a list of values
 	// in this case we call get for each value
-	keyColumnName, keyColumnQualList := t.getQualValueList(queryData)
+	keyColumnName, keyColumnQualList := t.getListQualValueForGetCall(queryData)
 	if keyColumnQualList != nil {
 		return t.doGetForQualValues(ctx, queryData, keyColumnName, keyColumnQualList)
 	}
@@ -115,12 +115,13 @@ func (t *Table) buildMissingKeyColumnError(operation string, unsatisfiedColumns 
 	return err
 }
 
+// determine whether any of the get call quals are list values
 // if there is a SINGLE or ANY key columns, determine whether the qual value is a list of values
 // if so return the list and the key column
-func (t *Table) getQualValueList(queryData *QueryData) (string, *proto.QualValueList) {
+func (t *Table) getListQualValueForGetCall(queryData *QueryData) (string, *proto.QualValueList) {
 	k := t.Get.KeyColumns
 
-	log.Printf("[TRACE] getQualValueList %d key column quals: %s ", len(k), k)
+	log.Printf("[TRACE] getListQualValueForGetCall %d key column quals: %s ", len(k), k)
 
 	// get map of all the key columns quals which have a list value
 	listValueMap := queryData.KeyColumnQuals.GetListQualValues()
@@ -367,21 +368,54 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		listCall = t.List.ParentHydrate
 	}
 
-	// NOTE: if there is a SINGLE key column, the qual value may be a list of values
+	// NOTE: if there is an IN qual, the qual value will be a list of values
 	// in this case we call list for each value
 	if len(t.List.KeyColumns) > 0 {
-		// if there a single equals KEY COLUMN
-		if keyColumn := t.List.KeyColumns.SingleEqualsQual(); keyColumn != nil {
-			// get the quals for this key columns (we have already checked that they are satisfied)
-			// is there is a single equals QUAL, check for an array value
-			keyColumnQuals := queryData.Quals[keyColumn.Name]
-			if keyColumnQuals != nil && keyColumnQuals.SingleEqualsQual() {
-				if qualValueList := keyColumnQuals.Quals[0].Value.GetListValue(); qualValueList != nil {
-					t.doListForQualValues(ctx, queryData, keyColumn.Name, qualValueList, listCall)
-					return
+		log.Printf("[TRACE] list config defines key columns, checking for list qual values")
+
+		// we can support IN calls for key columns if only 1 qual has a list value
+
+		// first determine whether more than 1 qual has a list value
+		qualsWithListValues := queryData.Quals.GetListQualValues()
+
+		numQualsWithListValues := len(qualsWithListValues)
+		if numQualsWithListValues > 0 {
+			log.Printf("[TRACE] %d %s have list values",
+				numQualsWithListValues,
+				pluralize.NewClient().Pluralize("qual", numQualsWithListValues, false))
+
+			// if we have more than one qual with list values, extract the required ones
+			// if more than one of these is required, this is an error
+			// - we do not support multiple required quals with list values
+			var requiredListQuals quals.QualSlice
+			if numQualsWithListValues > 1 {
+				log.Printf("[TRACE] more than 1 qual has a list value - counting required quals with list value")
+
+				for _, listQual := range qualsWithListValues {
+
+					// find key column
+					if c := t.List.KeyColumns.Find(listQual.Column); c.Require == Required {
+						requiredListQuals = append(requiredListQuals, listQual)
+					}
+				}
+				if len(requiredListQuals) > 1 {
+					log.Printf("[WARN] more than 1 required qual has a list value - we cannot call list for each to passing qualds through to plugin unaltered")
+					qualsWithListValues = nil
+				} else {
+					log.Printf("[TRACE] after removing optional quals %d required remain", len(requiredListQuals))
+					qualsWithListValues = requiredListQuals
 				}
 			}
 		}
+		// list are there any list quals left to process?
+		if len(qualsWithListValues) == 1 {
+			listQual := qualsWithListValues[0]
+			log.Printf("[TRACE] one qual with list value will be processed: %v", *listQual)
+			qualValueList := listQual.Value.GetListValue()
+			t.doListForQualValues(ctx, queryData, listQual.Column, qualValueList, listCall)
+			return
+		}
+
 	}
 
 	t.doList(ctx, queryData, listCall)
@@ -392,7 +426,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 	logger := t.Plugin.Logger
 	var listWg sync.WaitGroup
 
-	logger.Trace("doListForQualValues - single qual, qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
+	logger.Trace("doListForQualValues - qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
 		logger.Trace("executeListCall passing updated query data", "qv", qv)

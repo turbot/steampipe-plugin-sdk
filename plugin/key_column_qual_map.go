@@ -101,6 +101,19 @@ func (m KeyColumnQualMap) ToQualMap() map[string]quals.QualSlice {
 	return res
 }
 
+// GetListQualValues returns a slice of any quals we have which have a list value
+func (m KeyColumnQualMap) GetListQualValues() quals.QualSlice {
+	var res quals.QualSlice
+	for _, qualsForColumn := range m {
+		for _, qual := range qualsForColumn.Quals {
+			if qualValueList := qual.Value.GetListValue(); qualValueList != nil {
+				res = append(res, qual)
+			}
+		}
+	}
+	return res
+}
+
 // NewKeyColumnQualValueMap creates a KeyColumnQualMap from a qual map and a KeyColumnSlice
 func NewKeyColumnQualValueMap(qualMap map[string]*proto.Quals, keyColumns KeyColumnSlice) KeyColumnQualMap {
 	res := KeyColumnQualMap{}
