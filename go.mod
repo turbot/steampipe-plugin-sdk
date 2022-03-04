@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.0
-	github.com/gertd/go-pluralize v0.1.7
+	github.com/gertd/go-pluralize v0.2.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2
