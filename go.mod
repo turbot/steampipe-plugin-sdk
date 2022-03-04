@@ -13,12 +13,12 @@ require (
 	github.com/hashicorp/go-plugin v1.4.3
 	github.com/hashicorp/go-version v1.3.0
 	github.com/hashicorp/hcl/v2 v2.11.1
-	github.com/iancoleman/strcase v0.1.2
+	github.com/iancoleman/strcase v0.2.0
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
 	github.com/turbot/go-kit v0.3.0
-	github.com/zclconf/go-cty v1.8.2
+	github.com/zclconf/go-cty v1.10.0
 	golang.org/x/sys v0.0.0-20211102061401-a2f17f7b995c // indirect
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1
