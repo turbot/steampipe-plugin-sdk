@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.0
-	github.com/gertd/go-pluralize v0.1.7
+	github.com/gertd/go-pluralize v0.2.0
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2
@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/go-plugin v1.4.3
 	github.com/hashicorp/go-version v1.3.0
 	github.com/hashicorp/hcl/v2 v2.11.1
-	github.com/iancoleman/strcase v0.1.2
+	github.com/iancoleman/strcase v0.2.0
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
