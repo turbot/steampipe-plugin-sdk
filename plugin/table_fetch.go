@@ -423,11 +423,10 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 // doListForQualValues is called when there is an equals qual and the qual value is a list of values
 func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall HydrateFunc) {
-	log.Printf("[WARN] doListForQualValues keyColumn %s, qualValueList %v", keyColumn, *qualValueList)
 	logger := t.Plugin.Logger
 	var listWg sync.WaitGroup
 
-	logger.Trace("doListForQualValues - single qual, qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
+	logger.Trace("doListForQualValues - qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
 		logger.Trace("executeListCall passing updated query data", "qv", qv)
@@ -444,8 +443,6 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		listWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
-			log.Printf("[WARN] keyColumn %s = %s", keyColumn, queryDataCopy.KeyColumnQuals[keyColumn].String())
-
 			t.doList(ctx, queryDataCopy, listCall)
 			listWg.Done()
 		}()
