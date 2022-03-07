@@ -16,7 +16,7 @@ jobs:
           go-version: 1.16
 
       - name: Checkout Steampipe
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: turbot/steampipe
           path: steampipe
@@ -32,7 +32,7 @@ jobs:
         run: steampipe plugin install chaos
 
       - name: Checkout Chaos plugin
-        uses: actions/checkout@main
+        uses: actions/checkout@v3
         with:
           repository: turbot/steampipe-plugin-chaos
           path: steampipe-plugin-chaos
