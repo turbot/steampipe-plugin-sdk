@@ -187,6 +187,19 @@ func (t *Table) interfaceToColumnValue(column *QueryColumn, val interface{}) (*p
 			columnValue = &proto.Column{Value: &proto.Column_CidrRangeValue{CidrRangeValue: cidrRangeString}}
 		}
 		break
+	case proto.ColumnType_INET:
+		inetString := types.SafeString(val)
+		// treat an empty string as a null ip address
+		if inetString == "" {
+			columnValue = &proto.Column{Value: &proto.Column_NullValue{}}
+		} else {
+			if ip := net.ParseIP(inetString); ip == nil {
+				if _, _, err := net.ParseCIDR(inetString); err != nil {
+					return nil, fmt.Errorf("%s: invalid ip address %s", column.Name, inetString)
+				}
+			}
+			columnValue = &proto.Column{Value: &proto.Column_CidrRangeValue{CidrRangeValue: inetString}}
+		}
 	case proto.ColumnType_LTREE:
 		columnValue = &proto.Column{Value: &proto.Column_LtreeValue{LtreeValue: types.ToString(val)}}
 		break
