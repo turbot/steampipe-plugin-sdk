@@ -1,6 +1,7 @@
 ## v0.3.0 [tbd]
 _What's new_
 * Add support for `ltree` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/248))
+* Add support for `inet` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/291))
 
 ## v2.1.0  [2022-03-04]
 _What's new_
