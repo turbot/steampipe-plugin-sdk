@@ -194,6 +194,7 @@ enum ColumnType {
   IPADDR = 6;
   CIDR = 7;
   TIMESTAMP = 8;
+  INET = 9;
   LTREE = 10;
   UNKNOWN = -1;
 }
