@@ -1,3 +1,7 @@
+## v2.1.1  [2022-03-10]
+_Bug fixes_
+* Fix issue when executing list calls with 'in' clauses, key column values passed in Quals map are incorrect. ([#294](https://github.com/turbot/steampipe-plugin-sdk/issues/294))
+
 ## v2.1.0  [2022-03-04]
 _What's new_
 * Add support for `is null` and `is not null` quals. ([#286](https://github.com/turbot/steampipe-plugin-sdk/issues/286))
