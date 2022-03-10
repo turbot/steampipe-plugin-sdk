@@ -1,4 +1,8 @@
-## v0.3.0 [tbd]
+## v3.0.1 [2022-03-10]
+_Bug fixes_
+* Fix issue when executing list calls with 'in' clauses, key column values passed in Quals map are incorrect. ([#294](https://github.com/turbot/steampipe-plugin-sdk/issues/294))
+
+## v3.0.0 [2022-03-09]
 _What's new_
 * Add support for `ltree` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/248))
 * Add support for `inet` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/291))
