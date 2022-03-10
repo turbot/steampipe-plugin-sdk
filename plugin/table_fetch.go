@@ -162,13 +162,8 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
 		queryDataCopy.KeyColumnQuals[keyColumnName] = qv
-		queryDataCopy.Quals[keyColumnName] = &KeyColumnQuals{
-			Name: keyColumnName,
-			Quals: quals.QualSlice{{
-				Column:   keyColumnName,
-				Operator: "=",
-				Value:    qv,
-			}}}
+		queryDataCopy.Quals[keyColumnName] =
+			&KeyColumnQuals{Name: keyColumnName, Quals: quals.QualSlice{{Column: keyColumnName, Operator: "=", Value: qv}}}
 
 		getWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
@@ -443,12 +438,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		// update qual maps to replace list value with list element
 		queryDataCopy.KeyColumnQuals[keyColumn] = qv
 		queryDataCopy.Quals[keyColumn] = &KeyColumnQuals{
-			Name: keyColumn,
-			Quals: quals.QualSlice{{
-				Column:   keyColumn,
-				Operator: "=",
-				Value:    qv,
-			}}}
+			Name: keyColumn, Quals: quals.QualSlice{{Column: keyColumn, Operator: "=", Value: qv}}}
 
 		listWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
