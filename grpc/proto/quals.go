@@ -40,6 +40,23 @@ func (x *Quals) QualIsASubset(otherQual *Qual) bool {
 	return true
 }
 
+func (x *Quals) Equals(otherQuals *Quals) bool {
+	if len(x.Quals) != len(otherQuals.Quals) {
+		return false
+	}
+	// check that every qual has a matching qual, ignoring ordering
+	matches := 0
+	for _, q := range x.Quals {
+		for _, otherQual := range otherQuals.Quals {
+			if otherQual.Equals(q) {
+				matches++
+				break
+			}
+		}
+	}
+	return matches == len(x.Quals)
+}
+
 func (x *Qual) Equals(other *Qual) bool {
 	log.Printf("[TRACE] me %s, other %s", x.String(), other.String())
 	return x.String() == other.String()

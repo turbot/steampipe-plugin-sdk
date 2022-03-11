@@ -21,10 +21,10 @@ func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {
 }
 
 // Get finds an index item which satisfies all columns
-func (b *IndexBucket) Get(qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *IndexItem {
+func (b *IndexBucket) Get(qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64, doesKeyColumnRequireExactMatch func(string) bool) *IndexItem {
 	for _, item := range b.Items {
 		log.Printf("[TRACE] IndexBucket.Get key %s limit %d", item.Key, item.Limit)
-		if item.SatisfiesQuals(qualMap) && item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) && item.SatisfiesTtl(ttlSeconds) {
+		if item.SatisfiesQuals(qualMap, doesKeyColumnRequireExactMatch) && item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) && item.SatisfiesTtl(ttlSeconds) {
 			return item
 		}
 	}

@@ -18,9 +18,10 @@ const (
 
 // KeyColumn is a struct representing the definition of a KeyColumn used to filter and Get/List call
 type KeyColumn struct {
-	Name      string
-	Operators []string
-	Require   string
+	Name                    string
+	Operators               []string
+	Require                 string
+	RequiresExactCacheMatch bool
 }
 
 func (k KeyColumn) String() string {
@@ -30,9 +31,10 @@ func (k KeyColumn) String() string {
 // ToProtobuf converts the KeyColumn to a protobuf object
 func (k *KeyColumn) ToProtobuf() *proto.KeyColumn {
 	return &proto.KeyColumn{
-		Name:      k.Name,
-		Operators: k.Operators,
-		Require:   k.Require,
+		Name:                    k.Name,
+		Operators:               k.Operators,
+		Require:                 k.Require,
+		RequiresExactCacheMatch: k.RequiresExactCacheMatch,
 	}
 }
 

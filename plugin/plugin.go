@@ -67,12 +67,7 @@ func (p *Plugin) Initialise() {
 	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionManager = connection_manager.NewManager()
 
-	// time will be provided by the plugin manager logger
-	p.Logger = logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
-	log.SetOutput(p.Logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
-	log.SetPrefix("")
-	log.SetFlags(0)
-
+	p.Logger = p.setupLogger()
 	// default the schema mode to static
 	if p.SchemaMode == "" {
 		p.SchemaMode = SchemaModeStatic
@@ -80,6 +75,15 @@ func (p *Plugin) Initialise() {
 
 	// set file limit
 	p.setuLimit()
+}
+
+func (p *Plugin) setupLogger() hclog.Logger {
+	// time will be provided by the plugin manager logger
+	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
+	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+	log.SetPrefix("")
+	log.SetFlags(0)
+	return logger
 }
 
 const uLimitEnvVar = "STEAMPIPE_ULIMIT"
@@ -92,7 +96,7 @@ func (p *Plugin) setuLimit() {
 			ulimit = ulimitEnv
 		}
 	}
-	err := os_specific.SetRlimit(ulimit, p.Logger)
+	err := os_specific.SetRlimit(ulimit)
 	if err != nil {
 		p.Logger.Error("Error Setting Ulimit", "error", err)
 	}
@@ -192,6 +196,9 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 
 // Execute executes a query and stream the results
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+	// add callif to logs for the excute call
+	logger := p.Logger.Named(req.CallId)
+
 	log.Printf("[TRACE] EXECUTE callId: %s table: %s cols: %s", req.CallId, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
@@ -214,7 +221,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 
 	logging.LogTime("Start execute")
-	p.Logger.Trace("Execute ", "connection", req.Connection, "table", req.Table)
+	logger.Trace("Execute ", "connection", req.Connection, "table", req.Table)
 
 	queryContext := NewQueryContext(req.QueryContext)
 	table, ok := p.TableMap[req.Table]
@@ -222,7 +229,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
 
-	p.Logger.Trace("Got query context",
+	logger.Trace("Got query context",
 		"table", req.Table,
 		"cols", queryContext.Columns)
 
@@ -232,7 +239,14 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 3) Build row spawns goroutines for any required hydrate functions.
 	// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
 	// 5) Range over rowChan - for each row, send on results stream
-	ctx := context.WithValue(stream.Context(), context_key.Logger, p.Logger)
+	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+	log.SetPrefix("")
+	log.SetFlags(0)
+
+	logger.Warn("OK THIS IS A WARNING!!!!!!!!!")
+	log.Printf("[WARN] FOOOOOOOOOOOOO")
+	logger.Warn("OK THIS IS A WARNING!!!!!!!!!")
+	ctx := context.WithValue(stream.Context(), context_key.Logger, logger)
 
 	var matrixItem []map[string]interface{}
 
@@ -246,7 +260,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, req.CallId)
 	p.concurrencyLock.Unlock()
 
-	p.Logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
+	logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
 	// convert limit from *int64 to an int64 (where -1 means no limit)
 	var limit int64 = -1
@@ -281,7 +295,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.Printf("[TRACE] fetch items callId: %s", req.CallId)
 	// asyncronously fetch items
 	if err := table.fetchItems(ctx, queryData); err != nil {
-		p.Logger.Warn("fetchItems returned an error", "table", table.Name, "error", err)
+		logger.Warn("fetchItems returned an error", "table", table.Name, "error", err)
 		return err
 	}
 	logging.LogTime("Calling build Rows")
