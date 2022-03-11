@@ -243,9 +243,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	logger.Warn("OK THIS IS A WARNING!!!!!!!!!")
-	log.Printf("[WARN] FOOOOOOOOOOOOO")
-	logger.Warn("OK THIS IS A WARNING!!!!!!!!!")
 	ctx := context.WithValue(stream.Context(), context_key.Logger, logger)
 
 	var matrixItem []map[string]interface{}
