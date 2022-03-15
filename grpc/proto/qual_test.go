@@ -319,3 +319,80 @@ func toStringList(items ...string) *QualValue {
 
 	return &QualValue{Value: &QualValue_ListValue{ListValue: &QualValueList{Values: list}}}
 }
+
+var testCasesQual = map[string]isSubsetTest{
+	"same string": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
+		true,
+	},
+	"diff string": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "b"}}},
+		false,
+	},
+	"same int64": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
+		true,
+	},
+	"diff int64": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 100}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_Int64Value{Int64Value: 1000}}},
+		false,
+	},
+	"same double": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100}}},
+		true,
+	},
+	"diff double": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100.5}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_DoubleValue{DoubleValue: 100.6}}},
+		false,
+	},
+	"same inet": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: toInet("192.168.0.1")}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: toInet("192.168.0.1")}},
+		true,
+	},
+	"diff inet": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: toInet("192.168.0.1")}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: toInet("192.168.10.1")}},
+		false,
+	},
+	"same bool": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
+		true,
+	},
+	"diff bool": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: true}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_BoolValue{BoolValue: false}}},
+		false,
+	},
+	"same timestamp": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now)},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: getTimestampValue(now)},
+		true,
+	},
+	"same list": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
+		true,
+	},
+	"diff list": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "b")},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: toStringList("a", "c")},
+		false,
+	},
+}
+
+func TestQual(t *testing.T) {
+	for name, test := range testCasesQual {
+		result := test.q1.Equals(test.q2)
+		if result != test.expected {
+			t.Errorf("Test: '%s' FAILED : \nexpected:\n %v \ngot:\n %v\n", name, test.expected, result)
+		}
+	}
+}
