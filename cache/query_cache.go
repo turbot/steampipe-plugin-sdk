@@ -167,11 +167,13 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 }
 
 func (c *QueryCache) buildCacheQualMap(table string, qualMap map[string]*proto.Quals) map[string]*proto.Quals {
-	shouldIncludeQual := c.getShouldIncludeQualInKey(table)
+	keyColumns := c.getKeyColumnsForTable(table)
+
 	cacheQualMap := make(map[string]*proto.Quals)
 	for col, quals := range qualMap {
 		log.Printf("[TRACE] buildCacheQualMap col %s, quals %+v", col, quals)
-		if shouldIncludeQual(col) {
+		// if this column is a key column, include in key
+		if _, ok := keyColumns[col]; ok {
 			log.Printf("[TRACE] INCLUDING COLUMN")
 			cacheQualMap[col] = quals
 		} else {
@@ -186,7 +188,7 @@ func (c *QueryCache) Clear() {
 }
 
 func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
-	doesKeyColumnRequireExactMatch := c.getDoesKeyColumnRequireExactMatch(table)
+	keyColumns := c.getKeyColumnsForTable(table)
 
 	log.Printf("[TRACE] QueryCache getCachedResult - index bucket key: %s ttlSeconds %d\n", indexBucketKey, ttlSeconds)
 	indexBucket, ok := c.getIndexBucket(indexBucketKey)
@@ -197,7 +199,7 @@ func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[s
 	}
 
 	// now check whether we have a cache entry that covers the required quals and columns - check the index
-	indexItem := indexBucket.Get(qualMap, columns, limit, ttlSeconds, doesKeyColumnRequireExactMatch)
+	indexItem := indexBucket.Get(qualMap, columns, limit, ttlSeconds, keyColumns)
 	if indexItem == nil {
 		limitString := "NONE"
 		if limit != -1 {
@@ -282,46 +284,17 @@ func (c *QueryCache) formatQualMapForKey(table string, qualMap map[string]*proto
 	return strings.Join(strs, "-")
 }
 
-// only include key column quals and optional quals
-func (c *QueryCache) getShouldIncludeQualInKey(table string) func(string) bool {
+// return a map of key column for the given table
+func (c *QueryCache) getKeyColumnsForTable(table string) map[string]*proto.KeyColumn {
+	res := make(map[string]*proto.KeyColumn)
 	// build a list of all key columns
 	tableSchema, ok := c.PluginSchema[table]
-	if !ok {
-		// any errors, just default to including the column
-		return func(string) bool { return true }
-	}
-	var cols = make(map[string]bool, len(tableSchema.ListCallKeyColumnList)+len(tableSchema.GetCallKeyColumnList))
-
-	for _, k := range append(tableSchema.ListCallKeyColumnList, tableSchema.GetCallKeyColumnList...) {
-		cols[k.Name] = true
-	}
-
-	return func(column string) bool {
-		res := cols[column]
-		log.Printf("[TRACE] shouldIncludeQual, column %s, include = %v", column, res)
-		return res
-	}
-}
-func (c *QueryCache) getDoesKeyColumnRequireExactMatch(table string) func(string) bool {
-	// build a list of all key columns
-	tableSchema, ok := c.PluginSchema[table]
-	if !ok {
-		// any errors, just default to not requiring exact match
-		return func(string) bool { return false }
-	}
-	var cols = make(map[string]bool)
-
-	for _, k := range append(tableSchema.ListCallKeyColumnList, tableSchema.GetCallKeyColumnList...) {
-		if k.RequiresExactCacheMatch {
-			cols[k.Name] = true
+	if ok {
+		for _, k := range append(tableSchema.ListCallKeyColumnList, tableSchema.GetCallKeyColumnList...) {
+			res[k.Name] = k
 		}
 	}
-
-	return func(column string) bool {
-		res := cols[column]
-		log.Printf("[TRACE] shouldIncludeQual, column %s, include = %v", column, res)
-		return res
-	}
+	return res
 }
 
 func (c *QueryCache) sanitiseKey(str string) string {

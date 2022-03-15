@@ -96,7 +96,7 @@ func (p *Plugin) setuLimit() {
 			ulimit = ulimitEnv
 		}
 	}
-	err := os_specific.SetRlimit(ulimit)
+	err := os_specific.SetRlimit(ulimit, p.Logger)
 	if err != nil {
 		p.Logger.Error("Error Setting Ulimit", "error", err)
 	}
