@@ -320,7 +320,7 @@ func toStringList(items ...string) *QualValue {
 	return &QualValue{Value: &QualValue_ListValue{ListValue: &QualValueList{Values: list}}}
 }
 
-var testCasesQual = map[string]isSubsetTest{
+var testCasesQualEquals = map[string]isSubsetTest{
 	"same string": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
@@ -388,8 +388,8 @@ var testCasesQual = map[string]isSubsetTest{
 	},
 }
 
-func TestQual(t *testing.T) {
-	for name, test := range testCasesQual {
+func TestQualEquals(t *testing.T) {
+	for name, test := range testCasesQualEquals {
 		result := test.q1.Equals(test.q2)
 		if result != test.expected {
 			t.Errorf("Test: '%s' FAILED : \nexpected:\n %v \ngot:\n %v\n", name, test.expected, result)

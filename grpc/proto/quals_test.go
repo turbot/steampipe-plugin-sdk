@@ -63,10 +63,30 @@ var testCasesQuals = map[string]isEqualTest{
 	},
 	"same length, diff quals 2": {
 		q1: &Quals{
-			Quals: []*Qual{{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}}, {Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}}},
+			Quals: []*Qual{
+				{
+					Operator:  &Qual_StringValue{"="},
+					FieldName: "f1",
+					Value:     &QualValue{Value: &QualValue_StringValue{StringValue: "a"}},
+				}, {
+					Operator:  &Qual_StringValue{"="},
+					FieldName: "f1",
+					Value:     &QualValue{Value: &QualValue_StringValue{StringValue: "a"}},
+				},
+			},
 		},
 		q2: &Quals{
-			Quals: []*Qual{{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}}, {Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "d"}}}},
+			Quals: []*Qual{
+				{
+					Operator:  &Qual_StringValue{"="},
+					FieldName: "f1",
+					Value:     &QualValue{Value: &QualValue_StringValue{StringValue: "a"}},
+				}, {
+					Operator:  &Qual_StringValue{"="},
+					FieldName: "f1",
+					Value:     &QualValue{Value: &QualValue_StringValue{StringValue: "d"}},
+				},
+			},
 		},
 		expected: false,
 	},

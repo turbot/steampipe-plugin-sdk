@@ -2,12 +2,29 @@ package proto
 
 import (
 	"log"
+	"sort"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	typehelpers "github.com/turbot/go-kit/types"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+func (x *Quals) Clone() *Quals {
+	res := &Quals{
+		Quals: make([]*Qual, len(x.Quals)),
+	}
+	for i, q := range x.Quals {
+		res.Quals[i] = q
+	}
+	return res
+}
+
+// implement sort.Interface
+
+func (x *Quals) Len() int           { return len(x.Quals) }
+func (x *Quals) Less(i, j int) bool { return x.Quals[i].String() < x.Quals[j].String() }
+func (x *Quals) Swap(i, j int)      { x.Quals[i], x.Quals[j] = x.Quals[j], x.Quals[i] }
 
 func (x *Quals) Append(q *Qual) {
 	x.Quals = append(x.Quals, q)
@@ -40,21 +57,22 @@ func (x *Quals) QualIsASubset(otherQual *Qual) bool {
 	return true
 }
 
-func (x *Quals) Equals(otherQuals *Quals) bool {
-	if len(x.Quals) != len(otherQuals.Quals) {
+func (x *Quals) Equals(other *Quals) bool {
+	if len(x.Quals) != len(other.Quals) {
 		return false
 	}
-	// check that every qual has a matching qual, ignoring ordering
-	matches := 0
-	for _, q := range x.Quals {
-		for _, otherQual := range otherQuals.Quals {
-			if otherQual.Equals(q) {
-				matches++
-				break
-			}
+
+	meSorted := x.Clone()
+	sort.Sort(meSorted)
+	otherSorted := other.Clone()
+	sort.Sort(otherSorted)
+
+	for i, q := range meSorted.Quals {
+		if !otherSorted.Quals[i].Equals(q) {
+			return false
 		}
 	}
-	return matches == len(x.Quals)
+	return true
 }
 
 func stringOperatorIsASubset(operator string, value string, otherOperator string, otherValue string) bool {
