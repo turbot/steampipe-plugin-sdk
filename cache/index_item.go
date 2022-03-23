@@ -94,10 +94,10 @@ func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals, keyColum
 		}
 	}
 
-	// now for each of the check quals, see whether is requires an exact match in the cached data.
+	// now for each of the check quals, see whether it requires an exact match in the cached data.
 	// i.e. the same qual must exist in the cached data
 	for col, checkQuals := range checkQualMap {
-		if keyColumn, ok := keyColumns[col]; ok && keyColumn.RequiresExactCacheMatch {
+		if keyColumn, ok := keyColumns[col]; ok && keyColumn.CacheMatch == CacheMatchExact {
 			quals, ok := i.Quals[col]
 			if !ok || !quals.Equals(checkQuals) {
 				return false
