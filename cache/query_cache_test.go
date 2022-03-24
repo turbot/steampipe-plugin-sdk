@@ -248,13 +248,13 @@ func TestCalcCostLoad(t *testing.T) {
 	results, columns := buildLoadTestResults()
 
 	start := time.Now()
-	cache.calcCost("test_table", columns, results)
+	cost := cache.calcCost("test_table", columns, results)
 	time := time.Since(start)
-	log.Printf("[WARN] %d", time.Milliseconds())
+	log.Printf("[WARN] %d %d", time.Milliseconds(), cost)
 }
 
 func buildLoadTestResults() (*QueryCacheResult, []string) {
-	loadTestNumRows := 1000
+	loadTestNumRows := 500000
 	res := &QueryCacheResult{
 		Rows: make([]*proto.Row, loadTestNumRows),
 	}
