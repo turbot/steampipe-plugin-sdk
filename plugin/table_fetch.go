@@ -69,10 +69,9 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 
 //  execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
-	logger := t.Plugin.Logger
-	logger.Trace("executeGetCall", "table", t.Name, "queryData.KeyColumnQuals", queryData.KeyColumnQuals)
-	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.Get.KeyColumns)
+	log.Printf("[TRACE] executeGetCall, table: %s, queryData.KeyColumnQuals: %v", t.Name, queryData.KeyColumnQuals)
 
+	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.Get.KeyColumns)
 	// verify we have the necessary quals
 	if len(unsatisfiedColumns) > 0 {
 		err := t.buildMissingKeyColumnError("Get", unsatisfiedColumns)
@@ -151,8 +150,8 @@ func (t *Table) getListQualValueForGetCall(queryData *QueryData) (string, *proto
 }
 
 func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, keyColumnName string, qualValueList *proto.QualValueList) error {
-	logger := t.Plugin.Logger
-	logger.Warn("executeGetCall - single qual, qual value is a list - executing get for each qual value item", "qualValueList", qualValueList)
+
+	log.Printf("[WARN] executeGetCall - single qual, qual value is a list - executing get for each qual value item, qualValueList: %v", qualValueList)
 
 	var getWg sync.WaitGroup
 	var errorChan = make(chan (error), len(qualValueList.Values))
@@ -426,13 +425,12 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 // doListForQualValues is called when there is an equals qual and the qual value is a list of values
 func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall HydrateFunc) {
-	logger := t.Plugin.Logger
 	var listWg sync.WaitGroup
 
-	logger.Trace("doListForQualValues - qual value is a list - executing list for each qual value item", "qualValueList", qualValueList)
+	log.Printf("[TRACE] doListForQualValues - qual value is a list - executing list for each qual value item, qualValueList: %v", qualValueList)
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
-		logger.Trace("executeListCall passing updated query data", "qv", qv)
+		log.Printf("[TRACE] executeListCall passing updated query data, qv: %v", qv)
 		// make a shallow copy of the query data and modify the value of the key column qual to be the value list item
 		queryDataCopy := queryData.ShallowCopy()
 		// update qual maps to replace list value with list element
@@ -446,7 +444,6 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 			t.doList(ctx, queryDataCopy, listCall)
 			listWg.Done()
 		}()
-
 	}
 	// and we are done
 	listWg.Wait()
