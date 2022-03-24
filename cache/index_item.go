@@ -69,7 +69,11 @@ func (i IndexItem) SatisfiesLimit(limit int64) bool {
 //      our quals [id="1"], check quals [id="1"] 		-> SATISFIED
 //      our quals [id="1"], check quals [id="1", foo=2] -> SATISFIED
 //      our quals [id="1", foo=2], check quals [id="1"] -> NOT SATISFIED
-func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals) bool {
+//
+// NOTE: some columns cannot use this subset logic. Generally this applies to columns which represent a filter which
+// is executed server side to filter the data returned.
+// In this case, we only identify a cache hit if the cached data has the _same_ value for the given colummn
+func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
 	log.Printf("[TRACE] SatisfiesQuals")
 	for col, indexQuals := range i.Quals {
 		log.Printf("[TRACE] col %s", col)
@@ -89,6 +93,18 @@ func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals) bool {
 			return false
 		}
 	}
+
+	// now for each of the check quals, see whether it requires an exact match in the cached data.
+	// i.e. the same qual must exist in the cached data
+	for col, checkQuals := range checkQualMap {
+		if keyColumn, ok := keyColumns[col]; ok && keyColumn.CacheMatch == CacheMatchExact {
+			quals, ok := i.Quals[col]
+			if !ok || !quals.Equals(checkQuals) {
+				return false
+			}
+		}
+	}
+
 	return true
 }
 

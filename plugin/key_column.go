@@ -6,11 +6,13 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v3/cache"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
 )
 
 const (
+	// Require values
 	Required = "required"
 	Optional = "optional"
 	AnyOf    = "any_of"
@@ -18,9 +20,10 @@ const (
 
 // KeyColumn is a struct representing the definition of a KeyColumn used to filter and Get/List call
 type KeyColumn struct {
-	Name      string
-	Operators []string
-	Require   string
+	Name       string
+	Operators  []string
+	Require    string
+	CacheMatch string
 }
 
 func (k KeyColumn) String() string {
@@ -30,9 +33,10 @@ func (k KeyColumn) String() string {
 // ToProtobuf converts the KeyColumn to a protobuf object
 func (k *KeyColumn) ToProtobuf() *proto.KeyColumn {
 	return &proto.KeyColumn{
-		Name:      k.Name,
-		Operators: k.Operators,
-		Require:   k.Require,
+		Name:       k.Name,
+		Operators:  k.Operators,
+		Require:    k.Require,
+		CacheMatch: k.CacheMatch,
 	}
 }
 
@@ -64,6 +68,7 @@ func (k *KeyColumn) Validate() []string {
 	// ensure operators are valid
 	validOperators := []string{"=", "<>", "<", "<=", ">", ">=", quals.QualOperatorIsNull, quals.QualOperatorIsNotNull}
 	validRequire := []string{Required, Optional, AnyOf}
+	validCacheMatch := []string{cache.CacheMatchSubset, cache.CacheMatchExact, ""}
 	var res []string
 
 	for _, op := range k.Operators {
@@ -79,5 +84,14 @@ func (k *KeyColumn) Validate() []string {
 	if !helpers.StringSliceContains(validRequire, k.Require) {
 		res = append(res, fmt.Sprintf("Require value '%s' is not valid, it must be one of: %s", k.Require, strings.Join(validRequire, ",")))
 	}
+
+	// default CacheMatch to subset
+	if k.CacheMatch == "" {
+		k.CacheMatch = cache.CacheMatchSubset
+	}
+	if !helpers.StringSliceContains(validCacheMatch, k.CacheMatch) {
+		res = append(res, fmt.Sprintf("CacheMatch value '%s' is not valid, it must be one of: %s", k.CacheMatch, strings.Join(validCacheMatch, ",")))
+	}
+
 	return res
 }

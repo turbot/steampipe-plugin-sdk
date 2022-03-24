@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package os_specific
@@ -8,7 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-func SetRlimit(ulimit uint64, logger hclog.Logger ) error {
+func SetRlimit(ulimit uint64, logger hclog.Logger) error {
 	var rLimit syscall.Rlimit
 	rLimit.Max = ulimit
 	rLimit.Cur = ulimit

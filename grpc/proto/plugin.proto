@@ -134,6 +134,7 @@ message KeyColumn
   string name = 1;
   repeated string operators = 2;
   string require=3;
+  string cache_match=4;
 }
 
 message Schema {
