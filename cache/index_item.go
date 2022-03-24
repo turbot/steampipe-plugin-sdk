@@ -82,7 +82,7 @@ func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals) bool {
 			// isSubset means all data returned by check quals is returned by index quals
 			isSubset = checkQuals.IsASubsetOf(indexQuals)
 		} else {
-			log.Printf("[TRACE] SatisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED")
+			log.Printf("[TRACE] SatisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED", col)
 		}
 		log.Printf("[TRACE] get check qual %v, isSubset %v", ok, isSubset)
 		if !ok || !isSubset {

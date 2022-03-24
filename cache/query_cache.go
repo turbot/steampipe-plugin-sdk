@@ -73,6 +73,9 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	}()
 	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 
+	// calculate the cost of the cached data
+	cost := c.calcCost(table, columns, result)
+
 	// get ttl - read here in case the property is updated  between the 2 uses below
 	ttl := c.ttl
 
@@ -91,8 +94,6 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 	// write to the result cache
 	// set the insertion time
 	resultKey := c.buildResultKey(table, cacheQualMap, columns, limit)
-	// estimate cost at 8 bytes per column value
-	cost := len(result.Rows) * len(columns) * 8
 	log.Printf("[TRACE] cache item cost = %d (%d rows, %d columns)", cost, len(result.Rows), len(columns))
 	c.cache.SetWithTTL(resultKey, result, int64(cost), ttl)
 
@@ -314,10 +315,81 @@ func (c *QueryCache) logMetrics() {
 	log.Printf("[TRACE] ------------------------------------ ")
 	log.Printf("[TRACE] Cache Metrics ")
 	log.Printf("[TRACE] ------------------------------------ ")
-	log.Printf("[TRACE] MaxCost: %d", c.cache.MaxCost)
+	log.Printf("[TRACE] MaxCost: %d", c.cache.MaxCost())
 	log.Printf("[TRACE] KeysAdded: %d", c.cache.Metrics.KeysAdded())
 	log.Printf("[TRACE] CostAdded: %d", c.cache.Metrics.CostAdded())
 	log.Printf("[TRACE] KeysEvicted: %d", c.cache.Metrics.KeysEvicted())
 	log.Printf("[TRACE] CostEvicted: %d", c.cache.Metrics.CostEvicted())
 	log.Printf("[TRACE] ------------------------------------ ")
+}
+
+func (c *QueryCache) calcCost(table string, columns []string, result *QueryCacheResult) int {
+
+	costMap := map[proto.ColumnType]int{
+		proto.ColumnType_BOOL:      61,
+		proto.ColumnType_INT:       68,
+		proto.ColumnType_DOUBLE:    68,
+		proto.ColumnType_STRING:    76,
+		proto.ColumnType_LTREE:     76,
+		proto.ColumnType_JSON:      84,
+		proto.ColumnType_IPADDR:    85,
+		proto.ColumnType_CIDR:      88,
+		proto.ColumnType_INET:      96,
+		proto.ColumnType_DATETIME:  92,
+		proto.ColumnType_TIMESTAMP: 92,
+	}
+
+	tableSchema := c.PluginSchema[table]
+	columnsMap := tableSchema.GetColumnMap()
+
+	// build lists of dynamically sized columns
+	var jsonColumns []string
+	var ltreeColumns []string
+	var stringColumns []string
+
+	// result struct overhead is 52 bytes
+	baseRowCost := 52
+
+	for _, col := range columns {
+		colType := columnsMap[col].Type
+		// add base cost for a row of this column type
+		baseRowCost += costMap[colType]
+		// add in column name
+		baseRowCost += len(col)
+
+		//log.Printf("[WARN] col %s cost %d, key length %d = %d  (%d)", col, costMap[colType], len(col), costMap[colType]+len(col), baseRowCost)
+
+		if colType == proto.ColumnType_JSON {
+			jsonColumns = append(jsonColumns, col)
+		} else if colType == proto.ColumnType_LTREE {
+			ltreeColumns = append(ltreeColumns, col)
+		} else if colType == proto.ColumnType_STRING {
+			stringColumns = append(stringColumns, col)
+		}
+	}
+
+	cost := len(result.Rows) * baseRowCost
+
+	//log.Printf("[WARN] calcCost %d total columns, %d json columns %d string columns %d ltree columns", len(columns), len(jsonColumns), len(stringColumns), len(ltreeColumns))
+	//log.Printf("[WARN] base cost %d", cost)
+	if len(jsonColumns)+len(ltreeColumns)+len(stringColumns) > 0 {
+		for _, r := range result.Rows {
+			//log.Printf("[WARN] row")
+
+			for _, c := range jsonColumns {
+				jsonResult := r.Columns[c].GetJsonValue()
+				cost += len(jsonResult)
+			}
+			for _, c := range ltreeColumns {
+				ltreeResult := r.Columns[c].GetLtreeValue()
+				cost += len(ltreeResult)
+			}
+			for _, c := range stringColumns {
+				stringResult := r.Columns[c].GetStringValue()
+				cost += len(stringResult)
+			}
+		}
+	}
+	log.Printf("[WARN] total cost %d", cost)
+	return cost
 }

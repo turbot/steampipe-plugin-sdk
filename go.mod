@@ -3,6 +3,7 @@ module github.com/turbot/steampipe-plugin-sdk/v3
 go 1.16
 
 require (
+	github.com/DmitriyVTitov/size v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/gertd/go-pluralize v0.2.0
