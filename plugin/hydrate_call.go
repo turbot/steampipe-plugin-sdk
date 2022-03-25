@@ -2,87 +2,9 @@ package plugin
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/turbot/go-kit/helpers"
 )
-
-// HydrateData contains the input data passed to every hydrate function
-type HydrateData struct {
-	// if there was a parent-child list call, store the parent list item
-	ParentItem     interface{}
-	Item           interface{}
-	HydrateResults map[string]interface{}
-}
-
-// HydrateFunc is a function which retrieves some or all row data for a single row item.
-type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
-
-// HydrateDependencies defines the hydrate function dependencies - other hydrate functions which must be run first
-// Deprecated: used HydrateConfig
-type HydrateDependencies struct {
-	Func    HydrateFunc
-	Depends []HydrateFunc
-}
-
-// HydrateConfig defines the hydrate function configurations, Name, Maximum number of concurrent calls to be allowed, dependencies
-type HydrateConfig struct {
-	Func              HydrateFunc
-	MaxConcurrency    int
-	RetryConfig       *RetryConfig
-	ShouldIgnoreError ErrorPredicate
-	Depends           []HydrateFunc
-}
-
-func (c *HydrateConfig) DefaultTo(defaultConfig *HydrateConfig) {
-	if defaultConfig == nil {
-		return
-	}
-	if c.RetryConfig == nil {
-		c.RetryConfig = defaultConfig.RetryConfig
-	}
-	if c.Depends == nil {
-		c.Depends = defaultConfig.Depends
-	}
-}
-
-func (c *HydrateConfig) String() interface{} {
-	shouldIgnoreErrorString := ""
-	if c.ShouldIgnoreError != nil {
-		shouldIgnoreErrorString = helpers.GetFunctionName(c.Func)
-	}
-	var dependsStrings = make([]string, len(c.Depends))
-	for i, dep := range c.Depends {
-		dependsStrings[i] = helpers.GetFunctionName(dep)
-	}
-	return fmt.Sprintf(`Func: %s
-MaxConcurrency: %d
-RetryConfig: %s
-ShouldIgnoreError: %s
-Depends: %s`,
-		helpers.GetFunctionName(c.Func),
-		c.MaxConcurrency,
-		c.RetryConfig.String(),
-		shouldIgnoreErrorString,
-		strings.Join(dependsStrings, ","))
-}
-
-type RetryConfig struct {
-	ShouldRetryError ErrorPredicate
-}
-
-func (c RetryConfig) String() interface{} {
-	return fmt.Sprintf("ShouldRetryError: %s", helpers.GetFunctionName(c.ShouldRetryError))
-}
-
-// DefaultConcurrencyConfig contains plugin level config to define default hydrate concurrency
-// - this is used if no HydrateConfig is specified for a specific call
-type DefaultConcurrencyConfig struct {
-	// max number of ALL hydrate calls in progress
-	TotalMaxConcurrency   int
-	DefaultMaxConcurrency int
-}
 
 // HydrateCall struct encapsulates a hydrate call, its config and dependencies
 type HydrateCall struct {
