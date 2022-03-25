@@ -24,7 +24,8 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
 
 	// if the resolved hydrate call is NOT the same as the fetch call, add to the map of hydrate functions to call
 	if hydrateName != c.fetchCallName {
-		if _, ok := c.requiredHydrateCalls[hydrateName]; !ok {
+		if _, ok := c.requiredHydrateCalls[hydrateName]; ok {
+			return
 		}
 
 		// get the config for this hydrate function
