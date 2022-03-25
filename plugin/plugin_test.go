@@ -333,7 +333,7 @@ func TestValidate(t *testing.T) {
 		validationErrors := test.plugin.Validate()
 
 		if test.expected != validationErrors {
-			t.Errorf("Test: '%s'' FAILED. \nExpected: '%s' \nGot: '%s'", name, test.expected, validationErrors)
+			t.Errorf("Test: '%s'' FAILED. \nExpected: '%s' \nGot: '%s'  ", name, test.expected, validationErrors)
 		}
 	}
 }
