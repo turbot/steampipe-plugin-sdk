@@ -81,20 +81,20 @@ func (t *Table) validateListAndGetConfig() []string {
 	var validationErrors []string
 	// either get or list must be defined
 	if t.List == nil && t.Get == nil {
-		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' does not have either Get config or List config - one of these must be provided", t.Name))
+		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' does not have either GetConfig or ListConfig - one of these must be provided", t.Name))
 	}
 
 	if t.Get != nil {
 		if t.Get.Hydrate == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get config does not specify a hydrate function", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a hydrate function", t.Name))
 		}
 		if t.Get.KeyColumns == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get config does not specify a KeyColumn", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a KeyColumn", t.Name))
 		}
 	}
 	if t.List != nil {
 		if t.List.Hydrate == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List config does not specify a hydrate function", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' ListConfig does not specify a hydrate function", t.Name))
 		}
 	}
 

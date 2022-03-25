@@ -10,8 +10,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
-///////////////////////////////
-//// isGet
+// isGet
 
 type isGetTest struct {
 	table    Table
@@ -171,8 +170,7 @@ func TestIsGet(t *testing.T) {
 	//}
 }
 
-///////////////////////////////
-//// requiredHydrateCallBuilder
+// requiredHydrateCallBuilder
 
 // declared in plugin_test
 // listHydrate, getHydrate, hydrate1, hydrate2, hydrate3, hydrate4
@@ -406,8 +404,7 @@ func hydrateCallToString(call *HydrateCall) string {
 	return str
 }
 
-///////////////////////////////
-//// getHydrateConfig
+// getHydrateConfig
 
 type getHydrateConfigTest struct {
 	table    *Table
@@ -565,29 +562,22 @@ func shouldIgnoreErrorTableDefault(err error) bool {
 func shouldIgnoreErrorPluginDefault(err error) bool {
 	return true
 }
-func shouldIgnoreError1(err error) bool {
+func shouldIgnoreError1(error) bool {
 	return true
 }
-func shouldIgnoreError2(err error) bool {
+func shouldIgnoreError2(error) bool {
 	return true
 }
-func shouldIgnoreError3(err error) bool {
+func shouldRetryErrorTableDefault(error) bool {
 	return true
 }
-func shouldIgnoreError4(err error) bool {
+func shouldRetryErrorPluginDefault(error) bool {
 	return true
 }
-
-func shouldRetryErrorTableDefault(err error) bool {
+func shouldRetryError1(error) bool {
 	return true
 }
-func shouldRetryErrorPluginDefault(err error) bool {
-	return true
-}
-func shouldRetryError1(err error) bool {
-	return true
-}
-func shouldRetryError2(err error) bool {
+func shouldRetryError2(error) bool {
 	return true
 }
 
@@ -601,3 +591,5 @@ func TestGetHydrateConfig(t *testing.T) {
 		}
 	}
 }
+
+// validate table

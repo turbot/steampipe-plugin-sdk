@@ -9,9 +9,10 @@ import (
 
 // HydrateConfig defines the hydrate function configurations, Name, Maximum number of concurrent calls to be allowed, dependencies
 type HydrateConfig struct {
-	Func              HydrateFunc
-	MaxConcurrency    int
-	RetryConfig       *RetryConfig
+	Func           HydrateFunc
+	MaxConcurrency int
+	RetryConfig    *RetryConfig
+
 	ShouldIgnoreError ErrorPredicate
 	Depends           []HydrateFunc
 }
