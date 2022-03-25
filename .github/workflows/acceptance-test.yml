@@ -6,22 +6,32 @@ env:
   STEAMPIPE_UPDATE_CHECK: false
 
 jobs:
+  SDK unit tests:
+    runs-on: ubuntu-latest
+    steps:
+        - name: Checkout
+          uses: actions/checkout@v3
+
+        - name: Set up Go
+          uses: actions/setup-go@v2
+          with:
+            go-version: 1.16
+
+        - name: Run SDK Unit Tests
+          run: |
+            go clean -testcache
+            go test -timeout 30s ./...
+
+
   buildChaosPlugin:
     name: Build Chaos Plugin
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
 
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.16
-
-      - name: Run sdk Unit Tests
-        run: |
-          go clean -testcache
-          go test -timeout 30s ./...
 
       - name: Checkout Steampipe
         uses: actions/checkout@v2
