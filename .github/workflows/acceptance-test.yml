@@ -6,7 +6,7 @@ env:
   STEAMPIPE_UPDATE_CHECK: false
 
 jobs:
-  SDK unit tests:
+  sdkUnitTests:
     runs-on: ubuntu-latest
     steps:
         - name: Checkout

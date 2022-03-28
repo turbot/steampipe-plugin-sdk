@@ -35,9 +35,6 @@ func hydrate3(context.Context, *QueryData, *HydrateData) (interface{}, error) {
 func hydrate4(context.Context, *QueryData, *HydrateData) (interface{}, error) {
 	return nil, nil
 }
-func hydrate5(context.Context, *QueryData, *HydrateData) (interface{}, error) {
-	return nil, nil
-}
 
 var testCasesValidate = map[string]validateTest{
 	"valid": {
