@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"log"
 	"testing"
 
 	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
@@ -329,16 +328,10 @@ var testCasesValidate = map[string]validateTest{
 }
 
 func TestValidate(t *testing.T) {
-	log.Printf("[WARN] TestValidate\n")
-
 	for name, test := range testCasesValidate {
-		log.Printf("[WARN] %s\n", name)
-
 		test.plugin.Initialise()
 		validationErrors := test.plugin.Validate()
-		if len(validationErrors) > 0 {
-			log.Printf("[WARN] %s\n", validationErrors)
-		}
+
 		if test.expected != validationErrors {
 			t.Errorf("Test: '%s'' FAILED. \nExpected: '%s' \nGot: '%s'  ", name, test.expected, validationErrors)
 		}
