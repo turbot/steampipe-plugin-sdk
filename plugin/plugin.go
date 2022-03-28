@@ -39,7 +39,6 @@ type Plugin struct {
 	// (connection config is not available at plugin creation time)
 	TableMapFunc func(ctx context.Context, p *Plugin) (map[string]*Table, error)
 
-	//
 	DefaultTransform         *transform.ColumnTransforms
 	DefaultGetConfig         *GetConfig
 	DefaultConcurrency       *DefaultConcurrencyConfig
