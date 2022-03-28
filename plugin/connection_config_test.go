@@ -106,6 +106,9 @@ var testCasesParseConfig = map[string]parseConfigTest{
 					Type:     schema.TypeString,
 					Required: true,
 				},
+				"count": {
+					Type: schema.TypeInt,
+				},
 			},
 		},
 		expectedFunc: func(res interface{}) bool {
@@ -438,12 +441,15 @@ func TestParseConnectionConfig(t *testing.T) {
 			}
 			continue
 		}
-		if test.expectedFunc != nil && !test.expectedFunc(config) {
-			t.Errorf(`Test: '%s' FAILED : expect verification func failed`, name)
-		}
-		if !reflect.DeepEqual(config, test.expected) {
-			fmt.Printf("")
-			t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.expected, config)
+		if test.expectedFunc != nil {
+			if !test.expectedFunc(config) {
+				t.Errorf(`Test: '%s' FAILED : expect verification func failed`, name)
+			}
+		} else {
+			if !reflect.DeepEqual(config, test.expected) {
+				fmt.Printf("")
+				t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.expected, config)
+			}
 		}
 
 	}

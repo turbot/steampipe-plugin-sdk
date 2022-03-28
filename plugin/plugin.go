@@ -30,18 +30,20 @@ var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
 // Plugin is an object used to build all necessary data for a given query
 type Plugin struct {
-	Name     string
-	Logger   hclog.Logger
+	Name   string
+	Logger hclog.Logger
+	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	TableMap map[string]*Table
 	// TableMapFunc is a callback function which can be used to populate the table map
 	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
 	// (connection config is not available at plugin creation time)
 	TableMapFunc func(ctx context.Context, p *Plugin) (map[string]*Table, error)
 
-	DefaultTransform   *transform.ColumnTransforms
-	DefaultGetConfig   *GetConfig
-	DefaultConcurrency *DefaultConcurrencyConfig
-	DefaultRetryConfig *RetryConfig
+	DefaultTransform         *transform.ColumnTransforms
+	DefaultGetConfig         *GetConfig
+	DefaultConcurrency       *DefaultConcurrencyConfig
+	DefaultRetryConfig       *RetryConfig
+	DefaultShouldIgnoreError ErrorPredicate
 	// every table must implement these columns
 	RequiredColumns        []*Column
 	ConnectionConfigSchema *ConnectionConfigSchema

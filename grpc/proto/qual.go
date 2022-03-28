@@ -3,12 +3,12 @@ package proto
 import "log"
 
 func (x *Qual) Equals(other *Qual) bool {
-	log.Printf("[TRACE] me %s, other %s", x.String(), other.String())
+	//log.Printf("[TRACE] me %s, other %s", x.String(), other.String())
 	return x.String() == other.String()
 }
 
 func (x *Qual) IsASubsetOf(other *Qual) bool {
-	log.Printf("[TRACE] IsASubsetOf me %+v, other %+v", x, other)
+	//log.Printf("[TRACE] IsASubsetOf me %+v, other %+v", x, other)
 	operator, ok := x.Operator.(*Qual_StringValue)
 	if !ok {
 		log.Printf("[TRACE] IsASubsetOf my operator is not a string - returning false")
@@ -21,6 +21,11 @@ func (x *Qual) IsASubsetOf(other *Qual) bool {
 	}
 	if x.Value == nil {
 		log.Printf("[TRACE] IsASubsetOf Value nil - returning false")
+		return false
+	}
+	// check the fields are the same
+	if x.FieldName != other.FieldName {
+		log.Printf("[TRACE] IsASubsetOf field names different - returning false")
 		return false
 	}
 
