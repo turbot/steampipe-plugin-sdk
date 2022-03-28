@@ -143,7 +143,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' GetConfig does not specify a key",
+		expected: "table 'table' GetConfig does not specify a KeyColumn",
 	},
 	"no get hydrate": {
 		plugin: Plugin{
@@ -323,16 +323,17 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' GetConfig does not specify a key",
+		expected: "table 'table' GetConfig does not specify a KeyColumn",
 	},
 }
 
 func TestValidate(t *testing.T) {
 	for name, test := range testCasesValidate {
+		test.plugin.Initialise()
 		validationErrors := test.plugin.Validate()
 
 		if test.expected != validationErrors {
-			t.Errorf("Test: '%s'' FAILED. \nExpected: '%s' \nGot: '%s'", name, test.expected, validationErrors)
+			t.Errorf("Test: '%s'' FAILED. \nExpected: '%s' \nGot: '%s'  ", name, test.expected, validationErrors)
 		}
 	}
 }

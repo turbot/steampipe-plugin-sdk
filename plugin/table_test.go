@@ -3,13 +3,14 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/turbot/steampipe-plugin-sdk/v2/grpc/proto"
 )
 
-//// isGet ////
+// isGet
 
 type isGetTest struct {
 	table    Table
@@ -169,7 +170,7 @@ func TestIsGet(t *testing.T) {
 	//}
 }
 
-//// requiredHydrateCallBuilder ////
+// requiredHydrateCallBuilder
 
 // declared in plugin_test
 // listHydrate, getHydrate, hydrate1, hydrate2, hydrate3, hydrate4
@@ -216,9 +217,9 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
-		expected:  []*HydrateCall{{Func: hydrate1}},
+		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1"}},
 	},
-	"list - 1 hydrate, depends": {
+	"list - 1 hydrate, depends [HydrateDependencies]": {
 		table: Table{
 			Name: "table",
 			Columns: []*Column{
@@ -227,14 +228,14 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 			},
 			List:                &ListConfig{Hydrate: listHydrate},
 			Get:                 &GetConfig{Hydrate: getHydrate},
-			HydrateDependencies: []HydrateDependencies{{hydrate1, []HydrateFunc{hydrate2}}},
+			HydrateDependencies: []HydrateDependencies{{Func: hydrate1, Depends: []HydrateFunc{hydrate2}}},
 			Plugin:              &Plugin{},
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
-		expected:  []*HydrateCall{{Func: hydrate1, Depends: []string{"hydrate2"}}, {Func: hydrate2}},
+		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2"}},
 	},
-	"get - 2 hydrate, depends": {
+	"get - 2 hydrate, depends [HydrateDependencies]": {
 		table: Table{
 			Name: "table",
 			Columns: []*Column{
@@ -249,9 +250,9 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1", "c2"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate1, Depends: []string{"hydrate3"}}, {Func: hydrate3}, {Func: hydrate2}},
+		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}, {Func: hydrate2, Name: "hydrate2"}},
 	},
-	"get - 2 depends": {
+	"get - 2 depends [HydrateDependencies]": {
 		table: Table{
 			Name: "table",
 			Columns: []*Column{
@@ -269,9 +270,9 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate1, Depends: []string{"hydrate2"}}, {Func: hydrate2, Depends: []string{"hydrate3"}}, {Func: hydrate3}},
+		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}},
 	},
-	"get - unreferenced depends": {
+	"get - unreferenced depends [HydrateDependencies]": {
 		table: Table{
 			Name: "table",
 			Columns: []*Column{
@@ -289,7 +290,81 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c3"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate3}},
+		expected:  []*HydrateCall{{Func: hydrate3, Name: "hydrate3"}},
+	},
+
+	"list - 1 hydrate, depends": {
+		table: Table{
+			Name: "table",
+			Columns: []*Column{
+				{Name: "c1", Hydrate: hydrate1},
+				{Name: "c2"},
+			},
+			List:          &ListConfig{Hydrate: listHydrate},
+			Get:           &GetConfig{Hydrate: getHydrate},
+			HydrateConfig: []HydrateConfig{{Func: hydrate1, Depends: []HydrateFunc{hydrate2}}},
+			Plugin:        &Plugin{},
+		},
+		columns:   []string{"c1"},
+		fetchType: fetchTypeList,
+		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2"}},
+	},
+	"get - 2 hydrate, depends": {
+		table: Table{
+			Name: "table",
+			Columns: []*Column{
+				{Name: "c1", Hydrate: hydrate1},
+				{Name: "c2", Hydrate: hydrate2},
+				{Name: "c3", Hydrate: hydrate3},
+			},
+			List:          &ListConfig{Hydrate: listHydrate},
+			Get:           &GetConfig{Hydrate: getHydrate},
+			HydrateConfig: []HydrateConfig{{Func: hydrate1, Depends: []HydrateFunc{hydrate3}}},
+			Plugin:        &Plugin{},
+		},
+		columns:   []string{"c1", "c2"},
+		fetchType: fetchTypeGet,
+		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}, {Func: hydrate2, Name: "hydrate2"}},
+	},
+	"get - 2 depends": {
+		table: Table{
+			Name: "table",
+			Columns: []*Column{
+				{Name: "c1", Hydrate: hydrate1},
+				{Name: "c2", Hydrate: hydrate2},
+				{Name: "c3", Hydrate: hydrate3},
+			},
+			List: &ListConfig{Hydrate: listHydrate},
+			Get:  &GetConfig{Hydrate: getHydrate},
+			HydrateConfig: []HydrateConfig{
+				{Func: hydrate1, Depends: []HydrateFunc{hydrate2}},
+				{Func: hydrate2, Depends: []HydrateFunc{hydrate3}},
+			},
+			Plugin: &Plugin{},
+		},
+		columns:   []string{"c1"},
+		fetchType: fetchTypeGet,
+		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}},
+	},
+	"get - unreferenced depends": {
+		table: Table{
+			Name: "table",
+			Columns: []*Column{
+				{Name: "c1", Hydrate: hydrate1},
+				{Name: "c2", Hydrate: hydrate2},
+				{Name: "c3", Hydrate: hydrate3},
+			},
+			List: &ListConfig{Hydrate: listHydrate},
+			Get:  &GetConfig{Hydrate: getHydrate},
+			HydrateConfig: []HydrateConfig{
+				{Func: hydrate1, Depends: []HydrateFunc{hydrate2}},
+				{Func: hydrate2, Depends: []HydrateFunc{hydrate3}},
+			},
+			Plugin: &Plugin{},
+		},
+		columns:   []string{"c3"},
+		fetchType: fetchTypeGet,
+		expected:  []*HydrateCall{{Func: hydrate3, Name: "hydrate3"}},
 	},
 }
 
@@ -313,6 +388,7 @@ func hydrateArrayToString(calls []*HydrateCall) string {
 	for _, c := range calls {
 		strs = append(strs, hydrateCallToString(c))
 	}
+	sort.Strings(strs)
 	return strings.Join(strs, "\n")
 }
 
@@ -327,3 +403,193 @@ func hydrateCallToString(call *HydrateCall) string {
 	}
 	return str
 }
+
+// getHydrateConfig
+
+type getHydrateConfigTest struct {
+	table    *Table
+	funcName string
+	expected *HydrateConfig
+}
+
+var getHydrateConfigTestTableWithDefaults = &Table{
+	Name:                     "test",
+	Plugin:                   getHydrateConfigTestPlugin,
+	DefaultShouldIgnoreError: shouldIgnoreErrorTableDefault,
+	DefaultRetryConfig: &RetryConfig{
+		ShouldRetryError: shouldRetryErrorTableDefault,
+	},
+	HydrateConfig: []HydrateConfig{
+		{
+			Func:           hydrate1,
+			MaxConcurrency: 1,
+			Depends:        []HydrateFunc{hydrate2, hydrate3},
+		},
+		{
+			Func:              hydrate2,
+			MaxConcurrency:    2,
+			ShouldIgnoreError: shouldIgnoreError1,
+		},
+		{
+			Func:           hydrate3,
+			MaxConcurrency: 3,
+			RetryConfig:    &RetryConfig{shouldRetryError1},
+		},
+		{
+			Func:              hydrate4,
+			MaxConcurrency:    4,
+			ShouldIgnoreError: shouldIgnoreError2,
+			RetryConfig:       &RetryConfig{shouldRetryError2},
+		},
+	},
+}
+
+var getHydrateConfigTestTableNoDefaults = &Table{
+	Name:   "test",
+	Plugin: getHydrateConfigTestPlugin,
+	HydrateConfig: []HydrateConfig{
+		{
+			Func:           hydrate1,
+			MaxConcurrency: 1,
+			Depends:        []HydrateFunc{hydrate2, hydrate3},
+		},
+		{
+			Func:              hydrate2,
+			MaxConcurrency:    2,
+			ShouldIgnoreError: shouldIgnoreError1,
+		},
+		{
+			Func:           hydrate3,
+			MaxConcurrency: 3,
+			RetryConfig:    &RetryConfig{shouldRetryError1},
+		},
+	},
+}
+
+var getHydrateConfigTestPlugin = &Plugin{
+	Name:                     "test",
+	DefaultShouldIgnoreError: shouldIgnoreErrorPluginDefault,
+	DefaultRetryConfig: &RetryConfig{
+		ShouldRetryError: shouldRetryErrorPluginDefault,
+	},
+}
+
+var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
+	"tables default retry and should ignore": {
+		table:    getHydrateConfigTestTableWithDefaults,
+		funcName: "hydrate1",
+
+		expected: &HydrateConfig{
+			Func:              hydrate1,
+			MaxConcurrency:    1,
+			RetryConfig:       &RetryConfig{shouldRetryErrorTableDefault},
+			ShouldIgnoreError: shouldIgnoreErrorTableDefault,
+			Depends:           []HydrateFunc{hydrate2, hydrate3},
+		},
+	},
+	"table default retry": {
+		table:    getHydrateConfigTestTableWithDefaults,
+		funcName: "hydrate2",
+
+		expected: &HydrateConfig{
+			Func:              hydrate2,
+			MaxConcurrency:    2,
+			RetryConfig:       &RetryConfig{shouldRetryErrorTableDefault},
+			ShouldIgnoreError: shouldIgnoreError1,
+		},
+	},
+	"tables default should ignore": {
+		table:    getHydrateConfigTestTableWithDefaults,
+		funcName: "hydrate3",
+
+		expected: &HydrateConfig{
+			Func:              hydrate3,
+			MaxConcurrency:    3,
+			RetryConfig:       &RetryConfig{shouldRetryError1},
+			ShouldIgnoreError: shouldIgnoreErrorTableDefault,
+		},
+	},
+	"plugin default retry and should ignore": {
+		table:    getHydrateConfigTestTableNoDefaults,
+		funcName: "hydrate1",
+
+		expected: &HydrateConfig{
+			Func:              hydrate1,
+			MaxConcurrency:    1,
+			RetryConfig:       &RetryConfig{shouldRetryErrorPluginDefault},
+			ShouldIgnoreError: shouldIgnoreErrorPluginDefault,
+			Depends:           []HydrateFunc{hydrate2, hydrate3},
+		},
+	},
+	"plugin default retry": {
+		table:    getHydrateConfigTestTableNoDefaults,
+		funcName: "hydrate2",
+
+		expected: &HydrateConfig{
+			Func:              hydrate2,
+			MaxConcurrency:    2,
+			RetryConfig:       &RetryConfig{shouldRetryErrorPluginDefault},
+			ShouldIgnoreError: shouldIgnoreError1,
+		},
+	},
+	"plugin default should ignore": {
+		table:    getHydrateConfigTestTableNoDefaults,
+		funcName: "hydrate3",
+
+		expected: &HydrateConfig{
+			Func:              hydrate3,
+			MaxConcurrency:    3,
+			RetryConfig:       &RetryConfig{shouldRetryError1},
+			ShouldIgnoreError: shouldIgnoreErrorPluginDefault,
+		},
+	},
+	"no defaults": {
+		table:    getHydrateConfigTestTableWithDefaults,
+		funcName: "hydrate4",
+
+		expected: &HydrateConfig{
+			Func:              hydrate4,
+			MaxConcurrency:    4,
+			RetryConfig:       &RetryConfig{shouldRetryError2},
+			ShouldIgnoreError: shouldRetryError2,
+		},
+	},
+}
+
+func shouldIgnoreErrorTableDefault(err error) bool {
+	return true
+}
+func shouldIgnoreErrorPluginDefault(err error) bool {
+	return true
+}
+func shouldIgnoreError1(error) bool {
+	return true
+}
+func shouldIgnoreError2(error) bool {
+	return true
+}
+func shouldRetryErrorTableDefault(error) bool {
+	return true
+}
+func shouldRetryErrorPluginDefault(error) bool {
+	return true
+}
+func shouldRetryError1(error) bool {
+	return true
+}
+func shouldRetryError2(error) bool {
+	return true
+}
+
+func TestGetHydrateConfig(t *testing.T) {
+	for name, test := range testCasesGetHydrateConfig {
+		result := test.table.getHydrateConfig(test.funcName)
+		actualString := result.String()
+		expectedString := test.expected.String()
+		if expectedString != actualString {
+			t.Errorf("Test: '%s'' FAILED : expected: \n\n%v\n\ngot: \n\n%v", name, expectedString, actualString)
+		}
+	}
+}
+
+// validate table

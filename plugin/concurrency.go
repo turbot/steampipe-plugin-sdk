@@ -5,6 +5,14 @@ import (
 	"sync"
 )
 
+// DefaultConcurrencyConfig contains plugin level config to define default hydrate concurrency
+// - this is used if no HydrateConfig is specified for a specific call
+type DefaultConcurrencyConfig struct {
+	// max number of ALL hydrate calls in progress
+	TotalMaxConcurrency   int
+	DefaultMaxConcurrency int
+}
+
 // ConcurrencyManager struct ensures that hydrate functions stay within concurrency limits
 type ConcurrencyManager struct {
 	mut sync.Mutex

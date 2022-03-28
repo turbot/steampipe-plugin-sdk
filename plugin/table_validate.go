@@ -23,7 +23,7 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	validationErrors = append(validationErrors, t.validateListAndGetConfig()...)
 
 	// verify hydrate dependencies are valid
-	// the map entries are strings - ensure they correpond to actual functions
+	// the map entries are strings - ensure they correspond to actual functions
 	validationErrors = append(validationErrors, t.validateHydrateDependencies()...)
 
 	// verify any ALL key columns do not duplicate columns between ALL fields
@@ -81,20 +81,20 @@ func (t *Table) validateListAndGetConfig() []string {
 	var validationErrors []string
 	// either get or list must be defined
 	if t.List == nil && t.Get == nil {
-		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' does not have either Get config or List config - one of these must be provided", t.Name))
+		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' does not have either GetConfig or ListConfig - one of these must be provided", t.Name))
 	}
 
 	if t.Get != nil {
 		if t.Get.Hydrate == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get config does not specify a hydrate function", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a hydrate function", t.Name))
 		}
 		if t.Get.KeyColumns == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get config does not specify a KeyColumn", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a KeyColumn", t.Name))
 		}
 	}
 	if t.List != nil {
 		if t.List.Hydrate == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List config does not specify a hydrate function", t.Name))
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' ListConfig does not specify a hydrate function", t.Name))
 		}
 	}
 
@@ -106,8 +106,13 @@ func (t *Table) validateListAndGetConfig() []string {
 }
 
 func (t *Table) validateHydrateDependencies() []string {
+	// only 1 of HydrateDependencies and HydrateConfig) may be set
+	if len(t.HydrateDependencies) != 0 && len(t.HydrateConfig) != 0 {
+		return []string{fmt.Sprintf("table '%s' defines both HydrateDependencies and HydrateConfig", t.Name)}
+	}
+
 	var validationErrors []string
-	if t.HydrateDependencies != nil {
+	if len(t.HydrateDependencies)+len(t.HydrateConfig) != 0 {
 		if t.List != nil {
 			deps := t.getHydrateDependencies(helpers.GetFunctionName(t.List.Hydrate))
 			if len(deps) > 0 {
@@ -128,24 +133,32 @@ func (t *Table) validateHydrateDependencies() []string {
 }
 
 func (t *Table) detectCyclicHydrateDependencies() string {
-	var dependencies = topsort.NewGraph()
-	dependencies.AddNode("root")
-	for _, hydrateDeps := range t.HydrateDependencies {
-		name := helpers.GetFunctionName(hydrateDeps.Func)
-		if !dependencies.ContainsNode(name) {
-			dependencies.AddNode(name)
+	var dependencyGraph = topsort.NewGraph()
+	dependencyGraph.AddNode("root")
+
+	updateDependencyGraph := func(hydrateFunc HydrateFunc, hydrateDepends []HydrateFunc) {
+		name := helpers.GetFunctionName(hydrateFunc)
+		if !dependencyGraph.ContainsNode(name) {
+			dependencyGraph.AddNode(name)
 		}
-		dependencies.AddEdge("root", name)
-		for _, dep := range hydrateDeps.Depends {
+		dependencyGraph.AddEdge("root", name)
+		for _, dep := range hydrateDepends {
 			depName := helpers.GetFunctionName(dep)
-			if !dependencies.ContainsNode(depName) {
-				dependencies.AddNode(depName)
+			if !dependencyGraph.ContainsNode(depName) {
+				dependencyGraph.AddNode(depName)
 			}
-			dependencies.AddEdge(name, depName)
+			dependencyGraph.AddEdge(name, depName)
 		}
 	}
 
-	if _, err := dependencies.TopSort("root"); err != nil {
+	for _, hydrateDeps := range t.HydrateDependencies {
+		updateDependencyGraph(hydrateDeps.Func, hydrateDeps.Depends)
+	}
+	for _, hydrateConfig := range t.HydrateConfig {
+		updateDependencyGraph(hydrateConfig.Func, hydrateConfig.Depends)
+	}
+
+	if _, err := dependencyGraph.TopSort("root"); err != nil {
 		return strings.Replace(err.Error(), "Cycle error", "Hydration dependencies contains cycle: ", 1)
 	}
 

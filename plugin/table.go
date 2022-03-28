@@ -16,14 +16,18 @@ type Table struct {
 	// table description
 	Description string
 	// column definitions
-	Columns          []*Column
-	List             *ListConfig
-	Get              *GetConfig
-	GetMatrixItem    MatrixItemFunc
-	DefaultTransform *transform.ColumnTransforms
+	Columns                  []*Column
+	List                     *ListConfig
+	Get                      *GetConfig
+	GetMatrixItem            MatrixItemFunc
+	DefaultTransform         *transform.ColumnTransforms
+	DefaultShouldIgnoreError ErrorPredicate
+	DefaultRetryConfig       *RetryConfig
+
 	// the parent plugin object
 	Plugin *Plugin
 	// definitions of dependencies between hydrate functions
+	// Deprecated: used HydrateConfig
 	HydrateDependencies []HydrateDependencies
 	HydrateConfig       []HydrateConfig
 	// map of hydrate function name to columns it provides
@@ -97,10 +101,16 @@ func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
 		return t.List.Hydrate
 	}
 	return t.Get.Hydrate
-
 }
 
+// search through HydrateConfig and HydrateDependencies finding a function with the given name
+// if found return its dependencies
 func (t *Table) getHydrateDependencies(hydrateFuncName string) []HydrateFunc {
+	for _, d := range t.HydrateConfig {
+		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
+			return d.Depends
+		}
+	}
 	for _, d := range t.HydrateDependencies {
 		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
 			return d.Depends
@@ -115,11 +125,25 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 	for _, d := range t.HydrateConfig {
 		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
 			config = &d
+			break
 		}
 	}
+	// now use default values if needed
 	if config.RetryConfig == nil {
-		config.RetryConfig = t.Plugin.DefaultRetryConfig
+		if t.DefaultRetryConfig != nil {
+			config.RetryConfig = t.DefaultRetryConfig
+		} else {
+			config.RetryConfig = t.Plugin.DefaultRetryConfig
+		}
 	}
+	if config.ShouldIgnoreError == nil {
+		if t.DefaultShouldIgnoreError != nil {
+			config.ShouldIgnoreError = t.DefaultShouldIgnoreError
+		} else {
+			config.ShouldIgnoreError = t.Plugin.DefaultShouldIgnoreError
+		}
+	}
+
 	// if no hydrate dependencies are specified in the hydrate config, check the deprecated "HydrateDependencies" property
 	if config.Depends == nil {
 		config.Depends = t.getHydrateDependencies(hydrateFuncName)
