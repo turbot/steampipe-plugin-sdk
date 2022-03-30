@@ -24,11 +24,19 @@ import (
 const (
 	SchemaModeStatic  = "static"
 	SchemaModeDynamic = "dynamic"
+	uLimitEnvVar      = "STEAMPIPE_ULIMIT"
+	uLimitDefault     = 2560
 )
 
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
-// Plugin is an object used to build all necessary data for a given query
+// Plugin is a struct used define the GRPC plugin.
+//
+// This includes the plugin schema (i.e. the tables provided by the plugin),
+// as well as config for the default error handling and concurrency behaviour.
+//
+// By convention, the package name for your plugin should be the same name as your plugin,
+// and go files for your plugin (except main.go) should reside in a folder with the same name.
 type Plugin struct {
 	Name   string
 	Logger hclog.Logger
@@ -37,8 +45,7 @@ type Plugin struct {
 	// TableMapFunc is a callback function which can be used to populate the table map
 	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
 	// (connection config is not available at plugin creation time)
-	TableMapFunc func(ctx context.Context, p *Plugin) (map[string]*Table, error)
-
+	TableMapFunc             func(ctx context.Context, p *Plugin) (map[string]*Table, error)
 	DefaultTransform         *transform.ColumnTransforms
 	DefaultGetConfig         *GetConfig
 	DefaultConcurrency       *DefaultConcurrencyConfig
@@ -55,16 +62,12 @@ type Plugin struct {
 	SchemaMode string
 	Schema     map[string]*proto.TableSchema
 
-	// ConnectionConfigChangedFunc is a callback function executed every time the connection config is updated
-	// NOTE: it is NOT executed when it is set for the first time (???)
-	ConnectionConfigChangedFunc func() error
-	// query cache
-	queryCache *cache.QueryCache
-
+	queryCache      *cache.QueryCache
 	concurrencyLock sync.Mutex
 }
 
-// Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
+// Initialise creates the 'connection manager' (which provides caching), sets up the logger
+// and sets the file limit.
 func (p *Plugin) Initialise() {
 	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionManager = connection_manager.NewManager()
@@ -79,34 +82,9 @@ func (p *Plugin) Initialise() {
 	p.setuLimit()
 }
 
-func (p *Plugin) setupLogger() hclog.Logger {
-	// time will be provided by the plugin manager logger
-	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
-	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
-	log.SetPrefix("")
-	log.SetFlags(0)
-	return logger
-}
-
-const uLimitEnvVar = "STEAMPIPE_ULIMIT"
-const uLimitDefault = 2560
-
-func (p *Plugin) setuLimit() {
-	var ulimit uint64 = uLimitDefault
-	if ulimitString, ok := os.LookupEnv(uLimitEnvVar); ok {
-		if ulimitEnv, err := strconv.ParseUint(ulimitString, 10, 64); err == nil {
-			ulimit = ulimitEnv
-		}
-	}
-	err := os_specific.SetRlimit(ulimit, p.Logger)
-	if err != nil {
-		p.Logger.Error("Error Setting Ulimit", "error", err)
-	}
-}
-
-// SetConnectionConfig is always called before any other plugin function
-// it parses the connection config string, and populate the connection data for this connection
-// it also calls the table creation factory function, if provided by the plugin
+// SetConnectionConfig parses the connection config string, and populate the connection data for this connection.
+// It also calls the table creation factory function, if provided by the plugin.
+// Note: SetConnectionConfig is always called before any other plugin function.
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -144,48 +122,12 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		return err
 	}
 
-	// if this is NOT the first time we have set the conneciton config,
-	// call the connection config changed callback (if the plugin defines one)
-	if p.queryCache != nil && p.ConnectionConfigChangedFunc != nil {
-		return p.ConnectionConfigChangedFunc()
-	}
-
 	// create the cache or update the schema if it already exists
 	return p.ensureCache()
 }
 
-// initialiseTables does 2 things:
-// 1) if a TableMapFunc factory function was provided by the plugin, call it
-// 2) update tables to have a reference to the plugin
-func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
-	if p.TableMapFunc != nil {
-		// handle panic in factory function
-		defer func() {
-			if r := recover(); r != nil {
-				err = fmt.Errorf("failed to plugin initialise plugin '%s': TableMapFunc '%s' had unhandled error: %v", p.Name, helpers.GetFunctionName(p.TableMapFunc), helpers.ToError(r))
-			}
-		}()
-
-		if tableMap, err := p.TableMapFunc(ctx, p); err != nil {
-			return err
-		} else {
-			p.TableMap = tableMap
-		}
-	}
-
-	// update tables to have a reference to the plugin
-	for _, table := range p.TableMap {
-		table.Plugin = p
-	}
-
-	// now validate the plugin
-	// NOTE: must do this after calling TableMapFunc
-	if validationErrors := p.Validate(); validationErrors != "" {
-		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
-	}
-	return nil
-}
-
+// GetSchema returns the plugin schema.
+// Note: the connection config must be set before calling this function.
 func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 	// the connection property must be set already
 	if p.Connection == nil {
@@ -196,9 +138,9 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 	return schema, nil
 }
 
-// Execute executes a query and stream the results
+// Execute executes a query and streams the results using the given GRPC stream.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
-	// add callif to logs for the excute call
+	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
 
 	log.Printf("[TRACE] EXECUTE callId: %s table: %s cols: %s", req.CallId, req.Table, strings.Join(req.QueryContext.Columns, ","))
@@ -320,6 +262,60 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
 	}
 	return nil
+}
+
+// initialiseTables does 2 things:
+// 1) if a TableMapFunc factory function was provided by the plugin, call it
+// 2) update tables to have a reference to the plugin
+func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
+	if p.TableMapFunc != nil {
+		// handle panic in factory function
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("failed to plugin initialise plugin '%s': TableMapFunc '%s' had unhandled error: %v", p.Name, helpers.GetFunctionName(p.TableMapFunc), helpers.ToError(r))
+			}
+		}()
+
+		if tableMap, err := p.TableMapFunc(ctx, p); err != nil {
+			return err
+		} else {
+			p.TableMap = tableMap
+		}
+	}
+
+	// update tables to have a reference to the plugin
+	for _, table := range p.TableMap {
+		table.Plugin = p
+	}
+
+	// now validate the plugin
+	// NOTE: must do this after calling TableMapFunc
+	if validationErrors := p.Validate(); validationErrors != "" {
+		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
+	}
+	return nil
+}
+
+func (p *Plugin) setupLogger() hclog.Logger {
+	// time will be provided by the plugin manager logger
+	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
+	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+	log.SetPrefix("")
+	log.SetFlags(0)
+	return logger
+}
+
+func (p *Plugin) setuLimit() {
+	var ulimit uint64 = uLimitDefault
+	if ulimitString, ok := os.LookupEnv(uLimitEnvVar); ok {
+		if ulimitEnv, err := strconv.ParseUint(ulimitString, 10, 64); err == nil {
+			ulimit = ulimitEnv
+		}
+	}
+	err := os_specific.SetRlimit(ulimit, p.Logger)
+	if err != nil {
+		p.Logger.Error("Error Setting Ulimit", "error", err)
+	}
 }
 
 // if query cache does not exist, create

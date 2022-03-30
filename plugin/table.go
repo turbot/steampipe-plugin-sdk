@@ -10,30 +10,42 @@ import (
 type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}
 type ErrorPredicate func(error) bool
 
-// Table represents a plugin table
+// Table is a struct representing a plugin table.
+// It defines the table columns, the function used to list table results (List)
+// as well as (optionally) the function used to retrieve a single result by key (Get)
+// and additional the functions required to fetch specific columns (HydrateConfig).
 type Table struct {
 	Name string
 	// table description
 	Description string
 	// column definitions
-	Columns                  []*Column
-	List                     *ListConfig
-	Get                      *GetConfig
-	GetMatrixItem            MatrixItemFunc
-	DefaultTransform         *transform.ColumnTransforms
+	Columns []*Column
+	// the function used to list table rows
+	List *ListConfig
+	// the function used to efficiently retrieve a row by id
+	Get *GetConfig
+	// the function used when retrieving data for multiple 'matrix items', e.g. regions
+	GetMatrixItem MatrixItemFunc
+	// default transform applied to all columns
+	DefaultTransform *transform.ColumnTransforms
+	// function controlling default error handling behaviour
 	DefaultShouldIgnoreError ErrorPredicate
 	DefaultRetryConfig       *RetryConfig
-
 	// the parent plugin object
 	Plugin *Plugin
-	// definitions of dependencies between hydrate functions
 	// Deprecated: used HydrateConfig
 	HydrateDependencies []HydrateDependencies
-	HydrateConfig       []HydrateConfig
+	// Config for any required hydrate functions, including dependencies between hydrate functions,
+	// error handling and concurrency behaviour
+	HydrateConfig []HydrateConfig
+
 	// map of hydrate function name to columns it provides
 	hydrateColumnMap map[string][]string
 }
 
+// GetConfig is a struct used to define the configuration of the table 'Get' function.
+// This is the function used to retrieve a single row by id
+// The config defines the function, the columns which may be used as id (KeyColumns), and the error handling behaviour
 type GetConfig struct {
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
 	KeyColumns KeyColumnSlice
@@ -45,6 +57,10 @@ type GetConfig struct {
 	RetryConfig       *RetryConfig
 }
 
+// ListConfig is a struct used to define the configuration of the table 'List' function.
+// This is the function used to retrieve rows of sata
+// The config defines the function, the columns which may be used to optimise the fetch (KeyColumns),
+// and the error handling behaviour
 type ListConfig struct {
 	KeyColumns KeyColumnSlice
 	// the list function, this should stream the list results back using the QueryData object, and return nil
