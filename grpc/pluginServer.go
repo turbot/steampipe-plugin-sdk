@@ -14,7 +14,7 @@ type PluginSchema struct {
 }
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 type GetSchemaFunc func() (*PluginSchema, error)
-type SetConnectionConfigFunc func(string, string) error
+type SetConnectionConfigFunc func(string, string, int) error
 
 // PluginServer is the server for a single plugin
 type PluginServer struct {

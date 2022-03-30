@@ -92,6 +92,7 @@ message GetSupportedOperationsRequest{}
 message SetConnectionConfigRequest{
   string connection_name = 1;
   string connection_config = 2;
+  int32 max_cache_cost_mb = 3;
 }
 
 message SetConnectionConfigResponse{}
@@ -134,6 +135,7 @@ message KeyColumn
   string name = 1;
   repeated string operators = 2;
   string require=3;
+  string cache_match=4;
 }
 
 message Schema {

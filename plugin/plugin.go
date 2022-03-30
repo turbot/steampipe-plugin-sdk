@@ -60,6 +60,7 @@ type Plugin struct {
 	queryCache *cache.QueryCache
 
 	concurrencyLock sync.Mutex
+	maxCacheCostMb  int
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -80,6 +81,9 @@ func (p *Plugin) Initialise() {
 
 	// set file limit
 	p.setuLimit()
+
+	// set default max cache cost
+	p.maxCacheCostMb = 1000
 }
 
 const uLimitEnvVar = "STEAMPIPE_ULIMIT"
@@ -101,7 +105,7 @@ func (p *Plugin) setuLimit() {
 // SetConnectionConfig is always called before any other plugin function
 // it parses the connection config string, and populate the connection data for this connection
 // it also calls the table creation factory function, if provided by the plugin
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, maxCacheCostMb int) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
@@ -144,6 +148,7 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		return p.ConnectionConfigChangedFunc()
 	}
 
+	p.maxCacheCostMb = maxCacheCostMb
 	// create the cache or update the schema if it already exists
 	return p.ensureCache()
 }
