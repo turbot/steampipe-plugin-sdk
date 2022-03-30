@@ -21,5 +21,5 @@ require (
 	github.com/zclconf/go-cty v1.10.0
 	golang.org/x/sys v0.0.0-20211102061401-a2f17f7b995c // indirect
 	google.golang.org/grpc v1.44.0
-	google.golang.org/protobuf v1.27.1
+	google.golang.org/protobuf v1.28.0
 )
