@@ -1,3 +1,8 @@
+## v2.2.0  [2022-03-30]
+_What's new_
+* Add `CacheMatch` property to `KeyColumn`, to support key columns which require exact matching to be considered a cache hit. ([#298](https://github.com/turbot/steampipe-plugin-sdk/issues/298))
+* Add table and plugin level defaults for `ShouldIgnoreError` and `RetryConfig`. ([#257](https://github.com/turbot/steampipe-plugin-sdk/issues/257))
+
 ## v2.1.1  [2022-03-10]
 _Bug fixes_
 * Fix issue when executing list calls with 'in' clauses, key column values passed in Quals map are incorrect. ([#294](https://github.com/turbot/steampipe-plugin-sdk/issues/294))
