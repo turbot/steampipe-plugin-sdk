@@ -8,6 +8,9 @@ import (
 
 const ContextColumnName = "_ctx"
 
+// GetSchema returns the table schema
+// Note: an additional '_ctx' column is added to all table schemas. This contains Steampipe specific data.
+// (currently this is populated with the connection name)
 func (t Table) GetSchema() (*proto.TableSchema, error) {
 	schema := &proto.TableSchema{
 		Columns:     make([]*proto.ColumnDefinition, len(t.Columns)+1),
