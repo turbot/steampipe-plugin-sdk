@@ -37,7 +37,7 @@ type CacheStats struct {
 	Misses int
 }
 
-func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSchema) (*QueryCache, error) {
+func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSchema, maxCacheCostMb int64) (*QueryCache, error) {
 	cache := &QueryCache{
 		Stats:          &CacheStats{},
 		connectionName: connectionName,
@@ -47,9 +47,9 @@ func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSc
 	}
 
 	config := &ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
+		NumCounters: 1e7,                          // number of keys to track frequency of (10M).
+		MaxCost:     maxCacheCostMb * 1024 * 1024, // maximum cost of cache (1GB).
+		BufferItems: 64,                           // number of keys per Get buffer.
 		Metrics:     true,
 	}
 	var err error

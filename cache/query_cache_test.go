@@ -92,7 +92,7 @@ var testCasesCalcCost = map[string]*calcCostTest{
 
 func TestCalcCost(t *testing.T) {
 
-	cache, err := NewQueryCache("cache_test", pluginSchema)
+	cache, err := NewQueryCache("cache_test", pluginSchema, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +240,7 @@ var loadTestPluginSchema = map[string]*proto.TableSchema{
 
 func TestCalcCostLoad(t *testing.T) {
 
-	cache, err := NewQueryCache("cache_test", loadTestPluginSchema)
+	cache, err := NewQueryCache("cache_test", loadTestPluginSchema, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

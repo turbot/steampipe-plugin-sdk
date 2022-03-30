@@ -60,7 +60,7 @@ type Plugin struct {
 	queryCache *cache.QueryCache
 
 	concurrencyLock sync.Mutex
-	maxCacheCostMb  int
+	maxCacheCostMb  int64
 }
 
 // Initialise initialises the connection config map, set plugin pointer on all tables and setup logger
@@ -105,7 +105,7 @@ func (p *Plugin) setuLimit() {
 // SetConnectionConfig is always called before any other plugin function
 // it parses the connection config string, and populate the connection data for this connection
 // it also calls the table creation factory function, if provided by the plugin
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, maxCacheCostMb int) (err error) {
+func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string, maxCacheCostMb int64) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
@@ -148,7 +148,9 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 		return p.ConnectionConfigChangedFunc()
 	}
 
-	p.maxCacheCostMb = maxCacheCostMb
+	if maxCacheCostMb != 0 {
+		p.maxCacheCostMb = maxCacheCostMb
+	}
 	// create the cache or update the schema if it already exists
 	return p.ensureCache()
 }
@@ -318,7 +320,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 // if the query cache exists, update the schema
 func (p *Plugin) ensureCache() error {
 	if p.queryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema)
+		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema, p.maxCacheCostMb)
 		if err != nil {
 			return err
 		}

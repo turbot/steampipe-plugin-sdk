@@ -92,7 +92,7 @@ message GetSupportedOperationsRequest{}
 message SetConnectionConfigRequest{
   string connection_name = 1;
   string connection_config = 2;
-  int32 max_cache_cost_mb = 3;
+  int64 max_cache_cost_mb = 3;
 }
 
 message SetConnectionConfigResponse{}
