@@ -6,45 +6,6 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// HydrateData contains the input data passed to every hydrate function
-type HydrateData struct {
-	// if there was a parent-child list call, store the parent list item
-	ParentItem     interface{}
-	Item           interface{}
-	HydrateResults map[string]interface{}
-}
-
-// HydrateFunc is a function which retrieves some or all row data for a single row item.
-type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
-
-// HydrateDependencies defines the hydrate function dependencies - other hydrate functions which must be run first
-// Deprecated: used HydrateConfig
-type HydrateDependencies struct {
-	Func    HydrateFunc
-	Depends []HydrateFunc
-}
-
-// HydrateConfig defines the hydrate function configurations, Name, Maximum number of concurrent calls to be allowed, dependencies
-type HydrateConfig struct {
-	Func              HydrateFunc
-	MaxConcurrency    int
-	RetryConfig       *RetryConfig
-	ShouldIgnoreError ErrorPredicate
-	Depends           []HydrateFunc
-}
-
-type RetryConfig struct {
-	ShouldRetryError ErrorPredicate
-}
-
-// DefaultConcurrencyConfig contains plugin level config to define default hydrate concurrency
-// - this is used if no HydrateConfig is specified for a specific call
-type DefaultConcurrencyConfig struct {
-	// max number of ALL hydrate calls in progress
-	TotalMaxConcurrency   int
-	DefaultMaxConcurrency int
-}
-
 // HydrateCall struct encapsulates a hydrate call, its config and dependencies
 type HydrateCall struct {
 	Func HydrateFunc

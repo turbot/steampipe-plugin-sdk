@@ -307,7 +307,7 @@ func (c *QueryCache) logMetrics() {
 	log.Printf("[TRACE] ------------------------------------ ")
 	log.Printf("[TRACE] Cache Metrics ")
 	log.Printf("[TRACE] ------------------------------------ ")
-	log.Printf("[TRACE] MaxCost: %d", c.cache.MaxCost)
+	log.Printf("[TRACE] MaxCost: %d", c.cache.MaxCost())
 	log.Printf("[TRACE] KeysAdded: %d", c.cache.Metrics.KeysAdded())
 	log.Printf("[TRACE] CostAdded: %d", c.cache.Metrics.CostAdded())
 	log.Printf("[TRACE] KeysEvicted: %d", c.cache.Metrics.KeysEvicted())
