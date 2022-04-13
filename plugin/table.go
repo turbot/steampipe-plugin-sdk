@@ -1,14 +1,9 @@
 package plugin
 
 import (
-	"context"
-
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
 )
-
-type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}
-type ErrorPredicate func(error) bool
 
 // Table is a struct representing a plugin table.
 // It defines the table columns, the function used to list table results (List)
@@ -29,7 +24,9 @@ type Table struct {
 	// default transform applied to all columns
 	DefaultTransform *transform.ColumnTransforms
 	// function controlling default error handling behaviour
+	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
+	DefaultIgnoreConfig      *IgnoreConfig
 	DefaultRetryConfig       *RetryConfig
 	// the parent plugin object
 	Plugin *Plugin
@@ -43,32 +40,33 @@ type Table struct {
 	hydrateColumnMap map[string][]string
 }
 
-// GetConfig is a struct used to define the configuration of the table 'Get' function.
-// This is the function used to retrieve a single row by id
-// The config defines the function, the columns which may be used as id (KeyColumns), and the error handling behaviour
-type GetConfig struct {
-	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
-	KeyColumns KeyColumnSlice
-	// the hydrate function which is called first when performing a 'get' call.
-	// if this returns 'not found', no further hydrate functions are called
-	Hydrate HydrateFunc
-	// a function which will return whenther to ignore a given error
-	ShouldIgnoreError ErrorPredicate
-	RetryConfig       *RetryConfig
-}
+func (t *Table) initialise() {
+	// create DefaultRetryConfig if needed
+	if t.DefaultRetryConfig == nil {
+		t.DefaultRetryConfig = &RetryConfig{}
+	}
 
-// ListConfig is a struct used to define the configuration of the table 'List' function.
-// This is the function used to retrieve rows of sata
-// The config defines the function, the columns which may be used to optimise the fetch (KeyColumns),
-// and the error handling behaviour
-type ListConfig struct {
-	KeyColumns KeyColumnSlice
-	// the list function, this should stream the list results back using the QueryData object, and return nil
-	Hydrate HydrateFunc
-	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
-	ParentHydrate     HydrateFunc
-	ShouldIgnoreError ErrorPredicate
-	RetryConfig       *RetryConfig
+	// create DefaultIgnoreConfig if needed
+	if t.DefaultIgnoreConfig == nil {
+		t.DefaultIgnoreConfig = &IgnoreConfig{}
+	}
+	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
+	t.DefaultIgnoreConfig.ShouldIgnoreError = t.DefaultShouldIgnoreError
+
+	// apply plugin defaults for retry and ignore config
+	t.DefaultRetryConfig.DefaultTo(t.Plugin.DefaultRetryConfig)
+	t.DefaultIgnoreConfig.DefaultTo(t.Plugin.DefaultIgnoreConfig)
+
+	for _, h := range t.HydrateConfig {
+		h.initialise(t)
+	}
+	if t.Get != nil {
+		t.Get.initialise(t)
+	}
+	if t.List != nil {
+		t.List.initialise(t)
+	}
+
 }
 
 // build a list of required hydrate function calls which must be executed, based on the columns which have been requested
@@ -144,21 +142,8 @@ func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
 			break
 		}
 	}
-	// now use default values if needed
-	if config.RetryConfig == nil {
-		if t.DefaultRetryConfig != nil {
-			config.RetryConfig = t.DefaultRetryConfig
-		} else {
-			config.RetryConfig = t.Plugin.DefaultRetryConfig
-		}
-	}
-	if config.ShouldIgnoreError == nil {
-		if t.DefaultShouldIgnoreError != nil {
-			config.ShouldIgnoreError = t.DefaultShouldIgnoreError
-		} else {
-			config.ShouldIgnoreError = t.Plugin.DefaultShouldIgnoreError
-		}
-	}
+	// initialise the config to ensure retry and ignore config are populated, using table defaults if necessary
+	config.initialise(t)
 
 	// if no hydrate dependencies are specified in the hydrate config, check the deprecated "HydrateDependencies" property
 	if config.Depends == nil {

@@ -433,13 +433,13 @@ var getHydrateConfigTestTableWithDefaults = &Table{
 		{
 			Func:           hydrate3,
 			MaxConcurrency: 3,
-			RetryConfig:    &RetryConfig{shouldRetryError1},
+			RetryConfig:    &RetryConfig{ShouldRetryError: shouldRetryError1},
 		},
 		{
 			Func:              hydrate4,
 			MaxConcurrency:    4,
 			ShouldIgnoreError: shouldIgnoreError2,
-			RetryConfig:       &RetryConfig{shouldRetryError2},
+			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryError2},
 		},
 	},
 }
@@ -461,7 +461,7 @@ var getHydrateConfigTestTableNoDefaults = &Table{
 		{
 			Func:           hydrate3,
 			MaxConcurrency: 3,
-			RetryConfig:    &RetryConfig{shouldRetryError1},
+			RetryConfig:    &RetryConfig{ShouldRetryError: shouldRetryError1},
 		},
 	},
 }
@@ -482,7 +482,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 		expected: &HydrateConfig{
 			Func:              hydrate1,
 			MaxConcurrency:    1,
-			RetryConfig:       &RetryConfig{shouldRetryErrorTableDefault},
+			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryErrorTableDefault},
 			ShouldIgnoreError: shouldIgnoreErrorTableDefault,
 			Depends:           []HydrateFunc{hydrate2, hydrate3},
 		},
@@ -494,7 +494,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 		expected: &HydrateConfig{
 			Func:              hydrate2,
 			MaxConcurrency:    2,
-			RetryConfig:       &RetryConfig{shouldRetryErrorTableDefault},
+			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryErrorTableDefault},
 			ShouldIgnoreError: shouldIgnoreError1,
 		},
 	},
@@ -505,7 +505,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 		expected: &HydrateConfig{
 			Func:              hydrate3,
 			MaxConcurrency:    3,
-			RetryConfig:       &RetryConfig{shouldRetryError1},
+			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryError1},
 			ShouldIgnoreError: shouldIgnoreErrorTableDefault,
 		},
 	},
@@ -516,7 +516,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 		expected: &HydrateConfig{
 			Func:              hydrate1,
 			MaxConcurrency:    1,
-			RetryConfig:       &RetryConfig{shouldRetryErrorPluginDefault},
+			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryErrorPluginDefault},
 			ShouldIgnoreError: shouldIgnoreErrorPluginDefault,
 			Depends:           []HydrateFunc{hydrate2, hydrate3},
 		},
@@ -528,7 +528,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 		expected: &HydrateConfig{
 			Func:              hydrate2,
 			MaxConcurrency:    2,
-			RetryConfig:       &RetryConfig{shouldRetryErrorPluginDefault},
+			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryErrorPluginDefault},
 			ShouldIgnoreError: shouldIgnoreError1,
 		},
 	},
@@ -539,7 +539,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 		expected: &HydrateConfig{
 			Func:              hydrate3,
 			MaxConcurrency:    3,
-			RetryConfig:       &RetryConfig{shouldRetryError1},
+			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryError1},
 			ShouldIgnoreError: shouldIgnoreErrorPluginDefault,
 		},
 	},
@@ -550,7 +550,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 		expected: &HydrateConfig{
 			Func:              hydrate4,
 			MaxConcurrency:    4,
-			RetryConfig:       &RetryConfig{shouldRetryError2},
+			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryError2},
 			ShouldIgnoreError: shouldRetryError2,
 		},
 	},

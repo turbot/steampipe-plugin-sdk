@@ -50,6 +50,7 @@ type Plugin struct {
 	DefaultGetConfig         *GetConfig
 	DefaultConcurrency       *DefaultConcurrencyConfig
 	DefaultRetryConfig       *RetryConfig
+	DefaultIgnoreConfig      *IgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
 	// every table must implement these columns
 	RequiredColumns        []*Column
@@ -76,6 +77,23 @@ func (p *Plugin) Initialise() {
 	// default the schema mode to static
 	if p.SchemaMode == "" {
 		p.SchemaMode = SchemaModeStatic
+	}
+
+	// create DefaultRetryConfig if needed
+	if p.DefaultRetryConfig == nil {
+		p.DefaultRetryConfig = &RetryConfig{}
+	}
+
+	// create DefaultIgnoreConfig if needed
+	if p.DefaultIgnoreConfig == nil {
+		p.DefaultIgnoreConfig = &IgnoreConfig{}
+	}
+	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
+	p.DefaultIgnoreConfig.ShouldIgnoreError = p.DefaultShouldIgnoreError
+
+	// initialise the tables
+	for _, table := range p.TableMap {
+		table.initialise()
 	}
 
 	// set file limit

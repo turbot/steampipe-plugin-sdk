@@ -205,9 +205,9 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	var getItem interface{}
 
 	if len(queryData.Matrix) == 0 {
-		retryConfig, shouldIgnoreError := t.buildGetConfig()
+
 		// just invoke callHydrateWithRetries()
-		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
+		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
 	} else {
 		// the table has a matrix  - we will invoke get for each matrix  item
@@ -270,14 +270,13 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			}()
 			// create a context with the matrix item
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
-			retryConfig, shouldIgnoreError := t.buildGetConfig()
 
 			// clone the query data and add the matrix properties to quals
 			matrixQueryData := queryData.ShallowCopy()
 			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
 
 			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
-			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, retryConfig, shouldIgnoreError)
+			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
 			if err != nil {
 				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
@@ -452,11 +451,9 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
 	rd := newRowData(queryData, nil)
 
-	retryConfig, shouldIgnoreError := t.buildListConfig()
-
 	if len(queryData.Matrix) == 0 {
 		log.Printf("[TRACE] doList: no matrix item")
-		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, retryConfig, shouldIgnoreError); err != nil {
+		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, t.List.IgnoreConfig, t.List.RetryConfig); err != nil {
 			queryData.streamError(err)
 		}
 	} else {
@@ -498,11 +495,9 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			matrixQueryData := queryData.ShallowCopy()
 			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
 
-			retryConfig, shouldIgnoreError := t.buildListConfig()
-
 			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
 
-			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, retryConfig, shouldIgnoreError)
+			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, t.List.IgnoreConfig, t.List.RetryConfig)
 			if err != nil {
 				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
 				queryData.streamError(err)
@@ -528,25 +523,4 @@ func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryDat
 		}
 	}
 	return true
-}
-
-func (t *Table) buildGetConfig() (*RetryConfig, ErrorPredicate) {
-	retryConfig := t.Get.RetryConfig
-	if retryConfig == nil && t.Plugin.DefaultGetConfig != nil {
-		retryConfig = t.Plugin.DefaultGetConfig.RetryConfig
-	}
-	shouldIgnoreError := t.Get.ShouldIgnoreError
-	if shouldIgnoreError == nil && t.Plugin.DefaultGetConfig != nil {
-		shouldIgnoreError = t.Plugin.DefaultGetConfig.ShouldIgnoreError
-	}
-	return retryConfig, shouldIgnoreError
-}
-
-func (t *Table) buildListConfig() (*RetryConfig, ErrorPredicate) {
-	retryConfig := t.List.RetryConfig
-	if retryConfig == nil {
-		retryConfig = t.Plugin.DefaultRetryConfig
-	}
-	shouldIgnoreError := t.List.ShouldIgnoreError
-	return retryConfig, shouldIgnoreError
 }

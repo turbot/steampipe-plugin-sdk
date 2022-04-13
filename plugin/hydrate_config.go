@@ -12,28 +12,14 @@ type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
 	RetryConfig    *RetryConfig
-
+	IgnoreConfig   *IgnoreConfig
+	// deprecated - use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-	Depends           []HydrateFunc
-}
 
-func (c *HydrateConfig) DefaultTo(defaultConfig *HydrateConfig) {
-	if defaultConfig == nil {
-		return
-	}
-	if c.RetryConfig == nil {
-		c.RetryConfig = defaultConfig.RetryConfig
-	}
-	if c.Depends == nil {
-		c.Depends = defaultConfig.Depends
-	}
+	Depends []HydrateFunc
 }
 
 func (c *HydrateConfig) String() interface{} {
-	shouldIgnoreErrorString := ""
-	if c.ShouldIgnoreError != nil {
-		shouldIgnoreErrorString = helpers.GetFunctionName(c.Func)
-	}
 	var dependsStrings = make([]string, len(c.Depends))
 	for i, dep := range c.Depends {
 		dependsStrings[i] = helpers.GetFunctionName(dep)
@@ -41,11 +27,29 @@ func (c *HydrateConfig) String() interface{} {
 	return fmt.Sprintf(`Func: %s
 MaxConcurrency: %d
 RetryConfig: %s
-ShouldIgnoreError: %s
+IgnoreConfig: %s
 Depends: %s`,
 		helpers.GetFunctionName(c.Func),
 		c.MaxConcurrency,
 		c.RetryConfig.String(),
-		shouldIgnoreErrorString,
+		c.IgnoreConfig.String(),
 		strings.Join(dependsStrings, ","))
+}
+
+func (c *HydrateConfig) initialise(table *Table) {
+	// create RetryConfig if needed
+	if c.RetryConfig == nil {
+		c.RetryConfig = &RetryConfig{}
+	}
+
+	// create DefaultIgnoreConfig if needed
+	if c.IgnoreConfig == nil {
+		c.IgnoreConfig = &IgnoreConfig{}
+	}
+	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
+	c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
+
+	// default ignore and retry configs to table defaults
+	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
+	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 }

@@ -11,6 +11,7 @@ import (
 
 func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	var validationErrors []string
+
 	// does table have a name set?
 	if t.Name == "" {
 		validationErrors = append(validationErrors, fmt.Sprintf("table with key '%s' in plugin table map does not have a name property set", name))
@@ -26,8 +27,15 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	// the map entries are strings - ensure they correspond to actual functions
 	validationErrors = append(validationErrors, t.validateHydrateDependencies()...)
 
-	// verify any ALL key columns do not duplicate columns between ALL fields
+	validationErrors = append(validationErrors, t.DefaultRetryConfig.Validate()...)
 
+	validationErrors = append(validationErrors, t.DefaultIgnoreConfig.Validate()...)
+
+	for _, h := range t.HydrateConfig {
+		if h.RetryConfig != nil {
+			validationErrors = append(validationErrors, h.RetryConfig.Validate()...)
+		}
+	}
 	return validationErrors
 }
 
