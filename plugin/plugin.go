@@ -91,11 +91,6 @@ func (p *Plugin) Initialise() {
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	p.DefaultIgnoreConfig.ShouldIgnoreError = p.DefaultShouldIgnoreError
 
-	// initialise the tables
-	for _, table := range p.TableMap {
-		table.initialise()
-	}
-
 	// set file limit
 	p.setuLimit()
 }
@@ -284,7 +279,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 // initialiseTables does 2 things:
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
-// 2) update tables to have a reference to the plugin
+// 2) call initialise on the table, plassing the plugin pointer which the table stores
 func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 	if p.TableMapFunc != nil {
 		// handle panic in factory function
@@ -303,7 +298,7 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 
 	// update tables to have a reference to the plugin
 	for _, table := range p.TableMap {
-		table.Plugin = p
+		table.initialise(p)
 	}
 
 	// now validate the plugin

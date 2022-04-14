@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/turbot/go-kit/helpers"
 )
@@ -11,7 +12,7 @@ type RetryConfig struct {
 	ShouldRetryErrorFunc ErrorPredicateWithContext
 }
 
-func (c RetryConfig) String() interface{} {
+func (c *RetryConfig) String() interface{} {
 	if c.ShouldRetryError != nil {
 		return fmt.Sprintf("ShouldRetryError: %s", helpers.GetFunctionName(c.ShouldRetryError))
 	}
@@ -21,19 +22,27 @@ func (c RetryConfig) String() interface{} {
 	return ""
 }
 
-func (c RetryConfig) Validate() []string {
+func (c *RetryConfig) Validate(table *Table) []string {
 	if c.ShouldRetryError != nil && c.ShouldRetryErrorFunc != nil {
-		return []string{"both ShouldRetryError and ShouldRetryErrorFunc are defined"}
+		log.Printf("[TRACE] RetryConfig validate failed - both ShouldRetryError and ShouldRetryErrorFunc are defined")
+		var tablePrefix string
+		if table != nil {
+			tablePrefix = fmt.Sprintf("table '%s' ", table.Name)
+		}
+
+		return []string{fmt.Sprintf("%sboth ShouldRetryError and ShouldRetryErrorFunc are defined", tablePrefix)}
 	}
 	return nil
 }
 
-func (c RetryConfig) DefaultTo(other *RetryConfig) {
+func (c *RetryConfig) DefaultTo(other *RetryConfig) {
 	// legacy func
-	if c.ShouldRetryError == nil {
+	if c.ShouldRetryError == nil && other.ShouldRetryError != nil {
+		log.Printf("[TRACE] RetryConfig DefaultTo: using base ShouldRetryError: %s", helpers.GetFunctionName(other.ShouldRetryError))
 		c.ShouldRetryError = other.ShouldRetryError
 	}
-	if c.ShouldRetryErrorFunc == nil {
+	if c.ShouldRetryErrorFunc == nil && other.ShouldRetryErrorFunc != nil {
+		log.Printf("[TRACE] RetryConfig DefaultTo: using base ShouldRetryErrorFunc: %s", helpers.GetFunctionName(other.ShouldRetryErrorFunc))
 		c.ShouldRetryErrorFunc = other.ShouldRetryErrorFunc
 	}
 }

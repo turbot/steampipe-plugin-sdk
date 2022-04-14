@@ -1,5 +1,10 @@
 package plugin
 
+import (
+	"fmt"
+	"log"
+)
+
 // GetConfig is a struct used to define the configuration of the table 'Get' function.
 // This is the function used to retrieve a single row by id
 // The config defines the function, the columns which may be used as id (KeyColumns), and the error handling behaviour
@@ -17,6 +22,8 @@ type GetConfig struct {
 }
 
 func (c *GetConfig) initialise(table *Table) {
+	log.Printf("[TRACE] GetConfig initialise table %s", table.Name)
+
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
 		c.RetryConfig = &RetryConfig{}
@@ -27,10 +34,32 @@ func (c *GetConfig) initialise(table *Table) {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
-	c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
+	if c.IgnoreConfig.ShouldIgnoreError == nil {
+		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
+	}
 
 	// default ignore and retry configs to table defaults
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 
+	log.Printf("[TRACE] RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())
+}
+
+func (c *GetConfig) Validate(table *Table) []string {
+
+	var validationErrors []string
+
+	if c.Hydrate == nil {
+		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a hydrate function", table.Name))
+	}
+	if c.KeyColumns == nil {
+		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a KeyColumn", table.Name))
+	}
+	if c.RetryConfig != nil {
+		validationErrors = append(validationErrors, c.RetryConfig.Validate(table)...)
+	}
+	if c.IgnoreConfig != nil {
+		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
+	}
+	return validationErrors
 }

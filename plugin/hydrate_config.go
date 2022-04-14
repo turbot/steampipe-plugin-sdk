@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/turbot/go-kit/helpers"
@@ -37,6 +38,8 @@ Depends: %s`,
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
+	log.Printf("[TRACE] HydrateConfig initialise func %s, table %s", helpers.GetFunctionName(c.Func), table.Name)
+
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
 		c.RetryConfig = &RetryConfig{}
@@ -47,9 +50,28 @@ func (c *HydrateConfig) initialise(table *Table) {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
-	c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
+	if c.IgnoreConfig.ShouldIgnoreError == nil {
+		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
+	}
 
 	// default ignore and retry configs to table defaults
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
+
+	log.Printf("[TRACE] RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())
+}
+
+func (c *HydrateConfig) Validate(table *Table) []string {
+	var validationErrors []string
+	if c.Func == nil {
+		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' HydrateConfig does not specify a hydrate function", table.Name))
+	}
+
+	if c.RetryConfig != nil {
+		validationErrors = append(validationErrors, c.RetryConfig.Validate(table)...)
+	}
+	if c.IgnoreConfig != nil {
+		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
+	}
+	return validationErrors
 }

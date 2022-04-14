@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"log"
+
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
 )
@@ -40,7 +42,12 @@ type Table struct {
 	hydrateColumnMap map[string][]string
 }
 
-func (t *Table) initialise() {
+func (t *Table) initialise(p *Plugin) {
+	log.Printf("[TRACE] initialise table %s", t.Name)
+
+	// store the plugin pointer
+	t.Plugin = p
+
 	// create DefaultRetryConfig if needed
 	if t.DefaultRetryConfig == nil {
 		t.DefaultRetryConfig = &RetryConfig{}
@@ -56,6 +63,9 @@ func (t *Table) initialise() {
 	// apply plugin defaults for retry and ignore config
 	t.DefaultRetryConfig.DefaultTo(t.Plugin.DefaultRetryConfig)
 	t.DefaultIgnoreConfig.DefaultTo(t.Plugin.DefaultIgnoreConfig)
+
+	log.Printf("[TRACE] DefaultRetryConfig: %s", t.DefaultRetryConfig.String())
+	log.Printf("[TRACE] DefaultIgnoreConfig: %s", t.DefaultIgnoreConfig.String())
 
 	for _, h := range t.HydrateConfig {
 		h.initialise(t)
