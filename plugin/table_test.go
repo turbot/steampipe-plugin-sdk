@@ -369,7 +369,10 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 }
 
 func TestRequiredHydrateCalls(t *testing.T) {
+	plugin := &Plugin{}
+	plugin.Initialise()
 	for name, test := range testCasesRequiredHydrateCalls {
+		test.table.initialise(plugin)
 		result := test.table.requiredHydrateCalls(test.columns, test.fetchType)
 
 		if len(test.expected) == 0 && len(result) == 0 {
@@ -484,6 +487,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 			MaxConcurrency:    1,
 			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryErrorTableDefault},
 			ShouldIgnoreError: shouldIgnoreErrorTableDefault,
+			IgnoreConfig:      &IgnoreConfig{ShouldIgnoreError: shouldIgnoreErrorTableDefault},
 			Depends:           []HydrateFunc{hydrate2, hydrate3},
 		},
 	},
@@ -496,6 +500,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 			MaxConcurrency:    2,
 			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryErrorTableDefault},
 			ShouldIgnoreError: shouldIgnoreError1,
+			IgnoreConfig:      &IgnoreConfig{ShouldIgnoreError: shouldIgnoreError1},
 		},
 	},
 	"tables default should ignore": {
@@ -507,6 +512,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 			MaxConcurrency:    3,
 			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryError1},
 			ShouldIgnoreError: shouldIgnoreErrorTableDefault,
+			IgnoreConfig:      &IgnoreConfig{ShouldIgnoreError: shouldIgnoreErrorTableDefault},
 		},
 	},
 	"plugin default retry and should ignore": {
@@ -518,6 +524,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 			MaxConcurrency:    1,
 			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryErrorPluginDefault},
 			ShouldIgnoreError: shouldIgnoreErrorPluginDefault,
+			IgnoreConfig:      &IgnoreConfig{ShouldIgnoreError: shouldIgnoreErrorPluginDefault},
 			Depends:           []HydrateFunc{hydrate2, hydrate3},
 		},
 	},
@@ -530,6 +537,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 			MaxConcurrency:    2,
 			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryErrorPluginDefault},
 			ShouldIgnoreError: shouldIgnoreError1,
+			IgnoreConfig:      &IgnoreConfig{ShouldIgnoreError: shouldIgnoreError1},
 		},
 	},
 	"plugin default should ignore": {
@@ -541,6 +549,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 			MaxConcurrency:    3,
 			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryError1},
 			ShouldIgnoreError: shouldIgnoreErrorPluginDefault,
+			IgnoreConfig:      &IgnoreConfig{ShouldIgnoreError: shouldIgnoreErrorPluginDefault},
 		},
 	},
 	"no defaults": {
@@ -551,7 +560,8 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 			Func:              hydrate4,
 			MaxConcurrency:    4,
 			RetryConfig:       &RetryConfig{ShouldRetryError: shouldRetryError2},
-			ShouldIgnoreError: shouldRetryError2,
+			ShouldIgnoreError: shouldIgnoreError2,
+			IgnoreConfig:      &IgnoreConfig{ShouldIgnoreError: shouldIgnoreError2},
 		},
 	},
 }
@@ -582,7 +592,11 @@ func shouldRetryError2(error) bool {
 }
 
 func TestGetHydrateConfig(t *testing.T) {
+
 	for name, test := range testCasesGetHydrateConfig {
+		test.table.Plugin.Initialise()
+		test.table.initialise(test.table.Plugin)
+
 		result := test.table.getHydrateConfig(test.funcName)
 		actualString := result.String()
 		expectedString := test.expected.String()
