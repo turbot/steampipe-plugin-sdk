@@ -23,5 +23,12 @@ func (p *Plugin) Validate() string {
 		validationErrors = append(validationErrors, fmt.Sprintf("schema mode must be either %s or %s (if not specified it defaults to %s)", SchemaModeStatic, SchemaModeDynamic, SchemaModeStatic))
 	}
 
+	log.Printf("[TRACE] validate DefaultRetryConfig")
+	validationErrors = append(validationErrors, p.DefaultRetryConfig.Validate(nil)...)
+
+	log.Printf("[TRACE] validate DefaultIgnoreConfig")
+	validationErrors = append(validationErrors, p.DefaultIgnoreConfig.Validate(nil)...)
+
+	log.Printf("[TRACE] plugin has %d validation errors", len(validationErrors))
 	return strings.Join(validationErrors, "\n")
 }

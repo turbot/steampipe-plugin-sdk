@@ -53,7 +53,7 @@ func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, concu
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, d, h.Func, h.Name, h.Config.RetryConfig, h.Config.ShouldIgnoreError)
+		r.callHydrate(ctx, d, h.Func, h.Name, h.Config)
 		// decrement number of hydrate functions running
 		concurrencyManager.Finished(h.Name)
 	}()

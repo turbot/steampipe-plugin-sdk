@@ -161,7 +161,7 @@ func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 }
 
 // invoke a hydrate function, and set results on the rowData object. Stream errors on the rowData error channel
-func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) {
+func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, hydrateConfig *HydrateConfig) {
 	// handle panics in the row hydrate function
 	defer func() {
 		if p := recover(); p != nil {
@@ -174,7 +174,7 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	logging.LogTime(hydrateKey + " start")
 
 	// now call the hydrate function, passing the item and hydrate results so far
-	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, retryConfig, shouldIgnoreError)
+	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, hydrateConfig.IgnoreConfig, hydrateConfig.RetryConfig)
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
 		r.setError(hydrateKey, err)
@@ -190,10 +190,10 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 }
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
-func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, retryConfig *RetryConfig, shouldIgnoreError ErrorPredicate) (interface{}, error) {
+func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (interface{}, error) {
 	hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
-	hydrateWithIgnoreError := WrapHydrate(hydrateFunc, shouldIgnoreError)
+	var hydrateWithIgnoreError = WrapHydrate(hydrateFunc, ignoreConfig)
 	hydrateResult, err := hydrateWithIgnoreError(ctx, d, hydrateData)
 	if err != nil {
 		log.Printf("[TRACE] hydrateWithIgnoreError returned error %v", err)

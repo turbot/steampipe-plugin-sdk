@@ -50,6 +50,7 @@ type Plugin struct {
 	DefaultGetConfig         *GetConfig
 	DefaultConcurrency       *DefaultConcurrencyConfig
 	DefaultRetryConfig       *RetryConfig
+	DefaultIgnoreConfig      *IgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
 	// every table must implement these columns
 	RequiredColumns        []*Column
@@ -77,6 +78,18 @@ func (p *Plugin) Initialise() {
 	if p.SchemaMode == "" {
 		p.SchemaMode = SchemaModeStatic
 	}
+
+	// create DefaultRetryConfig if needed
+	if p.DefaultRetryConfig == nil {
+		p.DefaultRetryConfig = &RetryConfig{}
+	}
+
+	// create DefaultIgnoreConfig if needed
+	if p.DefaultIgnoreConfig == nil {
+		p.DefaultIgnoreConfig = &IgnoreConfig{}
+	}
+	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
+	p.DefaultIgnoreConfig.ShouldIgnoreError = p.DefaultShouldIgnoreError
 
 	// set file limit
 	p.setuLimit()
@@ -266,7 +279,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 // initialiseTables does 2 things:
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
-// 2) update tables to have a reference to the plugin
+// 2) call initialise on the table, plassing the plugin pointer which the table stores
 func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 	if p.TableMapFunc != nil {
 		// handle panic in factory function
@@ -285,7 +298,7 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 
 	// update tables to have a reference to the plugin
 	for _, table := range p.TableMap {
-		table.Plugin = p
+		table.initialise(p)
 	}
 
 	// now validate the plugin

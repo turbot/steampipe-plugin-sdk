@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/stevenle/topsort"
@@ -10,7 +11,10 @@ import (
 )
 
 func (t *Table) validate(name string, requiredColumns []*Column) []string {
+	log.Printf("[TRACE] validate table %s", t.Name)
+
 	var validationErrors []string
+
 	// does table have a name set?
 	if t.Name == "" {
 		validationErrors = append(validationErrors, fmt.Sprintf("table with key '%s' in plugin table map does not have a name property set", name))
@@ -26,8 +30,15 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	// the map entries are strings - ensure they correspond to actual functions
 	validationErrors = append(validationErrors, t.validateHydrateDependencies()...)
 
-	// verify any ALL key columns do not duplicate columns between ALL fields
+	validationErrors = append(validationErrors, t.DefaultRetryConfig.Validate(t)...)
 
+	validationErrors = append(validationErrors, t.DefaultIgnoreConfig.Validate(t)...)
+
+	for _, h := range t.HydrateConfig {
+		validationErrors = append(validationErrors, h.Validate(t)...)
+	}
+
+	log.Printf("[TRACE] table %s has %d validation errors", t.Name, len(validationErrors))
 	return validationErrors
 }
 
@@ -87,17 +98,10 @@ func (t *Table) validateListAndGetConfig() []string {
 	}
 
 	if t.Get != nil {
-		if t.Get.Hydrate == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a hydrate function", t.Name))
-		}
-		if t.Get.KeyColumns == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a KeyColumn", t.Name))
-		}
+		validationErrors = append(validationErrors, t.Get.Validate(t)...)
 	}
 	if t.List != nil {
-		if t.List.Hydrate == nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' ListConfig does not specify a hydrate function", t.Name))
-		}
+		validationErrors = append(validationErrors, t.List.Validate(t)...)
 	}
 
 	// verify any key columns defined for GET only use '=' operators
