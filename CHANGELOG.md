@@ -1,3 +1,7 @@
+## v3.2.0  [tbd]
+_What's new_
+* Add new implementations of ShouldIgnoreError and ShouldRetryError functions which receive the same input data as other hydrate functions. ([#261](https://github.com/turbot/steampipe-plugin-sdk/issues/261))
+
 ## v3.1.0  [2022-03-30]
 _What's new_
 * Add `CacheMatch` property to `KeyColumn`, to support key columns which require exact matching to be considered a cache hit. ([#298](https://github.com/turbot/steampipe-plugin-sdk/issues/298))
