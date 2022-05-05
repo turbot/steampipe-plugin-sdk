@@ -364,7 +364,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
 	listCall := t.List.Hydrate
 	// if there is a parent hydrate function, call that
-	// - the child 'Hydrate' function will be called by QueryData.StreamListIte,
+	// - the child 'Hydrate' function will be called by QueryData.StreamListItem,
 	if t.List.ParentHydrate != nil {
 		listCall = t.List.ParentHydrate
 	}
