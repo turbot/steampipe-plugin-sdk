@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
@@ -173,19 +174,20 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 	logging.LogTime(hydrateKey + " start")
 
+	log.Printf("[TRACE] callHydrate %s, hydrateConfig %s\n", helpers.GetFunctionName(hydrateFunc), hydrateConfig.String())
+
 	// now call the hydrate function, passing the item and hydrate results so far
 	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, hydrateConfig.IgnoreConfig, hydrateConfig.RetryConfig)
 	if err != nil {
 		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
 		r.setError(hydrateKey, err)
 		r.errorChan <- err
-	} else if hydrateData != nil {
-		r.set(hydrateKey, hydrateData)
 	} else {
-		// the the hydrate results to an empty data object
-		r.set(hydrateKey, emptyHydrateResults{})
+		// set the hydrate data, even if it is nil
+		// (it may legitimately be nil if the hydrate function returned an ignored error)
+		// if we do not set it for nil values, we will get error that required hydrate functions hav enot been called
+		r.set(hydrateKey, hydrateData)
 	}
-
 	logging.LogTime(hydrateKey + " end")
 }
 
@@ -198,7 +200,7 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 	if err != nil {
 		log.Printf("[TRACE] hydrateWithIgnoreError returned error %v", err)
 
-		if shouldRetryError(err, d, retryConfig) {
+		if shouldRetryError(ctx, d, hydrateData, err, retryConfig) {
 			log.Printf("[TRACE] retrying hydrate")
 			hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrateFunc, retryConfig)
@@ -208,7 +210,7 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 	return hydrateResult, err
 }
 
-func shouldRetryError(err error, d *QueryData, retryConfig *RetryConfig) bool {
+func shouldRetryError(ctx context.Context, d *QueryData, h *HydrateData, err error, retryConfig *RetryConfig) bool {
 	if retryConfig == nil {
 		return false
 	}
@@ -217,12 +219,16 @@ func shouldRetryError(err error, d *QueryData, retryConfig *RetryConfig) bool {
 		return false
 	}
 
-	shouldRetryErrorFunc := retryConfig.ShouldRetryError
-	if shouldRetryErrorFunc == nil {
-		return false
+	// see if the ignoreConfig defines a should ignore function
+	if retryConfig.ShouldRetryError != nil {
+		return retryConfig.ShouldRetryError(err)
 	}
-	// a shouldRetryErrorFunc is declared in the retry config - call it to see if we should retry
-	return shouldRetryErrorFunc(err)
+
+	if retryConfig.ShouldRetryErrorFunc != nil {
+		return retryConfig.ShouldRetryErrorFunc(ctx, d, h, err)
+	}
+
+	return false
 }
 
 func (r *RowData) set(key string, item interface{}) error {

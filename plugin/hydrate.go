@@ -33,6 +33,8 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 
 // WrapHydrate is a higher order function which returns a HydrateFunc which handles Ignorable errors
 func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFunc {
+	log.Printf("[TRACE] WrapHydrate %s, ignore config %s\n", helpers.GetFunctionName(hydrateFunc), ignoreConfig.String())
+
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -43,7 +45,7 @@ func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFun
 		// call the underlying get function
 		item, err = hydrateFunc(ctx, d, h)
 		if err != nil {
-			log.Printf("[TRACE] wrapped hydrate call %s returned error %v\n", helpers.GetFunctionName(hydrateFunc), err)
+			log.Printf("[TRACE] wrapped hydrate call %s returned error %v, ignore config %s\n", helpers.GetFunctionName(hydrateFunc), err, ignoreConfig.String())
 			// see if the ignoreConfig defines a should ignore function
 			if ignoreConfig.ShouldIgnoreError != nil && ignoreConfig.ShouldIgnoreError(err) {
 				log.Printf("[TRACE] wrapped hydrate call %s returned error but we are ignoring it: %v", helpers.GetFunctionName(hydrateFunc), err)
