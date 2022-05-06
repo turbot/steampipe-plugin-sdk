@@ -193,14 +193,15 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
 func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (interface{}, error) {
-	hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
+	log.Printf("[TRACE] callHydrateWithRetries: %s", helpers.GetFunctionName(hydrateFunc))
+	h := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
 	var hydrateWithIgnoreError = WrapHydrate(hydrateFunc, ignoreConfig)
-	hydrateResult, err := hydrateWithIgnoreError(ctx, d, hydrateData)
+	hydrateResult, err := hydrateWithIgnoreError(ctx, d, h)
 	if err != nil {
 		log.Printf("[TRACE] hydrateWithIgnoreError returned error %v", err)
 
-		if shouldRetryError(ctx, d, hydrateData, err, retryConfig) {
+		if shouldRetryError(ctx, d, h, err, retryConfig) {
 			log.Printf("[TRACE] retrying hydrate")
 			hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrateFunc, retryConfig)
@@ -211,20 +212,21 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 }
 
 func shouldRetryError(ctx context.Context, d *QueryData, h *HydrateData, err error, retryConfig *RetryConfig) bool {
+	log.Printf("[TRACE] shouldRetryError err: %v, retryConfig: %s", err, retryConfig.String())
+
 	if retryConfig == nil {
-		return false
-	}
-	// if we have started streaming, we cannot retry
-	if d.QueryStatus.rowsStreamed != 0 {
+		log.Printf("[TRACE] shouldRetryError nil retry config - return false")
 		return false
 	}
 
 	// see if the ignoreConfig defines a should ignore function
 	if retryConfig.ShouldRetryError != nil {
+		log.Printf("[TRACE] shouldRetryError - calling legacy ShouldRetryError")
 		return retryConfig.ShouldRetryError(err)
 	}
 
 	if retryConfig.ShouldRetryErrorFunc != nil {
+		log.Printf("[TRACE] shouldRetryError - calling ShouldRetryFunc")
 		return retryConfig.ShouldRetryErrorFunc(ctx, d, h, err)
 	}
 

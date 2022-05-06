@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -51,4 +52,30 @@ func (c *RetryConfig) DefaultTo(other *RetryConfig) {
 		log.Printf("[TRACE] RetryConfig DefaultTo: using base ShouldRetryErrorFunc: %s", helpers.GetFunctionName(other.ShouldRetryErrorFunc))
 		c.ShouldRetryErrorFunc = other.ShouldRetryErrorFunc
 	}
+}
+
+// GetListRetryConfig  wraps the ShouldRetry function with an additional check of the rows streamed
+// (as we cannot retry errors in the list hydrate function after streaming has started)
+func (c *RetryConfig) GetListRetryConfig() *RetryConfig {
+	listRetryConfig := &RetryConfig{}
+	if c.ShouldRetryErrorFunc != nil {
+		listRetryConfig.ShouldRetryErrorFunc = func(ctx context.Context, d *QueryData, h *HydrateData, err error) bool {
+			if d.QueryStatus.rowsStreamed != 0 {
+				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.QueryStatus.rowsStreamed)
+				return false
+			}
+			res := c.ShouldRetryErrorFunc(ctx, d, h, err)
+			return res
+		}
+	} else if c.ShouldRetryError != nil {
+		listRetryConfig.ShouldRetryErrorFunc = func(ctx context.Context, d *QueryData, h *HydrateData, err error) bool {
+			if d.QueryStatus.rowsStreamed != 0 {
+				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.QueryStatus.rowsStreamed)
+				return false
+			}
+			// call the legacy function
+			return c.ShouldRetryError(err)
+		}
+	}
+	return listRetryConfig
 }
