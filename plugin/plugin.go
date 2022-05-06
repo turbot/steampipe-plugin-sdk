@@ -76,23 +76,29 @@ func (p *Plugin) Initialise() {
 	p.Logger = p.setupLogger()
 	// default the schema mode to static
 	if p.SchemaMode == "" {
+		log.Println("[TRACE] defaulting SchemaMode to SchemaModeStatic")
 		p.SchemaMode = SchemaModeStatic
 	}
 
 	// create DefaultRetryConfig if needed
 	if p.DefaultRetryConfig == nil {
+		log.Printf("[TRACE] no DefaultRetryConfig defined - creating empty")
 		p.DefaultRetryConfig = &RetryConfig{}
 	}
 
 	// create DefaultIgnoreConfig if needed
 	if p.DefaultIgnoreConfig == nil {
+		log.Printf("[TRACE] no DefaultIgnoreConfig defined - creating empty")
 		p.DefaultIgnoreConfig = &IgnoreConfig{}
 	}
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
-	p.DefaultIgnoreConfig.ShouldIgnoreError = p.DefaultShouldIgnoreError
+	if p.DefaultShouldIgnoreError != nil && p.DefaultIgnoreConfig.ShouldIgnoreError == nil {
+		p.DefaultIgnoreConfig.ShouldIgnoreError = p.DefaultShouldIgnoreError
+	}
 
 	// set file limit
 	p.setuLimit()
+
 }
 
 // SetConnectionConfig parses the connection config string, and populate the connection data for this connection.

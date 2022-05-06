@@ -40,6 +40,7 @@ type Table struct {
 
 	// map of hydrate function name to columns it provides
 	hydrateColumnMap map[string][]string
+	hydrateConfigMap map[string]*HydrateConfig
 }
 
 func (t *Table) initialise(p *Plugin) {
@@ -50,33 +51,85 @@ func (t *Table) initialise(p *Plugin) {
 
 	// create DefaultRetryConfig if needed
 	if t.DefaultRetryConfig == nil {
+		log.Printf("[TRACE] no DefaultRetryConfig defined - creating empty")
 		t.DefaultRetryConfig = &RetryConfig{}
 	}
 
 	// create DefaultIgnoreConfig if needed
 	if t.DefaultIgnoreConfig == nil {
+		log.Printf("[TRACE] no DefaultIgnoreConfig defined - creating empty")
 		t.DefaultIgnoreConfig = &IgnoreConfig{}
 	}
-	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
-	t.DefaultIgnoreConfig.ShouldIgnoreError = t.DefaultShouldIgnoreError
+
+	if t.DefaultShouldIgnoreError != nil && t.DefaultIgnoreConfig.ShouldIgnoreError == nil {
+		// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
+		t.DefaultIgnoreConfig.ShouldIgnoreError = t.DefaultShouldIgnoreError
+		log.Printf("[TRACE] legacy DefaultShouldIgnoreError defined - copying into DefaultIgnoreConfig")
+	}
 
 	// apply plugin defaults for retry and ignore config
+	log.Printf("[TRACE] apply plugin defaults for DefaultRetryConfig")
 	t.DefaultRetryConfig.DefaultTo(t.Plugin.DefaultRetryConfig)
+	log.Printf("[TRACE] apply plugin defaults for DefaultIgnoreConfig, table %v plugin %v", t.DefaultIgnoreConfig, t.Plugin.DefaultIgnoreConfig)
 	t.DefaultIgnoreConfig.DefaultTo(t.Plugin.DefaultIgnoreConfig)
 
 	log.Printf("[TRACE] DefaultRetryConfig: %s", t.DefaultRetryConfig.String())
 	log.Printf("[TRACE] DefaultIgnoreConfig: %s", t.DefaultIgnoreConfig.String())
 
-	for _, h := range t.HydrateConfig {
-		h.initialise(t)
-	}
+	// HydrateConfig contains explicit config for hydrate functions but there may bde other hydrate functions
+	// declared for specific columns which do not have config defined
+	// build a map of all hydrate functions, with empty config if needed
+	// NOTE: this map also includes information from the legacy HydrateDependencies property
+	t.initialiseHydrateConfigs()
+
+	// get and list configs are similar to hydrate configs but they cannot specify dependencies
+	// we initialise them separately
 	if t.Get != nil {
 		t.Get.initialise(t)
 	}
 	if t.List != nil {
 		t.List.initialise(t)
 	}
+	log.Printf("[TRACE] initialise table %s COMPLETE", t.Name)
+}
 
+// build map of all hydrate configs, and initialise them
+func (t *Table) initialiseHydrateConfigs() {
+	// first build a map of all hydrate functions
+	t.buildHydrateConfigMap()
+
+	//  initialise all hydrate configs in map
+	for _, h := range t.hydrateConfigMap {
+		h.initialise(t)
+	}
+}
+
+// build map of all hydrate configs, including those specified in the legacy HydrateDependencies,
+// and those mentioned only in column config
+func (t *Table) buildHydrateConfigMap() {
+	t.hydrateConfigMap = make(map[string]*HydrateConfig)
+	for _, h := range t.HydrateConfig {
+		t.hydrateConfigMap[helpers.GetFunctionName(h.Func)] = &h
+	}
+	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies
+	for _, d := range t.HydrateDependencies {
+		hydrateName := helpers.GetFunctionName(d.Func)
+		// if there is already a hydrate config, do nothing here
+		// (this is a validation error that will be picked up by the validation check later)
+		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
+			t.hydrateConfigMap[hydrateName] = &HydrateConfig{Func: d.Func, Depends: d.Depends}
+		}
+	}
+	// now add all hydrate functions with no explicit config
+	for _, c := range t.Columns {
+		if c.Hydrate == nil {
+			continue
+		}
+		hydrateName := helpers.GetFunctionName(c.Hydrate)
+		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
+			t.hydrateConfigMap[hydrateName] = &HydrateConfig{Func: c.Hydrate}
+		}
+	}
 }
 
 // build a list of required hydrate function calls which must be executed, based on the columns which have been requested
@@ -125,40 +178,4 @@ func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
 		return t.List.Hydrate
 	}
 	return t.Get.Hydrate
-}
-
-// search through HydrateConfig and HydrateDependencies finding a function with the given name
-// if found return its dependencies
-func (t *Table) getHydrateDependencies(hydrateFuncName string) []HydrateFunc {
-	for _, d := range t.HydrateConfig {
-		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
-			return d.Depends
-		}
-	}
-	for _, d := range t.HydrateDependencies {
-		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
-			return d.Depends
-		}
-	}
-	return []HydrateFunc{}
-}
-
-func (t *Table) getHydrateConfig(hydrateFuncName string) *HydrateConfig {
-	config := &HydrateConfig{}
-	// if a hydrate config is defined see whether this call exists in it
-	for _, d := range t.HydrateConfig {
-		if helpers.GetFunctionName(d.Func) == hydrateFuncName {
-			config = &d
-			break
-		}
-	}
-	// initialise the config to ensure retry and ignore config are populated, using table defaults if necessary
-	config.initialise(t)
-
-	// if no hydrate dependencies are specified in the hydrate config, check the deprecated "HydrateDependencies" property
-	if config.Depends == nil {
-		config.Depends = t.getHydrateDependencies(hydrateFuncName)
-	}
-
-	return config
 }

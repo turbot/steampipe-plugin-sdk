@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/gertd/go-pluralize"
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
@@ -19,22 +20,31 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	if t.Name == "" {
 		validationErrors = append(validationErrors, fmt.Sprintf("table with key '%s' in plugin table map does not have a name property set", name))
 	}
+
+	log.Printf("[TRACE] validateRequiredColumns")
 	// verify all required columns exist
 	validationErrors = t.validateRequiredColumns(requiredColumns)
 
+	log.Printf("[TRACE] validateListAndGetConfig")
 	// validated list and get config
 	// NOTE: this also sets key column require and operators to default value if not specified
 	validationErrors = append(validationErrors, t.validateListAndGetConfig()...)
 
+	log.Printf("[TRACE] validateHydrateDependencies")
 	// verify hydrate dependencies are valid
 	// the map entries are strings - ensure they correspond to actual functions
 	validationErrors = append(validationErrors, t.validateHydrateDependencies()...)
 
+	log.Printf("[TRACE] DefaultRetryConfig")
 	validationErrors = append(validationErrors, t.DefaultRetryConfig.Validate(t)...)
 
+	log.Printf("[TRACE] DefaultIgnoreConfig")
 	validationErrors = append(validationErrors, t.DefaultIgnoreConfig.Validate(t)...)
 
-	for _, h := range t.HydrateConfig {
+	log.Printf("[TRACE] validate hydrate configs")
+
+	for _, h := range t.hydrateConfigMap {
+		log.Printf("[TRACE] validate hdrate config for  '%s'", helpers.GetFunctionName(h.Func))
 		validationErrors = append(validationErrors, h.Validate(t)...)
 	}
 
@@ -120,15 +130,46 @@ func (t *Table) validateHydrateDependencies() []string {
 	var validationErrors []string
 	if len(t.HydrateDependencies)+len(t.HydrateConfig) != 0 {
 		if t.List != nil {
-			deps := t.getHydrateDependencies(helpers.GetFunctionName(t.List.Hydrate))
-			if len(deps) > 0 {
-				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has %d dependencies - List hydrate functions cannot have dependencies", t.Name, helpers.GetFunctionName(t.List.Hydrate), len(deps)))
+			// there should be no config in the hydrateConfigMap matching the list or get config
+			if invalidListHydrateConfig, ok := t.hydrateConfigMap[helpers.GetFunctionName(t.List.Hydrate)]; ok {
+				// so there is a hydrate config for the list call - this is invalid
+
+				// is it because hydrate dependencies were declared for the list call?
+				if len(invalidListHydrateConfig.Depends) > 0 {
+					numDeps := len(invalidListHydrateConfig.Depends)
+					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has %d %s - List hydrate functions cannot have dependencies",
+						t.Name,
+						helpers.GetFunctionName(t.List.Hydrate),
+						numDeps,
+						pluralize.NewClient().Pluralize("dependency", numDeps, false)))
+				} else {
+					// otherwise, show general error
+					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has a hydrate config declared - this is invalid, this function must be configured using the ListConfig only"),
+						t.Name,
+						helpers.GetFunctionName(t.List.Hydrate),
+					)
+				}
 			}
 		}
 		if t.Get != nil {
-			deps := t.getHydrateDependencies(helpers.GetFunctionName(t.Get.Hydrate))
-			if len(deps) > 0 {
-				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' has %d dependencies - Get hydrate functions cannot have dependencies", t.Name, helpers.GetFunctionName(t.Get.Hydrate), len(deps)))
+			if invalidGetHydrateConfig, ok := t.hydrateConfigMap[helpers.GetFunctionName(t.Get.Hydrate)]; ok {
+				// so there is a hydrate config for the get call - this is invalid
+
+				// is it because hydrate dependencies were declared for the get call?
+				if len(invalidGetHydrateConfig.Depends) > 0 {
+					numDeps := len(invalidGetHydrateConfig.Depends)
+					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' has %d %s - Get hydrate functions cannot have dependencies",
+						t.Name,
+						helpers.GetFunctionName(t.Get.Hydrate),
+						numDeps,
+						pluralize.NewClient().Pluralize("dependency", numDeps, false)))
+				} else {
+					// otherwise, show general error
+					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' has a hydrate config declared - this is invalid, this function must be configured using the GetConfig only",
+						t.Name,
+						helpers.GetFunctionName(t.Get.Hydrate),
+					))
+				}
 			}
 		}
 	}
@@ -157,10 +198,7 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 		}
 	}
 
-	for _, hydrateDeps := range t.HydrateDependencies {
-		updateDependencyGraph(hydrateDeps.Func, hydrateDeps.Depends)
-	}
-	for _, hydrateConfig := range t.HydrateConfig {
+	for _, hydrateConfig := range t.hydrateConfigMap {
 		updateDependencyGraph(hydrateConfig.Func, hydrateConfig.Depends)
 	}
 

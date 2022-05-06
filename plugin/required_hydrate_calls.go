@@ -29,7 +29,7 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
 		}
 
 		// get the config for this hydrate function
-		config := c.table.getHydrateConfig(hydrateName)
+		config := c.table.hydrateConfigMap[hydrateName]
 
 		c.requiredHydrateCalls[hydrateName] = newHydrateCall(hydrateFunc, config)
 
