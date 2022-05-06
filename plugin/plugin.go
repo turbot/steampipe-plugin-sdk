@@ -98,7 +98,6 @@ func (p *Plugin) Initialise() {
 
 	// set file limit
 	p.setuLimit()
-
 }
 
 // SetConnectionConfig parses the connection config string, and populate the connection data for this connection.

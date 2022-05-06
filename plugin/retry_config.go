@@ -36,6 +36,12 @@ func (c *RetryConfig) Validate(table *Table) []string {
 }
 
 func (c *RetryConfig) DefaultTo(other *RetryConfig) {
+	// if either ShouldIgnoreError or ShouldIgnoreErrorFunc are set, do not default to other
+	if c.ShouldRetryError != nil || c.ShouldRetryErrorFunc != nil {
+		log.Printf("[TRACE] RetryConfig DefaultTo: config defines a should retry function so not defaulting to base")
+		return
+	}
+
 	// legacy func
 	if c.ShouldRetryError == nil && other.ShouldRetryError != nil {
 		log.Printf("[TRACE] RetryConfig DefaultTo: using base ShouldRetryError: %s", helpers.GetFunctionName(other.ShouldRetryError))
