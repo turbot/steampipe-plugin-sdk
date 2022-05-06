@@ -205,32 +205,11 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 			log.Printf("[TRACE] retrying hydrate")
 			hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrateFunc, retryConfig)
+			log.Printf("[TRACE] back from retry")
 		}
 	}
 
 	return hydrateResult, err
-}
-
-func shouldRetryError(ctx context.Context, d *QueryData, h *HydrateData, err error, retryConfig *RetryConfig) bool {
-	log.Printf("[TRACE] shouldRetryError err: %v, retryConfig: %s", err, retryConfig.String())
-
-	if retryConfig == nil {
-		log.Printf("[TRACE] shouldRetryError nil retry config - return false")
-		return false
-	}
-
-	// see if the ignoreConfig defines a should ignore function
-	if retryConfig.ShouldRetryError != nil {
-		log.Printf("[TRACE] shouldRetryError - calling legacy ShouldRetryError")
-		return retryConfig.ShouldRetryError(err)
-	}
-
-	if retryConfig.ShouldRetryErrorFunc != nil {
-		log.Printf("[TRACE] shouldRetryError - calling ShouldRetryFunc")
-		return retryConfig.ShouldRetryErrorFunc(ctx, d, h, err)
-	}
-
-	return false
 }
 
 func (r *RowData) set(key string, item interface{}) error {

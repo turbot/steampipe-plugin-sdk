@@ -9,8 +9,9 @@ import (
 )
 
 type RetryConfig struct {
-	ShouldRetryError     ErrorPredicate
 	ShouldRetryErrorFunc ErrorPredicateWithContext
+	// deprecated use ShouldRetryErrorFunc
+	ShouldRetryError ErrorPredicate
 }
 
 func (c *RetryConfig) String() interface{} {

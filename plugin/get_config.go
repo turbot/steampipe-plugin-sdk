@@ -22,7 +22,7 @@ type GetConfig struct {
 }
 
 func (c *GetConfig) initialise(table *Table) {
-	log.Printf("[TRACE] GetConfig.initialise table %s, RetryConfig: %s, IgnoreConfig: %s", table.Name, c.RetryConfig.String(), c.IgnoreConfig.String())
+	log.Printf("[TRACE] GetConfig.initialise table %s", table.Name)
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
 		c.RetryConfig = &RetryConfig{}

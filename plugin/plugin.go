@@ -45,12 +45,15 @@ type Plugin struct {
 	// TableMapFunc is a callback function which can be used to populate the table map
 	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
 	// (connection config is not available at plugin creation time)
-	TableMapFunc             func(ctx context.Context, p *Plugin) (map[string]*Table, error)
-	DefaultTransform         *transform.ColumnTransforms
-	DefaultGetConfig         *GetConfig
-	DefaultConcurrency       *DefaultConcurrencyConfig
-	DefaultRetryConfig       *RetryConfig
-	DefaultIgnoreConfig      *IgnoreConfig
+	TableMapFunc        func(ctx context.Context, p *Plugin) (map[string]*Table, error)
+	DefaultTransform    *transform.ColumnTransforms
+	DefaultConcurrency  *DefaultConcurrencyConfig
+	DefaultRetryConfig  *RetryConfig
+	DefaultIgnoreConfig *IgnoreConfig
+
+	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
+	DefaultGetConfig *GetConfig
+	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
 	// every table must implement these columns
 	RequiredColumns        []*Column

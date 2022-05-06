@@ -9,8 +9,9 @@ import (
 )
 
 type IgnoreConfig struct {
-	ShouldIgnoreError     ErrorPredicate
 	ShouldIgnoreErrorFunc ErrorPredicateWithContext
+	// deprecated, used ShouldIgnoreErrorFunc
+	ShouldIgnoreError ErrorPredicate
 }
 
 func (c *IgnoreConfig) String() interface{} {

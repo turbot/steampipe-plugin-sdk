@@ -26,10 +26,12 @@ type Table struct {
 	// default transform applied to all columns
 	DefaultTransform *transform.ColumnTransforms
 	// function controlling default error handling behaviour
+	DefaultIgnoreConfig *IgnoreConfig
+	DefaultRetryConfig  *RetryConfig
+
 	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
-	DefaultIgnoreConfig      *IgnoreConfig
-	DefaultRetryConfig       *RetryConfig
+
 	// the parent plugin object
 	Plugin *Plugin
 	// Deprecated: used HydrateConfig
@@ -82,13 +84,19 @@ func (t *Table) initialise(p *Plugin) {
 	// NOTE: this map also includes information from the legacy HydrateDependencies property
 	t.initialiseHydrateConfigs()
 
+	log.Printf("[TRACE] back from initialiseHydrateConfigs")
+
 	// get and list configs are similar to hydrate configs but they cannot specify dependencies
 	// we initialise them separately
 	if t.Get != nil {
+		log.Printf("[TRACE] t.Get.initialise")
 		t.Get.initialise(t)
+		log.Printf("[TRACE] back from t.Get.initialise")
 	}
 	if t.List != nil {
+		log.Printf("[TRACE] t.List.initialise")
 		t.List.initialise(t)
+		log.Printf("[TRACE] back from t.List.initialise")
 	}
 	log.Printf("[TRACE] initialise table %s COMPLETE", t.Name)
 }
@@ -173,7 +181,6 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 }
 
 func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
-
 	if fetchType == fetchTypeList {
 		return t.List.Hydrate
 	}
