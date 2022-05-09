@@ -766,7 +766,7 @@ func TestGetHydrateConfig(t *testing.T) {
 		test.table.Plugin.Initialise()
 		test.table.initialise(test.table.Plugin)
 
-		result := test.table.getHydrateConfig(test.funcName)
+		result := test.table.hydrateConfigMap[test.funcName]
 		actualString := result.String()
 		expectedString := test.expected.String()
 		if expectedString != actualString {

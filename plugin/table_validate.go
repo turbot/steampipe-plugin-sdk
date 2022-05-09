@@ -144,10 +144,10 @@ func (t *Table) validateHydrateDependencies() []string {
 						pluralize.NewClient().Pluralize("dependency", numDeps, false)))
 				} else {
 					// otherwise, show general error
-					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has a hydrate config declared - this is invalid, this function must be configured using the ListConfig only"),
+					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has a hydrate config declared - this is invalid, this function must be configured using the ListConfig only",
 						t.Name,
 						helpers.GetFunctionName(t.List.Hydrate),
-					)
+					))
 				}
 			}
 		}
