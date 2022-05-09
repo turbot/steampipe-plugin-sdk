@@ -44,7 +44,7 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	log.Printf("[TRACE] validate hydrate configs")
 
 	for _, h := range t.hydrateConfigMap {
-		log.Printf("[TRACE] validate hdrate config for  '%s'", helpers.GetFunctionName(h.Func))
+		log.Printf("[TRACE] validate hydrate config for  '%s'", helpers.GetFunctionName(h.Func))
 		validationErrors = append(validationErrors, h.Validate(t)...)
 	}
 
