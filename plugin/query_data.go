@@ -67,8 +67,9 @@ type QueryData struct {
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
-	parentItem     interface{}
-	filteredMatrix []map[string]interface{}
+	parentItem      interface{}
+	filteredMatrix  []map[string]interface{}
+	parentQueryData *QueryData
 }
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager, callId string) *QueryData {
@@ -369,9 +370,8 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	}
 
 	parentHydrateName := helpers.GetFunctionName(parentListHydrate)
-	Logger(ctx).Trace("StreamListItem: called from parent hydrate function - streaming result to child hydrate function",
-		"parent hydrate", parentHydrateName,
-		"child hydrate", helpers.GetFunctionName(d.Table.List.Hydrate))
+	log.Printf("[TRACE] StreamListItem: called from parent hydrate function - streaming result to child hydrate function, qd: %p, parent hydrate: %s, child hydrate: %s",
+		d, parentHydrateName, helpers.GetFunctionName(d.Table.List.Hydrate))
 	d.listWg.Add(1)
 
 	go func() {
@@ -388,6 +388,7 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 		defer d.listWg.Done()
 		// create a copy of query data with the stream function set to streamLeafListItem
 		childQueryData := d.ShallowCopy()
+		childQueryData.parentQueryData = d
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
 		childQueryData.parentItem = item
@@ -408,6 +409,8 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	}
 	// increment the stream count
 	d.QueryStatus.rowsStreamed++
+
+	log.Printf("[TRACE] streamLeafListItem qd: %p, rows streamed: %d", d, d.QueryStatus.rowsStreamed)
 
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
