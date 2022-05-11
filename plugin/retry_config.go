@@ -62,19 +62,18 @@ func (c *RetryConfig) GetListRetryConfig() *RetryConfig {
 	if c.ShouldRetryErrorFunc != nil {
 		listRetryConfig.ShouldRetryErrorFunc = func(ctx context.Context, d *QueryData, h *HydrateData, err error) bool {
 			if d.QueryStatus.rowsStreamed != 0 {
-				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false (qd %p)", d.QueryStatus.rowsStreamed, d)
+				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.QueryStatus.rowsStreamed)
 				return false
 			}
-			log.Printf("[TRACE] shouldRetryError we have NOT started streaming rows - call ShouldRetryErrorFunc (qd %p)", d)
-			return c.ShouldRetryErrorFunc(ctx, d, h, err)
+			res := c.ShouldRetryErrorFunc(ctx, d, h, err)
+			return res
 		}
 	} else if c.ShouldRetryError != nil {
 		listRetryConfig.ShouldRetryErrorFunc = func(ctx context.Context, d *QueryData, h *HydrateData, err error) bool {
 			if d.QueryStatus.rowsStreamed != 0 {
-				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false (qd %p)", d.QueryStatus.rowsStreamed, d)
+				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.QueryStatus.rowsStreamed)
 				return false
 			}
-			log.Printf("[TRACE] shouldRetryError we have NOT started streaming rows - call ShouldRetryErrorFunc (qd %p)", d)
 			// call the legacy function
 			return c.ShouldRetryError(err)
 		}
