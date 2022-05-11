@@ -78,7 +78,7 @@ func (t *Table) initialise(p *Plugin) {
 	log.Printf("[TRACE] DefaultRetryConfig: %s", t.DefaultRetryConfig.String())
 	log.Printf("[TRACE] DefaultIgnoreConfig: %s", t.DefaultIgnoreConfig.String())
 
-	// HydrateConfig contains explicit config for hydrate functions but there may bde other hydrate functions
+	// HydrateConfig contains explicit config for hydrate functions but there may be other hydrate functions
 	// declared for specific columns which do not have config defined
 	// build a map of all hydrate functions, with empty config if needed
 	// NOTE: this map also includes information from the legacy HydrateDependencies property
@@ -116,8 +116,12 @@ func (t *Table) initialiseHydrateConfigs() {
 // and those mentioned only in column config
 func (t *Table) buildHydrateConfigMap() {
 	t.hydrateConfigMap = make(map[string]*HydrateConfig)
-	for _, h := range t.HydrateConfig {
-		t.hydrateConfigMap[helpers.GetFunctionName(h.Func)] = &h
+	for i := range t.HydrateConfig {
+		// as we are converting into a pointer, we cannot use the array value direct from the range as
+		// this was causing incorrect values - go must be reusing memory addresses for successive items
+		h := &t.HydrateConfig[i]
+		funcName := helpers.GetFunctionName(h.Func)
+		t.hydrateConfigMap[funcName] = h
 	}
 	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies
 	for _, d := range t.HydrateDependencies {
