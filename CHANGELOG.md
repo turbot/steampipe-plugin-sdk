@@ -1,6 +1,14 @@
 ## v3.2.0  [tbd]
 _What's new_
-* Add new implementations of ShouldIgnoreError and ShouldRetryError functions which receive the same input data as other hydrate functions. ([#261](https://github.com/turbot/steampipe-plugin-sdk/issues/261))
+* Deprecate `ShouldIgnoreError` and `ShouldRetryError`. 
+
+  Add instead `ShouldRetryErrorFunc` and a new `IgnoreConfig` containing `ShouldIgnoreErrorFunc`. 
+
+  These functions receive as args the context, QueryData and HydrateData to allow access to connection config and other context data. ([#261](https://github.com/turbot/steampipe-plugin-sdk/issues/261))
+
+_Bug fixes_
+* Fix potential transform function casting errors caused by empty hydrate items. If no hydrate data is available, do not call transform functions.  ([#325](https://github.com/turbot/steampipe-plugin-sdk/issues/325))
+* Fix the sdk not respecting the DefaultGetConfig when resolving the `ShouldIgnoreError` function.  ([#319](https://github.com/turbot/steampipe-plugin-sdk/issues/319))
 
 ## v3.1.0  [2022-03-30]
 _What's new_
