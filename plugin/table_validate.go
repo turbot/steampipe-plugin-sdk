@@ -5,7 +5,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/gertd/go-pluralize"
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
@@ -128,31 +127,7 @@ func (t *Table) validateHydrateDependencies() []string {
 	}
 
 	var validationErrors []string
-	if len(t.HydrateDependencies)+len(t.HydrateConfig) != 0 {
-		// there should be no hydrate dependencies defined for the list hydrate
-		if t.List != nil {
-			if c, ok := t.hydrateConfigMap[helpers.GetFunctionName(t.List.Hydrate)]; ok && len(c.Depends) > 0 {
-				numDeps := len(c.Depends)
-				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has %d %s - List hydrate functions cannot have dependencies",
-					t.Name,
-					helpers.GetFunctionName(t.List.Hydrate),
-					numDeps,
-					pluralize.NewClient().Pluralize("dependency", numDeps, false)))
-			}
-		}
 
-		if t.Get != nil {
-			// there should be no hydrate dependencies defined for the get hydrate
-			if c, ok := t.hydrateConfigMap[helpers.GetFunctionName(t.Get.Hydrate)]; ok && len(c.Depends) > 0 {
-				numDeps := len(c.Depends)
-				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' has %d %s - Get hydrate functions cannot have dependencies",
-					t.Name,
-					helpers.GetFunctionName(t.Get.Hydrate),
-					numDeps,
-					pluralize.NewClient().Pluralize("dependency", numDeps, false)))
-			}
-		}
-	}
 	if cyclicDependencyError := t.detectCyclicHydrateDependencies(); cyclicDependencyError != "" {
 		validationErrors = append(validationErrors, cyclicDependencyError)
 	}

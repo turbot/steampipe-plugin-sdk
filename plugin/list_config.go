@@ -3,6 +3,9 @@ package plugin
 import (
 	"fmt"
 	"log"
+
+	"github.com/gertd/go-pluralize"
+	"github.com/turbot/go-kit/helpers"
 )
 
 // ListConfig is a struct used to define the configuration of the table 'List' function.
@@ -56,5 +59,27 @@ func (c *ListConfig) Validate(table *Table) []string {
 	if c.IgnoreConfig != nil {
 		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
 	}
+
+	// ensure there is no explicit hydrate config for the list config
+	listHydrateName := helpers.GetFunctionName(table.List.Hydrate)
+	for _, h := range table.HydrateConfig {
+		if helpers.GetFunctionName(h.Func) == listHydrateName {
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' also has an explicit hydrate config declared in `HydrateConfig`", table.Name, listHydrateName))
+			break
+		}
+	}
+	// ensure there is no hydrate dependency declared for the list hydrate
+	for _, h := range table.HydrateDependencies {
+		if helpers.GetFunctionName(h.Func) == listHydrateName {
+			numDeps := len(h.Depends)
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has %d %s - List hydrate functions cannot have dependencies",
+				table.Name,
+				listHydrateName,
+				numDeps,
+				pluralize.NewClient().Pluralize("dependency", numDeps, false)))
+			break
+		}
+	}
+
 	return validationErrors
 }

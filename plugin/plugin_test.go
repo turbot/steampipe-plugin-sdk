@@ -74,6 +74,134 @@ var testCasesValidate = map[string]validateTest{
 		},
 		expected: "",
 	},
+	"get with hydrate dependency": {
+		plugin: Plugin{
+			Name: "plugin",
+			TableMap: map[string]*Table{
+				"table": {
+					Name: "table",
+					Columns: []*Column{
+						{
+							Name: "name",
+							Type: proto.ColumnType_STRING,
+						},
+						{
+							Name:    "c1",
+							Type:    proto.ColumnType_STRING,
+							Hydrate: hydrate1,
+						},
+					},
+					List: &ListConfig{
+						Hydrate: listHydrate,
+					},
+					Get: &GetConfig{
+						KeyColumns:        SingleColumn("name"),
+						Hydrate:           getHydrate,
+						ShouldIgnoreError: isNotFound,
+					},
+					HydrateDependencies: []HydrateDependencies{{Func: getHydrate, Depends: []HydrateFunc{hydrate1}}},
+				},
+			},
+			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
+		},
+		expected: "table 'table' Get hydrate function 'getHydrate' has 1 dependency - Get hydrate functions cannot have dependencies",
+	},
+	"get with explicit hydrate config": {
+		plugin: Plugin{
+			Name: "plugin",
+			TableMap: map[string]*Table{
+				"table": {
+					Name: "table",
+					Columns: []*Column{
+						{
+							Name: "name",
+							Type: proto.ColumnType_STRING,
+						},
+						{
+							Name:    "c1",
+							Type:    proto.ColumnType_STRING,
+							Hydrate: hydrate1,
+						},
+					},
+					List: &ListConfig{
+						Hydrate: listHydrate,
+					},
+					Get: &GetConfig{
+						KeyColumns:        SingleColumn("name"),
+						Hydrate:           getHydrate,
+						ShouldIgnoreError: isNotFound,
+					},
+					HydrateConfig: []HydrateConfig{{Func: getHydrate, Depends: []HydrateFunc{hydrate1}}},
+				},
+			},
+			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
+		},
+		expected: "table 'table' Get hydrate function 'getHydrate' also has an explicit hydrate config declared in `HydrateConfig`",
+	},
+	"list with hydrate dependency": {
+		plugin: Plugin{
+			Name: "plugin",
+			TableMap: map[string]*Table{
+				"table": {
+					Name: "table",
+					Columns: []*Column{
+						{
+							Name: "name",
+							Type: proto.ColumnType_STRING,
+						},
+						{
+							Name:    "c1",
+							Type:    proto.ColumnType_STRING,
+							Hydrate: hydrate1,
+						},
+					},
+					List: &ListConfig{
+						Hydrate: listHydrate,
+					},
+					Get: &GetConfig{
+						KeyColumns:        SingleColumn("name"),
+						Hydrate:           getHydrate,
+						ShouldIgnoreError: isNotFound,
+					},
+					HydrateDependencies: []HydrateDependencies{{Func: listHydrate, Depends: []HydrateFunc{hydrate1}}},
+				},
+			},
+			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
+		},
+		expected: "table 'table' List hydrate function 'listHydrate' has 1 dependency - List hydrate functions cannot have dependencies",
+	},
+	"list with explicit hydrate config": {
+		plugin: Plugin{
+			Name: "plugin",
+			TableMap: map[string]*Table{
+				"table": {
+					Name: "table",
+					Columns: []*Column{
+						{
+							Name: "name",
+							Type: proto.ColumnType_STRING,
+						},
+						{
+							Name:    "c1",
+							Type:    proto.ColumnType_STRING,
+							Hydrate: hydrate1,
+						},
+					},
+					List: &ListConfig{
+						Hydrate: listHydrate,
+					},
+					Get: &GetConfig{
+						KeyColumns:        SingleColumn("name"),
+						Hydrate:           getHydrate,
+						ShouldIgnoreError: isNotFound,
+					},
+					HydrateConfig: []HydrateConfig{{Func: listHydrate, Depends: []HydrateFunc{hydrate1}}},
+				},
+			},
+			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
+		},
+		expected: "table 'table' List hydrate function 'listHydrate' also has an explicit hydrate config declared in `HydrateConfig`",
+	},
 	"circular dep": {
 		plugin: Plugin{
 			Name: "plugin",
@@ -174,7 +302,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' GetConfig does not specify a hydrate function",
+		expected: "table 'table' GetConfig does not specify a hydrate function\ntable 'table' HydrateConfig does not specify a hydrate function",
 	},
 	"no list hydrate": {
 		plugin: Plugin{

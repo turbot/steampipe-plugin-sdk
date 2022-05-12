@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 )
 
@@ -73,6 +74,18 @@ func (c *GetConfig) Validate(table *Table) []string {
 	for _, h := range table.HydrateConfig {
 		if helpers.GetFunctionName(h.Func) == getHydrateName {
 			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' also has an explicit hydrate config declared in `HydrateConfig`", table.Name, getHydrateName))
+			break
+		}
+	}
+	// ensure there is no hydrate dependency declared for the get hydrate
+	for _, h := range table.HydrateDependencies {
+		if helpers.GetFunctionName(h.Func) == getHydrateName {
+			numDeps := len(h.Depends)
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' has %d %s - Get hydrate functions cannot have dependencies",
+				table.Name,
+				getHydrateName,
+				numDeps,
+				pluralize.NewClient().Pluralize("dependency", numDeps, false)))
 			break
 		}
 	}
