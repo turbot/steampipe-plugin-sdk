@@ -364,7 +364,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
 	listCall := t.List.Hydrate
 	// if there is a parent hydrate function, call that
-	// - the child 'Hydrate' function will be called by QueryData.StreamListIte,
+	// - the child 'Hydrate' function will be called by QueryData.StreamListItem,
 	if t.List.ParentHydrate != nil {
 		listCall = t.List.ParentHydrate
 	}
@@ -453,7 +453,11 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 
 	if len(queryData.Matrix) == 0 {
 		log.Printf("[TRACE] doList: no matrix item")
-		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, t.List.IgnoreConfig, t.List.RetryConfig); err != nil {
+
+		// we cannot retry errors in the list hydrate function after streaming has started
+		listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
+
+		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, t.List.IgnoreConfig, listRetryConfig); err != nil {
 			queryData.streamError(err)
 		}
 	} else {
@@ -497,7 +501,10 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 
 			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
 
-			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, t.List.IgnoreConfig, t.List.RetryConfig)
+			// we cannot retry errors in the list hydrate function after streaming has started
+			listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
+
+			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, t.List.IgnoreConfig, listRetryConfig)
 			if err != nil {
 				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
 				queryData.streamError(err)

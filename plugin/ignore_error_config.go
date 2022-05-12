@@ -9,8 +9,9 @@ import (
 )
 
 type IgnoreConfig struct {
-	ShouldIgnoreError     ErrorPredicate
 	ShouldIgnoreErrorFunc ErrorPredicateWithContext
+	// deprecated, used ShouldIgnoreErrorFunc
+	ShouldIgnoreError ErrorPredicate
 }
 
 func (c *IgnoreConfig) String() interface{} {
@@ -25,7 +26,7 @@ func (c *IgnoreConfig) String() interface{} {
 }
 
 func (c *IgnoreConfig) Validate(table *Table) []string {
-	log.Printf("[TRACE] IgnoreConfig validate  c.ShouldIgnoreError %p, c.ShouldIgnoreErrorFunc %p", c.ShouldIgnoreError, c.ShouldIgnoreErrorFunc)
+	log.Printf("[TRACE] IgnoreConfig validate: ShouldIgnoreError %p, ShouldIgnoreErrorFunc: %p", c.ShouldIgnoreError, c.ShouldIgnoreErrorFunc)
 
 	if c.ShouldIgnoreError != nil && c.ShouldIgnoreErrorFunc != nil {
 		log.Printf("[TRACE] IgnoreConfig validate failed - both ShouldIgnoreError and ShouldIgnoreErrorFunc are defined")
@@ -35,6 +36,12 @@ func (c *IgnoreConfig) Validate(table *Table) []string {
 }
 
 func (c *IgnoreConfig) DefaultTo(other *IgnoreConfig) {
+	// if either ShouldIgnoreError or ShouldIgnoreErrorFunc are set, do not default to other
+	if c.ShouldIgnoreError != nil || c.ShouldIgnoreErrorFunc != nil {
+		log.Printf("[TRACE] IgnoreConfig DefaultTo: config defines a should ignore function so not defaulting to base")
+		return
+	}
+
 	// legacy func
 	if c.ShouldIgnoreError == nil && other.ShouldIgnoreError != nil {
 		log.Printf("[TRACE] IgnoreConfig DefaultTo: using base ShouldIgnoreError: %s", helpers.GetFunctionName(other.ShouldIgnoreError))

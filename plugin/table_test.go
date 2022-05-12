@@ -224,7 +224,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
-				{Name: "c2"},
+				{Name: "c2", Hydrate: hydrate2},
 			},
 			List:                &ListConfig{Hydrate: listHydrate},
 			Get:                 &GetConfig{Hydrate: getHydrate},
@@ -298,7 +298,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
-				{Name: "c2"},
+				{Name: "c2", Hydrate: hydrate2},
 			},
 			List:          &ListConfig{Hydrate: listHydrate},
 			Get:           &GetConfig{Hydrate: getHydrate},
@@ -766,7 +766,7 @@ func TestGetHydrateConfig(t *testing.T) {
 		test.table.Plugin.Initialise()
 		test.table.initialise(test.table.Plugin)
 
-		result := test.table.getHydrateConfig(test.funcName)
+		result := test.table.hydrateConfigMap[test.funcName]
 		actualString := result.String()
 		expectedString := test.expected.String()
 		if expectedString != actualString {

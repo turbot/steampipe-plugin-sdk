@@ -39,22 +39,27 @@ func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *Qu
 		log.Printf("[ERROR] table '%s' failed to get column data, callId %s: %v", t.Name, rowData.queryData.callId, err)
 		return nil, err
 	}
-	// are there any generate transforms defined? if not apply default generate
-	// NOTE: we must call getColumnTransforms to ensure the default is used if none is defined
-	columnTransforms := t.getColumnTransforms(column)
-	defaultTransform := t.getDefaultColumnTransform(column)
 
-	qualValueMap := rowData.queryData.Quals.ToQualMap()
-	transformData := &transform.TransformData{
-		HydrateItem:    hydrateItem,
-		HydrateResults: rowData.hydrateResults,
-		ColumnName:     column.Name,
-		KeyColumnQuals: qualValueMap,
-	}
-	value, err := columnTransforms.Execute(ctx, transformData, defaultTransform)
-	if err != nil {
-		log.Printf("[ERROR] failed to populate column '%s': %v\n", column.Name, err)
-		return nil, fmt.Errorf("failed to populate column '%s': %v", column.Name, err)
+	var value interface{} = nil
+	// only call transforms if the hydrate item is non nil
+	if !helpers.IsNil(hydrateItem) {
+		// are there any generate transforms defined? if not apply default generate
+		// NOTE: we must call getColumnTransforms to ensure the default is used if none is defined
+		columnTransforms := t.getColumnTransforms(column)
+		defaultTransform := t.getDefaultColumnTransform(column)
+
+		qualValueMap := rowData.queryData.Quals.ToQualMap()
+		transformData := &transform.TransformData{
+			HydrateItem:    hydrateItem,
+			HydrateResults: rowData.hydrateResults,
+			ColumnName:     column.Name,
+			KeyColumnQuals: qualValueMap,
+		}
+		value, err = columnTransforms.Execute(ctx, transformData, defaultTransform)
+		if err != nil {
+			log.Printf("[ERROR] failed to populate column '%s': %v\n", column.Name, err)
+			return nil, fmt.Errorf("failed to populate column '%s': %v", column.Name, err)
+		}
 	}
 	// now convert the value to a protobuf column value
 	c, err := t.interfaceToColumnValue(column, value)

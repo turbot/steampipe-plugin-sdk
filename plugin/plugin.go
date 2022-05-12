@@ -45,12 +45,15 @@ type Plugin struct {
 	// TableMapFunc is a callback function which can be used to populate the table map
 	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
 	// (connection config is not available at plugin creation time)
-	TableMapFunc             func(ctx context.Context, p *Plugin) (map[string]*Table, error)
-	DefaultTransform         *transform.ColumnTransforms
-	DefaultGetConfig         *GetConfig
-	DefaultConcurrency       *DefaultConcurrencyConfig
-	DefaultRetryConfig       *RetryConfig
-	DefaultIgnoreConfig      *IgnoreConfig
+	TableMapFunc        func(ctx context.Context, p *Plugin) (map[string]*Table, error)
+	DefaultTransform    *transform.ColumnTransforms
+	DefaultConcurrency  *DefaultConcurrencyConfig
+	DefaultRetryConfig  *RetryConfig
+	DefaultIgnoreConfig *IgnoreConfig
+
+	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
+	DefaultGetConfig *GetConfig
+	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
 	// every table must implement these columns
 	RequiredColumns        []*Column
@@ -76,20 +79,25 @@ func (p *Plugin) Initialise() {
 	p.Logger = p.setupLogger()
 	// default the schema mode to static
 	if p.SchemaMode == "" {
+		log.Println("[TRACE] defaulting SchemaMode to SchemaModeStatic")
 		p.SchemaMode = SchemaModeStatic
 	}
 
 	// create DefaultRetryConfig if needed
 	if p.DefaultRetryConfig == nil {
+		log.Printf("[TRACE] no DefaultRetryConfig defined - creating empty")
 		p.DefaultRetryConfig = &RetryConfig{}
 	}
 
 	// create DefaultIgnoreConfig if needed
 	if p.DefaultIgnoreConfig == nil {
+		log.Printf("[TRACE] no DefaultIgnoreConfig defined - creating empty")
 		p.DefaultIgnoreConfig = &IgnoreConfig{}
 	}
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
-	p.DefaultIgnoreConfig.ShouldIgnoreError = p.DefaultShouldIgnoreError
+	if p.DefaultShouldIgnoreError != nil && p.DefaultIgnoreConfig.ShouldIgnoreError == nil {
+		p.DefaultIgnoreConfig.ShouldIgnoreError = p.DefaultShouldIgnoreError
+	}
 
 	// set file limit
 	p.setuLimit()

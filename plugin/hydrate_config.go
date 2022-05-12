@@ -38,7 +38,7 @@ Depends: %s`,
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
-	log.Printf("[TRACE] HydrateConfig initialise func %s, table %s", helpers.GetFunctionName(c.Func), table.Name)
+	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", helpers.GetFunctionName(c.Func), table.Name)
 
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
@@ -58,7 +58,7 @@ func (c *HydrateConfig) initialise(table *Table) {
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 
-	log.Printf("[TRACE] RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())
+	log.Printf("[TRACE] HydrateConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 
 func (c *HydrateConfig) Validate(table *Table) []string {

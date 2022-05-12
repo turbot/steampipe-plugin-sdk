@@ -361,7 +361,7 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 		return
 	}
 
-	// if this table has no parent hydrate function, just call steramLeafListItem directly
+	// if this table has no parent hydrate function, just call streamLeafListItem directly
 	parentListHydrate := d.Table.List.ParentHydrate
 	if parentListHydrate == nil {
 		d.streamLeafListItem(ctx, item)

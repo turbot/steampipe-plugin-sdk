@@ -22,7 +22,7 @@ type ListConfig struct {
 }
 
 func (c *ListConfig) initialise(table *Table) {
-	log.Printf("[TRACE] ListConfig initialise table %s", table.Name)
+	log.Printf("[TRACE] ListConfig.initialise table %s", table.Name)
 
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
@@ -42,7 +42,7 @@ func (c *ListConfig) initialise(table *Table) {
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 
-	log.Printf("[TRACE] RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())
+	log.Printf("[TRACE] ListConfig.initialise complete: RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 
 func (c *ListConfig) Validate(table *Table) []string {
