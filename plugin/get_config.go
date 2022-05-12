@@ -3,6 +3,8 @@ package plugin
 import (
 	"fmt"
 	"log"
+
+	"github.com/turbot/go-kit/helpers"
 )
 
 // GetConfig is a struct used to define the configuration of the table 'Get' function.
@@ -37,7 +39,14 @@ func (c *GetConfig) initialise(table *Table) {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
 	}
 
-	// default ignore and retry configs to table defaults
+	// default ignore and retry configs
+
+	// if there is a default get config, default to its ignore and retry config (if they exist)
+	if defaultGetConfig := table.Plugin.DefaultGetConfig; defaultGetConfig != nil {
+		c.RetryConfig.DefaultTo(defaultGetConfig.RetryConfig)
+		c.IgnoreConfig.DefaultTo(defaultGetConfig.IgnoreConfig)
+	}
+	// then default to the table default
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 
@@ -45,7 +54,6 @@ func (c *GetConfig) initialise(table *Table) {
 }
 
 func (c *GetConfig) Validate(table *Table) []string {
-
 	var validationErrors []string
 
 	if c.Hydrate == nil {
@@ -60,5 +68,14 @@ func (c *GetConfig) Validate(table *Table) []string {
 	if c.IgnoreConfig != nil {
 		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
 	}
+	// ensure there is no explicit hydrate config for the get config
+	getHydrateName := helpers.GetFunctionName(table.Get.Hydrate)
+	for _, h := range table.HydrateConfig {
+		if helpers.GetFunctionName(h.Func) == getHydrateName {
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' also has an explicit hydrate config declared in `HydrateConfig`", table.Name, getHydrateName))
+			break
+		}
+	}
+
 	return validationErrors
 }

@@ -129,47 +129,27 @@ func (t *Table) validateHydrateDependencies() []string {
 
 	var validationErrors []string
 	if len(t.HydrateDependencies)+len(t.HydrateConfig) != 0 {
+		// there should be no hydrate dependencies defined for the list hydrate
 		if t.List != nil {
-			// there should be no config in the hydrateConfigMap matching the list or get config
-			if invalidListHydrateConfig, ok := t.hydrateConfigMap[helpers.GetFunctionName(t.List.Hydrate)]; ok {
-				// so there is a hydrate config for the list call - this is invalid
-
-				// is it because hydrate dependencies were declared for the list call?
-				if len(invalidListHydrateConfig.Depends) > 0 {
-					numDeps := len(invalidListHydrateConfig.Depends)
-					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has %d %s - List hydrate functions cannot have dependencies",
-						t.Name,
-						helpers.GetFunctionName(t.List.Hydrate),
-						numDeps,
-						pluralize.NewClient().Pluralize("dependency", numDeps, false)))
-				} else {
-					// otherwise, show general error
-					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has a hydrate config declared - this is invalid, this function must be configured using the ListConfig only",
-						t.Name,
-						helpers.GetFunctionName(t.List.Hydrate),
-					))
-				}
+			if c, ok := t.hydrateConfigMap[helpers.GetFunctionName(t.List.Hydrate)]; ok && len(c.Depends) > 0 {
+				numDeps := len(c.Depends)
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has %d %s - List hydrate functions cannot have dependencies",
+					t.Name,
+					helpers.GetFunctionName(t.List.Hydrate),
+					numDeps,
+					pluralize.NewClient().Pluralize("dependency", numDeps, false)))
 			}
 		}
-		if t.Get != nil {
-			if invalidGetHydrateConfig, ok := t.hydrateConfigMap[helpers.GetFunctionName(t.Get.Hydrate)]; ok {
-				// so there is a hydrate config for the get call - this is invalid
 
-				// is it because hydrate dependencies were declared for the get call?
-				if len(invalidGetHydrateConfig.Depends) > 0 {
-					numDeps := len(invalidGetHydrateConfig.Depends)
-					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' has %d %s - Get hydrate functions cannot have dependencies",
-						t.Name,
-						helpers.GetFunctionName(t.Get.Hydrate),
-						numDeps,
-						pluralize.NewClient().Pluralize("dependency", numDeps, false)))
-				} else {
-					// otherwise, show general error
-					validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' has a hydrate config declared - this is invalid, this function must be configured using the GetConfig only",
-						t.Name,
-						helpers.GetFunctionName(t.Get.Hydrate),
-					))
-				}
+		if t.Get != nil {
+			// there should be no hydrate dependencies defined for the get hydrate
+			if c, ok := t.hydrateConfigMap[helpers.GetFunctionName(t.Get.Hydrate)]; ok && len(c.Depends) > 0 {
+				numDeps := len(c.Depends)
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' has %d %s - Get hydrate functions cannot have dependencies",
+					t.Name,
+					helpers.GetFunctionName(t.Get.Hydrate),
+					numDeps,
+					pluralize.NewClient().Pluralize("dependency", numDeps, false)))
 			}
 		}
 	}

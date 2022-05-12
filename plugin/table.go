@@ -78,6 +78,17 @@ func (t *Table) initialise(p *Plugin) {
 	log.Printf("[TRACE] DefaultRetryConfig: %s", t.DefaultRetryConfig.String())
 	log.Printf("[TRACE] DefaultIgnoreConfig: %s", t.DefaultIgnoreConfig.String())
 
+	// get and list configs are similar to hydrate configs but they cannot specify dependencies
+	// we initialise them first, then initialise the hydrate configs
+	if t.Get != nil {
+		log.Printf("[TRACE] t.Get.initialise")
+		t.Get.initialise(t)
+	}
+	if t.List != nil {
+		log.Printf("[TRACE] t.List.initialise")
+		t.List.initialise(t)
+	}
+
 	// HydrateConfig contains explicit config for hydrate functions but there may be other hydrate functions
 	// declared for specific columns which do not have config defined
 	// build a map of all hydrate functions, with empty config if needed
@@ -86,18 +97,6 @@ func (t *Table) initialise(p *Plugin) {
 
 	log.Printf("[TRACE] back from initialiseHydrateConfigs")
 
-	// get and list configs are similar to hydrate configs but they cannot specify dependencies
-	// we initialise them separately
-	if t.Get != nil {
-		log.Printf("[TRACE] t.Get.initialise")
-		t.Get.initialise(t)
-		log.Printf("[TRACE] back from t.Get.initialise")
-	}
-	if t.List != nil {
-		log.Printf("[TRACE] t.List.initialise")
-		t.List.initialise(t)
-		log.Printf("[TRACE] back from t.List.initialise")
-	}
 	log.Printf("[TRACE] initialise table %s COMPLETE", t.Name)
 }
 
@@ -132,6 +131,17 @@ func (t *Table) buildHydrateConfigMap() {
 			t.hydrateConfigMap[hydrateName] = &HydrateConfig{Func: d.Func, Depends: d.Depends}
 		}
 	}
+	// NOTE: the get config may be used as a column hydrate function so add this into the map
+	if get := t.Get; get != nil {
+		hydrateName := helpers.GetFunctionName(get.Hydrate)
+		t.hydrateConfigMap[hydrateName] = &HydrateConfig{
+			Func:              get.Hydrate,
+			ShouldIgnoreError: get.ShouldIgnoreError,
+			IgnoreConfig:      get.IgnoreConfig,
+			RetryConfig:       get.RetryConfig,
+		}
+	}
+
 	// now add all hydrate functions with no explicit config
 	for _, c := range t.Columns {
 		if c.Hydrate == nil {

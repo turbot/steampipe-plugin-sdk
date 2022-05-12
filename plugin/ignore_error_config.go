@@ -36,6 +36,10 @@ func (c *IgnoreConfig) Validate(table *Table) []string {
 }
 
 func (c *IgnoreConfig) DefaultTo(other *IgnoreConfig) {
+	// if not other provided, nothing to do
+	if other == nil {
+		return
+	}
 	// if either ShouldIgnoreError or ShouldIgnoreErrorFunc are set, do not default to other
 	if c.ShouldIgnoreError != nil || c.ShouldIgnoreErrorFunc != nil {
 		log.Printf("[TRACE] IgnoreConfig DefaultTo: config defines a should ignore function so not defaulting to base")
