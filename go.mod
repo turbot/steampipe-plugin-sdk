@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/dgraph-io/ristretto v0.1.0
-	github.com/gertd/go-pluralize v0.2.0
+	github.com/gertd/go-pluralize v0.2.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/go-hclog v1.2.0
