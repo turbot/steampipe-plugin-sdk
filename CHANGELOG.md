@@ -1,4 +1,4 @@
-## v3.2.0  [tbd]
+## v3.2.0  [2022-05-20]
 _What's new_
 * Deprecate `ShouldIgnoreError` and `ShouldRetryError`. 
 
