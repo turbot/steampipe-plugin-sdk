@@ -217,10 +217,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
 	log.Printf("[WARN] Start execute span")
-	ctx, span := p.startExecuteSpan(ctx, req)
+	ctx, executeSpan := p.startExecuteSpan(ctx, req)
 	defer func() {
 		log.Printf("[WARN] End execute span")
-		span.End()
+		executeSpan.End()
 		// TODO doesn't seem to be needed
 		//instrument.FlushTraces()
 	}()
@@ -245,7 +245,11 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if req.CacheEnabled {
 		log.Printf("[TRACE] Cache ENABLED callId: %s", req.CallId)
 		cachedResult := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
-		if cachedResult != nil {
+		cacheHit := cachedResult != nil
+		executeSpan.SetAttributes(
+			attribute.Bool("cache-hit", cacheHit),
+		)
+		if cacheHit {
 			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
@@ -306,7 +310,7 @@ func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequ
 }
 
 func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest) (context.Context, trace.Span) {
-	ctx, span := instrument.StartSpan(ctx, "plugin-execute")
+	ctx, span := instrument.StartSpan(ctx, "Plugin.Execute")
 
 	log.Printf("[WARN] QUALS  %s", grpc.QualMapToString(req.QueryContext.Quals, false))
 	span.SetAttributes(

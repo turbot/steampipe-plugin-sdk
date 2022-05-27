@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
+
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
@@ -428,7 +430,10 @@ func (d *QueryData) fetchComplete() {
 
 // read rows from rowChan and stream back
 // (also return the rows so we can cache them when complete)
-func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
+func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
+	_, span := instrument.StartSpan(ctx, "QueryData.streamRows")
+	defer span.End()
+
 	var rows []*proto.Row
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
