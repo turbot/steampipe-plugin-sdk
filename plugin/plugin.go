@@ -9,12 +9,17 @@ import (
 	"strings"
 	"sync"
 
+	"go.opentelemetry.io/otel/attribute"
+
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/cache"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/os_specific"
@@ -208,11 +213,20 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	ctx := context.WithValue(stream.Context(), context_key.Logger, logger)
+	// get a context which includes telemetry data and logger
+	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
-	var matrixItem []map[string]interface{}
+	log.Printf("[WARN] Start execute span")
+	ctx, span := p.startExecuteSpan(ctx, req)
+	defer func() {
+		log.Printf("[WARN] End execute span")
+		span.End()
+		// TODO doesn't seem to be needed
+		//instrument.FlushTraces()
+	}()
 
 	// get the matrix item
+	var matrixItem []map[string]interface{}
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
@@ -281,6 +295,33 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
 	}
 	return nil
+}
+
+func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequest, logger hclog.Logger) context.Context {
+	// create a traceable context from the stream context
+	log.Printf("[WARN] calling ExtractContextFromCarrier")
+	ctx = grpc.ExtractContextFromCarrier(ctx, req.TraceContext)
+	// add logger to context
+	return context.WithValue(ctx, context_key.Logger, logger)
+}
+
+func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest) (context.Context, trace.Span) {
+	ctx, span := instrument.StartSpan(ctx, "plugin-execute")
+
+	log.Printf("[WARN] QUALS  %s", grpc.QualMapToString(req.QueryContext.Quals, false))
+	span.SetAttributes(
+		attribute.Bool("cache-enabled", req.CacheEnabled),
+		attribute.Int64("cache-ttl", req.CacheTtl),
+		attribute.String("connection", req.Connection),
+		attribute.String("call-id", req.CallId),
+		attribute.String("table", req.Table),
+		attribute.StringSlice("columns", req.QueryContext.Columns),
+		attribute.String("quals", grpc.QualMapToString(req.QueryContext.Quals, false)),
+	)
+	if req.QueryContext.Limit != nil {
+		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value))
+	}
+	return ctx, span
 }
 
 func (p *Plugin) newQueryData(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}) *QueryData {

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
@@ -12,22 +13,31 @@ const (
 	IPv6 = "IPv6"
 )
 
-func QualMapToString(qualMap map[string]*proto.Quals) interface{} {
-	divider := "----------------------------------------------------------------\n"
-	str := fmt.Sprintf("\n%s", divider)
-	for _, quals := range qualMap {
-		qualString := ""
-		for _, q := range quals.GetQuals() {
-			qualString += QualToString(q)
-		}
-		str += qualString
+func QualMapToString(qualMap map[string]*proto.Quals, pretty bool) string {
+	if len(qualMap) == 0 {
+		return ""
 	}
-	str += divider
-	return str
+	divider := "----------------------------------------------------------------\n"
+	var sb strings.Builder
+	if pretty {
+		sb.WriteString("\n")
+		sb.WriteString(divider)
+		defer sb.WriteString(divider)
+	}
+
+	for _, quals := range qualMap {
+		var qb strings.Builder
+		for _, q := range quals.GetQuals() {
+			qb.WriteString(QualToString(q))
+		}
+		sb.WriteString(qb.String())
+	}
+
+	return sb.String()
 }
 
 func QualToString(q *proto.Qual) string {
-	return fmt.Sprintf("\tColumn: %s, Operator: '%s', Value: '%v'\n", q.FieldName, q.GetStringValue(), GetQualValue(q.Value))
+	return fmt.Sprintf("Column: %s, Operator: '%s', Value: '%v'\n", q.FieldName, q.GetStringValue(), GetQualValue(q.Value))
 }
 
 func QualEquals(left *proto.Qual, right *proto.Qual) bool {
