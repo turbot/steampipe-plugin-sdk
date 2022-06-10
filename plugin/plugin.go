@@ -218,9 +218,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}
 
 	// lock access to the newQueryData - otherwise plugin crashes were observed
-	p.concurrencyLock.Lock()
-	queryData := newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, req.CallId)
-	p.concurrencyLock.Unlock()
+	queryData := p.newQueryData(req, stream, queryContext, table, matrixItem)
 
 	logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
 
@@ -283,6 +281,13 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
 	}
 	return nil
+}
+
+func (p *Plugin) newQueryData(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}) *QueryData {
+	p.concurrencyLock.Lock()
+	defer p.concurrencyLock.Unlock()
+
+	return newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, req.CallId)
 }
 
 // initialiseTables does 2 things:
