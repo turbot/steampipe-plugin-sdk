@@ -8,6 +8,7 @@ import (
 type QueryStatus struct {
 	rowsRequired int
 	rowsStreamed int
+	hydrateCalls uint64
 }
 
 func newQueryStatus(limit *int64) *QueryStatus {

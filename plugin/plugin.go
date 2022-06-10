@@ -286,7 +286,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.Printf("[TRACE] streamRows callId: %s", req.CallId)
 
 	logging.LogTime("Calling streamRows")
-	// asyncronously stream rows
+
+	// asyncronously stream rows across GRPC
 	rows, err := queryData.streamRows(ctx, rowChan)
 	if err != nil {
 		return err

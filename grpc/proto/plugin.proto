@@ -79,8 +79,12 @@ message ExecuteRequest {
 
 message ExecuteResponse {
   Row row = 1;
+  QueryMetadata metadata = 2;
 }
 
+message QueryMetadata {
+  uint64 hydrate_calls = 1;
+}
 message GetSchemaRequest {
 }
 

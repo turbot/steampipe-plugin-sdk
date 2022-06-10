@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/turbot/go-kit/helpers"
 )
@@ -50,6 +51,8 @@ func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager 
 func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, concurrencyManager *ConcurrencyManager) {
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
+	// update the hydrate count
+	atomic.AddUint64(&d.QueryStatus.hydrateCalls, 1)
 
 	// call callHydrate async, ignoring return values
 	go func() {

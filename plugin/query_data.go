@@ -428,7 +428,7 @@ func (d *QueryData) fetchComplete() {
 	close(d.rowDataChan)
 }
 
-// read rows from rowChan and stream back
+// read rows from rowChan and stream back across GRPC
 // (also return the rows so we can cache them when complete)
 func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
 	_, span := instrument.StartSpan(ctx, "QueryData.streamRows")
@@ -450,6 +450,7 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]
 			// nil row means we are done streaming
 			if row == nil {
 				log.Println("[TRACE] row chan closed, stop streaming")
+				d.streamMetadata()
 				return rows, nil
 			}
 			if err := d.streamRow(row); err != nil {
@@ -463,6 +464,11 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]
 
 func (d *QueryData) streamRow(row *proto.Row) error {
 	return d.stream.Send(&proto.ExecuteResponse{Row: row})
+}
+
+func (d *QueryData) streamMetadata() error {
+	log.Printf("[TRACE] streamMetadata hydrateCalls: %d", d.QueryStatus.hydrateCalls)
+	return d.stream.Send(&proto.ExecuteResponse{Metadata: &proto.QueryMetadata{HydrateCalls: d.QueryStatus.hydrateCalls}})
 }
 
 func (d *QueryData) streamError(err error) {
