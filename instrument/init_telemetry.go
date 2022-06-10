@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/turbot/steampipe/constants"
+	"google.golang.org/grpc"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -16,20 +16,23 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	"google.golang.org/grpc"
 )
 
-func Init() (func(), error) {
+func Init(serviceName string) (func(), error) {
 
+	log.Printf("[WARN] instrument.Init service '%s'", serviceName)
 	ctx := context.Background()
 
-	// TODO HACKED IP FOR NOW
-	// TODO timeout connection to collector
+	// check whether a telemetry endpoint is configured
 	otelAgentAddr, ok := os.LookupEnv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if !ok {
-		otelAgentAddr = "localhost:4317"
+		log.Printf("[WARN] OTEL_EXPORTER_OTLP_ENDPOINT not set - returning")
+		// return empty shutdown func
+		return func() {}, nil
+		//otelAgentAddr = "localhost:4317"
 	}
-	log.Printf("[TRACE] init telemetry")
+
+	log.Printf("[TRACE] init telemetry, endpoint: %s", otelAgentAddr)
 
 	//metricClient := otlpmetricgrpc.NewClient(
 	//	otlpmetricgrpc.WithInsecure(),
@@ -53,7 +56,11 @@ func Init() (func(), error) {
 	traceClient := otlptracegrpc.NewClient(
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint(otelAgentAddr),
-		otlptracegrpc.WithDialOption(grpc.WithBlock()))
+		// TODO telemetry test what happens to traces before the server has connected
+		// TODO telemetry heartbeat?
+		otlptracegrpc.WithDialOption(grpc.WithBlock()),
+	)
+
 	traceExp, err := otlptrace.New(ctx, traceClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the collector trace exporter: %s", err.Error())
@@ -66,7 +73,7 @@ func Init() (func(), error) {
 		resource.WithHost(),
 		resource.WithAttributes(
 			// the service name used to display traces in backends
-			semconv.ServiceNameKey.String(constants.AppName),
+			semconv.ServiceNameKey.String(serviceName),
 		),
 	)
 	if err != nil {

@@ -35,7 +35,7 @@ func Serve(opts *ServeOpts) {
 	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
 	p.Initialise()
 
-	shutdown, _ := instrument.Init()
+	shutdown, _ := instrument.Init(p.Name)
 	defer func() {
 		log.Println("[TRACE] FLUSHING instrumentation")
 		//instrument.FlushTraces()
