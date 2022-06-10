@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/turbot/steampipe/constants"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -16,7 +15,8 @@ type TraceCtx struct {
 }
 
 func GetTracer() trace.Tracer {
-	return otel.GetTracerProvider().Tracer(constants.AppName)
+	// TODO KAI CHANGE
+	return otel.GetTracerProvider().Tracer("steampipe")
 }
 
 //func StartRootSpan(id string) *TraceCtx {

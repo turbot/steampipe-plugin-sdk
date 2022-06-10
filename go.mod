@@ -16,24 +16,17 @@ require (
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
 	github.com/turbot/go-kit v0.3.0
-	github.com/turbot/steampipe v0.14.6
-	github.com/turbot/steampipe-plugin-sdk v1.8.3
 	github.com/zclconf/go-cty v1.10.0
 	go.opentelemetry.io/otel v1.7.0
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.30.0
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.30.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.7.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.7.0
-	go.opentelemetry.io/otel/metric v0.30.0
 	go.opentelemetry.io/otel/sdk v1.7.0
-	go.opentelemetry.io/otel/sdk/metric v0.30.0
 	go.opentelemetry.io/otel/trace v1.7.0
 	google.golang.org/grpc v1.46.0
 	google.golang.org/protobuf v1.28.0
 )
 
 require (
-	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/agext/levenshtein v1.2.2 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
@@ -47,7 +40,6 @@ require (
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
-	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
