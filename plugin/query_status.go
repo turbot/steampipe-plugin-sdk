@@ -6,10 +6,11 @@ import (
 )
 
 type QueryStatus struct {
-	rowsRequired uint64
-	rowsStreamed uint64
-	hydrateCalls uint64
-	cacheHit     bool
+	rowsRequired      uint64
+	rowsStreamed      uint64
+	hydrateCalls      uint64
+	cacheHit          bool
+	cachedRowsFetched uint64
 }
 
 func newQueryStatus(limit *int64) *QueryStatus {

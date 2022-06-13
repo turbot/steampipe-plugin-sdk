@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -34,6 +36,34 @@ func QualMapToString(qualMap map[string]*proto.Quals, pretty bool) string {
 	}
 
 	return sb.String()
+}
+
+func QualMapToJSONString(qualMap map[string]*proto.Quals) (string, error) {
+	var res []map[string]interface{}
+	if len(qualMap) == 0 {
+		return "[]", nil
+	}
+
+	for _, quals := range qualMap {
+		for _, q := range quals.GetQuals() {
+			res = append(res, map[string]interface{}{
+				"column":   q.FieldName,
+				"operator": q.GetStringValue(),
+				"value":    GetQualValue(q.Value),
+			})
+
+		}
+	}
+	writeBuffer := bytes.NewBufferString("")
+	encoder := json.NewEncoder(writeBuffer)
+	encoder.SetIndent("", " ")
+	encoder.SetEscapeHTML(false)
+
+	if err := encoder.Encode(res); err != nil {
+		return "", err
+	}
+
+	return writeBuffer.String(), nil
 }
 
 func QualToString(q *proto.Qual) string {

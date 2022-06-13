@@ -8,13 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
-
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
 )
@@ -137,12 +136,9 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		stream:             d.stream,
 		listWg:             d.listWg,
 		columns:            d.columns,
+		QueryStatus:        d.QueryStatus,
 	}
 
-	clone.QueryStatus = &QueryStatus{
-		rowsRequired: d.QueryStatus.rowsRequired,
-		rowsStreamed: d.QueryStatus.rowsStreamed,
-	}
 	// NOTE: we create a deep copy of the keyColumnQuals
 	// - this is so they can be updated in the copied QueryData without mutating the original
 	for k, v := range d.KeyColumnQuals {
@@ -462,15 +458,18 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]
 }
 
 func (d *QueryData) streamRow(row *proto.Row) error {
-	log.Printf("[WARN] CACHE HIT %v", d.QueryStatus.cacheHit)
-	return d.stream.Send(&proto.ExecuteResponse{
+	log.Printf("[WARN] streamRow hydrate calls %p %d", d.QueryStatus, d.QueryStatus.hydrateCalls)
+	resp := &proto.ExecuteResponse{
 		Row: row,
 		Metadata: &proto.QueryMetadata{
 			HydrateCalls: d.QueryStatus.hydrateCalls,
-			RowsFetched:  d.QueryStatus.rowsStreamed,
-			CacheHit:     d.QueryStatus.cacheHit,
+			// only 1 of these will be non zero
+			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
+			CacheHit:    d.QueryStatus.cacheHit,
 		},
-	})
+	}
+
+	return d.stream.Send(resp)
 }
 
 func (d *QueryData) streamError(err error) {

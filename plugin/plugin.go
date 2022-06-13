@@ -9,10 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"go.opentelemetry.io/otel/attribute"
-
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/cache"
@@ -24,6 +20,8 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/os_specific"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -252,6 +250,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		if cacheHit {
 			// mark this as a cache hit in the query status
 			queryData.QueryStatus.cacheHit = true
+			queryData.QueryStatus.cachedRowsFetched = uint64(len(cachedResult.Rows))
 			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
