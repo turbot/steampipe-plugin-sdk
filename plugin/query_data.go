@@ -450,7 +450,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]
 			// nil row means we are done streaming
 			if row == nil {
 				log.Println("[TRACE] row chan closed, stop streaming")
-				d.streamMetadata()
 				return rows, nil
 			}
 			if err := d.streamRow(row); err != nil {
@@ -463,12 +462,15 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]
 }
 
 func (d *QueryData) streamRow(row *proto.Row) error {
-	return d.stream.Send(&proto.ExecuteResponse{Row: row})
-}
-
-func (d *QueryData) streamMetadata() error {
-	log.Printf("[TRACE] streamMetadata hydrateCalls: %d", d.QueryStatus.hydrateCalls)
-	return d.stream.Send(&proto.ExecuteResponse{Metadata: &proto.QueryMetadata{HydrateCalls: d.QueryStatus.hydrateCalls}})
+	log.Printf("[WARN] CACHE HIT %v", d.QueryStatus.cacheHit)
+	return d.stream.Send(&proto.ExecuteResponse{
+		Row: row,
+		Metadata: &proto.QueryMetadata{
+			HydrateCalls: d.QueryStatus.hydrateCalls,
+			RowsFetched:  d.QueryStatus.rowsStreamed,
+			CacheHit:     d.QueryStatus.cacheHit,
+		},
+	})
 }
 
 func (d *QueryData) streamError(err error) {

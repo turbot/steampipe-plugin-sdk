@@ -7,8 +7,6 @@ import (
 	"os"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -19,8 +17,7 @@ import (
 )
 
 func Init(serviceName string) (func(), error) {
-
-	log.Printf("[WARN] instrument.Init service '%s'", serviceName)
+	log.Printf("[TRACE] instrument.Init service '%s'", serviceName)
 	ctx := context.Background()
 
 	// check whether a telemetry endpoint is configured
@@ -58,13 +55,16 @@ func Init(serviceName string) (func(), error) {
 		otlptracegrpc.WithEndpoint(otelAgentAddr),
 		// TODO telemetry test what happens to traces before the server has connected
 		// TODO telemetry heartbeat?
-		otlptracegrpc.WithDialOption(grpc.WithBlock()),
+		//otlptracegrpc.WithDialOption(grpc.WithBlock()),
 	)
 
+	log.Printf("[TRACE] got client")
 	traceExp, err := otlptrace.New(ctx, traceClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the collector trace exporter: %s", err.Error())
 	}
+
+	log.Printf("[TRACE] got exporter")
 
 	res, err := resource.New(ctx,
 		resource.WithFromEnv(),
@@ -76,6 +76,9 @@ func Init(serviceName string) (func(), error) {
 			semconv.ServiceNameKey.String(serviceName),
 		),
 	)
+
+	log.Printf("[TRACE] got resource")
+
 	if err != nil {
 		log.Printf("[WARN] failed to create resource: %s", err.Error())
 		return nil, fmt.Errorf("failed to create resource: %s", err.Error())
@@ -87,6 +90,8 @@ func Init(serviceName string) (func(), error) {
 		sdktrace.WithResource(res),
 		sdktrace.WithSpanProcessor(bsp),
 	)
+
+	log.Printf("[TRACE] got tracerProvider")
 
 	// set global propagator to tracecontext (the default is no-op).
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))

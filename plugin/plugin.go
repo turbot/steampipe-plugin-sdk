@@ -250,6 +250,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			attribute.Bool("cache-hit", cacheHit),
 		)
 		if cacheHit {
+			// mark this as a cache hit in the query status
+			queryData.QueryStatus.cacheHit = true
 			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)

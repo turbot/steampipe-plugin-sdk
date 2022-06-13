@@ -84,6 +84,8 @@ message ExecuteResponse {
 
 message QueryMetadata {
   uint64 hydrate_calls = 1;
+  uint64 rows_fetched = 2;
+  bool cache_hit = 3;
 }
 message GetSchemaRequest {
 }
