@@ -305,7 +305,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequest, logger hclog.Logger) context.Context {
 	// create a traceable context from the stream context
-	log.Printf("[WARN] calling ExtractContextFromCarrier")
+	log.Printf("[TRACE] calling ExtractContextFromCarrier")
 	ctx = grpc.ExtractContextFromCarrier(ctx, req.TraceContext)
 	// add logger to context
 	return context.WithValue(ctx, context_key.Logger, logger)
@@ -314,7 +314,6 @@ func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequ
 func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest) (context.Context, trace.Span) {
 	ctx, span := instrument.StartSpan(ctx, "Plugin.Execute")
 
-	log.Printf("[WARN] QUALS  %s", grpc.QualMapToString(req.QueryContext.Quals, false))
 	span.SetAttributes(
 		attribute.Bool("cache-enabled", req.CacheEnabled),
 		attribute.Int64("cache-ttl", req.CacheTtl),

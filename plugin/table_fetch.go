@@ -212,7 +212,6 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	var getItem interface{}
 
 	if len(queryData.Matrix) == 0 {
-
 		// just invoke callHydrateWithRetries()
 		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
@@ -232,6 +231,9 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 		rd.Item = getItem
 		// NOTE: explicitly set the get hydrate results on rowData
 		rd.set(hydrateKey, getItem)
+		// set the rowsStreamed to 1
+		queryData.QueryStatus.rowsStreamed = 1
+
 		queryData.rowDataChan <- rd
 	}
 
