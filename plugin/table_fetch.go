@@ -51,7 +51,8 @@ When executing for each matrix item, the matrix item is put into the context, av
 
 // call either 'get' or 'list'.
 func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
-	ctx, span := instrument.StartSpan(ctx, "Table.fetchItems")
+	ctx, span := instrument.StartSpan(ctx, t.Plugin.Name, "Table.fetchItems (%s)", t.Name)
+
 	defer span.End()
 
 	// if the query contains a single 'equals' constrains for all key columns, then call the 'get' function
@@ -73,7 +74,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 
 //  execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
-	ctx, span := instrument.StartSpan(ctx, "Table.executeGetCall")
+	ctx, span := instrument.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
 
 	log.Printf("[TRACE] executeGetCall, table: %s, queryData.KeyColumnQuals: %v", t.Name, queryData.KeyColumnQuals)
@@ -353,7 +354,7 @@ func buildSingleError(errors []error) error {
 }
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
-	ctx, span := instrument.StartSpan(ctx, "Table.executeListCall")
+	ctx, span := instrument.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
 
 	log.Printf("[TRACE] executeListCall")
@@ -461,7 +462,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 }
 
 func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
-	ctx, span := instrument.StartSpan(ctx, "Table.doList")
+	ctx, span := instrument.StartSpan(ctx, t.Plugin.Name, "Table.doList (%s)", t.Name)
 	defer span.End()
 
 	rd := newRowData(queryData, nil)
@@ -483,7 +484,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 // ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
-	ctx, span := instrument.StartSpan(ctx, "Table.listForEach")
+	ctx, span := instrument.StartSpan(ctx, t.Plugin.Name, "Table.listForEach (%s)", t.Name)
 	// TODO add matrix item to span
 	defer span.End()
 

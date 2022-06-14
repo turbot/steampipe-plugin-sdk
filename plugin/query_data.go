@@ -427,7 +427,7 @@ func (d *QueryData) fetchComplete() {
 // read rows from rowChan and stream back across GRPC
 // (also return the rows so we can cache them when complete)
 func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
-	_, span := instrument.StartSpan(ctx, "QueryData.streamRows")
+	ctx, span := instrument.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
 	var rows []*proto.Row

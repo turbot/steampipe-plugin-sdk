@@ -73,9 +73,13 @@ type Plugin struct {
 	concurrencyLock sync.Mutex
 }
 
+// global plugin name
+var PluginName string
+
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) Initialise() {
+	PluginName = p.Name
 	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionManager = connection_manager.NewManager()
 
@@ -312,7 +316,7 @@ func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequ
 }
 
 func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest) (context.Context, trace.Span) {
-	ctx, span := instrument.StartSpan(ctx, "Plugin.Execute")
+	ctx, span := instrument.StartSpan(ctx, p.Name, "Plugin.Execute (%s)", req.Table)
 
 	span.SetAttributes(
 		attribute.Bool("cache-enabled", req.CacheEnabled),
@@ -394,7 +398,7 @@ func (p *Plugin) setuLimit() {
 // if the query cache exists, update the schema
 func (p *Plugin) ensureCache() error {
 	if p.queryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema)
+		queryCache, err := cache.NewQueryCache(p.Name, p.Connection.Name, p.Schema)
 		if err != nil {
 			return err
 		}

@@ -14,9 +14,8 @@ type TraceCtx struct {
 	Span trace.Span
 }
 
-func GetTracer() trace.Tracer {
-	// TODO KAI CHANGE
-	return otel.GetTracerProvider().Tracer("steampipe")
+func GetTracer(service string) trace.Tracer {
+	return otel.GetTracerProvider().Tracer(service)
 }
 
 //func StartRootSpan(id string) *TraceCtx {
@@ -27,8 +26,8 @@ func GetTracer() trace.Tracer {
 //	return &TraceCtx{Ctx: traceContext, Span: span}
 //}
 
-func StartSpan(baseCtx context.Context, format string, args ...interface{}) (context.Context, trace.Span) {
-	tr := GetTracer()
+func StartSpan(baseCtx context.Context, service string, format string, args ...interface{}) (context.Context, trace.Span) {
+	tr := GetTracer(service)
 	return tr.Start(baseCtx, fmt.Sprintf(format, args...))
 }
 

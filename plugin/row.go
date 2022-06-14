@@ -195,7 +195,8 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
 func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
-	ctx, span := instrument.StartSpan(ctx, "RowData.callHydrateWithRetries")
+	ctx, span := instrument.StartSpan(ctx, r.table.Plugin.Name, "RowData.callHydrateWithRetries (%s)", r.table.Name)
+
 	span.SetAttributes(
 		attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
 	)

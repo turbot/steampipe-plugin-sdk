@@ -25,6 +25,7 @@ const defaultTTL = 5 * time.Minute
 type QueryCache struct {
 	cache           *ristretto.Cache
 	Stats           *CacheStats
+	pluginName      string
 	connectionName  string
 	PluginSchema    map[string]*proto.TableSchema
 	pendingData     map[string]*pendingIndexBucket
@@ -39,9 +40,10 @@ type CacheStats struct {
 	Misses int
 }
 
-func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSchema) (*QueryCache, error) {
+func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*proto.TableSchema) (*QueryCache, error) {
 	cache := &QueryCache{
 		Stats:          &CacheStats{},
+		pluginName:     pluginName,
 		connectionName: connectionName,
 		PluginSchema:   pluginSchema,
 		pendingData:    make(map[string]*pendingIndexBucket),
@@ -129,7 +131,7 @@ func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Q
 }
 
 func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) (res *QueryCacheResult) {
-	ctx, span := instrument.StartSpan(ctx, "QueryCache.Get")
+	ctx, span := instrument.StartSpan(ctx, "QueryCache.Get (%s)", table)
 	defer func() {
 		cacheHit := res != nil
 		span.SetAttributes(attribute.Bool("cache-hit", cacheHit))
