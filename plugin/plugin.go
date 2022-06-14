@@ -73,13 +73,9 @@ type Plugin struct {
 	concurrencyLock sync.Mutex
 }
 
-// global plugin name
-var PluginName string
-
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) Initialise() {
-	PluginName = p.Name
 	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionManager = connection_manager.NewManager()
 
