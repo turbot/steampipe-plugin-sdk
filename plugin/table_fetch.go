@@ -412,7 +412,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 					}
 				}
 				if len(requiredListQuals) > 1 {
-					log.Printf("[WARN] more than 1 required qual has a list value - we cannot call list for each to passing qualds through to plugin unaltered")
+					log.Printf("[WARN] more than 1 required qual has a list value - we cannot call list for each so passing quals through to plugin unaltered")
 					qualsWithListValues = nil
 				} else {
 					log.Printf("[TRACE] after removing optional quals %d required remain", len(requiredListQuals))

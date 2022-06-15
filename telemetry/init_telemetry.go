@@ -27,15 +27,17 @@ import (
 )
 
 func Init(serviceName string) (func(), error) {
-	log.Printf("[TRACE] instrument.Init service '%s'", serviceName)
 	ctx := context.Background()
 
 	// is telemetry enabled
 	telemetryEnvStr := strings.ToLower(os.Getenv(EnvOtelLevel))
 	tracingEnabled := helpers.StringSliceContains([]string{OtelAll, OtelTrace}, telemetryEnvStr)
 	metricsEnabled := helpers.StringSliceContains([]string{OtelAll, OtelMetrics}, telemetryEnvStr)
+
+	log.Printf("[TRACE] telemetry.Init service '%s', tracingEnabled: %v, metricsEnabled: %v", serviceName, tracingEnabled, metricsEnabled)
+
 	if !tracingEnabled && !metricsEnabled {
-		log.Printf("[TRACE] instrument.Init: metrics and tracing disabled' - returning")
+		log.Printf("[TRACE] metrics and tracing disabled' - returning")
 		// return empty shutdown func
 		return func() {}, nil
 	}
@@ -43,14 +45,12 @@ func Init(serviceName string) (func(), error) {
 	// check whether a telemetry endpoint is configured
 	otelAgentAddr, endpointSet := os.LookupEnv(EnvOtelEndpoint)
 	if !endpointSet {
-		log.Printf("[TRACE] instrument.Init: OTEL_EXPORTER_OTLP_ENDPOINT not set - returning")
+		log.Printf("[TRACE] OTEL_EXPORTER_OTLP_ENDPOINT not set - returning")
 		// return empty shutdown func
 		return func() {}, nil
-		//otelAgentAddr = "localhost:4317"
 	}
 
-	log.Printf("[TRACE] init telemetry, endpoint: %s", otelAgentAddr)
-
+	log.Printf("[TRACE] endpoint: %s", otelAgentAddr)
 	var pusher *controller.Controller
 	var traceExp *otlptrace.Exporter
 	var tracerProvider *sdktrace.TracerProvider
@@ -98,6 +98,8 @@ func Init(serviceName string) (func(), error) {
 }
 
 func initMetrics(ctx context.Context, otelAgentAddr string) (*controller.Controller, error) {
+	log.Printf("[TRACE] telemetry.initMetrics")
+
 	metricClient := otlpmetricgrpc.NewClient(
 		otlpmetricgrpc.WithInsecure(),
 		otlpmetricgrpc.WithEndpoint(otelAgentAddr))
@@ -121,6 +123,7 @@ func initMetrics(ctx context.Context, otelAgentAddr string) (*controller.Control
 		log.Printf("[TRACE] initMetrics: failed to start metric pusher: %s", err.Error())
 		return nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
 	}
+	log.Printf("[TRACE] telemetry.initMetrics complete")
 	return pusher, nil
 }
 

@@ -52,7 +52,7 @@ func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, concu
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 	// update the hydrate count
-	atomic.AddUint64(&d.QueryStatus.hydrateCalls, 1)
+	atomic.AddInt64(&d.QueryStatus.hydrateCalls, 1)
 
 	// call callHydrate async, ignoring return values
 	go func() {

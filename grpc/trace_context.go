@@ -25,7 +25,6 @@ func CreateCarrierFromContext(ctx context.Context) *proto.TraceContext {
 
 func ExtractContextFromCarrier(ctx context.Context, traceCtx *proto.TraceContext) context.Context {
 	if traceCtx == nil || len(traceCtx.Value) == 0 {
-		log.Printf("[WARN]  ExtractContextFromCarrier trace context has no value")
 		return ctx
 	}
 
@@ -39,7 +38,6 @@ func ExtractContextFromCarrier(ctx context.Context, traceCtx *proto.TraceContext
 		return ctx
 	}
 
-	log.Printf("[WARN] extracting")
 	// Frame a new context with extracted trace context information from carrier
 	return propagator.Extract(ctx, carrier)
 }

@@ -214,13 +214,11 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// get a context which includes telemetry data and logger
 	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
-	log.Printf("[WARN] Start execute span")
+	log.Printf("[TRACE] Start execute span")
 	ctx, executeSpan := p.startExecuteSpan(ctx, req)
 	defer func() {
-		log.Printf("[WARN] End execute span")
+		log.Printf("[TRACE] End execute span")
 		executeSpan.End()
-		// TODO doesn't seem to be needed
-		//instrument.FlushTraces()
 	}()
 
 	// get the matrix item
@@ -250,7 +248,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		if cacheHit {
 			// mark this as a cache hit in the query status
 			queryData.QueryStatus.cacheHit = true
-			queryData.QueryStatus.cachedRowsFetched = uint64(len(cachedResult.Rows))
+			queryData.QueryStatus.cachedRowsFetched = int64(len(cachedResult.Rows))
 			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
