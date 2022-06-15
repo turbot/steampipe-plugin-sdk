@@ -13,9 +13,9 @@ import (
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 )
 
 const itemBufferSize = 100
@@ -427,7 +427,7 @@ func (d *QueryData) fetchComplete() {
 // read rows from rowChan and stream back across GRPC
 // (also return the rows so we can cache them when complete)
 func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
-	ctx, span := instrument.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
+	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
 	var rows []*proto.Row

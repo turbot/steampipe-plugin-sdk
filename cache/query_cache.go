@@ -13,7 +13,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -131,7 +131,7 @@ func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Q
 }
 
 func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) (res *QueryCacheResult) {
-	ctx, span := instrument.StartSpan(ctx, "QueryCache.Get (%s)", table)
+	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", table)
 	defer func() {
 		cacheHit := res != nil
 		span.SetAttributes(attribute.Bool("cache-hit", cacheHit))

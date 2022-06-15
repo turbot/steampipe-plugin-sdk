@@ -1,4 +1,4 @@
-package instrument
+package telemetry
 
 const EnvOtelLevel = "STEAMPIPE_OTEL_LEVEL"
 const EnvOtelEndpoint = "OTEL_EXPORTER_OTLP_ENDPOINT"

@@ -15,11 +15,11 @@ import (
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/os_specific"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -312,7 +312,7 @@ func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequ
 }
 
 func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest) (context.Context, trace.Span) {
-	ctx, span := instrument.StartSpan(ctx, p.Name, "Plugin.Execute (%s)", req.Table)
+	ctx, span := telemetry.StartSpan(ctx, p.Name, "Plugin.Execute (%s)", req.Table)
 
 	span.SetAttributes(
 		attribute.Bool("cache-enabled", req.CacheEnabled),

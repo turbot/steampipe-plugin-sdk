@@ -8,7 +8,7 @@ import (
 
 	"github.com/sethvargo/go-retry"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,7 +16,7 @@ import (
 
 // RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attemptes before throwing error
 func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
-	ctx, span := instrument.StartSpan(ctx, d.Table.Plugin.Name, "RetryHydrate (%s)", d.Table.Name)
+	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "RetryHydrate (%s)", d.Table.Name)
 	span.SetAttributes(
 		attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
 	)
@@ -52,7 +52,7 @@ func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFun
 	log.Printf("[TRACE] WrapHydrate %s, ignore config %s\n", helpers.GetFunctionName(hydrateFunc), ignoreConfig.String())
 
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
-		ctx, span := instrument.StartSpan(ctx, d.Table.Plugin.Name, "hydrateWithIgnoreError (%s)", d.Table.Name)
+		ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "hydrateWithIgnoreError (%s)", d.Table.Name)
 		span.SetAttributes(
 			attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
 		)

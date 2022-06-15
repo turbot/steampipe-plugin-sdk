@@ -6,9 +6,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 )
 
 // ServeOpts are the configurations to serve a plugin.
@@ -34,7 +34,7 @@ func Serve(opts *ServeOpts) {
 	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
 	p.Initialise()
 
-	shutdown, _ := instrument.Init(p.Name)
+	shutdown, _ := telemetry.Init(p.Name)
 	defer func() {
 		log.Println("[TRACE] FLUSHING instrumentation")
 		//instrument.FlushTraces()

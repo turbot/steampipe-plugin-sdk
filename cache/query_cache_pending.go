@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/instrument"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 )
 
 const pendingQueryTimeout = 90 * time.Second
@@ -42,7 +42,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 }
 
 func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) *QueryCacheResult {
-	ctx, span := instrument.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", table)
+	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", table)
 	defer span.End()
 
 	var res *QueryCacheResult

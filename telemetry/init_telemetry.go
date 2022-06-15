@@ -1,4 +1,4 @@
-package instrument
+package telemetry
 
 import (
 	"context"
