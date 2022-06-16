@@ -418,7 +418,15 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 }
 
 // called when all items have been fetched - close the item chan
-func (d *QueryData) fetchComplete() {
+func (d *QueryData) fetchComplete(ctx context.Context) {
+	log.Printf("[TRACE] QueryData.fetchComplete")
+
+	// if the context was cancelled, stream the cancellation error
+	if ctx.Err() != nil {
+		log.Printf("[TRACE] context was cancelled - streaming context error")
+		d.errorChan <- ctx.Err()
+	}
+
 	// wait for any child fetches to complete before closing channel
 	d.listWg.Wait()
 	close(d.rowDataChan)
