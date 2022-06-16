@@ -1,4 +1,4 @@
- syntax = "proto3";
+syntax = "proto3";
 import "google/protobuf/timestamp.proto";
 package proto;
 option go_package = ".;proto";
@@ -63,6 +63,10 @@ message NullableInt {
   int64 value=1;
 }
 
+message TraceContext {
+  string value = 1;
+}
+
 message ExecuteRequest {
   string table = 1;
   QueryContext query_context = 2;
@@ -70,12 +74,19 @@ message ExecuteRequest {
   bool cache_enabled = 4;
   int64 cache_ttl = 5;
   string call_id = 6;
+  TraceContext trace_context = 7;
 }
 
 message ExecuteResponse {
   Row row = 1;
+  QueryMetadata metadata = 2;
 }
 
+message QueryMetadata {
+  int64 hydrate_calls = 1;
+  int64 rows_fetched = 2;
+  bool cache_hit = 3;
+}
 message GetSchemaRequest {
 }
 

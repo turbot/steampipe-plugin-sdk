@@ -11,6 +11,8 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -192,12 +194,26 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 }
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
-func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (interface{}, error) {
+func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
+	ctx, span := telemetry.StartSpan(ctx, r.table.Plugin.Name, "RowData.callHydrateWithRetries (%s)", r.table.Name)
+
+	span.SetAttributes(
+		attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
+	)
+	defer func() {
+		if err != nil {
+			span.SetAttributes(
+				attribute.String("err", err.Error()),
+			)
+		}
+		span.End()
+	}()
+
 	log.Printf("[TRACE] callHydrateWithRetries: %s", helpers.GetFunctionName(hydrateFunc))
 	h := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
 	var hydrateWithIgnoreError = WrapHydrate(hydrateFunc, ignoreConfig)
-	hydrateResult, err := hydrateWithIgnoreError(ctx, d, h)
+	hydrateResult, err = hydrateWithIgnoreError(ctx, d, h)
 	if err != nil {
 		log.Printf("[TRACE] hydrateWithIgnoreError returned error %v", err)
 

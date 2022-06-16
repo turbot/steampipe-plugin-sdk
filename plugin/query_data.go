@@ -15,6 +15,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 )
 
 const itemBufferSize = 100
@@ -135,12 +136,9 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		stream:             d.stream,
 		listWg:             d.listWg,
 		columns:            d.columns,
+		QueryStatus:        d.QueryStatus,
 	}
 
-	clone.QueryStatus = &QueryStatus{
-		rowsRequired: d.QueryStatus.rowsRequired,
-		rowsStreamed: d.QueryStatus.rowsStreamed,
-	}
 	// NOTE: we create a deep copy of the keyColumnQuals
 	// - this is so they can be updated in the copied QueryData without mutating the original
 	for k, v := range d.KeyColumnQuals {
@@ -426,9 +424,12 @@ func (d *QueryData) fetchComplete() {
 	close(d.rowDataChan)
 }
 
-// read rows from rowChan and stream back
+// read rows from rowChan and stream back across GRPC
 // (also return the rows so we can cache them when complete)
-func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
+func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
+	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
+	defer span.End()
+
 	var rows []*proto.Row
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
@@ -457,7 +458,19 @@ func (d *QueryData) streamRows(_ context.Context, rowChan chan *proto.Row) ([]*p
 }
 
 func (d *QueryData) streamRow(row *proto.Row) error {
-	return d.stream.Send(&proto.ExecuteResponse{Row: row})
+	log.Printf("[TRACE] streamRow hydrate calls: %d, rows fetched: %d, cached rows fetched: %d cache hit: %v",
+		d.QueryStatus.hydrateCalls, d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched, d.QueryStatus.cacheHit)
+	resp := &proto.ExecuteResponse{
+		Row: row,
+		Metadata: &proto.QueryMetadata{
+			HydrateCalls: d.QueryStatus.hydrateCalls,
+			// only 1 of these will be non zero
+			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
+			CacheHit:    d.QueryStatus.cacheHit,
+		},
+	}
+
+	return d.stream.Send(resp)
 }
 
 func (d *QueryData) streamError(err error) {

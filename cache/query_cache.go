@@ -13,6 +13,8 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // TODO do not use unsafe quals use quals map and  remove key column qual logic
@@ -23,6 +25,7 @@ const defaultTTL = 5 * time.Minute
 type QueryCache struct {
 	cache           *ristretto.Cache
 	Stats           *CacheStats
+	pluginName      string
 	connectionName  string
 	PluginSchema    map[string]*proto.TableSchema
 	pendingData     map[string]*pendingIndexBucket
@@ -37,9 +40,10 @@ type CacheStats struct {
 	Misses int
 }
 
-func NewQueryCache(connectionName string, pluginSchema map[string]*proto.TableSchema) (*QueryCache, error) {
+func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*proto.TableSchema) (*QueryCache, error) {
 	cache := &QueryCache{
 		Stats:          &CacheStats{},
+		pluginName:     pluginName,
 		connectionName: connectionName,
 		PluginSchema:   pluginSchema,
 		pendingData:    make(map[string]*pendingIndexBucket),
@@ -126,7 +130,14 @@ func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Q
 	c.pendingItemComplete(table, qualMap, columns, limit)
 }
 
-func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) *QueryCacheResult {
+func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) (res *QueryCacheResult) {
+	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", table)
+	defer func() {
+		cacheHit := res != nil
+		span.SetAttributes(attribute.Bool("cache-hit", cacheHit))
+		span.End()
+	}()
+
 	clientTTL := time.Duration(clientTTLSeconds) * time.Second
 	// if the client TTL is greater than the cache TTL, update the cache value to match the client value
 	// lock to handle concurrent updates
@@ -147,7 +158,7 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 
 	// do we have a cached result?
-	res := c.getCachedResult(indexBucketKey, table, cacheQualMap, columns, limit, clientTTLSeconds)
+	res = c.getCachedResult(indexBucketKey, table, cacheQualMap, columns, limit, clientTTLSeconds)
 	if res != nil {
 		log.Printf("[INFO] CACHE HIT")
 		// cache hit!

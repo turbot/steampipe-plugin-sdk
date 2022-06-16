@@ -19,6 +19,9 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/os_specific"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -208,11 +211,18 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	ctx := context.WithValue(stream.Context(), context_key.Logger, logger)
+	// get a context which includes telemetry data and logger
+	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
-	var matrixItem []map[string]interface{}
+	log.Printf("[TRACE] Start execute span")
+	ctx, executeSpan := p.startExecuteSpan(ctx, req)
+	defer func() {
+		log.Printf("[TRACE] End execute span")
+		executeSpan.End()
+	}()
 
 	// get the matrix item
+	var matrixItem []map[string]interface{}
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
@@ -231,7 +241,14 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if req.CacheEnabled {
 		log.Printf("[TRACE] Cache ENABLED callId: %s", req.CallId)
 		cachedResult := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
-		if cachedResult != nil {
+		cacheHit := cachedResult != nil
+		executeSpan.SetAttributes(
+			attribute.Bool("cache-hit", cacheHit),
+		)
+		if cacheHit {
+			// mark this as a cache hit in the query status
+			queryData.QueryStatus.cacheHit = true
+			queryData.QueryStatus.cachedRowsFetched = int64(len(cachedResult.Rows))
 			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
@@ -268,7 +285,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.Printf("[TRACE] streamRows callId: %s", req.CallId)
 
 	logging.LogTime("Calling streamRows")
-	// asyncronously stream rows
+
+	// asyncronously stream rows across GRPC
 	rows, err := queryData.streamRows(ctx, rowChan)
 	if err != nil {
 		return err
@@ -281,6 +299,32 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
 	}
 	return nil
+}
+
+func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequest, logger hclog.Logger) context.Context {
+	// create a traceable context from the stream context
+	log.Printf("[TRACE] calling ExtractContextFromCarrier")
+	ctx = grpc.ExtractContextFromCarrier(ctx, req.TraceContext)
+	// add logger to context
+	return context.WithValue(ctx, context_key.Logger, logger)
+}
+
+func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest) (context.Context, trace.Span) {
+	ctx, span := telemetry.StartSpan(ctx, p.Name, "Plugin.Execute (%s)", req.Table)
+
+	span.SetAttributes(
+		attribute.Bool("cache-enabled", req.CacheEnabled),
+		attribute.Int64("cache-ttl", req.CacheTtl),
+		attribute.String("connection", req.Connection),
+		attribute.String("call-id", req.CallId),
+		attribute.String("table", req.Table),
+		attribute.StringSlice("columns", req.QueryContext.Columns),
+		attribute.String("quals", grpc.QualMapToString(req.QueryContext.Quals, false)),
+	)
+	if req.QueryContext.Limit != nil {
+		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value))
+	}
+	return ctx, span
 }
 
 func (p *Plugin) newQueryData(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}) *QueryData {
@@ -348,7 +392,7 @@ func (p *Plugin) setuLimit() {
 // if the query cache exists, update the schema
 func (p *Plugin) ensureCache() error {
 	if p.queryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Connection.Name, p.Schema)
+		queryCache, err := cache.NewQueryCache(p.Name, p.Connection.Name, p.Schema)
 		if err != nil {
 			return err
 		}

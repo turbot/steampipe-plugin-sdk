@@ -14,7 +14,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
-
+	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -50,6 +50,10 @@ When executing for each matrix item, the matrix item is put into the context, av
 
 // call either 'get' or 'list'.
 func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.fetchItems (%s)", t.Name)
+
+	defer span.End()
+
 	// if the query contains a single 'equals' constrains for all key columns, then call the 'get' function
 	if queryData.FetchType == fetchTypeGet && t.Get != nil {
 		logging.LogTime("executeGetCall")
@@ -57,7 +61,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 		return t.executeGetCall(ctx, queryData)
 	}
 	if t.List == nil {
-		log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.UnsafeQuals))
+		log.Printf("[WARN] query is not a get call, but no list call is defined, quals: %v", grpc.QualMapToString(queryData.QueryContext.UnsafeQuals, true))
 		panic("query is not a get call, but no list call is defined")
 	}
 
@@ -69,6 +73,9 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 
 //  execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
+	defer span.End()
+
 	log.Printf("[TRACE] executeGetCall, table: %s, queryData.KeyColumnQuals: %v", t.Name, queryData.KeyColumnQuals)
 
 	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.Get.KeyColumns)
@@ -205,7 +212,6 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	var getItem interface{}
 
 	if len(queryData.Matrix) == 0 {
-
 		// just invoke callHydrateWithRetries()
 		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
@@ -225,6 +231,9 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 		rd.Item = getItem
 		// NOTE: explicitly set the get hydrate results on rowData
 		rd.set(hydrateKey, getItem)
+		// set the rowsStreamed to 1
+		queryData.QueryStatus.rowsStreamed = 1
+
 		queryData.rowDataChan <- rd
 	}
 
@@ -344,6 +353,9 @@ func buildSingleError(errors []error) error {
 }
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
+	defer span.End()
+
 	log.Printf("[TRACE] executeListCall")
 	defer func() {
 		if r := recover(); r != nil {
@@ -400,7 +412,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 					}
 				}
 				if len(requiredListQuals) > 1 {
-					log.Printf("[WARN] more than 1 required qual has a list value - we cannot call list for each to passing qualds through to plugin unaltered")
+					log.Printf("[WARN] more than 1 required qual has a list value - we cannot call list for each so passing quals through to plugin unaltered")
 					qualsWithListValues = nil
 				} else {
 					log.Printf("[TRACE] after removing optional quals %d required remain", len(requiredListQuals))
@@ -449,6 +461,9 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 }
 
 func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.doList (%s)", t.Name)
+	defer span.End()
+
 	rd := newRowData(queryData, nil)
 
 	if len(queryData.Matrix) == 0 {
@@ -468,6 +483,10 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 // ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
 func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.listForEach (%s)", t.Name)
+	// TODO add matrix item to span
+	defer span.End()
+
 	log.Printf("[TRACE] listForEach: %v\n", queryData.Matrix)
 	var wg sync.WaitGroup
 	// NOTE - we use the filtered matrix - which means we may not actually run any hydrate calls
