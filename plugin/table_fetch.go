@@ -87,7 +87,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 
 	defer func() {
 		// we can now close the item chan
-		queryData.fetchComplete()
+		queryData.fetchComplete(ctx)
 		if r := recover(); r != nil {
 			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r))
 		}
@@ -362,7 +362,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", helpers.GetFunctionName(t.List.Hydrate), r)))
 		}
 		// list call will return when it has streamed all items so close rowDataChan
-		queryData.fetchComplete()
+		queryData.fetchComplete(ctx)
 	}()
 
 	// verify we have the necessary quals
