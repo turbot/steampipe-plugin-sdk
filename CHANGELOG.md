@@ -1,3 +1,12 @@
+## v3.3.0  [tbd]
+_What's new_
+* Add support for Open Telemetry. ([#337](https://github.com/turbot/steampipe-plugin-sdk/issues/337))
+* Return query metadata with the scn result, such as the number of hydrate functions called andd the cache status. ([#338](https://github.com/turbot/steampipe-plugin-sdk/issues/338))
+
+_Bug fixes_
+* Incomplete results should not be added to cache if the context is cancelled. ([#339](https://github.com/turbot/steampipe-plugin-sdk/issues/339))
+* Avoid deadlock after panic during newQueryData. ([#332](https://github.com/turbot/steampipe-plugin-sdk/issues/332))
+
 ## v3.2.0  [2022-05-20]
 _What's new_
 * Deprecate `ShouldIgnoreError` and `ShouldRetryError`. 
