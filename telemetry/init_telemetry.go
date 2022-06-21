@@ -45,9 +45,8 @@ func Init(serviceName string) (func(), error) {
 	// check whether a telemetry endpoint is configured
 	otelAgentAddr, endpointSet := os.LookupEnv(EnvOtelEndpoint)
 	if !endpointSet {
-		log.Printf("[TRACE] OTEL_EXPORTER_OTLP_ENDPOINT not set - returning")
-		// return empty shutdown func
-		return func() {}, nil
+		log.Printf("[TRACE] OTEL_EXPORTER_OTLP_ENDPOINT not set - defaulting to 'localhost:4317'")
+		otelAgentAddr = "localhost:4317"
 	}
 
 	log.Printf("[TRACE] endpoint: %s", otelAgentAddr)
