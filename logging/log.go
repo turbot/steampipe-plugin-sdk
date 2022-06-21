@@ -23,11 +23,15 @@ func NewLogger(options *hclog.LoggerOptions) hclog.Logger {
 
 func LogLevel() string {
 	level, ok := os.LookupEnv(LogLevelEnvVar)
-	if !ok {
-		level, ok = os.LookupEnv(LegacyLogLevelEnvVar)
-		if !ok {
-			level = defaultLogLevel
+	if ok {
+		return level
+	}
+	// handle legacy env vars
+	for _, e := range LegacyLogLevelEnvVars {
+		level, ok = os.LookupEnv(e)
+		if ok {
+			return level
 		}
 	}
-	return level
+	return defaultLogLevel
 }
