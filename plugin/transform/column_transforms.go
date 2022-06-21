@@ -2,7 +2,6 @@ package transform
 
 import (
 	"context"
-	"log"
 
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
 )
@@ -35,19 +34,10 @@ type GetSourceFieldFunc func(interface{}) string
 type ColumnTransforms struct {
 	// a list of transforms to apply to the data
 	Transforms []*TransformCall
-	// should this transform chain start with the default transform for the column
-	ApplyDefaultTransform bool
 }
 
-func (t *ColumnTransforms) Execute(ctx context.Context, transformData *TransformData, defaultTransform *ColumnTransforms) (interface{}, error) {
+func (t *ColumnTransforms) Execute(ctx context.Context, transformData *TransformData) (interface{}, error) {
 	var value interface{}
-	var err error
-	if t.ApplyDefaultTransform {
-		log.Printf("[TRACE] ColumnTransforms.Execute - running default transforms first\n")
-		if value, err = callTransforms(ctx, value, transformData, defaultTransform.Transforms); err != nil {
-			return nil, err
-		}
-	}
 	return callTransforms(ctx, value, transformData, t.Transforms)
 }
 

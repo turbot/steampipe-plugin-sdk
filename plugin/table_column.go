@@ -46,7 +46,6 @@ func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *Qu
 		// are there any generate transforms defined? if not apply default generate
 		// NOTE: we must call getColumnTransforms to ensure the default is used if none is defined
 		columnTransforms := t.getColumnTransforms(column)
-		defaultTransform := t.getDefaultColumnTransform(column)
 
 		qualValueMap := rowData.queryData.Quals.ToQualMap()
 		transformData := &transform.TransformData{
@@ -55,7 +54,7 @@ func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *Qu
 			ColumnName:     column.Name,
 			KeyColumnQuals: qualValueMap,
 		}
-		value, err = columnTransforms.Execute(ctx, transformData, defaultTransform)
+		value, err = columnTransforms.Execute(ctx, transformData)
 		if err != nil {
 			log.Printf("[ERROR] failed to populate column '%s': %v\n", column.Name, err)
 			return nil, fmt.Errorf("failed to populate column '%s': %v", column.Name, err)
