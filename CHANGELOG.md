@@ -1,7 +1,7 @@
-## v3.3.0  [tbd]
+## v3.3.0  [2022-6-22]
 _What's new_
 * Add support for Open Telemetry. ([#337](https://github.com/turbot/steampipe-plugin-sdk/issues/337))
-* Return query metadata with the scn result, such as the number of hydrate functions called andd the cache status. ([#338](https://github.com/turbot/steampipe-plugin-sdk/issues/338))
+* Return query metadata with the scan result, such as the number of hydrate functions called and the cache status. ([#338](https://github.com/turbot/steampipe-plugin-sdk/issues/338))
 
 _Bug fixes_
 * Incomplete results should not be added to cache if the context is cancelled. ([#339](https://github.com/turbot/steampipe-plugin-sdk/issues/339))
