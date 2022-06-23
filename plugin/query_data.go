@@ -466,8 +466,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]
 }
 
 func (d *QueryData) streamRow(row *proto.Row) error {
-	log.Printf("[TRACE] streamRow hydrate calls: %d, rows fetched: %d, cached rows fetched: %d cache hit: %v",
-		d.QueryStatus.hydrateCalls, d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched, d.QueryStatus.cacheHit)
 	resp := &proto.ExecuteResponse{
 		Row: row,
 		Metadata: &proto.QueryMetadata{

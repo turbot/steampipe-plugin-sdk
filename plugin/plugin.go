@@ -71,6 +71,7 @@ type Plugin struct {
 
 	queryCache      *cache.QueryCache
 	concurrencyLock sync.Mutex
+	cacheStream     proto.WrapperPlugin_EstablishCacheConnectionServer
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -125,6 +126,8 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 			p.Logger.Debug("SetConnectionConfig finished")
 		}
 	}()
+
+	log.Printf("[TRACE] SetConnectionConfig connection '%s'", connectionName)
 
 	// create connection object
 	p.Connection = &Connection{Name: connectionName}
@@ -246,8 +249,12 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		limit = *queryContext.Limit
 	}
 	// can we satisfy this request from the cache?
-	if req.CacheEnabled {
-		log.Printf("[TRACE] Cache ENABLED callId: %s", req.CallId)
+	if req.CacheEnabled && p.queryCache == nil {
+		return fmt.Errorf("no cache connection has been established with the plugin manager")
+	}
+
+	if req.CacheEnabled && p.queryCache != nil {
+		log.Printf("[TRACE] Cache ENABLED callId: %s %p", req.CallId, p.queryCache)
 		cachedResult := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
 		cacheHit := cachedResult != nil
 		executeSpan.SetAttributes(
@@ -305,6 +312,23 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 		cacheResult := &cache.QueryCacheResult{Rows: rows}
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
+	}
+	return nil
+}
+
+func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error {
+	log.Printf("[WARN] EstablishCacheConnection!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	p.cacheStream = stream
+	if p.queryCache != nil {
+		log.Printf("[WARN] QWUERY CACHE ALREADY CREATED")
+		p.queryCache.CacheStream = stream
+	}
+	//if err := p.ensureCache(); err != nil {
+	//	return err
+	//}
+	//log.Printf("[WARN] ensured cache")
+	// hold stream open
+	for {
 	}
 	return nil
 }
@@ -400,7 +424,7 @@ func (p *Plugin) setuLimit() {
 // if the query cache exists, update the schema
 func (p *Plugin) ensureCache() error {
 	if p.queryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Name, p.Connection.Name, p.Schema)
+		queryCache, err := cache.NewQueryCache(p.Name, p.Connection.Name, p.Schema, p.cacheStream)
 		if err != nil {
 			return err
 		}

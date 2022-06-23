@@ -41,5 +41,5 @@ func Serve(opts *ServeOpts) {
 		log.Println("[TRACE] Shutdown instrumentation")
 		shutdown()
 	}()
-	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.GetSchema, p.Execute).Serve()
+	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.GetSchema, p.Execute, p.EstablishCacheConnection).Serve()
 }

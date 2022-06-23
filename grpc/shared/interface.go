@@ -26,7 +26,7 @@ type WrapperPluginServer interface {
 	Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
-	CacheConnection(proto.WrapperPlugin_CacheConnectionServer) error
+	EstablishCacheConnection(server proto.WrapperPlugin_EstablishCacheConnectionServer) error
 }
 
 type WrapperPluginClient interface {
@@ -34,7 +34,7 @@ type WrapperPluginClient interface {
 	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error)
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
-	CacheConnection() (proto.WrapperPlugin_CacheConnectionClient, error)
+	EstablishCacheConnection() (proto.WrapperPlugin_EstablishCacheConnectionClient, error)
 }
 
 // This is the implementation of plugin.GRPCServer so we can serve/consume this.

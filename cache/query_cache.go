@@ -32,6 +32,7 @@ type QueryCache struct {
 	pendingDataLock sync.Mutex
 	ttlLock         sync.Mutex
 	ttl             time.Duration
+	CacheStream     proto.WrapperPlugin_EstablishCacheConnectionServer
 }
 
 type CacheStats struct {
@@ -40,7 +41,9 @@ type CacheStats struct {
 	Misses int
 }
 
-func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*proto.TableSchema) (*QueryCache, error) {
+// TODO JUST PASS PLUGIN IN
+func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*proto.TableSchema, cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer) (*QueryCache, error) {
+	log.Printf("[INFO] NewQueryCache 1")
 	cache := &QueryCache{
 		Stats:          &CacheStats{},
 		pluginName:     pluginName,
@@ -48,7 +51,10 @@ func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*p
 		PluginSchema:   pluginSchema,
 		pendingData:    make(map[string]*pendingIndexBucket),
 		ttl:            defaultTTL,
+		CacheStream:    cacheStream,
 	}
+
+	log.Printf("[INFO] NewQueryCache 2")
 
 	config := &ristretto.Config{
 		NumCounters: 1e7,     // number of keys to track frequency of (10M).
@@ -76,6 +82,21 @@ func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns 
 		c.pendingItemComplete(table, qualMap, columns, limit)
 	}()
 	cacheQualMap := c.buildCacheQualMap(table, qualMap)
+
+	if c.CacheStream != nil {
+		log.Printf("[WARN] Cache SET cacheStream ENABLED")
+		err := c.CacheStream.Send(&proto.CacheRequest{
+			Command: proto.CacheCommand_SET,
+			Table:   table,
+			Quals:   qualMap,
+			Columns: columns,
+			Limit:   limit,
+			Rows:    result.Rows,
+		})
+		if err != nil {
+			log.Printf("[WARN] Cache SET stream error %v", err)
+		}
+	}
 
 	// get ttl - read here in case the property is updated  between the 2 uses below
 	ttl := c.ttl
@@ -131,6 +152,19 @@ func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Q
 }
 
 func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) (res *QueryCacheResult) {
+	if c.CacheStream != nil {
+		log.Printf("[WARN] Cache GET cacheStream ENABLED")
+		err := c.CacheStream.Send(&proto.CacheRequest{
+			Command: proto.CacheCommand_GET,
+			Table:   table,
+			Quals:   qualMap,
+			Columns: columns,
+			Limit:   limit,
+		})
+		if err != nil {
+			log.Printf("[WARN] Cache SET stream error %v", err)
+		}
+	}
 	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", table)
 	defer func() {
 		cacheHit := res != nil
