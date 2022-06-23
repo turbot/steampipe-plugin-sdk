@@ -20,23 +20,8 @@ type PluginClient struct {
 	client *plugin.Client
 }
 
-func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
+func NewPluginClient(client *plugin.Client, pluginName string) (*PluginClient, error) {
 	log.Printf("[TRACE] NewPluginClient for plugin %s", pluginName)
-	// create the plugin map
-	pluginMap := map[string]plugin.Plugin{
-		pluginName: &pluginshared.WrapperPlugin{},
-	}
-	// discard logging from the client (plugin logs will still flow through to the log file as the plugin manager set this up)
-	logger := logging.NewLogger(&hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard})
-
-	// create grpc client
-	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig:  pluginshared.Handshake,
-		Plugins:          pluginMap,
-		Reattach:         reattach,
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		Logger:           logger,
-	})
 
 	// connect via RPC
 	rpcClient, err := client.Client()
@@ -55,11 +40,42 @@ func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*Plugi
 		Name:   pluginName,
 		client: client,
 		Stub:   p,
-		Pid:    reattach.Pid,
 	}
+	// TODO set PID?? NEEDED?
 	return res, nil
 
 }
+
+func NewPluginClientFromReattach(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
+	log.Printf("[TRACE] NewPluginClientFromReattach for plugin %s", pluginName)
+	// create the plugin map
+	pluginMap := map[string]plugin.Plugin{
+		pluginName: &pluginshared.WrapperPlugin{},
+	}
+	// discard logging from the client (plugin logs will still flow through to the log file as the plugin manager set this up)
+	logger := logging.NewLogger(&hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard})
+
+	// create grpc client
+	client := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig:  pluginshared.Handshake,
+		Plugins:          pluginMap,
+		Reattach:         reattach,
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		Logger:           logger,
+	})
+	res, err := NewPluginClient(client, pluginName)
+	if err != nil {
+		return nil, err
+	}
+	// set the pid
+	res.Pid = reattach.Pid
+	return res, nil
+}
+
+func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc, err error) {
+	return c.Stub.Execute(req)
+}
+
 func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) error {
 	_, err := c.Stub.SetConnectionConfig(req)
 	if err != nil {
@@ -85,8 +101,8 @@ func (c *PluginClient) GetSchema() (*proto.Schema, error) {
 	return resp.Schema, nil
 }
 
-func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc, err error) {
-	return c.Stub.Execute(req)
+func (c *PluginClient) CacheConnection() (proto.WrapperPlugin_CacheConnectionClient, error) {
+	return c.Stub.CacheConnection()
 }
 
 // Exited returned whether the underlying client has exited, i.e. th eplugin has terminated
