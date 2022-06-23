@@ -3,6 +3,13 @@ import "google/protobuf/timestamp.proto";
 package proto;
 option go_package = ".;proto";
 
+service WrapperPlugin {
+  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+  rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
+  rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
+  rpc CacheConnection(stream CacheResult) returns (stream CacheRequest);
+}
 
 message Operator {
   option deprecated = true;
@@ -87,6 +94,7 @@ message QueryMetadata {
   int64 rows_fetched = 2;
   bool cache_hit = 3;
 }
+
 message GetSchemaRequest {
 }
 
@@ -96,7 +104,7 @@ message GetSchemaResponse {
 
 message GetSupportedOperationsRequest{}
 
- message GetSupportedOperationsResponse{
+message GetSupportedOperationsResponse{
   bool query_cache = 1;
 }
 
@@ -106,13 +114,6 @@ message SetConnectionConfigRequest{
 }
 
 message SetConnectionConfigResponse{}
-
-service WrapperPlugin {
-  rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
-  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
-  rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
-  rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
-}
 
 message Row {
   map<string, Column> columns = 1;
@@ -209,4 +210,23 @@ enum ColumnType {
   INET = 9;
   LTREE = 10;
   UNKNOWN = -1;
+}
+
+enum CacheCommand {
+  GET = 0;
+  SET = 1;
+}
+message CacheRequest{
+  CacheCommand command = 1;
+  string table = 2;
+  map<string, Quals> quals = 3;
+  repeated string columns=4;
+  int64 limit = 5;
+  // for Set command only
+  repeated Row rows = 6;
+}
+
+message CacheResult{
+  bool cache_hit = 1;
+  repeated Row rows = 2;
 }

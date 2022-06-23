@@ -80,6 +80,10 @@ func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsReques
 	}, nil
 }
 
+func (s PluginServer) CacheConnection(proto.WrapperPlugin_CacheConnectionServer) error {
+	return nil
+}
+
 func (s PluginServer) Serve() {
 	pluginMap := map[string]plugin.Plugin{
 		s.pluginName: &pluginshared.WrapperPlugin{Impl: s},
