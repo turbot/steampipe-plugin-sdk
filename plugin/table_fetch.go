@@ -284,11 +284,11 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			matrixQueryData := queryData.ShallowCopy()
 			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
 
-			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
+			//log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
 			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
 			if err != nil {
-				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
+				log.Printf("[WARN] callHydrateWithRetries returned error %v", err)
 				errorChan <- err
 			} else if !helpers.IsNil(item) {
 				// stream the get item AND the matrix item
@@ -518,14 +518,14 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			matrixQueryData := queryData.ShallowCopy()
 			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
 
-			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
+			//log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
 
 			// we cannot retry errors in the list hydrate function after streaming has started
 			listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
 
 			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, t.List.IgnoreConfig, listRetryConfig)
 			if err != nil {
-				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
+				log.Printf("[WARN] callHydrateWithRetries returned error %v", err)
 				queryData.streamError(err)
 			}
 		}(matrixItem)

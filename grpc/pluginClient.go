@@ -101,8 +101,8 @@ func (c *PluginClient) GetSchema() (*proto.Schema, error) {
 	return resp.Schema, nil
 }
 
-func (c *PluginClient) CacheConnection() (proto.WrapperPlugin_CacheConnectionClient, error) {
-	return c.Stub.CacheConnection()
+func (c *PluginClient) EstablishCacheConnection() (proto.WrapperPlugin_EstablishCacheConnectionClient, error) {
+	return c.Stub.EstablishCacheConnection()
 }
 
 // Exited returned whether the underlying client has exited, i.e. th eplugin has terminated

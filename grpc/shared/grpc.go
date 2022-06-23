@@ -34,8 +34,8 @@ func (c *GRPCClient) GetSupportedOperations(req *proto.GetSupportedOperationsReq
 	return c.client.GetSupportedOperations(c.ctx, req)
 }
 
-func (c *GRPCClient) CacheConnection() (proto.WrapperPlugin_CacheConnectionClient, error) {
-	return c.client.CacheConnection(c.ctx)
+func (c *GRPCClient) EstablishCacheConnection() (proto.WrapperPlugin_EstablishCacheConnectionClient, error) {
+	return c.client.EstablishCacheConnection(c.ctx)
 }
 
 // GRPCServer is the gRPC server that GRPCClient talks to.
@@ -62,6 +62,6 @@ func (m *GRPCServer) GetSupportedOperations(_ context.Context, req *proto.GetSup
 	return m.Impl.GetSupportedOperations(req)
 }
 
-func (m *GRPCServer) CacheConnection(server proto.WrapperPlugin_CacheConnectionServer) error {
-	return m.Impl.CacheConnection(server)
+func (m *GRPCServer) EstablishCacheConnection(server proto.WrapperPlugin_EstablishCacheConnectionServer) error {
+	return m.Impl.EstablishCacheConnection(server)
 }

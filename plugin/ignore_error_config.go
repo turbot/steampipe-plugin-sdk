@@ -26,7 +26,7 @@ func (c *IgnoreConfig) String() interface{} {
 }
 
 func (c *IgnoreConfig) Validate(table *Table) []string {
-	log.Printf("[TRACE] IgnoreConfig validate: ShouldIgnoreError %p, ShouldIgnoreErrorFunc: %p", c.ShouldIgnoreError, c.ShouldIgnoreErrorFunc)
+	//log.Printf("[TRACE] IgnoreConfig validate: ShouldIgnoreError %p, ShouldIgnoreErrorFunc: %p", c.ShouldIgnoreError, c.ShouldIgnoreErrorFunc)
 
 	if c.ShouldIgnoreError != nil && c.ShouldIgnoreErrorFunc != nil {
 		log.Printf("[TRACE] IgnoreConfig validate failed - both ShouldIgnoreError and ShouldIgnoreErrorFunc are defined")
