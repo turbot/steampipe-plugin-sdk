@@ -15,22 +15,25 @@ type PluginSchema struct {
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 type GetSchemaFunc func() (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
+type EstablishCacheConnectionFunc func(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error
 
 // PluginServer is the server for a single plugin
 type PluginServer struct {
 	proto.UnimplementedWrapperPluginServer
-	pluginName              string
-	executeFunc             ExecuteFunc
-	setConnectionConfigFunc SetConnectionConfigFunc
-	getSchemaFunc           GetSchemaFunc
+	pluginName                   string
+	executeFunc                  ExecuteFunc
+	setConnectionConfigFunc      SetConnectionConfigFunc
+	getSchemaFunc                GetSchemaFunc
+	establishCacheConnectionFunc EstablishCacheConnectionFunc
 }
 
-func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc) *PluginServer {
+func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc, establishCacheConnectionFunc EstablishCacheConnectionFunc) *PluginServer {
 	return &PluginServer{
-		pluginName:              pluginName,
-		executeFunc:             executeFunc,
-		setConnectionConfigFunc: setConnectionConfigFunc,
-		getSchemaFunc:           getSchemaFunc,
+		pluginName:                   pluginName,
+		executeFunc:                  executeFunc,
+		setConnectionConfigFunc:      setConnectionConfigFunc,
+		getSchemaFunc:                getSchemaFunc,
+		establishCacheConnectionFunc: establishCacheConnectionFunc,
 	}
 }
 
@@ -76,12 +79,13 @@ func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest)
 
 func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return &proto.GetSupportedOperationsResponse{
-		QueryCache: true,
+		QueryCache:  true,
+		CacheStream: true,
 	}, nil
 }
 
-func (s PluginServer) CacheConnection(proto.WrapperPlugin_CacheConnectionServer) error {
-	return nil
+func (s PluginServer) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error {
+	return s.establishCacheConnectionFunc(stream)
 }
 
 func (s PluginServer) Serve() {
