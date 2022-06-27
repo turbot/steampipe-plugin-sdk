@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // IndexBucket contains index items for all cache results for a given table and qual set
@@ -29,4 +30,36 @@ func (b *IndexBucket) Get(qualMap map[string]*proto.Quals, columns []string, lim
 		}
 	}
 	return nil
+}
+
+func (b *IndexBucket) AsProto() *proto.IndexBucket {
+	res := &proto.IndexBucket{
+		Items: make([]*proto.IndexItem, len(b.Items)),
+	}
+	for i, item := range b.Items {
+		res.Items[i] = &proto.IndexItem{
+			Key:           item.Key,
+			Quals:         item.Quals,
+			Columns:       item.Columns,
+			Limit:         item.Limit,
+			InsertionTime: timestamppb.New(item.InsertionTime),
+		}
+	}
+	return res
+}
+
+func IndexBucketfromProto(b *proto.IndexBucket) *IndexBucket {
+	res := &IndexBucket{
+		Items: make([]*IndexItem, len(b.Items)),
+	}
+	for i, item := range b.Items {
+		res.Items[i] = &IndexItem{
+			Key:           item.Key,
+			Quals:         item.Quals,
+			Columns:       item.Columns,
+			Limit:         item.Limit,
+			InsertionTime: item.InsertionTime.AsTime(),
+		}
+	}
+	return res
 }

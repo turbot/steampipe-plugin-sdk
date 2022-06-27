@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
@@ -23,7 +22,6 @@ import (
 const defaultTTL = 5 * time.Minute
 
 type QueryCache struct {
-	cache           *ristretto.Cache
 	Stats           *CacheStats
 	pluginName      string
 	connectionName  string
@@ -41,9 +39,7 @@ type CacheStats struct {
 	Misses int
 }
 
-// TODO JUST PASS PLUGIN IN
 func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*proto.TableSchema, cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer) (*QueryCache, error) {
-	log.Printf("[INFO] NewQueryCache 1")
 	cache := &QueryCache{
 		Stats:          &CacheStats{},
 		pluginName:     pluginName,
@@ -54,117 +50,11 @@ func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*p
 		CacheStream:    cacheStream,
 	}
 
-	log.Printf("[INFO] NewQueryCache 2")
-
-	config := &ristretto.Config{
-		NumCounters: 1e7,     // number of keys to track frequency of (10M).
-		MaxCost:     1 << 30, // maximum cost of cache (1GB).
-		BufferItems: 64,      // number of keys per Get buffer.
-		Metrics:     true,
-	}
-	var err error
-	if cache.cache, err = ristretto.NewCache(config); err != nil {
-		return nil, err
-	}
 	log.Printf("[INFO] query cache created")
 	return cache, nil
 }
 
-func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryCacheResult) (res bool) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("[WARN] QueryCache Set suffered a panic: %s", helpers.ToError(r))
-			res = false
-		}
-
-		// clear the corresponding pending item - we have completed the transfer
-		// (we need to do this even if the cache set fails)
-		c.pendingItemComplete(table, qualMap, columns, limit)
-	}()
-	cacheQualMap := c.buildCacheQualMap(table, qualMap)
-
-	if c.CacheStream != nil {
-		log.Printf("[WARN] Cache SET cacheStream ENABLED")
-		err := c.CacheStream.Send(&proto.CacheRequest{
-			Command: proto.CacheCommand_SET,
-			Table:   table,
-			Quals:   qualMap,
-			Columns: columns,
-			Limit:   limit,
-			Rows:    result.Rows,
-		})
-		if err != nil {
-			log.Printf("[WARN] Cache SET stream error %v", err)
-		}
-	}
-
-	// get ttl - read here in case the property is updated  between the 2 uses below
-	ttl := c.ttl
-
-	// if any data was returned, extract the columns from the first row
-	if len(result.Rows) > 0 {
-		for col := range result.Rows[0].Columns {
-			if !helpers.StringSliceContains(columns, col) {
-				columns = append(columns, col)
-			}
-		}
-	}
-	sort.Strings(columns)
-	log.Printf("[TRACE] QueryCache Set - connectionName: %s, table: %s, columns: %s, limit %d\n", c.connectionName, table, columns, limit)
-	defer log.Printf("[TRACE] QueryCache Set() DONE")
-
-	// write to the result cache
-	// set the insertion time
-	resultKey := c.buildResultKey(table, cacheQualMap, columns, limit)
-	// estimate cost at 8 bytes per column value
-	cost := len(result.Rows) * len(columns) * 8
-	log.Printf("[TRACE] cache item cost = %d (%d rows, %d columns)", cost, len(result.Rows), len(columns))
-	c.cache.SetWithTTL(resultKey, result, int64(cost), ttl)
-
-	// now update the index
-	// get the index bucket for this table and quals
-	indexBucketKey := c.buildIndexKey(c.connectionName, table)
-	indexBucket, ok := c.getIndexBucket(indexBucketKey)
-	indexItem := NewIndexItem(columns, resultKey, limit, cacheQualMap)
-	if !ok {
-		// create new index bucket
-		indexBucket = newIndexBucket()
-	}
-	indexBucket.Append(indexItem)
-
-	if res := c.cache.SetWithTTL(indexBucketKey, indexBucket, 1, ttl); !res {
-		log.Printf("[WARN] cache Set failed")
-		return res
-	}
-
-	// wait for value to pass through cache buffers
-	time.Sleep(10 * time.Millisecond)
-	c.logMetrics()
-
-	return true
-}
-
-// CancelPendingItem cancels a pending item - called when an execute call fails for any reason
-func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Quals, columns []string, limit int64) {
-	log.Printf("[TRACE] QueryCache CancelPendingItem table: %s", table)
-	// clear the corresponding pending item
-	c.pendingItemComplete(table, qualMap, columns, limit)
-}
-
-func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) (res *QueryCacheResult) {
-	if c.CacheStream != nil {
-		log.Printf("[WARN] Cache GET cacheStream ENABLED")
-		err := c.CacheStream.Send(&proto.CacheRequest{
-			Command: proto.CacheCommand_GET,
-			Table:   table,
-			Quals:   qualMap,
-			Columns: columns,
-			Limit:   limit,
-		})
-		if err != nil {
-			log.Printf("[WARN] Cache SET stream error %v", err)
-		}
-	}
+func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) (res *QueryCacheResult, err error) {
 	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", table)
 	defer func() {
 		cacheHit := res != nil
@@ -192,11 +82,14 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	cacheQualMap := c.buildCacheQualMap(table, qualMap)
 
 	// do we have a cached result?
-	res = c.getCachedResult(indexBucketKey, table, cacheQualMap, columns, limit, clientTTLSeconds)
+	res, err = c.getCachedResult(indexBucketKey, table, cacheQualMap, columns, limit, clientTTLSeconds)
+	if err != nil {
+		return nil, err
+	}
 	if res != nil {
 		log.Printf("[INFO] CACHE HIT")
 		// cache hit!
-		return res
+		return res, nil
 	}
 
 	// there was no cached result - is there data fetch in progress?
@@ -208,7 +101,79 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 
 	log.Printf("[INFO] CACHE MISS")
 	// cache miss
-	return nil
+	return nil, nil
+}
+
+func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryCacheResult) (res bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] QueryCache Set suffered a panic: %s", helpers.ToError(r))
+			res = false
+		}
+
+		// clear the corresponding pending item - we have completed the transfer
+		// (we need to do this even if the cache set fails)
+		c.pendingItemComplete(table, qualMap, columns, limit)
+	}()
+	cacheQualMap := c.buildCacheQualMap(table, qualMap)
+
+	// get ttl - read here in case the property is updated  between the 2 uses below
+	ttl := c.ttl
+
+	// if any data was returned, extract the columns from the first row
+	if len(result.Rows) > 0 {
+		for col := range result.Rows[0].Columns {
+			if !helpers.StringSliceContains(columns, col) {
+				columns = append(columns, col)
+			}
+		}
+	}
+	sort.Strings(columns)
+	log.Printf("[TRACE] QueryCache Set - connectionName: %s, table: %s, columns: %s, limit %d\n", c.connectionName, table, columns, limit)
+	defer log.Printf("[TRACE] QueryCache Set() DONE")
+
+	// write to the result cache
+	// set the insertion time
+	resultKey := c.buildResultKey(table, cacheQualMap, columns, limit)
+	// estimate cost at 8 bytes per column value
+	cost := len(result.Rows) * len(columns) * 8
+	log.Printf("[TRACE] cache item cost = %d (%d rows, %d columns)", cost, len(result.Rows), len(columns))
+	if err := c.cacheSetResult(resultKey, result, int64(cost), ttl); err != nil {
+		log.Printf("[WARN] cache Set failed: %v", err)
+		return false
+	}
+
+	// now update the index
+	// get the index bucket for this table and quals
+	indexBucketKey := c.buildIndexKey(c.connectionName, table)
+	indexBucket, ok, err := c.cacheGetIndexBucket(indexBucketKey)
+	if err != nil {
+		log.Printf("[WARN] cacheGetIndexBucket failed: %v", err)
+	}
+	indexItem := NewIndexItem(columns, resultKey, limit, cacheQualMap)
+	if !ok {
+		// create new index bucket
+		indexBucket = newIndexBucket()
+	}
+	indexBucket.Append(indexItem)
+
+	if err := c.cacheSetIndexBucket(indexBucketKey, indexBucket, 1, ttl); err != nil {
+		log.Printf("[WARN] cache Set failed for index bucket: %v", err)
+		return false
+	}
+
+	//// wait for value to pass through cache buffers
+	//time.Sleep(10 * time.Millisecond)
+	////c.logMetrics()
+
+	return true
+}
+
+// CancelPendingItem cancels a pending item - called when an execute call fails for any reason
+func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Quals, columns []string, limit int64) {
+	log.Printf("[TRACE] QueryCache CancelPendingItem table: %s", table)
+	// clear the corresponding pending item
+	c.pendingItemComplete(table, qualMap, columns, limit)
 }
 
 func (c *QueryCache) buildCacheQualMap(table string, qualMap map[string]*proto.Quals) map[string]*proto.Quals {
@@ -228,19 +193,18 @@ func (c *QueryCache) buildCacheQualMap(table string, qualMap map[string]*proto.Q
 	return cacheQualMap
 }
 
-func (c *QueryCache) Clear() {
-	c.cache.Clear()
-}
-
-func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) *QueryCacheResult {
+func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) (*QueryCacheResult, error) {
 	keyColumns := c.getKeyColumnsForTable(table)
 
 	log.Printf("[TRACE] QueryCache getCachedResult - index bucket key: %s ttlSeconds %d\n", indexBucketKey, ttlSeconds)
-	indexBucket, ok := c.getIndexBucket(indexBucketKey)
+	indexBucket, ok, err := c.cacheGetIndexBucket(indexBucketKey)
+	if err != nil {
+		return nil, err
+	}
 	if !ok {
 		c.Stats.Misses++
 		log.Printf("[TRACE] getCachedResult - no index bucket")
-		return nil
+		return nil, nil
 	}
 
 	// now check whether we have a cache entry that covers the required quals and columns - check the index
@@ -252,38 +216,23 @@ func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[s
 		}
 		c.Stats.Misses++
 		log.Printf("[TRACE] getCachedResult - no cached data covers columns %v, limit %s\n", columns, limitString)
-		return nil
+		return nil, nil
 	}
 
 	// so we have a cache index, retrieve the item
-	result, ok := c.getResult(indexItem.Key)
+	result, ok, err := c.cacheGetResult(indexItem.Key)
+	if err != nil {
+		return nil, err
+	}
 	if !ok {
 		c.Stats.Misses++
 		log.Printf("[TRACE] getCachedResult - no item retrieved for cache key %s", indexItem.Key)
-		return nil
+		return nil, nil
 	}
 
 	c.Stats.Hits++
 
-	return result
-}
-
-// GetIndex retrieves an index bucket for a given cache key
-func (c *QueryCache) getIndexBucket(indexKey string) (*IndexBucket, bool) {
-	result, ok := c.cache.Get(indexKey)
-	if !ok {
-		return nil, false
-	}
-	return result.(*IndexBucket), true
-}
-
-// GetResult retrieves a query result for a given cache key
-func (c *QueryCache) getResult(resultKey string) (*QueryCacheResult, bool) {
-	result, ok := c.cache.Get(resultKey)
-	if !ok {
-		return nil, false
-	}
-	return result.(*QueryCacheResult), true
+	return result, nil
 }
 
 func (c *QueryCache) buildIndexKey(connectionName, table string) string {
@@ -350,14 +299,129 @@ func (c *QueryCache) sanitiseKey(str string) string {
 	return str
 }
 
-func (c *QueryCache) logMetrics() {
-	log.Printf("[TRACE] ------------------------------------ ")
-	log.Printf("[TRACE] Cache Metrics ")
-	log.Printf("[TRACE] ------------------------------------ ")
-	log.Printf("[TRACE] MaxCost: %d", c.cache.MaxCost())
-	log.Printf("[TRACE] KeysAdded: %d", c.cache.Metrics.KeysAdded())
-	log.Printf("[TRACE] CostAdded: %d", c.cache.Metrics.CostAdded())
-	log.Printf("[TRACE] KeysEvicted: %d", c.cache.Metrics.KeysEvicted())
-	log.Printf("[TRACE] CostEvicted: %d", c.cache.Metrics.CostEvicted())
-	log.Printf("[TRACE] ------------------------------------ ")
+// TODO move to cache server
+//func (c *QueryCache) logMetrics() {
+//	log.Printf("[TRACE] ------------------------------------ ")
+//	log.Printf("[TRACE] Cache Metrics ")
+//	log.Printf("[TRACE] ------------------------------------ ")
+//	log.Printf("[TRACE] MaxCost: %d", c.cache.MaxCost())
+//	log.Printf("[TRACE] KeysAdded: %d", c.cache.Metrics.KeysAdded())
+//	log.Printf("[TRACE] CostAdded: %d", c.cache.Metrics.CostAdded())
+//	log.Printf("[TRACE] KeysEvicted: %d", c.cache.Metrics.KeysEvicted())
+//	log.Printf("[TRACE] CostEvicted: %d", c.cache.Metrics.CostEvicted())
+//	log.Printf("[TRACE] ------------------------------------ ")
+//}
+
+func (c *QueryCache) cacheSetIndexBucket(key string, indexBucket *IndexBucket, cost int64, ttl time.Duration) error {
+	log.Printf("[WARN] cacheSetIndexBucket %s", key)
+
+	if err := c.CacheStream.Send(&proto.CacheRequest{
+		Command:     proto.CacheCommand_SET_INDEX,
+		Key:         key,
+		Cost:        cost,
+		Ttl:         int64(ttl.Seconds()),
+		IndexBucket: indexBucket.AsProto(),
+	}); err != nil {
+		log.Printf("[WARN] cacheSetIndexBucket Send failed: %v", err)
+		return err
+	}
+
+	return c.getSetResponse()
+}
+
+func (c *QueryCache) cacheSetResult(key string, result *QueryCacheResult, cost int64, ttl time.Duration) error {
+	if err := c.CacheStream.Send(&proto.CacheRequest{
+		Command: proto.CacheCommand_SET_RESULT,
+		Key:     key,
+		Cost:    cost,
+		Ttl:     int64(ttl.Seconds()),
+		Result:  result.AsProto(),
+	}); err != nil {
+		return err
+	}
+	return c.getSetResponse()
+}
+
+func (c *QueryCache) getSetResponse() error {
+	// now wait for a response
+	res, err := c.CacheStream.Recv()
+	if err != nil {
+		log.Printf("[WARN] cacheSetIndexBucket Recv failed: %v", err)
+		return err
+	}
+	if !res.Success {
+		log.Printf("[WARN] cache set failed")
+		return fmt.Errorf("cache set failed")
+	}
+	return nil
+}
+
+func (c *QueryCache) cacheGetIndexBucket(key string) (*IndexBucket, bool, error) {
+	log.Printf("[WARN] cacheGetIndexBucket %s", key)
+
+	err := c.CacheStream.Send(&proto.CacheRequest{
+		Command: proto.CacheCommand_GET_INDEX,
+		Key:     key,
+	})
+	if err != nil {
+		log.Printf("[WARN] cacheGetIndexBucket Send failed: %v", err)
+		return nil, false, err
+	}
+
+	// TODO TIMEOUT??
+	// now wait for a response
+	getResponse, err := c.CacheStream.Recv()
+	if err != nil {
+		log.Printf("[WARN] cacheGetIndexBucket Recv failed: %v", err)
+		return nil, false, err
+	}
+	// was this a cache hit?
+	if !getResponse.Success {
+		log.Printf("[WARN] cacheGetIndexBucket cache miss")
+		return nil, false, nil
+	}
+	// there should be an index in the respoonse
+	if getResponse.IndexBucket == nil {
+		log.Printf("[WARN] " +
+			"cacheGetIndexBucket cache hit but no index bucket was returned")
+		return nil, false, fmt.Errorf("cacheGetIndexBucket cache hit but no index bucket was returned")
+	}
+
+	log.Printf("[WARN] cacheGetIndexBucket cache hit ")
+	var res = IndexBucketfromProto(getResponse.IndexBucket)
+	return res, true, nil
+}
+
+func (c *QueryCache) cacheGetResult(key string) (*QueryCacheResult, bool, error) {
+	log.Printf("[WARN] cacheGetResult %s", key)
+	if err := c.CacheStream.Send(&proto.CacheRequest{
+		Command: proto.CacheCommand_GET_RESULT,
+		Key:     key,
+	}); err != nil {
+		log.Printf("[WARN] cacheGetResult Send failed %v", err)
+		return nil, false, err
+	}
+
+	// TODO TIMEOUT??
+	// now wait for a response
+	getResponse, err := c.CacheStream.Recv()
+	if err != nil {
+		log.Printf("[WARN] cacheGetResult Recv failed %v", err)
+		return nil, false, err
+	}
+
+	// was this a cache hit?
+	if !getResponse.Success {
+		log.Printf("[WARN] cacheGetResult returned cache miss")
+		return nil, false, nil
+	}
+	// there should be an index in the response
+	if getResponse.QueryResult == nil {
+		log.Printf("[WARN] cacheGetResult cache hit but no result was returned")
+		return nil, false, fmt.Errorf("cacheGetResult cache hit but no result was returned")
+	}
+
+	log.Printf("[WARN] cacheGetResult cache hit")
+	res := QueryCacheResultFromProto(getResponse.QueryResult)
+	return res, true, nil
 }

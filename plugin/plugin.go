@@ -115,9 +115,10 @@ func (p *Plugin) Initialise() {
 	p.setuLimit()
 }
 
-// SetConnectionConfig parses the connection config string, and populate the connection data for this connection.
+// SetConnectionConfig is the handler function for the GetSchema grpc function
+// parse the connection config string, and populate the connection data for this connection.
 // It also calls the table creation factory function, if provided by the plugin.
-// Note: SetConnectionConfig is always called before any other plugin function.
+// Note: SetConnectionConfig is always called before any other plugin function except EstablishCacheConnection.
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -161,7 +162,8 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	return p.ensureCache()
 }
 
-// GetSchema returns the plugin schema.
+// GetSchema is the handler function for the GetSchema grpc function
+// return the plugin schema.
 // Note: the connection config must be set before calling this function.
 func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 	// the connection property must be set already
@@ -173,7 +175,8 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 	return schema, nil
 }
 
-// Execute executes a query and streams the results using the given GRPC stream.
+// Execute is the handler function for the Execute grpc function
+// execute a query and streams the results using the given GRPC stream.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
@@ -255,7 +258,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	if req.CacheEnabled && p.queryCache != nil {
 		log.Printf("[TRACE] Cache ENABLED callId: %s %p", req.CallId, p.queryCache)
-		cachedResult := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
+		cachedResult, err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
+		if err != nil {
+			log.Printf("[WARN] cache Get returned an error: %v", err)
+		}
 		cacheHit := cachedResult != nil
 		executeSpan.SetAttributes(
 			attribute.Bool("cache-hit", cacheHit),
@@ -268,7 +274,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			for _, r := range cachedResult.Rows {
 				queryData.streamRow(r)
 			}
-			return
+			return nil
 		}
 
 		// so cache is enabled but the data is not in the cache
@@ -316,17 +322,18 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	return nil
 }
 
+// EstablishCacheConnection is the handler function for the EstablishCacheConnection grpc function
+// it will be called _before_ SetConnectionConfig, which creates the local QueryCache
+// store the stream, then keep it open, i.e. do not return from this function
+// Note: SetConnectionConfig is always called immediately after instantiation
 func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error {
 	log.Printf("[WARN] EstablishCacheConnection!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	p.cacheStream = stream
 	if p.queryCache != nil {
-		log.Printf("[WARN] QWUERY CACHE ALREADY CREATED")
+		// maybe we are reestabliching connection
+		log.Printf("[WARN] QUERY CACHE ALREADY CREATED")
 		p.queryCache.CacheStream = stream
 	}
-	//if err := p.ensureCache(); err != nil {
-	//	return err
-	//}
-	//log.Printf("[WARN] ensured cache")
 	// hold stream open
 	for {
 	}

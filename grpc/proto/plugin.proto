@@ -214,20 +214,48 @@ enum ColumnType {
 }
 
 enum CacheCommand {
-  GET = 0;
-  SET = 1;
+  GET_INDEX = 0;
+  GET_RESULT = 1;
+  SET_INDEX = 2;
+  SET_RESULT = 3;
+  DELETE_INDEX = 4;
+  DELETE_RESULT = 5;
 }
+
 message CacheRequest{
   CacheCommand command = 1;
-  string table = 2;
-  map<string, Quals> quals = 3;
-  repeated string columns=4;
-  int64 limit = 5;
-  // for Set command only
-  repeated Row rows = 6;
+  string key = 2;
+  int64 cost = 3;
+  int64 ttl=4;
+  // for SetIndex command only
+  IndexBucket indexBucket = 5;
+  // for SetResult command only
+  QueryResult result = 6;
 }
 
 message CacheResult{
-  bool cache_hit = 1;
-  repeated Row rows = 2;
+  // For Get* commands this represents whether a cache hit occurred
+  // For Set* commands this represents whether the set was successful
+  bool success = 1;
+  string error = 2;
+  // for GetIndex command only
+  IndexBucket indexBucket = 3;
+  // for GetResult command only
+  QueryResult query_result = 4;
+}
+
+message QueryResult{
+  repeated Row rows = 1;
+}
+
+message IndexBucket{
+  repeated IndexItem items = 1;
+}
+
+message IndexItem{
+  string  Key=1;
+  map<string, Quals> quals = 3;
+  repeated string columns=4;
+  int64 limit = 5;
+  google.protobuf.Timestamp insertion_time =6;
 }
