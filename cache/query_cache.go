@@ -185,10 +185,10 @@ func (c *QueryCache) buildCacheQualMap(table string, qualMap map[string]*proto.Q
 		log.Printf("[TRACE] buildCacheQualMap col %s, quals %+v", col, quals)
 		// if this column is a key column, include in key
 		if _, ok := keyColumns[col]; ok {
-			log.Printf("[TRACE] INCLUDING COLUMN")
+			log.Printf("[TRACE] including column %s", col)
 			cacheQualMap[col] = quals
 		} else {
-			log.Printf("[TRACE] EXCLUDING COLUMN")
+			log.Printf("[TRACE] excluding column %s", col)
 		}
 	}
 	return cacheQualMap
