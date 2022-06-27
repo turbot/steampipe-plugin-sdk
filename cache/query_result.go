@@ -8,6 +8,19 @@ type QueryCacheResult struct {
 	Rows []*proto.Row
 }
 
-func (q *QueryCacheResult) Append(row *proto.Row) {
-	q.Rows = append(q.Rows, row)
+func (r *QueryCacheResult) Append(row *proto.Row) {
+	r.Rows = append(r.Rows, row)
+}
+
+func (r *QueryCacheResult) AsProto() *proto.QueryResult {
+	return &proto.QueryResult{
+		Rows: r.Rows,
+	}
+
+}
+
+func QueryCacheResultFromProto(r *proto.QueryResult) *QueryCacheResult {
+	return &QueryCacheResult{
+		Rows: r.Rows,
+	}
 }
