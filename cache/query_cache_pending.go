@@ -41,7 +41,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) *QueryCacheResult {
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) (*QueryCacheResult, error) {
 	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", table)
 	defer span.End()
 
@@ -74,7 +74,11 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, indexBucketKey: %s", indexBucketKey)
 
 		// now try to read from the cache again
-		res = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, ttlSeconds)
+		var err error
+		res, err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, ttlSeconds)
+		if err != nil {
+			log.Printf("[WARN] waitForPendingItem - getCachedResult returned error: %v", err)
+		}
 		// if the data is still not in the cache, create a pending item
 		if res == nil {
 			log.Printf("[TRACE] waitForPendingItem item still not in the cache - add pending item, indexBucketKey: %s", indexBucketKey)
@@ -87,7 +91,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 			log.Printf("[TRACE] waitForPendingItem retrieved from cache, indexBucketKey: %s", indexBucketKey)
 		}
 	}
-	return res
+	return res, nil
 }
 
 func (c *QueryCache) addPendingResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) {

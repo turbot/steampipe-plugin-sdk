@@ -176,8 +176,6 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 
 	logging.LogTime(hydrateKey + " start")
 
-	//log.Printf("[TRACE] callHydrate %s, hydrateConfig %s\n", helpers.GetFunctionName(hydrateFunc), hydrateConfig.String())
-
 	// now call the hydrate function, passing the item and hydrate results so far
 	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, hydrateConfig.IgnoreConfig, hydrateConfig.RetryConfig)
 	if err != nil {
@@ -209,7 +207,6 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 		span.End()
 	}()
 
-	//log.Printf("[TRACE] callHydrateWithRetries: %s", helpers.GetFunctionName(hydrateFunc))
 	h := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
 	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
 	var hydrateWithIgnoreError = WrapHydrate(hydrateFunc, ignoreConfig)
