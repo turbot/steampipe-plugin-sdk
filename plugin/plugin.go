@@ -102,6 +102,14 @@ func (p *Plugin) Initialise() {
 		p.DefaultIgnoreConfig.ShouldIgnoreError = p.DefaultShouldIgnoreError
 	}
 
+	// if there is a default get config, initialise it
+	// (this ensures we handle the deprecated ShouldIgnoreError property)
+	if p.DefaultGetConfig != nil {
+		log.Printf("[TRACE] intialising DefaultGetConfig")
+		// pass nil as the table to indicate this is the plugin default
+		p.DefaultGetConfig.initialise(nil)
+	}
+
 	// set file limit
 	p.setuLimit()
 }
