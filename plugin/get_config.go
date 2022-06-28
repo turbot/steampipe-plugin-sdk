@@ -24,8 +24,18 @@ type GetConfig struct {
 	RetryConfig       *RetryConfig
 }
 
+// initialise the GetConfig
+// if table is NOT passed, this is the plugin default
+// - ensure RetryConfig and IgnoreConfig are non null
+// - handle use of deprecated ShouldIgnoreError
+// - if a table was passed (i.e. this is the get config for a specific table), apply plugin level defaults
 func (c *GetConfig) initialise(table *Table) {
-	log.Printf("[TRACE] GetConfig.initialise table %s", table.Name)
+	if table != nil {
+		log.Printf("[TRACE] GetConfig.initialise table %s", table.Name)
+	} else {
+		log.Printf("[TRACE] GetConfig.initialise (plugin default)")
+	}
+
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
 		c.RetryConfig = &RetryConfig{}
@@ -40,17 +50,18 @@ func (c *GetConfig) initialise(table *Table) {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
 	}
 
+	// if a table was passed (i.e. this is NOT the plugin default)
 	// default ignore and retry configs
-
-	// if there is a default get config, default to its ignore and retry config (if they exist)
-	if defaultGetConfig := table.Plugin.DefaultGetConfig; defaultGetConfig != nil {
-		c.RetryConfig.DefaultTo(defaultGetConfig.RetryConfig)
-		c.IgnoreConfig.DefaultTo(defaultGetConfig.IgnoreConfig)
+	if table != nil {
+		// if there is a default get config, default to its ignore and retry config (if they exist)
+		if defaultGetConfig := table.Plugin.DefaultGetConfig; defaultGetConfig != nil {
+			c.RetryConfig.DefaultTo(defaultGetConfig.RetryConfig)
+			c.IgnoreConfig.DefaultTo(defaultGetConfig.IgnoreConfig)
+		}
+		// then default to the table default
+		c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
+		c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 	}
-	// then default to the table default
-	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
-	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
-
 	log.Printf("[TRACE] GetConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 
