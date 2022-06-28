@@ -24,7 +24,6 @@ func QualMapToString(qualMap map[string]*proto.Quals, pretty bool) string {
 	if pretty {
 		sb.WriteString("\n")
 		sb.WriteString(divider)
-		defer sb.WriteString(divider)
 	}
 
 	for _, quals := range qualMap {
@@ -33,6 +32,10 @@ func QualMapToString(qualMap map[string]*proto.Quals, pretty bool) string {
 			qb.WriteString(QualToString(q))
 		}
 		sb.WriteString(qb.String())
+	}
+
+	if pretty {
+		sb.WriteString(divider)
 	}
 
 	return sb.String()
