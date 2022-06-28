@@ -42,7 +42,7 @@ var testCasesColumnDataTransform = map[string]ColumnDataTransformTest{
 
 func TestColumnDataTransform(t *testing.T) {
 	for name, test := range testCasesColumnDataTransform {
-		result, err := test.transforms.Execute(textCtx, test.transformData, nil)
+		result, err := test.transforms.Execute(textCtx, test.transformData)
 		if err != nil {
 			if test.expected != "ERROR" {
 				t.Errorf("Test: '%s'' FAILED : \nunextected error %v", name, err)

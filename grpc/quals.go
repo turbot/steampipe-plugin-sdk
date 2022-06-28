@@ -38,6 +38,19 @@ func QualMapToString(qualMap map[string]*proto.Quals, pretty bool) string {
 	return sb.String()
 }
 
+func QualMapsEqual(l map[string]*proto.Quals, r map[string]*proto.Quals) bool {
+	if len(l) != len(r) {
+		return false
+	}
+	for k, lQual := range l {
+		rQual, ok := r[k]
+		if !ok || !lQual.Equals(rQual) {
+			return false
+		}
+	}
+	return true
+}
+
 func QualMapToJSONString(qualMap map[string]*proto.Quals) (string, error) {
 	var res []map[string]interface{}
 	if len(qualMap) == 0 {
@@ -68,10 +81,6 @@ func QualMapToJSONString(qualMap map[string]*proto.Quals) (string, error) {
 
 func QualToString(q *proto.Qual) string {
 	return fmt.Sprintf("Column: %s, Operator: '%s', Value: '%v'\n", q.FieldName, q.GetStringValue(), GetQualValue(q.Value))
-}
-
-func QualEquals(left *proto.Qual, right *proto.Qual) bool {
-	return QualToString(left) == QualToString(right)
 }
 
 func GetQualValue(v *proto.QualValue) interface{} {

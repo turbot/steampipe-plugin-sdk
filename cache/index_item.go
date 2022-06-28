@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"log"
 	"strings"
 	"time"
@@ -73,8 +74,16 @@ func (i IndexItem) SatisfiesLimit(limit int64) bool {
 // NOTE: some columns cannot use this subset logic. Generally this applies to columns which represent a filter which
 // is executed server side to filter the data returned.
 // In this case, we only identify a cache hit if the cached data has the _same_ value for the given colummn
+//
+// NOTE: if the IndexItem has a limit, the quals must be IDENTICAL (ignoring ordering)
 func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
-	log.Printf("[TRACE] SatisfiesQuals")
+	log.Printf("[TRACE] SatisfiesQuals, limit %d", i.Limit)
+	if i.Limit != -1 {
+		res := grpc.QualMapsEqual(checkQualMap, i.Quals)
+		log.Printf("[TRACE] there is a limit so quals must be identical to satisfy - result: %v", res)
+		return res
+	}
+
 	for col, indexQuals := range i.Quals {
 		log.Printf("[TRACE] col %s", col)
 		// if we have quals the check quals do not, we DO NOT satisfy
