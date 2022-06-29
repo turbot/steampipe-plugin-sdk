@@ -41,11 +41,11 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) (*QueryCacheResult, error) {
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) (*proto.QueryResult, error) {
 	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", table)
 	defer span.End()
 
-	var res *QueryCacheResult
+	var res *proto.QueryResult
 
 	log.Printf("[TRACE] waitForPendingItem indexBucketKey: %s", indexBucketKey)
 

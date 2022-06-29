@@ -54,7 +54,7 @@ func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*p
 	return cache, nil
 }
 
-func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) (res *QueryCacheResult, err error) {
+func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64) (res *proto.QueryResult, err error) {
 	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", table)
 	defer func() {
 		cacheHit := res != nil
@@ -104,7 +104,7 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	return nil, nil
 }
 
-func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *QueryCacheResult) (res bool) {
+func (c *QueryCache) Set(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, result *proto.QueryResult) (res bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] QueryCache Set suffered a panic: %s", helpers.ToError(r))
@@ -194,7 +194,7 @@ func (c *QueryCache) buildCacheQualMap(table string, qualMap map[string]*proto.Q
 	return cacheQualMap
 }
 
-func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) (*QueryCacheResult, error) {
+func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64) (*proto.QueryResult, error) {
 	keyColumns := c.getKeyColumnsForTable(table)
 
 	log.Printf("[TRACE] QueryCache getCachedResult - index bucket key: %s ttlSeconds %d\n", indexBucketKey, ttlSeconds)
@@ -330,13 +330,13 @@ func (c *QueryCache) cacheSetIndexBucket(key string, indexBucket *IndexBucket, c
 	return c.getSetResponse()
 }
 
-func (c *QueryCache) cacheSetResult(key string, result *QueryCacheResult, cost int64, ttl time.Duration) error {
+func (c *QueryCache) cacheSetResult(key string, result *proto.QueryResult, cost int64, ttl time.Duration) error {
 	if err := c.CacheStream.Send(&proto.CacheRequest{
 		Command: proto.CacheCommand_SET_RESULT,
 		Key:     key,
 		Cost:    cost,
 		Ttl:     int64(ttl.Seconds()),
-		Result:  result.AsProto(),
+		Result:  result,
 	}); err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func (c *QueryCache) cacheGetIndexBucket(key string) (*IndexBucket, bool, error)
 	return res, true, nil
 }
 
-func (c *QueryCache) cacheGetResult(key string) (*QueryCacheResult, bool, error) {
+func (c *QueryCache) cacheGetResult(key string) (*proto.QueryResult, bool, error) {
 	log.Printf("[WARN] cacheGetResult %s", key)
 	if err := c.CacheStream.Send(&proto.CacheRequest{
 		Command: proto.CacheCommand_GET_RESULT,
@@ -423,12 +423,12 @@ func (c *QueryCache) cacheGetResult(key string) (*QueryCacheResult, bool, error)
 	}
 
 	log.Printf("[WARN] cacheGetResult cache hit")
-	res := QueryCacheResultFromProto(getResponse.QueryResult)
+	res := getResponse.QueryResult
 	return res, true, nil
 }
 
 // calculate the size of the cached data
-func (c *QueryCache) calcCost(table string, columns []string, result *QueryCacheResult) int {
+func (c *QueryCache) calcCost(table string, columns []string, result *proto.QueryResult) int {
 	// map of the actual sizes of each column type
 	costMap := map[proto.ColumnType]int{
 		proto.ColumnType_BOOL:      61,
