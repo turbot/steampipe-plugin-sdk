@@ -316,7 +316,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	if req.CacheEnabled {
 		log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
 
-		cacheResult := &cache.QueryCacheResult{Rows: rows}
+		cacheResult := &proto.QueryResult{Rows: rows}
 		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
 	}
 	return nil
