@@ -3,6 +3,7 @@ package shared
 import (
 	"context"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"google.golang.org/grpc"
 )
 
 // GRPCClient is an implementation of
@@ -34,9 +35,9 @@ func (c *GRPCClient) GetSupportedOperations(req *proto.GetSupportedOperationsReq
 }
 
 func (c *GRPCClient) EstablishCacheConnection() (proto.WrapperPlugin_EstablishCacheConnectionClient, error) {
-	// TODO failed attempt to increas e the max message size for cache stream
-	//return c.client.EstablishCacheConnection(c.ctx, grpc.MaxCallSendMsgSize(64*1024*1024))
-	return c.client.EstablishCacheConnection(c.ctx)
+	// TODO failed attempt to increase the max message size for cache stream
+	return c.client.EstablishCacheConnection(c.ctx, grpc.MaxCallSendMsgSize(64*1024*1024), grpc.MaxCallRecvMsgSize(64*1024*1024))
+	//return c.client.EstablishCacheConnection(c.ctx)
 }
 
 // GRPCServer is the gRPC server that GRPCClient talks to.
