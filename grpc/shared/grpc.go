@@ -2,8 +2,6 @@ package shared
 
 import (
 	"context"
-	"google.golang.org/grpc"
-
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 )
 
