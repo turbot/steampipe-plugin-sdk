@@ -16,8 +16,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// TODO do not use unsafe quals use quals map and  remove key column qual logic
-
 // default ttl - increase this if any client has a larger ttl
 const defaultTTL = 5 * time.Minute
 
