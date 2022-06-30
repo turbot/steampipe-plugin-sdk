@@ -1,3 +1,9 @@
+## v3.3.1  [2022-6-30]
+
+_Bug fixes_
+* Deprecated `ShouldIgnoreError` property is not being respected if defined in `plugin.DefaultGetConfig`. ([#347](https://github.com/turbot/steampipe-plugin-sdk/issues/347))
+* If cached item has limit, quals must match exactly to be considered a cache hit. ([#345](https://github.com/turbot/steampipe-plugin-sdk/issues/345))
+
 ## v3.3.0  [2022-6-22]
 _What's new_
 * Add support for Open Telemetry. ([#337](https://github.com/turbot/steampipe-plugin-sdk/issues/337))
