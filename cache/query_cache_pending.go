@@ -41,7 +41,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64) (*proto.QueryResult, error) {
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64, rowCallback CacheCallback) (bool, error) {
 	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", table)
 	defer span.End()
 
@@ -75,7 +75,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 
 		// now try to read from the cache again
 		var err error
-		res, err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, ttlSeconds)
+		res, err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, ttlSeconds, "")
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem - getCachedResult returned error: %v", err)
 		}
