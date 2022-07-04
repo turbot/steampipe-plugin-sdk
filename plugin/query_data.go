@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"runtime"
 	"sync"
 	"time"
 
@@ -70,6 +71,9 @@ type QueryData struct {
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
 	parentItem     interface{}
 	filteredMatrix []map[string]interface{}
+
+	// if data is being cached, this will contain the id used to send rows to the cache
+	cacheSetCallId string
 }
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager, callId string) *QueryData {
@@ -407,6 +411,12 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	// increment the stream count
 	d.QueryStatus.rowsStreamed++
 
+	// TACTICAL force garbage collection every 1000 rows
+	if (d.QueryStatus.rowsStreamed)%1000 == 0 {
+		log.Printf("[WARN] GCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGCGC")
+		runtime.GC()
+	}
+
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
 	rd.matrixItem = GetMatrixItem(ctx)
@@ -434,11 +444,10 @@ func (d *QueryData) fetchComplete(ctx context.Context) {
 
 // read rows from rowChan and stream back across GRPC
 // (also return the rows so we can cache them when complete)
-func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
+func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) error {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
-	var rows []*proto.Row
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
 		d.concurrencyManager.Close()
@@ -449,23 +458,33 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]
 		case err := <-d.errorChan:
 			log.Printf("[ERROR] streamRows error chan select: %v\n", err)
 			// return what what we have sent
-			return nil, err
+			return err
 		case row := <-rowChan:
 			// nil row means we are done streaming
 			if row == nil {
 				log.Println("[TRACE] row chan closed, stop streaming")
-				return rows, nil
+				return nil
 			}
 			if err := d.streamRow(row); err != nil {
 				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
-				return nil, err
+				return err
 			}
-			rows = append(rows, row)
+
 		}
 	}
 }
 
 func (d *QueryData) streamRow(row *proto.Row) error {
+	// if we are caching stream this row to the cache as well
+
+	// if this is the first row to stream, we need to start the set operation
+	// (we cannot do it before now as we need to examine the columns from the first row returned to
+	// build the key)
+
+	// send a sequence counter so the cache can verify it has received all items
+
+	// we do not get a return from set calls
+
 	resp := &proto.ExecuteResponse{
 		Row: row,
 		Metadata: &proto.QueryMetadata{
@@ -506,6 +525,7 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 			case rowData := <-d.rowDataChan:
 				// is channel closed?
 				if rowData == nil {
+
 					log.Println("[TRACE] rowData chan select - channel CLOSED")
 					// now we know there will be no more items, start goroutine to close row chan when the wait group is complete
 					// this allows time for all hydrate goroutines to complete

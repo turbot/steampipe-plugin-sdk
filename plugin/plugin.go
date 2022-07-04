@@ -71,7 +71,8 @@ type Plugin struct {
 
 	queryCache      *cache.QueryCache
 	concurrencyLock sync.Mutex
-	cacheStream     proto.WrapperPlugin_EstablishCacheConnectionServer
+	// the cache stream - this is set in EstablishCacheConnection and used  when creating thew query cache in ensureCache
+	cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -241,7 +242,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
 
-	// lock access to the newQueryData - otherwise plugin crashes were observed
 	queryData := p.newQueryData(req, stream, queryContext, table, matrixItem)
 
 	logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
@@ -258,26 +258,24 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	if req.CacheEnabled && p.queryCache != nil {
 		log.Printf("[TRACE] Cache ENABLED callId: %s %p", req.CallId, p.queryCache)
-		cachedResult, err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
-		if err != nil {
-			log.Printf("[WARN] cache Get returned an error: %v", err)
-		}
-		cacheHit := cachedResult != nil
-		executeSpan.SetAttributes(
-			attribute.Bool("cache-hit", cacheHit),
-		)
+		// try to fetch this data from the query cache
+		// if it is a cache hit, the data will be streamed  by cacheGet
+		cacheHit := p.cacheGet(req, ctx, table, queryContext, limit, executeSpan, queryData)
 		if cacheHit {
-			// mark this as a cache hit in the query status
-			queryData.QueryStatus.cacheHit = true
-			queryData.QueryStatus.cachedRowsFetched = int64(len(cachedResult.Rows))
-			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
-			for _, r := range cachedResult.Rows {
-				queryData.streamRow(r)
-			}
+			// nothing more to do
 			return nil
 		}
 
 		// so cache is enabled but the data is not in the cache
+		cacheSetCallId, err := p.queryCache.StartSet(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
+		// if StartSet failed, just log the error but continue
+		if err != nil {
+			log.Printf("[WARN] queryCache.StartSet failed - this query will not be cached: %s", err.Error())
+		} else {
+			// save callId to querydata
+			queryData.cacheSetCallId = cacheSetCallId
+		}
+
 		// the cache will have added a pending item for this transfer
 		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
 		defer func() {
@@ -308,18 +306,48 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	logging.LogTime("Calling streamRows")
 
 	// asyncronously stream rows across GRPC
-	rows, err := queryData.streamRows(ctx, rowChan)
+	err = queryData.streamRows(ctx, rowChan)
 	if err != nil {
 		return err
 	}
 
-	if req.CacheEnabled {
-		log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
+	//if req.CacheEnabled {
+	//	log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
+	//
+	//	//cacheResult := &proto.QueryResult{Rows: rows}
+	//	p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
+	//}
 
-		cacheResult := &proto.QueryResult{Rows: rows}
-		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
-	}
 	return nil
+}
+
+func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData) bool {
+
+	var doneChan = make(chan (bool))
+	callback := func(resp proto.CacheResponse) {
+		if !resp.Success {
+			doneChan <- false
+		}
+		if len(resp.QueryResult.Rows) == 0 {
+			executeSpan.SetAttributes(
+				attribute.Bool("cache-hit", true),
+			)
+
+			queryData.QueryStatus.cacheHit = true
+			doneChan <- true
+		}
+		for _, r := range resp.QueryResult.Rows {
+			queryData.streamRow(r)
+			queryData.QueryStatus.cachedRowsFetched++
+		}
+	}
+
+	cacheHit, err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl, callback)
+	if err != nil {
+		log.Printf("[WARN] cache Get returned an error: %v", err)
+		return false
+	}
+
 }
 
 // EstablishCacheConnection is the handler function for the EstablishCacheConnection grpc function
@@ -330,9 +358,11 @@ func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCa
 	log.Printf("[WARN] EstablishCacheConnection!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	p.cacheStream = stream
 	if p.queryCache != nil {
-		// maybe we are reestabliching connection
+		// TODO do we need to clear the map of callbacks - or invoke all their error functions
+		// - as the cache may have lost connection
+		// maybe we are reestablishing connection
 		log.Printf("[WARN] QUERY CACHE ALREADY CREATED")
-		p.queryCache.CacheStream = stream
+		p.queryCache.SetCacheStream(stream)
 	}
 	// hold stream open
 	for {
@@ -367,6 +397,7 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 }
 
 func (p *Plugin) newQueryData(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}) *QueryData {
+	// lock access to the newQueryData - otherwise plugin crashes were observed
 	p.concurrencyLock.Lock()
 	defer p.concurrencyLock.Unlock()
 
@@ -435,7 +466,7 @@ func (p *Plugin) ensureCache() error {
 		if err != nil {
 			return err
 		}
-		p.queryCache = queryCache
+		p.queryCache = queryCachecache jit
 	} else {
 		// so there is already a cache - that means the config has been updated, not set for the first time
 

@@ -106,7 +106,7 @@ func (c *wrapperPluginClient) EstablishCacheConnection(ctx context.Context, opts
 }
 
 type WrapperPlugin_EstablishCacheConnectionClient interface {
-	Send(*CacheResult) error
+	Send(*CacheResponse) error
 	Recv() (*CacheRequest, error)
 	grpc.ClientStream
 }
@@ -115,7 +115,7 @@ type wrapperPluginEstablishCacheConnectionClient struct {
 	grpc.ClientStream
 }
 
-func (x *wrapperPluginEstablishCacheConnectionClient) Send(m *CacheResult) error {
+func (x *wrapperPluginEstablishCacheConnectionClient) Send(m *CacheResponse) error {
 	return x.ClientStream.SendMsg(m)
 }
 
@@ -252,7 +252,7 @@ func _WrapperPlugin_EstablishCacheConnection_Handler(srv interface{}, stream grp
 
 type WrapperPlugin_EstablishCacheConnectionServer interface {
 	Send(*CacheRequest) error
-	Recv() (*CacheResult, error)
+	Recv() (*CacheResponse, error)
 	grpc.ServerStream
 }
 
@@ -264,8 +264,8 @@ func (x *wrapperPluginEstablishCacheConnectionServer) Send(m *CacheRequest) erro
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *wrapperPluginEstablishCacheConnectionServer) Recv() (*CacheResult, error) {
-	m := new(CacheResult)
+func (x *wrapperPluginEstablishCacheConnectionServer) Recv() (*CacheResponse, error) {
+	m := new(CacheResponse)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
