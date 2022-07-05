@@ -23,8 +23,11 @@ type CacheMissError struct{}
 func (CacheMissError) Error() string { return "cache miss" }
 
 func IsCacheMiss(err error) bool {
-	_, ok := err.(CacheMissError)
-	return ok
+	if err == nil {
+		return false
+	}
+
+	return err.Error() == CacheMissError{}.Error()
 }
 
 type CacheStats struct {
@@ -95,19 +98,17 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 
 	// do we have a cached result?
 	err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback, callId)
-	log.Printf("[WARN] getCachedResult returned %v", err)
+
 	if IsCacheMiss(err) {
-		log.Printf("[WARN] CACHE MISS")
-		// TODO make this work again
+		log.Printf("[TRACE] getCachedResult returned CACHE MISS")
 		// there was no cached result - is there data fetch in progress?
-		//if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit); pendingItem != nil {
-		//	log.Printf("[TRACE] found pending item - waiting for it")
-		//	// so there is a pending result, wait for it
-		//	return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback)
-		//}
+		if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit); pendingItem != nil {
+			log.Printf("[TRACE] found pending item - waiting for it")
+			// so there is a pending result, wait for it
+			return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback)
+		}
 	}
 	return err
-
 }
 
 func (c *QueryCache) setTtl(clientTTLSeconds int64) {
@@ -183,7 +184,11 @@ func (c *QueryCache) IterateSet(row *proto.Row, callId string) {
 func (c *QueryCache) EndSet(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId string) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[WARN] QueryCache EndSet suffered a panic: %s", helpers.ToError(r))
+
+			log.Printf("[WARN] QueryCache EndSet suffered a panic: %v", helpers.ToError(r))
+			// if there was an error, try to abort the set operation
+			// - this will tell the cache server to clear any incomplete data for this set operation
+			c.AbortSet(callId)
 		}
 
 		// clear the corresponding pending item - we have completed the transfer
@@ -191,18 +196,24 @@ func (c *QueryCache) EndSet(table string, qualMap map[string]*proto.Quals, colum
 		c.pendingItemComplete(table, qualMap, columns, limit)
 	}()
 
+	log.Printf("[TRACE] QueryCache EndSet")
+
 	// call EndSet command
 	req := &proto.CacheRequest{
 		Command: proto.CacheCommand_SET_RESULT_END,
 		CallId:  callId,
 	}
 	resp, err := c.streamCacheCommand(req)
+	if resp.Error != "" && err == nil {
+		err = fmt.Errorf(resp.Error)
+	}
 	if err != nil {
-		log.Printf("[WARN] cache EndSet: %s", err.Error())
+		log.Printf("[WARN] QueryCache EndSet failed %v, calling CacheCommand_SET_RESULT_ABORT", err)
+		c.AbortSet(callId)
+		return
 	}
-	if resp.Error != "" {
-		log.Printf("[WARN] cache EndSet: %s", resp.Error)
-	}
+
+	log.Printf("[TRACE] QueryCache EndSet - CacheCommand_SET_RESULT_END command executed")
 
 	// now write index bucket
 
@@ -215,11 +226,15 @@ func (c *QueryCache) EndSet(table string, qualMap map[string]*proto.Quals, colum
 	indexBucket, err := c.cacheGetIndexBucket(indexBucketKey, callId)
 	if err != nil {
 		if IsCacheMiss(err) {
-			log.Printf("[WARN] cacheGetIndexBucket returned cache miss")
+			log.Printf("[TRACE] cacheGetIndexBucket returned cache miss")
 		} else {
+			// if there is an error fetching the index bucket, log it and return
+			// we do not want to risk overwriting an existing index bucketan
 			log.Printf("[WARN] cacheGetIndexBucket failed: %v", err)
+			return
 		}
 	}
+
 	indexItem := NewIndexItem(columns, resultKey, limit, qualMap)
 	if indexBucket == nil {
 		// create new index bucket
@@ -229,6 +244,23 @@ func (c *QueryCache) EndSet(table string, qualMap map[string]*proto.Quals, colum
 
 	if err := c.cacheSetIndexBucket(indexBucketKey, indexBucket, c.ttl, callId); err != nil {
 		log.Printf("[WARN] cache Set failed for index bucket: %v", err)
+	}
+	log.Printf("[TRACE] QueryCache EndSet - IndexBucket written")
+}
+
+func (c *QueryCache) AbortSet(callId string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[WARN] QueryCache IterateSet suffered a panic: %s", helpers.ToError(r))
+		}
+	}()
+
+	// send CacheCommand_SET_RESULT_ITERATE command but do not register listeners for response
+	if err := c.cacheStream.Send(&proto.CacheRequest{
+		Command: proto.CacheCommand_SET_RESULT_ABORT,
+		CallId:  callId,
+	}); err != nil {
+		log.Printf("[WARN] send failure for CacheCommand_SET_RESULT_ABORT command: %s", err)
 	}
 }
 
@@ -282,15 +314,14 @@ func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[s
 	wrappedRowCallback := func(resp *proto.CacheResponse) {
 		if !resp.Success || resp.QueryResult == nil || len(resp.QueryResult.Rows) == 0 {
 			log.Printf("[WARN] wrapped row callback unregistering listener")
-			// unregister listener
-			delete(c.listeners, callId)
+			c.unregisterCallback(callId)
 
 		}
 		// invoke real callback
 		rowCallback(resp)
 	}
 	// register the cache stream listener
-	c.listeners[callId] = wrappedRowCallback
+	c.registerCallback(callId, wrappedRowCallback)
 
 	err = c.cacheStream.Send(&proto.CacheRequest{
 		Command: proto.CacheCommand_GET_RESULT,
@@ -301,7 +332,7 @@ func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[s
 	if err != nil {
 		log.Printf("[WARN] cacheGetResult Send failed %v", err)
 		// unregister listener
-		delete(c.listeners, callId)
+		c.unregisterCallback(callId)
 		return err
 	}
 
@@ -397,23 +428,25 @@ func (c *QueryCache) sanitiseKey(str string) string {
 
 // send command to cache and wait for reply
 func (c *QueryCache) streamCacheCommand(req *proto.CacheRequest) (*proto.CacheResponse, error) {
-	log.Printf("[WARN] streamCacheCommand %s", req.Command)
+	log.Printf("[TRACE] streamCacheCommand %s", req.Command)
 
 	responseChannel := make(chan *proto.CacheResponse)
 	callback := func(response *proto.CacheResponse) {
-		log.Printf("[WARN] cacheSetIndexBucket callback success %v", response.Success)
+		log.Printf("[TRACE] cacheSetIndexBucket callback success: %v", response.Success)
 		responseChannel <- response
 	}
 
 	// register the cache stream listener
-	c.listeners[req.CallId] = callback
+	c.registerCallback(req.CallId, callback)
+	// ensure to deregister the cache stream listener
+	defer c.unregisterCallback(req.CallId)
 
 	if err := c.cacheStream.Send(req); err != nil {
 		log.Printf("[WARN] streamCacheCommand Send failed: %v", err)
 		return nil, err
 	}
 
-	log.Printf("[WARN] await cache response")
+	log.Printf("[TRACE] await cache response for %s", req.Command)
 	var response *proto.CacheResponse
 	// now select result channel
 	// TODO timeout
@@ -421,16 +454,13 @@ func (c *QueryCache) streamCacheCommand(req *proto.CacheRequest) (*proto.CacheRe
 	case response = <-responseChannel:
 	}
 
-	// deregister the cache stream listener
-	delete(c.listeners, req.CallId)
-
-	log.Printf("[WARN] streamCacheCommand received response")
+	log.Printf("[TRACE] streamCacheCommand received response for %s", req.Command)
 
 	return response, nil
 }
 
 func (c *QueryCache) cacheSetIndexBucket(key string, indexBucket *IndexBucket, ttl time.Duration, callId string) error {
-	log.Printf("[WARN] cacheSetIndexBucket %s", key)
+	log.Printf("[TRACE] cacheSetIndexBucket %s", key)
 
 	req := &proto.CacheRequest{
 		Command:     proto.CacheCommand_SET_INDEX,
@@ -450,44 +480,6 @@ func (c *QueryCache) cacheSetIndexBucket(key string, indexBucket *IndexBucket, t
 	}
 
 	return nil
-
-	//responseChannel := make(chan *proto.CacheResponse)
-	//callback := func(response *proto.CacheResponse) {
-	//	log.Printf("[WARN] cacheSetIndexBucket callback response %v", response)
-	//	responseChannel <- response
-	//}
-	//
-	//// register the cache stream listener
-	//c.listeners[callId] = callback
-	//
-	//if err := c.cacheStream.Send(&proto.CacheRequest{
-	//	Command:     proto.CacheCommand_SET_INDEX,
-	//	Key:         key,
-	//	Ttl:         int64(ttl.Seconds()),
-	//	IndexBucket: indexBucket.AsProto(),
-	//	CallId:      callId,
-	//}); err != nil {
-	//	log.Printf("[WARN] cacheSetIndexBucket Send failed: %v", err)
-	//	return err
-	//}
-	//
-	//log.Printf("[WARN] await cache response")
-	//var setResponse *proto.CacheResponse
-	//// now select result channel
-	//// TODO timeout
-	//select {
-	//case setResponse = <-responseChannel:
-	//}
-	//
-	//// deregister the cache stream listener
-	//delete(c.listeners, callId)
-	//
-	//log.Printf("[WARN] setResponse: %v", setResponse)
-	//
-	//if setResponse.Error != "" {
-	//	return fmt.Errorf(setResponse.Error)
-	//}
-	//return nil
 }
 
 func (c *QueryCache) cacheSetResult(key string, result *proto.QueryResult, ttl time.Duration, callId string) error {
@@ -509,42 +501,6 @@ func (c *QueryCache) cacheSetResult(key string, result *proto.QueryResult, ttl t
 	}
 
 	return nil
-
-	//responseChannel := make(chan *proto.CacheResponse)
-	//callback := func(response *proto.CacheResponse) {
-	//	log.Printf("[WARN] cacheSetResult callback response %v", response)
-	//	responseChannel <- response
-	//}
-	//// register the cache stream listener
-	//c.listeners[callId] = callback
-	//
-	//if err := c.cacheStream.Send(&proto.CacheRequest{
-	//	Command: proto.CacheCommand_SET_RESULT_START,
-	//	Key:     key,
-	//	Ttl:     int64(ttl.Seconds()),
-	//	Result:  result,
-	//	CallId:  callId,
-	//}); err != nil {
-	//	return err
-	//}
-	//
-	//log.Printf("[WARN] await cache response")
-	//var setResponse *proto.CacheResponse
-	//// now select result channel
-	//// TODO timeout
-	//select {
-	//case setResponse = <-responseChannel:
-	//}
-	//
-	//// deregister the cache stream listener
-	//delete(c.listeners, callId)
-	//
-	//log.Printf("[WARN] setResponse: %v", setResponse)
-	//
-	//if setResponse.Error != "" {
-	//	return fmt.Errorf(setResponse.Error)
-	//}
-	//return nil
 }
 
 func (c *QueryCache) cacheGetIndexBucket(key, callId string) (*IndexBucket, error) {
@@ -564,129 +520,28 @@ func (c *QueryCache) cacheGetIndexBucket(key, callId string) (*IndexBucket, erro
 
 	// was this a cache hit?
 	if !resp.Success {
-		log.Printf("[WARN] cacheGetIndexBucket cache miss")
+		log.Printf("[WARN] cacheGetIndexBucket cache miss :(")
 		c.Stats.Misses++
 		return nil, new(CacheMissError)
 	}
 	// there should be an index in the respoonse
 	if resp.IndexBucket == nil {
-		log.Printf("[WARN] " +
-			"cacheGetIndexBucket cache hit but no index bucket was returned")
+		log.Printf("[WARN] cacheGetIndexBucket cache hit but no index bucket was returned")
 		return nil, fmt.Errorf("cacheGetIndexBucket cache hit but no index bucket was returned")
 	}
 
 	log.Printf("[WARN] cacheGetIndexBucket cache hit ")
 	var res = IndexBucketfromProto(resp.IndexBucket)
 	return res, nil
-
-	//
-	//
-	//
-	//
-	//log.Printf("[WARN] cacheGetIndexBucket for key '%s', callId '%s'", key, callId)
-	//
-	//responseChannel := make(chan *proto.CacheResponse)
-	//callback := func(response *proto.CacheResponse) {
-	//	log.Printf("[WARN] cacheGetIndexBucket callback response %v", response)
-	//	responseChannel <- response
-	//}
-	//// register the cache stream listener
-	//c.listeners[callId] = callback
-	//
-	//log.Printf("[WARN] send cache request")
-	//err := c.cacheStream.Send(&proto.CacheRequest{
-	//	Command: proto.CacheCommand_GET_INDEX,
-	//	Key:     key,
-	//	CallId:  callId,
-	//})
-	//if err != nil {
-	//	log.Printf("[WARN] cacheGetIndexBucket Send failed: %v", err)
-	//	return nil, err
-	//}
-	//
-	//log.Printf("[WARN] await cache response")
-	//var getResponse *proto.CacheResponse
-	//// now select result channel
-	//// TODO timeout
-	//select {
-	//case getResponse = <-responseChannel:
-	//}
-	//
-	//// deregister the cache stream listener
-	//delete(c.listeners, callId)
-	//
-	//log.Printf("[WARN] getResponse: %v", getResponse)
-	//
-	//if getResponse.Error != "" {
-	//	return nil, fmt.Errorf(getResponse.Error)
-	//}
-	//// was this a cache hit?
-	//if !getResponse.Success {
-	//	log.Printf("[WARN] cacheGetIndexBucket cache miss")
-	//	c.Stats.Misses++
-	//	return nil, new(CacheMissError)
-	//}
-	//// there should be an index in the respoonse
-	//if getResponse.IndexBucket == nil {
-	//	log.Printf("[WARN] " +
-	//		"cacheGetIndexBucket cache hit but no index bucket was returned")
-	//	return nil, fmt.Errorf("cacheGetIndexBucket cache hit but no index bucket was returned")
-	//}
-	//
-	//log.Printf("[WARN] cacheGetIndexBucket cache hit ")
-	//var res = IndexBucketfromProto(getResponse.IndexBucket)
-	//return res, nil
 }
-
-//func (c *QueryCache) cacheGetResult(key string, rowCallback CacheCallback, callId string) error {
-//	log.Printf("[WARN] cacheGetResult %s", key)
-//
-//	// register the cache stream listener
-//	c.listeners[callId] = rowCallback
-//
-//	err := c.cacheStream.Send(&proto.CacheRequest{
-//		Command: proto.CacheCommand_GET_RESULT,
-//		Key:     key,
-//		CallId:  callId,
-//	})
-//
-//	if err != nil {
-//		log.Printf("[WARN] cacheGetResult Send failed %v", err)
-//		return err
-//	}
-//
-//	return nil
-//
-//	//// TODO TIMEOUT??
-//	//// now wait for a response
-//	//getResponse, err := c.cacheStream.Recv()
-//	//if err != nil {
-//	//	log.Printf("[WARN] cacheGetResult Recv failed %v", err)
-//	//	return false, err
-//	//}
-//	//
-//	//// was this a cache hit?
-//	//if !getResponse.Success {
-//	//	log.Printf("[WARN] cacheGetResult returned cache miss")
-//	//	return false, nil
-//	//}
-//	//// there should be an index in the response
-//	//if getResponse.QueryResult == nil {
-//	//	log.Printf("[WARN] cacheGetResult cache hit but no result was returned")
-//	//	return false, fmt.Errorf("cacheGetResult cache hit but no result was returned")
-//	//}
-//	//
-//	//log.Printf("[WARN] cacheGetResult cache hit")
-//	////res := getResponse.QueryResult
-//	//return true, nil
-//}
 
 // listen for messages on the cache stream and invoke the appropriate callback function
 func (c *QueryCache) streamListener() {
 	for {
-		log.Printf("[WARN] QueryCache streamListener waiting....")
+		log.Printf("[TRACE] QueryCache streamListener waiting....")
 		res, err := c.cacheStream.Recv()
-		log.Printf("[WARN] QueryCache streamListener received response (err %v)", err)
+		log.Printf("[TRACE] QueryCache streamListener received response (err %v)", err)
+		// TODO handle EOF
 		// TODO how to handle error?
 		if err != nil {
 			log.Printf("[WARN] error receiving cache stream data: %s", err.Error())
@@ -699,85 +554,38 @@ func (c *QueryCache) streamListener() {
 		}
 
 		// is there a callback registered for this call id?
-		c.listenerLock.Lock()
-		callback, ok := c.listeners[callId]
-		c.listenerLock.Unlock()
+		callback, ok := c.getCallback(callId)
 		if !ok {
 			log.Printf("[WARN] no cache command listener registered for call id %s", callId)
 			continue
 		}
-		log.Printf("[WARN] invoking listener callback for call id %s", callId)
+		log.Printf("[TRACE] invoking listener callback for call id %s", callId)
+
 		// invoke the callback
 		callback(res)
 	}
 }
 
-// calculate the size of the cached data
-//func (c *QueryCache) calcCost(table string, columns []string, result *proto.QueryResult) int {
-//	// map of the actual sizes of each column type
-//	costMap := map[proto.ColumnType]int{
-//		proto.ColumnType_BOOL:      61,
-//		proto.ColumnType_INT:       68,
-//		proto.ColumnType_DOUBLE:    68,
-//		proto.ColumnType_STRING:    76,
-//		proto.ColumnType_LTREE:     76,
-//		proto.ColumnType_JSON:      84,
-//		proto.ColumnType_IPADDR:    85,
-//		proto.ColumnType_CIDR:      88,
-//		proto.ColumnType_INET:      96,
-//		proto.ColumnType_DATETIME:  92,
-//		proto.ColumnType_TIMESTAMP: 92,
-//	}
-//
-//	tableSchema := c.PluginSchema[table]
-//	columnsMap := tableSchema.GetColumnMap()
-//
-//	// build lists of dynamically sized columns
-//	var jsonColumns []string
-//	var ltreeColumns []string
-//	var stringColumns []string
-//
-//	// result struct overhead is 52 bytes
-//	baseRowCost := 52
-//
-//	for _, col := range columns {
-//		colType := columnsMap[col].Type
-//		// add base cost for a row of this column type
-//		baseRowCost += costMap[colType]
-//		// add in column name
-//		baseRowCost += len(col)
-//
-//		//log.Printf("[WARN] col %s cost %d, key length %d = %d  (%d)", col, costMap[colType], len(col), costMap[colType]+len(col), baseRowCost)
-//
-//		if colType == proto.ColumnType_JSON {
-//			jsonColumns = append(jsonColumns, col)
-//		} else if colType == proto.ColumnType_LTREE {
-//			ltreeColumns = append(ltreeColumns, col)
-//		} else if colType == proto.ColumnType_STRING {
-//			stringColumns = append(stringColumns, col)
-//		}
-//	}
-//
-//	cost := len(result.Rows) * baseRowCost
-//
-//	//log.Printf("[WARN] calcCost %d total columns, %d json columns %d string columns %d ltree columns", len(columns), len(jsonColumns), len(stringColumns), len(ltreeColumns))
-//	//log.Printf("[WARN] base cost %d", cost)
-//	if len(jsonColumns)+len(ltreeColumns)+len(stringColumns) > 0 {
-//		for _, r := range result.Rows {
-//			for _, c := range jsonColumns {
-//				jsonResult := r.Columns[c].GetJsonValue()
-//				cost += len(jsonResult)
-//			}
-//			for _, c := range ltreeColumns {
-//				ltreeResult := r.Columns[c].GetLtreeValue()
-//				cost += len(ltreeResult)
-//			}
-//			for _, c := range stringColumns {
-//				stringResult := r.Columns[c].GetStringValue()
-//				cost += len(stringResult)
-//			}
-//		}
-//	}
-//	log.Printf("[TRACE] calcCost for table '%s', %d rows, cost: %d", table, len(result.Rows), cost)
-//	return cost
-//}
+// callback handling
+
+func (c *QueryCache) registerCallback(callId string, callback CacheCallback) {
+	c.listenerLock.Lock()
+	defer c.listenerLock.Unlock()
+
+	c.listeners[callId] = callback
+}
+
+func (c *QueryCache) unregisterCallback(callId string) {
+	c.listenerLock.Lock()
+	defer c.listenerLock.Unlock()
+
+	delete(c.listeners, callId)
+}
+
+func (c *QueryCache) getCallback(callId string) (CacheCallback, bool) {
+	c.listenerLock.Lock()
+	defer c.listenerLock.Unlock()
+
+	callback, ok := c.listeners[callId]
+	return callback, ok
+}
