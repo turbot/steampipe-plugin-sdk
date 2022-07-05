@@ -50,12 +50,16 @@ type QueryData struct {
 	// streaming funcs
 	StreamListItem func(ctx context.Context, item interface{})
 
-	// internal
-	callId string
-
 	// deprecated - plugins should no longer call StreamLeafListItem directly and should just call StreamListItem
 	// event for the child list of a parent child list call
 	StreamLeafListItem func(ctx context.Context, item interface{})
+
+	// internal
+
+	// the callId for the Execute call
+	callId string
+
+	plugin *Plugin
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
 	hydrateCalls []*HydrateCall
 
@@ -72,21 +76,29 @@ type QueryData struct {
 	parentItem     interface{}
 	filteredMatrix []map[string]interface{}
 
+	// ttl for the execute call
+	cacheTtl int64
+
 	// if data is being cached, this will contain the id used to send rows to the cache
 	cacheSetCallId string
+	cacheEnabled   bool
 }
 
-func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager, callId string) *QueryData {
+func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, plugin *Plugin, matrix []map[string]interface{}, request *proto.ExecuteRequest) *QueryData {
 	var wg sync.WaitGroup
 	d := &QueryData{
-		ConnectionManager: connectionManager,
+		ConnectionManager: plugin.ConnectionManager,
 		Table:             table,
 		QueryContext:      queryContext,
-		Connection:        connection,
+		Connection:        plugin.Connection,
 		Matrix:            matrix,
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
-		callId:            callId,
+		plugin:            plugin,
+		callId:            request.CallId,
+		cacheTtl:          request.CacheTtl,
+		cacheEnabled:      request.CacheEnabled,
+
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
 		rowDataChan: make(chan *RowData, itemBufferSize),
@@ -124,14 +136,18 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 func (d *QueryData) ShallowCopy() *QueryData {
 
 	clone := &QueryData{
-		Table:              d.Table,
-		KeyColumnQuals:     make(map[string]*proto.QualValue),
-		Quals:              make(KeyColumnQualMap),
-		FetchType:          d.FetchType,
-		QueryContext:       d.QueryContext,
-		Connection:         d.Connection,
-		ConnectionManager:  d.ConnectionManager,
-		Matrix:             d.Matrix,
+		Table:             d.Table,
+		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		Quals:             make(KeyColumnQualMap),
+		FetchType:         d.FetchType,
+		QueryContext:      d.QueryContext,
+		Connection:        d.Connection,
+		ConnectionManager: d.ConnectionManager,
+		Matrix:            d.Matrix,
+		plugin:            d.plugin,
+		cacheTtl:          d.cacheTtl,
+		cacheEnabled:      d.cacheEnabled,
+
 		filteredMatrix:     d.filteredMatrix,
 		hydrateCalls:       d.hydrateCalls,
 		concurrencyManager: d.concurrencyManager,
@@ -463,9 +479,17 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) err
 			// nil row means we are done streaming
 			if row == nil {
 				log.Println("[TRACE] row chan closed, stop streaming")
+				d.endCacheSet()
+
 				return nil
 			}
+			// if we are caching stream this row to the cache as well
+			// TODO send a sequence counter so the cache can verify it has received all items
+			// we do not get a return from set calls
+			d.streamRowToCache(row)
+
 			if err := d.streamRow(row); err != nil {
+				// TODO AbortCacheSet
 				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
 				return err
 			}
@@ -475,16 +499,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) err
 }
 
 func (d *QueryData) streamRow(row *proto.Row) error {
-	// if we are caching stream this row to the cache as well
-
-	// if this is the first row to stream, we need to start the set operation
-	// (we cannot do it before now as we need to examine the columns from the first row returned to
-	// build the key)
-
-	// send a sequence counter so the cache can verify it has received all items
-
-	// we do not get a return from set calls
-
 	resp := &proto.ExecuteResponse{
 		Row: row,
 		Metadata: &proto.QueryMetadata{
@@ -496,6 +510,49 @@ func (d *QueryData) streamRow(row *proto.Row) error {
 	}
 
 	return d.stream.Send(resp)
+}
+
+func (d *QueryData) streamRowToCache(row *proto.Row) {
+	// if this is the first row to stream, we need to start the set operation
+	if d.cacheSetCallId == "" {
+		d.startCacheSet(row)
+	} else {
+		d.iterateCacheSet(row)
+	}
+}
+
+func (d *QueryData) startCacheSet(row *proto.Row) {
+	if !d.cacheEnabled {
+		return
+	}
+
+	// (we cannot do it before now as we need to examine the columns from the first row returned to
+	// build the key)
+	// so cache is enabled but the data is not in the cache
+	cacheSetCallId, err := d.plugin.queryCache.StartSet(row, d.Table.Name, d.Quals.ToProtoQualMap(), d.QueryContext.Columns, d.QueryContext.GetLimit())
+	if err != nil {
+		// if StartSet failed, just log the error but continue
+		log.Printf("[WARN] queryCache.StartSet failed - this query will not be cached: %s", err.Error())
+		// disable caching for this scan
+		d.cacheEnabled = false
+	} else {
+		// save callId to querydata
+		d.cacheSetCallId = cacheSetCallId
+	}
+}
+
+func (d *QueryData) iterateCacheSet(row *proto.Row) {
+	if !d.cacheEnabled {
+		return
+	}
+	d.plugin.queryCache.IterateSet(row, d.cacheSetCallId)
+}
+
+func (d *QueryData) endCacheSet() {
+	if !d.cacheEnabled {
+		return
+	}
+	d.plugin.queryCache.EndSet(d.Table.Name, d.QueryContext.UnsafeQuals, d.QueryContext.Columns, d.QueryContext.GetLimit(), d.cacheSetCallId)
 }
 
 func (d *QueryData) streamError(err error) {

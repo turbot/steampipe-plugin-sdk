@@ -41,11 +41,9 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64, rowCallback CacheCallback) (bool, error) {
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, ttlSeconds int64, rowCallback CacheCallback) error {
 	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", table)
 	defer span.End()
-
-	var res *proto.QueryResult
 
 	log.Printf("[TRACE] waitForPendingItem indexBucketKey: %s", indexBucketKey)
 
@@ -75,23 +73,24 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 
 		// now try to read from the cache again
 		var err error
-		res, err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, ttlSeconds, "")
+		// TODO NEED CALL ID
+		err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, ttlSeconds, rowCallback, "")
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem - getCachedResult returned error: %v", err)
-		}
-		// if the data is still not in the cache, create a pending item
-		if res == nil {
-			log.Printf("[TRACE] waitForPendingItem item still not in the cache - add pending item, indexBucketKey: %s", indexBucketKey)
-			// lock access to pending results map
-			c.pendingDataLock.Lock()
-			// add a new pending item, within the lock
-			c.addPendingResult(indexBucketKey, table, qualMap, columns, limit)
-			c.pendingDataLock.Unlock()
+			// if the data is still not in the cache, create a pending item
+			if IsCacheMiss(err) {
+				log.Printf("[TRACE] waitForPendingItem item still not in the cache - add pending item, indexBucketKey: %s", indexBucketKey)
+				// lock access to pending results map
+				c.pendingDataLock.Lock()
+				// add a new pending item, within the lock
+				c.addPendingResult(indexBucketKey, table, qualMap, columns, limit)
+				c.pendingDataLock.Unlock()
+			}
 		} else {
 			log.Printf("[TRACE] waitForPendingItem retrieved from cache, indexBucketKey: %s", indexBucketKey)
 		}
 	}
-	return res, nil
+	return nil
 }
 
 func (c *QueryCache) addPendingResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) {
