@@ -181,7 +181,7 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 // execute a query and streams the results using the given GRPC stream.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	// add CallId to logs for the execute call
-	logger := p.Logger.Named(req.CallId)
+	logger := p.Logger.Named(p.Connection.Name).Named(req.CallId)
 
 	log.Printf("[TRACE] EXECUTE callId: %s table: %s cols: %s", req.CallId, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
@@ -260,16 +260,18 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		// if it is a cache hit, the data will be streamed  by cacheGet
 		var cacheHit bool
 
-		cacheHit, err = p.cacheGet(req, ctx, table, queryContext, limit, executeSpan, queryData)
+		cacheHit, err = p.cacheGet(req, ctx, table, queryContext, limit, executeSpan, queryData, req.CallId)
 		if err != nil {
 			log.Printf("[WARN] cacheGet returned err %s", err.Error())
 		}
 
-		log.Printf("[WARN] cacheGet returned cacheHit %v", cacheHit)
 		if cacheHit {
+			log.Printf("[INFO] cacheGet returned CACHE HIT")
 			// nothing more to do
 			return nil
 		}
+
+		log.Printf("[INFO] cacheGet returned CACHE MISS")
 
 		// the cache will have added a pending item for this transfer
 		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
@@ -306,27 +308,19 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		return err
 	}
 
-	//if req.CacheEnabled {
-	//	log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
-	//
-	//	//cacheResult := &proto.QueryResult{Rows: rows}
-	//	p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
-	//}
-
 	return nil
 }
 
-func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData) (bool, error) {
+func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData, callId string) (bool, error) {
 	var doneChan = make(chan (bool))
 	callback := func(resp *proto.CacheResponse) {
-		log.Printf("[WARN] row callback")
 		if !resp.Success {
-			log.Printf("[WARN] failure!")
+			log.Printf("[TRACE] cache response success = false - cache miss")
 			doneChan <- false
 			return
 		}
 		if len(resp.QueryResult.Rows) == 0 {
-			log.Printf("[WARN] no rows - end of data")
+			log.Printf("[TRACE] no rows - end of data")
 			// TODO think about this
 			executeSpan.SetAttributes(
 				attribute.Bool("cache-hit", true),
@@ -336,13 +330,12 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 			doneChan <- true
 		}
 		for _, r := range resp.QueryResult.Rows {
-			log.Printf("[WARN] stream row")
 			queryData.streamRow(r)
 			queryData.QueryStatus.cachedRowsFetched++
 		}
 	}
 
-	err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl, callback)
+	err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl, callback, callId)
 	if err != nil {
 		if cache.IsCacheMiss(err) {
 			log.Printf("[TRACE] p.queryCache.Get returned cache miss error")
@@ -353,7 +346,7 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 	}
 
 	res := <-doneChan
-	log.Printf("[WARN] done chan signalled %v", res)
+
 	return res, nil
 }
 
@@ -362,7 +355,7 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 // store the stream, then keep it open, i.e. do not return from this function
 // Note: SetConnectionConfig is always called immediately after instantiation
 func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error {
-	log.Printf("[WARN] EstablishCacheConnection - cache stream connection established for connection")
+	log.Printf("[TRACE] EstablishCacheConnection - cache stream connection established for connection")
 	p.cacheStream = stream
 	if p.queryCache != nil {
 		// TODO do we need to clear the map of callbacks - or invoke all their error functions
