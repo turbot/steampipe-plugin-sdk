@@ -242,38 +242,30 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		matrixItem = table.GetMatrixItem(ctx, p.Connection)
 	}
 
-	queryData := p.newQueryData(req, stream, queryContext, table, matrixItem)
+	queryData := p.newQueryData(req, stream, queryContext, table, matrixItem, req)
+	limit := queryContext.GetLimit()
+	logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", limit)
 
-	logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
-
-	// convert limit from *int64 to an int64 (where -1 means no limit)
-	var limit int64 = -1
-	if queryContext.Limit != nil {
-		limit = *queryContext.Limit
-	}
 	// can we satisfy this request from the cache?
-	if req.CacheEnabled && p.queryCache == nil {
-		return fmt.Errorf("no cache connection has been established with the plugin manager")
-	}
+	if req.CacheEnabled {
+		if p.queryCache == nil {
+			return fmt.Errorf("no cache connection has been established with the plugin manager")
+		}
 
-	if req.CacheEnabled && p.queryCache != nil {
-		log.Printf("[TRACE] Cache ENABLED callId: %s %p", req.CallId, p.queryCache)
+		log.Printf("[TRACE] q: %s %p", req.CallId, p.queryCache)
 		// try to fetch this data from the query cache
 		// if it is a cache hit, the data will be streamed  by cacheGet
-		cacheHit := p.cacheGet(req, ctx, table, queryContext, limit, executeSpan, queryData)
+		var cacheHit bool
+
+		cacheHit, err = p.cacheGet(req, ctx, table, queryContext, limit, executeSpan, queryData)
+		if err != nil {
+			log.Printf("[WARN] cacheGet returned err %s", err.Error())
+		}
+
+		log.Printf("[WARN] cacheGet returned cacheHit %v", cacheHit)
 		if cacheHit {
 			// nothing more to do
 			return nil
-		}
-
-		// so cache is enabled but the data is not in the cache
-		cacheSetCallId, err := p.queryCache.StartSet(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
-		// if StartSet failed, just log the error but continue
-		if err != nil {
-			log.Printf("[WARN] queryCache.StartSet failed - this query will not be cached: %s", err.Error())
-		} else {
-			// save callId to querydata
-			queryData.cacheSetCallId = cacheSetCallId
 		}
 
 		// the cache will have added a pending item for this transfer
@@ -321,14 +313,18 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	return nil
 }
 
-func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData) bool {
-
+func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData) (bool, error) {
 	var doneChan = make(chan (bool))
-	callback := func(resp proto.CacheResponse) {
+	callback := func(resp *proto.CacheResponse) {
+		log.Printf("[WARN] row callback")
 		if !resp.Success {
+			log.Printf("[WARN] failure!")
 			doneChan <- false
+			return
 		}
 		if len(resp.QueryResult.Rows) == 0 {
+			log.Printf("[WARN] no rows - end of data")
+			// TODO think about this
 			executeSpan.SetAttributes(
 				attribute.Bool("cache-hit", true),
 			)
@@ -337,17 +333,26 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 			doneChan <- true
 		}
 		for _, r := range resp.QueryResult.Rows {
+			log.Printf("[WARN] stream row")
 			queryData.streamRow(r)
 			queryData.QueryStatus.cachedRowsFetched++
 		}
 	}
 
-	cacheHit, err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl, callback)
+	err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl, callback)
+	log.Printf("[WARN] p.queryCache.Get returned %v", err)
 	if err != nil {
-		log.Printf("[WARN] cache Get returned an error: %v", err)
-		return false
+		if cache.IsCacheMiss(err) {
+			log.Printf("[WARN] p.queryCache.Get returned cache miss error")
+			// do not return error for cache miss
+			err = nil
+		}
+		return false, err
 	}
 
+	res := <-doneChan
+	log.Printf("[WARN] done chan signalled %v", res)
+	return res, nil
 }
 
 // EstablishCacheConnection is the handler function for the EstablishCacheConnection grpc function
@@ -355,7 +360,7 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 // store the stream, then keep it open, i.e. do not return from this function
 // Note: SetConnectionConfig is always called immediately after instantiation
 func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error {
-	log.Printf("[WARN] EstablishCacheConnection!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+	log.Printf("[WARN] EstablishCacheConnection - cache stream connection established")
 	p.cacheStream = stream
 	if p.queryCache != nil {
 		// TODO do we need to clear the map of callbacks - or invoke all their error functions
@@ -396,12 +401,12 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 	return ctx, span
 }
 
-func (p *Plugin) newQueryData(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}) *QueryData {
+func (p *Plugin) newQueryData(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}, request *proto.ExecuteRequest) *QueryData {
 	// lock access to the newQueryData - otherwise plugin crashes were observed
 	p.concurrencyLock.Lock()
 	defer p.concurrencyLock.Unlock()
 
-	return newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, req.CallId)
+	return newQueryData(queryContext, table, stream, p, matrixItem, req)
 }
 
 // initialiseTables does 2 things:
@@ -466,7 +471,7 @@ func (p *Plugin) ensureCache() error {
 		if err != nil {
 			return err
 		}
-		p.queryCache = queryCachecache jit
+		p.queryCache = queryCache
 	} else {
 		// so there is already a cache - that means the config has been updated, not set for the first time
 

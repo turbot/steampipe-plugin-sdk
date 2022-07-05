@@ -22,3 +22,12 @@ func NewQueryContext(p *proto.QueryContext) *QueryContext {
 	}
 	return q
 }
+
+// GetLimit converts limit from *int64 to an int64 (where -1 means no limit)
+func (q QueryContext) GetLimit() int64 {
+	var limit int64 = -1
+	if q.Limit != nil {
+		limit = *q.Limit
+	}
+	return limit
+}
