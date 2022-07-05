@@ -38,6 +38,16 @@ func IsNotImplementedError(err error) bool {
 	return status.Code() == codes.Unimplemented
 }
 
+func IsEOFError(err error) bool {
+	status, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+
+	// ignore unimplemented error
+	return status.Code() == codes.Unavailable
+}
+
 func IsGRPCConnectivityError(err error) bool {
 	return err != nil && (strings.Contains(err.Error(), "error reading from server: EOF") || strings.Contains(err.Error(), "transport: error while dialing:"))
 }

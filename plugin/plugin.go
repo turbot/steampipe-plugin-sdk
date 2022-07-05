@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -187,6 +188,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", req.CallId, req.Table, r)
+			log.Printf("[WARN] %s", debug.Stack())
+
 			if e, ok := r.(error); ok {
 				err = e
 			} else {
@@ -340,10 +343,9 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 	}
 
 	err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl, callback)
-	log.Printf("[WARN] p.queryCache.Get returned %v", err)
 	if err != nil {
 		if cache.IsCacheMiss(err) {
-			log.Printf("[WARN] p.queryCache.Get returned cache miss error")
+			log.Printf("[TRACE] p.queryCache.Get returned cache miss error")
 			// do not return error for cache miss
 			err = nil
 		}
@@ -360,7 +362,7 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 // store the stream, then keep it open, i.e. do not return from this function
 // Note: SetConnectionConfig is always called immediately after instantiation
 func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error {
-	log.Printf("[WARN] EstablishCacheConnection - cache stream connection established")
+	log.Printf("[WARN] EstablishCacheConnection - cache stream connection established for connection")
 	p.cacheStream = stream
 	if p.queryCache != nil {
 		// TODO do we need to clear the map of callbacks - or invoke all their error functions
