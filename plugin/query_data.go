@@ -79,13 +79,19 @@ type QueryData struct {
 	// ttl for the execute call
 	cacheTtl int64
 
+	cacheEnabled bool
 	// if data is being cached, this will contain the id used to send rows to the cache
-	cacheSetCallId string
-	cacheEnabled   bool
+	cacheResultKey string
+	// the names of all the columns which are actually being returned
+	cacheColumns []string
 }
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, plugin *Plugin, matrix []map[string]interface{}, request *proto.ExecuteRequest) *QueryData {
 	var wg sync.WaitGroup
+	// TODO always include connection in call id?
+	// include the connection name in the call ID - it is used to identify calls to the shared cache service so there
+	// is a chance of callId clash
+	callId := fmt.Sprintf("%s-%s", plugin.Connection.Name, request.CallId)
 	d := &QueryData{
 		ConnectionManager: plugin.ConnectionManager,
 		Table:             table,
@@ -95,7 +101,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
 		plugin:            plugin,
-		callId:            request.CallId,
+		callId:            callId,
 		cacheTtl:          request.CacheTtl,
 		cacheEnabled:      request.CacheEnabled,
 
