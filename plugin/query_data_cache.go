@@ -28,7 +28,7 @@ func (d *QueryData) startCacheSet(row *proto.Row) {
 	// build the key)
 	// so cache is enabled but the data is not in the cache
 	d.cacheColumns = d.buildColumnsFromRow(row, d.QueryContext.Columns)
-	resultKey, err := d.plugin.queryCache.StartSet(row, d.Table.Name, d.Quals.ToProtoQualMap(), d.cacheColumns, d.QueryContext.GetLimit(), d.callId)
+	resultKey, err := d.plugin.queryCache.StartSet(row, d.Table.Name, d.Quals.ToProtoQualMap(), d.cacheColumns, d.QueryContext.GetLimit(), d.callId, d.Connection.Name)
 	if err != nil {
 		// if StartSet failed, just log the error but continue
 		log.Printf("[WARN] queryCache.StartSet failed - this query will not be cached: %s", err.Error())
@@ -72,7 +72,7 @@ func (d *QueryData) endCacheSet() {
 	}
 
 	// send any remaining rows
-	d.plugin.queryCache.EndSet(d.cacheRows, d.Table.Name, d.QueryContext.UnsafeQuals, d.cacheColumns, d.QueryContext.GetLimit(), d.callId, d.cacheResultKey)
+	d.plugin.queryCache.EndSet(d.cacheRows, d.Table.Name, d.QueryContext.UnsafeQuals, d.cacheColumns, d.QueryContext.GetLimit(), d.callId, d.Connection.Name, d.cacheResultKey)
 	d.cacheRows = nil
 }
 

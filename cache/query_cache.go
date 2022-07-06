@@ -38,10 +38,11 @@ type CacheStats struct {
 }
 
 type QueryCache struct {
-	Stats           *CacheStats
-	pluginName      string
-	connectionName  string
-	PluginSchema    map[string]*proto.TableSchema
+	Stats      *CacheStats
+	pluginName string
+	//connectionName  string
+	// map of connection name to plugin schema
+	PluginSchemaMap map[string]*grpc.PluginSchema
 	pendingData     map[string]*pendingIndexBucket
 	pendingDataLock sync.Mutex
 	ttlLock         sync.Mutex
@@ -56,16 +57,15 @@ type QueryCache struct {
 
 type CacheCallback func(*proto.CacheResponse)
 
-func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*proto.TableSchema, cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer) (*QueryCache, error) {
+func NewQueryCache(pluginName string, cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer, pluginSchemaMap map[string]*grpc.PluginSchema) (*QueryCache, error) {
 	cache := &QueryCache{
-		Stats:          &CacheStats{},
-		pluginName:     pluginName,
-		connectionName: connectionName,
-		PluginSchema:   pluginSchema,
-		pendingData:    make(map[string]*pendingIndexBucket),
-		ttl:            defaultTTL,
-		cacheStream:    cacheStream,
-		listeners:      make(map[string]CacheCallback),
+		Stats:           &CacheStats{},
+		pluginName:      pluginName,
+		PluginSchemaMap: pluginSchemaMap,
+		pendingData:     make(map[string]*pendingIndexBucket),
+		ttl:             defaultTTL,
+		cacheStream:     cacheStream,
+		listeners:       make(map[string]CacheCallback),
 	}
 
 	go cache.streamListener()
@@ -91,7 +91,7 @@ func (c *QueryCache) SetCacheStream(cacheStream proto.WrapperPlugin_EstablishCac
 	c.cacheStream = cacheStream
 }
 
-func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64, rowCallback CacheCallback, callId string) (err error) {
+func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64, rowCallback CacheCallback, callId, connectionName string) (err error) {
 	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", table)
 	defer func() {
 		//span.SetAttributes(attribute.Bool("cache-hit", cacheHit))
@@ -103,20 +103,20 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 
 	// get the index bucket for this table and quals
 	// - this contains cache keys for all cache entries for specified table and quals
-	indexBucketKey := c.buildIndexKey(c.connectionName, table)
+	indexBucketKey := c.buildIndexKey(connectionName, table)
 
 	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, quals", indexBucketKey)
 
 	// do we have a cached result?
-	err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback, callId)
+	err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback, callId, connectionName)
 
 	if IsCacheMiss(err) {
 		log.Printf("[TRACE] getCachedResult returned CACHE MISS - checking for pending transfers")
 		// there was no cached result - is there data fetch in progress?
-		if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit); pendingItem != nil {
+		if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit, connectionName); pendingItem != nil {
 			log.Printf("[TRACE] found pending item - waiting for it")
 			// so there is a pending result, wait for it
-			return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback, callId)
+			return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback, callId, connectionName)
 		}
 	}
 	return err
@@ -133,7 +133,7 @@ func (c *QueryCache) setTtl(clientTTLSeconds int64) {
 	c.ttlLock.Unlock()
 }
 
-func (c *QueryCache) StartSet(row *proto.Row, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId string) (resultKey string, err error) {
+func (c *QueryCache) StartSet(row *proto.Row, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId, connectionName string) (resultKey string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = helpers.ToError(r)
@@ -141,10 +141,10 @@ func (c *QueryCache) StartSet(row *proto.Row, table string, qualMap map[string]*
 		}
 	}()
 
-	log.Printf("[TRACE] QueryCache StartSet - connectionName: %s, table: %s, columns: %s, limit %d\n", c.connectionName, table, columns, limit)
+	log.Printf("[TRACE] QueryCache StartSet - connectionName: %s, table: %s, columns: %s, limit %d\n", connectionName, table, columns, limit)
 
 	// write to the result cache
-	resultKey = c.buildResultKey(table, qualMap, columns, limit)
+	resultKey = c.buildResultKey(table, qualMap, columns, limit, connectionName)
 
 	// send CacheCommand_SET_RESULT_START command but do not register listeners for response
 	err = c.cacheStreamSend(&proto.CacheRequest{
@@ -182,7 +182,7 @@ func (c *QueryCache) IterateSet(rows []*proto.Row, callId string) {
 	}
 }
 
-func (c *QueryCache) EndSet(rows []*proto.Row, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId string, resultKey string) {
+func (c *QueryCache) EndSet(rows []*proto.Row, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId ,connectionName, resultKey string) {
 	defer func() {
 		if r := recover(); r != nil {
 
@@ -194,7 +194,7 @@ func (c *QueryCache) EndSet(rows []*proto.Row, table string, qualMap map[string]
 
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
-		c.pendingItemComplete(table, qualMap, columns, limit)
+		c.pendingItemComplete(table, qualMap, columns, limit, connectionName)
 	}()
 
 	log.Printf("[TRACE] QueryCache EndSet")
@@ -221,7 +221,7 @@ func (c *QueryCache) EndSet(rows []*proto.Row, table string, qualMap map[string]
 
 	// now update the index
 	// get the index bucket for this table and quals
-	indexBucketKey := c.buildIndexKey(c.connectionName, table)
+	indexBucketKey := c.buildIndexKey(connectionName, table)
 	indexBucket, err := c.cacheGetIndexBucket(indexBucketKey, callId)
 	if err != nil {
 		if IsCacheMiss(err) {
@@ -265,18 +265,18 @@ func (c *QueryCache) AbortSet(callId string) {
 }
 
 // CancelPendingItem cancels a pending item - called when an execute call fails for any reason
-func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Quals, columns []string, limit int64) {
+func (c *QueryCache) CancelPendingItem(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionName string) {
 	log.Printf("[TRACE] QueryCache CancelPendingItem table: %s", table)
 	// clear the corresponding pending item
-	c.pendingItemComplete(table, qualMap, columns, limit)
+	c.pendingItemComplete(table, qualMap, columns, limit, connectionName)
 }
 
 // try to fetch cached data for the given cache request
-func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64, rowCallback CacheCallback, callId string) error {
+func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64, rowCallback CacheCallback, callId, connectionName string) error {
 	if callId == "" {
 		return fmt.Errorf("getCachedResult called with no call id")
 	}
-	keyColumns := c.getKeyColumnsForTable(table)
+	keyColumns := c.getKeyColumnsForTable(table, connectionName)
 
 	log.Printf("[TRACE] QueryCache getCachedResult - index bucket key: %s ttlSeconds %d\n", indexBucketKey, ttlSeconds)
 	indexBucket, err := c.cacheGetIndexBucket(indexBucketKey, callId)
@@ -345,9 +345,9 @@ func (c *QueryCache) buildIndexKey(connectionName, table string) string {
 	return str
 }
 
-func (c *QueryCache) buildResultKey(table string, qualMap map[string]*proto.Quals, columns []string, limit int64) string {
+func (c *QueryCache) buildResultKey(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionName string) string {
 	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s%d",
-		c.connectionName,
+		connectionName,
 		table,
 		c.formatQualMapForKey(table, qualMap),
 		strings.Join(columns, ","),
@@ -382,10 +382,10 @@ func (c *QueryCache) formatQualMapForKey(table string, qualMap map[string]*proto
 }
 
 // return a map of key column for the given table
-func (c *QueryCache) getKeyColumnsForTable(table string) map[string]*proto.KeyColumn {
+func (c *QueryCache) getKeyColumnsForTable(table string, connectionName string) map[string]*proto.KeyColumn {
 	res := make(map[string]*proto.KeyColumn)
 	// build a list of all key columns
-	tableSchema, ok := c.PluginSchema[table]
+	tableSchema, ok := c.PluginSchemaMap[connectionName].Schema[table]
 	if ok {
 		for _, k := range append(tableSchema.ListCallKeyColumnList, tableSchema.GetCallKeyColumnList...) {
 			res[k.Name] = k
@@ -541,15 +541,14 @@ func (c *QueryCache) streamListener() {
 }
 
 func (c *QueryCache) logReceiveError(err error) {
-	log.Printf("[TRACE] receive error for connection '%s': %v", c.connectionName, err)
 
 	switch {
 	case grpc.IsEOFError(err):
-		log.Printf("[TRACE] streamListener received EOF for connection '%s'", c.connectionName)
+		log.Printf("[TRACE] streamListener received EOF")
 	case error_helpers.IsContextCancelledError(err):
 		// ignore
 	default:
-		log.Printf("[ERROR] error in streamListener for connection '%s': %v", c.connectionName, err)
+		log.Printf("[ERROR] error in streamListener: %v", err)
 	}
 }
 

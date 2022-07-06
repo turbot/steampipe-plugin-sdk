@@ -96,6 +96,7 @@ message QueryMetadata {
 }
 
 message GetSchemaRequest {
+  string connection = 1;
 }
 
 message GetSchemaResponse {
