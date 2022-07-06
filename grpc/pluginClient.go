@@ -88,8 +88,8 @@ func (c *PluginClient) GetSupportedOperations() (*proto.GetSupportedOperationsRe
 	return resp, nil
 }
 
-func (c *PluginClient) GetSchema() (*proto.Schema, error) {
-	resp, err := c.Stub.GetSchema(&proto.GetSchemaRequest{})
+func (c *PluginClient) GetSchema(connectionName string) (*proto.Schema, error) {
+	resp, err := c.Stub.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
 	if err != nil {
 		return nil, err
 	}
