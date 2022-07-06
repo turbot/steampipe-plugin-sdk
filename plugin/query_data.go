@@ -88,13 +88,18 @@ type QueryData struct {
 	cacheRows []*proto.Row
 }
 
-func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, plugin *Plugin, matrix []map[string]interface{}, request *proto.ExecuteRequest) *QueryData {
+func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, plugin *Plugin, matrix []map[string]interface{}, request *proto.ExecuteRequest) (*QueryData, error) {
 	var wg sync.WaitGroup
+	connectionName := request.Connection
+	connectionData, ok := plugin.ConnectionMap[connectionName]
+	if !ok {
+		return nil, fmt.Errorf("no connection data loaded for connection '%s'", connectionName)
+	}
 	d := &QueryData{
-		ConnectionManager: plugin.ConnectionManager,
+		ConnectionManager: connectionData.ConnectionManager,
 		Table:             table,
 		QueryContext:      queryContext,
-		Connection:        plugin.Connection,
+		Connection:        connectionData.Connection,
 		Matrix:            matrix,
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
@@ -132,7 +137,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
 
-	return d
+	return d, nil
 }
 
 // ShallowCopy creates a shallow copy of the QueryData

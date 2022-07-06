@@ -13,7 +13,7 @@ type PluginSchema struct {
 	Mode   string
 }
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
-type GetSchemaFunc func() (*PluginSchema, error)
+type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 type EstablishCacheConnectionFunc func(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error
 
@@ -37,13 +37,13 @@ func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionCon
 	}
 }
 
-func (s PluginServer) GetSchema(_ *proto.GetSchemaRequest) (res *proto.GetSchemaResponse, err error) {
+func (s PluginServer) GetSchema(req *proto.GetSchemaRequest) (res *proto.GetSchemaResponse, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = helpers.ToError(r)
 		}
 	}()
-	schema, err := s.getSchemaFunc()
+	schema, err := s.getSchemaFunc(req.Connection)
 	if err != nil {
 		return nil, err
 	}

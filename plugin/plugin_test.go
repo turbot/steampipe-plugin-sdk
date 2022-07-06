@@ -458,7 +458,7 @@ var testCasesValidate = map[string]validateTest{
 func TestValidate(t *testing.T) {
 	for name, test := range testCasesValidate {
 		test.plugin.Initialise()
-		test.plugin.initialiseTables(context.Background())
+		test.plugin.initialiseTables(context.Background(), nil)
 
 		validationErrors := test.plugin.Validate()
 
