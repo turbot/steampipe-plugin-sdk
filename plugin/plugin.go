@@ -218,7 +218,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	logger.Trace("Execute ", "connection", connectionName, "table", req.Table)
 
 	queryContext := NewQueryContext(req.QueryContext)
-	table, ok := p.TableMap[req.Table]
+	table, ok := connectionData.TableMap[req.Table]
 	if !ok {
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
@@ -432,7 +432,7 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 	}
 
 	// update tables to have a reference to the plugin
-	for _, table := range p.TableMap {
+	for _, table := range tableMap {
 		table.initialise(p)
 	}
 
