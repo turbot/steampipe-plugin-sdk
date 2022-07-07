@@ -12,6 +12,12 @@ type RetryConfig struct {
 	ShouldRetryErrorFunc ErrorPredicateWithContext
 	// deprecated use ShouldRetryErrorFunc
 	ShouldRetryError ErrorPredicate
+
+	MaxRetries     int64
+	RetryMethod    string
+	RetryInterval  int64
+	CappedDuration int64
+	MaxDuration    int64
 }
 
 func (c *RetryConfig) String() interface{} {

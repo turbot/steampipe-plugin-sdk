@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attemptes before throwing error
+// RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attempts before throwing error
 func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "RetryHydrate (%s)", d.Table.Name)
 	span.SetAttributes(
@@ -29,12 +29,19 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 		span.End()
 	}()
 
-	backoff, err := retry.NewFibonacci(100 * time.Millisecond)
+	// Defaults
+	maxRetries := uint64(10) // default set to 10
+	if retryConfig.MaxRetries != 0 {
+		maxRetries = uint64(retryConfig.MaxRetries)
+	}
+
+	// Create the backoff based on the given mode
+	backoff, err := checkRetryMode(retryConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
+	err = retry.Do(ctx, retry.WithMaxRetries(uint64(maxRetries), backoff), func(ctx context.Context) error {
 		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
 		if err != nil {
 			if shouldRetryError(ctx, d, hydrateData, err, retryConfig) {
@@ -45,6 +52,57 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	})
 
 	return hydrateResult, err
+}
+
+func checkRetryMode(retryConfig *RetryConfig) (retry.Backoff, error) {
+	// Default set to Fibonacci
+	retryMethod := "Fibonacci"
+	retryInterval := time.Duration(500) // in ms
+
+	// Check from config
+	if retryConfig != nil {
+		if retryConfig.RetryMethod != "" {
+			retryMethod = retryConfig.RetryMethod
+		}
+
+		if retryConfig.RetryInterval != 0 {
+			retryInterval = time.Duration(retryConfig.RetryInterval)
+		}
+	}
+
+	var backoff retry.Backoff
+	var err error
+	switch retryMethod {
+	case "Fibonacci":
+		backoff, err = retry.NewFibonacci(retryInterval * time.Millisecond)
+		if err != nil {
+			return nil, err
+		}
+	case "Exponential":
+		backoff, err = retry.NewExponential(retryInterval * time.Millisecond)
+		if err != nil {
+			return nil, err
+		}
+	case "Constant":
+		backoff, err = retry.NewConstant(retryInterval * time.Millisecond)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if retryConfig != nil {
+		if retryConfig.CappedDuration != 0 {
+			backoff = retry.WithCappedDuration(time.Duration(retryConfig.CappedDuration)*time.Millisecond, backoff)
+			return backoff, nil
+		}
+
+		if retryConfig.MaxDuration != 0 {
+			backoff = retry.WithMaxDuration(time.Duration(retryConfig.MaxDuration)*time.Second, backoff)
+			return backoff, nil
+		}
+	}
+
+	return backoff, nil
 }
 
 // WrapHydrate is a higher order function which returns a HydrateFunc which handles Ignorable errors
