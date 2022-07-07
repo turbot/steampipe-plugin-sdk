@@ -108,12 +108,24 @@ message GetSupportedOperationsRequest{}
 message GetSupportedOperationsResponse{
   bool query_cache = 1;
   bool cache_stream = 2;
+  bool set_connection_config_map = 3;
 }
 
 message SetConnectionConfigRequest{
+  option deprecated = true;
   string connection_name = 1;
   string connection_config = 2;
 }
+
+message ConnectionConfigPayload{
+  string connection_name = 1;
+  string connection_config = 2;
+}
+
+message SetConnectionConfigMapRequest{
+  repeated ConnectionConfigPayload configs = 1;
+}
+
 
 message SetConnectionConfigResponse{}
 
