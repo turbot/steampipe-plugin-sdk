@@ -181,7 +181,7 @@ func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
 // execute a query and streams the results using the given GRPC stream.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	// add CallId to logs for the execute call
-	logger := p.Logger.Named(p.Connection.Name).Named(req.CallId)
+	logger := p.Logger.Named(req.CallId)
 
 	log.Printf("[TRACE] EXECUTE callId: %s table: %s cols: %s", req.CallId, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
@@ -321,7 +321,6 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 		}
 		if len(resp.QueryResult.Rows) == 0 {
 			log.Printf("[TRACE] no rows - end of data")
-			// TODO think about this
 			executeSpan.SetAttributes(
 				attribute.Bool("cache-hit", true),
 			)
@@ -358,10 +357,9 @@ func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCa
 	log.Printf("[TRACE] EstablishCacheConnection - cache stream connection established for connection")
 	p.cacheStream = stream
 	if p.queryCache != nil {
-		// TODO do we need to clear the map of callbacks - or invoke all their error functions
 		// - as the cache may have lost connection
 		// maybe we are reestablishing connection
-		log.Printf("[WARN] QUERY CACHE ALREADY CREATED")
+		log.Printf("[WARN] EstablishCacheConnection - query cache already exists - updating cache stream")
 		p.queryCache.SetCacheStream(stream)
 	}
 	// hold stream open

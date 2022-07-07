@@ -72,9 +72,21 @@ func NewQueryCache(pluginName, connectionName string, pluginSchema map[string]*p
 	return cache, nil
 }
 
-// TODO is this valid? do we need to clear the map of callbacks - or invoke all their error functions
-// do we need to restart listener
+// SetCacheStream sets the cache stream connection
+// if we already have a stream, it;s possible the cache server has reconnected
+// - call any pending callback functions with a suitable error
 func (c *QueryCache) SetCacheStream(cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer) {
+	// if there is already a cache stream, call back any existing listener with an error response
+	if c.cacheStream != nil {
+		log.Printf("[WARN] QueryCache SetCacheStream called when there is already a cache stream - sending errors to any waiting callbacks")
+		resp := &proto.CacheResponse{
+			Error: "cache stream reconnected",
+		}
+		for _, cb := range c.listeners {
+			cb(resp)
+		}
+	}
+	// now store new stream
 	c.cacheStream = cacheStream
 }
 
@@ -103,7 +115,7 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 		if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit); pendingItem != nil {
 			log.Printf("[TRACE] found pending item - waiting for it")
 			// so there is a pending result, wait for it
-			return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback)
+			return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback, callId)
 		}
 	}
 	return err
@@ -392,19 +404,6 @@ func (c *QueryCache) getKeyColumnsForTable(table string) map[string]*proto.KeyCo
 	return res
 }
 
-// TODO move to cache server
-//func (c *QueryCache) logMetrics() {
-//	log.Printf("[TRACE] ------------------------------------ ")
-//	log.Printf("[TRACE] Cache Metrics ")
-//	log.Printf("[TRACE] ------------------------------------ ")
-//	log.Printf("[TRACE] MaxCost: %d", c.cache.MaxCost())
-//	log.Printf("[TRACE] KeysAdded: %d", c.cache.Metrics.KeysAdded())
-//	log.Printf("[TRACE] CostAdded: %d", c.cache.Metrics.CostAdded())
-//	log.Printf("[TRACE] KeysEvicted: %d", c.cache.Metrics.KeysEvicted())
-//	log.Printf("[TRACE] CostEvicted: %d", c.cache.Metrics.CostEvicted())
-//	log.Printf("[TRACE] ------------------------------------ ")
-//}
-
 func (c *QueryCache) sanitiseKey(str string) string {
 	str = strings.Replace(str, "\n", "", -1)
 	str = strings.Replace(str, "\t", "", -1)
@@ -432,11 +431,13 @@ func (c *QueryCache) streamCacheCommand(req *proto.CacheRequest) (*proto.CacheRe
 	}
 
 	log.Printf("[TRACE] await cache response for %s", req.Command)
+	const cacheCommandTimeout = 10 * time.Second
 	var response *proto.CacheResponse
 	// now select result channel
-	// TODO timeout
 	select {
 	case response = <-responseChannel:
+	case <-time.After(cacheCommandTimeout):
+		return nil, fmt.Errorf("cache command '%s' timed out", req.Command)
 	}
 
 	log.Printf("[TRACE] streamCacheCommand received response for %s", req.Command)

@@ -88,10 +88,6 @@ type QueryData struct {
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, plugin *Plugin, matrix []map[string]interface{}, request *proto.ExecuteRequest) *QueryData {
 	var wg sync.WaitGroup
-	// TODO always include connection in call id?
-	// include the connection name in the call ID - it is used to identify calls to the shared cache service so there
-	// is a chance of callId clash
-	callId := fmt.Sprintf("%s-%s", plugin.Connection.Name, request.CallId)
 	d := &QueryData{
 		ConnectionManager: plugin.ConnectionManager,
 		Table:             table,
@@ -101,7 +97,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
 		plugin:            plugin,
-		callId:            callId,
+		callId:            request.CallId,
 		cacheTtl:          request.CacheTtl,
 		cacheEnabled:      request.CacheEnabled,
 
@@ -434,7 +430,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	d.QueryStatus.rowsStreamed++
 
 	// TACTICAL force garbage collection every 1000 rows
-	if (d.QueryStatus.rowsStreamed)%1000 == 0 {
+	if (d.QueryStatus.rowsStreamed)%100 == 0 {
 		log.Printf("[TRACE] trigger garbage collection")
 		runtime.GC()
 	}
@@ -494,7 +490,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) err
 				return nil
 			}
 			// if we are caching stream this row to the cache as well
-			// TODO send a sequence counter so the cache can verify it has received all items
 			// we do not get a return from set calls
 			d.streamRowToCache(row)
 

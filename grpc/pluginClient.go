@@ -16,7 +16,6 @@ import (
 type PluginClient struct {
 	Name   string
 	Stub   pluginshared.WrapperPluginClient
-	Pid    int
 	client *plugin.Client
 }
 
@@ -41,9 +40,7 @@ func NewPluginClient(client *plugin.Client, pluginName string) (*PluginClient, e
 		client: client,
 		Stub:   p,
 	}
-	// TODO set PID?? NEEDED?
 	return res, nil
-
 }
 
 func NewPluginClientFromReattach(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
@@ -67,8 +64,6 @@ func NewPluginClientFromReattach(reattach *plugin.ReattachConfig, pluginName str
 	if err != nil {
 		return nil, err
 	}
-	// set the pid
-	res.Pid = reattach.Pid
 	return res, nil
 }
 
