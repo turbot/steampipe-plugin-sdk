@@ -46,8 +46,8 @@ type QueryCache struct {
 	pendingDataLock sync.Mutex
 	ttlLock         sync.Mutex
 	ttl             time.Duration
-	cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer
-	streamLock  sync.Mutex
+	cacheStream     proto.WrapperPlugin_EstablishCacheConnectionServer
+	streamLock      sync.Mutex
 
 	// map of callback functions for interested cache listeners, keyed by call id
 	listeners    map[string]CacheCallback
