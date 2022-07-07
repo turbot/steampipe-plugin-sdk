@@ -64,6 +64,8 @@ type Plugin struct {
 	RequiredColumns        []*Column
 	ConnectionConfigSchema *ConnectionConfigSchema
 
+	// map of connection data (schema, config, connection cache)
+	// keyed by connection name
 	ConnectionMap map[string]*ConnectionData
 	// is this a static or dynamic schema
 	SchemaMode string

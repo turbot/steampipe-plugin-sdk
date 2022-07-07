@@ -79,8 +79,9 @@ func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest)
 
 func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return &proto.GetSupportedOperationsResponse{
-		QueryCache:  true,
-		CacheStream: true,
+		QueryCache:             true,
+		CacheStream:            true,
+		SetConnectionConfigMap: true,
 	}, nil
 }
 
