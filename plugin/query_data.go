@@ -84,6 +84,8 @@ type QueryData struct {
 	cacheResultKey string
 	// the names of all the columns which are actually being returned
 	cacheColumns []string
+	// buffer rows before sending to the cache in chunks
+	cacheRows []*proto.Row
 }
 
 func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, plugin *Plugin, matrix []map[string]interface{}, request *proto.ExecuteRequest) *QueryData {
@@ -431,7 +433,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 
 	// TACTICAL force garbage collection every 1000 rows
 	if (d.QueryStatus.rowsStreamed)%100 == 0 {
-		log.Printf("[TRACE] trigger garbage collection")
+		//log.Printf("[TRACE] trigger garbage collection")
 		runtime.GC()
 	}
 
