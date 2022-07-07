@@ -17,7 +17,7 @@ Cache data is streamed row by row, in both directions.
 ###Cache Get
 - fetch index bucket for this table (if it exists): `CacheCommand_GET_INDEX`
 - if this is a cache hit (i.e. an index item satisfying columns and quals exists), call `CacheCommand_GET_RESULT`
-- cache will stream tresults to us a row at a time - for each row 
+- cache will stream results to us a row at a time - for each row 
   - stream to fdw
 
 ##Concurrency
@@ -32,3 +32,14 @@ the query cache registers a callback which is stored in a map keyed by call id.
 
 When the cache stream receiver processes a response from the cache, it uses the response callId to find the appropriate 
 callback function and invokes it.   
+
+##TTL
+
+The TTL is controlled by the _client_, as multiple clients might be using the same connections and each may have a different TTL.
+
+This is achieved as follows. The cache saves data with a _default TTL_ of 5 minutes (this is the TTL passed to the underlying cache).
+When fetching data, the age of the retrieved data is determined using the _insertion time_.
+If the age of the data is older than the _client TTL_, it is considered a cache miss
+
+**NOTE:** If the _client TTL_ is greater than the _default TTL_ of the cache, the _default TTL_ is increased as 
+appropriate to ensure the data remains in the cache at lkeast as long as is needed for the _client TTL_  

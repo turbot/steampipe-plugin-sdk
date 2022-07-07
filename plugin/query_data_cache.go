@@ -21,6 +21,9 @@ func (d *QueryData) startCacheSet(row *proto.Row) {
 		return
 	}
 
+	// ensure our local cache is empty
+	d.cacheRows = nil
+
 	// (we cannot do it before now as we need to examine the columns from the first row returned to
 	// build the key)
 	// so cache is enabled but the data is not in the cache
@@ -52,14 +55,25 @@ func (d *QueryData) iterateCacheSet(row *proto.Row) {
 	if !d.cacheEnabled {
 		return
 	}
-	d.plugin.queryCache.IterateSet(row, d.callId)
+
+	// we buffer rows and send in chunks
+	const cacheRowChunkSize = 1000
+	if len(d.cacheRows) < cacheRowChunkSize {
+		d.cacheRows = append(d.cacheRows, row)
+	} else {
+		d.plugin.queryCache.IterateSet(d.cacheRows, d.callId)
+		d.cacheRows = nil
+	}
 }
 
 func (d *QueryData) endCacheSet() {
 	if !d.cacheEnabled {
 		return
 	}
-	d.plugin.queryCache.EndSet(d.Table.Name, d.QueryContext.UnsafeQuals, d.cacheColumns, d.QueryContext.GetLimit(), d.callId, d.cacheResultKey)
+
+	// send any remaining rows
+	d.plugin.queryCache.EndSet(d.cacheRows, d.Table.Name, d.QueryContext.UnsafeQuals, d.cacheColumns, d.QueryContext.GetLimit(), d.callId, d.cacheResultKey)
+	d.cacheRows = nil
 }
 
 func (d *QueryData) abortCacheSet() {
@@ -67,4 +81,5 @@ func (d *QueryData) abortCacheSet() {
 		return
 	}
 	d.plugin.queryCache.AbortSet(d.callId)
+	d.cacheRows = nil
 }

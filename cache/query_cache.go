@@ -46,7 +46,8 @@ type QueryCache struct {
 	pendingDataLock sync.Mutex
 	ttlLock         sync.Mutex
 	ttl             time.Duration
-	cacheStream     proto.WrapperPlugin_EstablishCacheConnectionServer
+	cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer
+	streamLock  sync.Mutex
 
 	// map of callback functions for interested cache listeners, keyed by call id
 	listeners    map[string]CacheCallback
@@ -110,7 +111,7 @@ func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*
 	err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, clientTTLSeconds, rowCallback, callId)
 
 	if IsCacheMiss(err) {
-		log.Printf("[TRACE] getCachedResult returned CACHE MISS")
+		log.Printf("[TRACE] getCachedResult returned CACHE MISS - checking for pending transfers")
 		// there was no cached result - is there data fetch in progress?
 		if pendingItem := c.getPendingResultItem(indexBucketKey, table, qualMap, columns, limit); pendingItem != nil {
 			log.Printf("[TRACE] found pending item - waiting for it")
@@ -138,19 +139,7 @@ func (c *QueryCache) StartSet(row *proto.Row, table string, qualMap map[string]*
 			err = helpers.ToError(r)
 			log.Printf("[WARN] QueryCache Set suffered a panic: %s", err.Error())
 		}
-
-		// clear the corresponding pending item - we have completed the transfer
-		// (we need to do this even if the cache set fails)
-		c.pendingItemComplete(table, qualMap, columns, limit)
 	}()
-
-	// generate a callid for this operation
-
-	// TODO THINK ABOUT TTL
-	// get ttl - read here in case the property is updated  between the 2 uses below
-	ttl := c.ttl
-
-	// ensure we include all returned columns in teh cache index
 
 	log.Printf("[TRACE] QueryCache StartSet - connectionName: %s, table: %s, columns: %s, limit %d\n", c.connectionName, table, columns, limit)
 
@@ -158,10 +147,10 @@ func (c *QueryCache) StartSet(row *proto.Row, table string, qualMap map[string]*
 	resultKey = c.buildResultKey(table, qualMap, columns, limit)
 
 	// send CacheCommand_SET_RESULT_START command but do not register listeners for response
-	err = c.cacheStream.Send(&proto.CacheRequest{
+	err = c.cacheStreamSend(&proto.CacheRequest{
 		Command: proto.CacheCommand_SET_RESULT_START,
 		Key:     resultKey,
-		Ttl:     int64(ttl.Seconds()),
+		Ttl:     int64(c.ttl.Seconds()),
 		Result:  &proto.QueryResult{Rows: []*proto.Row{row}},
 		CallId:  callId,
 	})
@@ -172,7 +161,7 @@ func (c *QueryCache) StartSet(row *proto.Row, table string, qualMap map[string]*
 	return resultKey, nil
 }
 
-func (c *QueryCache) IterateSet(row *proto.Row, callId string) {
+func (c *QueryCache) IterateSet(rows []*proto.Row, callId string) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] QueryCache IterateSet suffered a panic: %s", helpers.ToError(r))
@@ -180,9 +169,9 @@ func (c *QueryCache) IterateSet(row *proto.Row, callId string) {
 	}()
 
 	// send CacheCommand_SET_RESULT_ITERATE command but do not register listeners for response
-	err := c.cacheStream.Send(&proto.CacheRequest{
+	err := c.cacheStreamSend(&proto.CacheRequest{
 		Command: proto.CacheCommand_SET_RESULT_ITERATE,
-		Result:  &proto.QueryResult{Rows: []*proto.Row{row}},
+		Result:  &proto.QueryResult{Rows: rows},
 		CallId:  callId,
 	})
 	if err != nil {
@@ -193,7 +182,7 @@ func (c *QueryCache) IterateSet(row *proto.Row, callId string) {
 	}
 }
 
-func (c *QueryCache) EndSet(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId string, resultKey string) {
+func (c *QueryCache) EndSet(rows []*proto.Row, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId string, resultKey string) {
 	defer func() {
 		if r := recover(); r != nil {
 
@@ -213,6 +202,7 @@ func (c *QueryCache) EndSet(table string, qualMap map[string]*proto.Quals, colum
 	// call EndSet command
 	req := &proto.CacheRequest{
 		Command: proto.CacheCommand_SET_RESULT_END,
+		Result:  &proto.QueryResult{Rows: rows},
 		CallId:  callId,
 	}
 	resp, err := c.streamCacheCommand(req)
@@ -266,7 +256,7 @@ func (c *QueryCache) AbortSet(callId string) {
 	}()
 
 	// send CacheCommand_SET_RESULT_ITERATE command but do not register listeners for response
-	if err := c.cacheStream.Send(&proto.CacheRequest{
+	if err := c.cacheStreamSend(&proto.CacheRequest{
 		Command: proto.CacheCommand_SET_RESULT_ABORT,
 		CallId:  callId,
 	}); err != nil {
@@ -322,7 +312,7 @@ func (c *QueryCache) getCachedResult(indexBucketKey, table string, qualMap map[s
 	// register the cache stream listener
 	c.registerCallback(callId, wrappedRowCallback)
 
-	err = c.cacheStream.Send(&proto.CacheRequest{
+	err = c.cacheStreamSend(&proto.CacheRequest{
 		Command: proto.CacheCommand_GET_RESULT,
 		Key:     indexItem.Key,
 		CallId:  callId,
@@ -427,7 +417,7 @@ func (c *QueryCache) streamCacheCommand(req *proto.CacheRequest) (*proto.CacheRe
 	// ensure to deregister the cache stream listener
 	defer c.unregisterCallback(req.CallId)
 
-	if err := c.cacheStream.Send(req); err != nil {
+	if err := c.cacheStreamSend(req); err != nil {
 		log.Printf("[WARN] streamCacheCommand Send failed: %v", err)
 		return nil, err
 	}
@@ -587,4 +577,11 @@ func (c *QueryCache) getCallback(callId string) (CacheCallback, bool) {
 
 	callback, ok := c.listeners[callId]
 	return callback, ok
+}
+
+// send the request on the cache stream, locking the mutex to avoid clashes
+func (c *QueryCache) cacheStreamSend(req *proto.CacheRequest) error {
+	c.streamLock.Lock()
+	defer c.streamLock.Unlock()
+	return c.cacheStream.Send(req)
 }

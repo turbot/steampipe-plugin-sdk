@@ -9,7 +9,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 )
 
-const pendingQueryTimeout = 90 * time.Second
+const pendingQueryTimeout = 10 * time.Second
 
 func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64) *pendingIndexItem {
 	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, columns, limit)
@@ -67,6 +67,9 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		// add a new pending item, within the lock
 		c.addPendingResult(indexBucketKey, table, qualMap, columns, limit)
 		c.pendingDataLock.Unlock()
+		log.Printf("[TRACE] added new pending item, returning cache miss")
+		// return cache miss error to force a fetch
+		return CacheMissError{}
 
 	case <-transferCompleteChan:
 		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, indexBucketKey: %s", indexBucketKey)
