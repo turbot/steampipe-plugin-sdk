@@ -41,7 +41,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 		return nil, err
 	}
 
-	err = retry.Do(ctx, retry.WithMaxRetries(uint64(maxRetries), backoff), func(ctx context.Context) error {
+	err = retry.Do(ctx, retry.WithMaxRetries(maxRetries, backoff), func(ctx context.Context) error {
 		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
 		if err != nil {
 			if shouldRetryError(ctx, d, hydrateData, err, retryConfig) {
