@@ -25,6 +25,7 @@ type WrapperPluginServer interface {
 	GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
+	SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
 	EstablishCacheConnection(server proto.WrapperPlugin_EstablishCacheConnectionServer) error
 }
@@ -33,6 +34,7 @@ type WrapperPluginClient interface {
 	GetSchema(request *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error)
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
+	SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
 	EstablishCacheConnection() (proto.WrapperPlugin_EstablishCacheConnectionClient, error)
 }

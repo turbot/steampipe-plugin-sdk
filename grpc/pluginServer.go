@@ -15,6 +15,7 @@ type PluginSchema struct {
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
+type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig) error
 type EstablishCacheConnectionFunc func(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error
 
 // PluginServer is the server for a single plugin
@@ -23,6 +24,7 @@ type PluginServer struct {
 	pluginName                   string
 	executeFunc                  ExecuteFunc
 	setConnectionConfigFunc      SetConnectionConfigFunc
+	setAllConnectionConfigsFunc  SetAllConnectionConfigsFunc
 	getSchemaFunc                GetSchemaFunc
 	establishCacheConnectionFunc EstablishCacheConnectionFunc
 }
@@ -77,11 +79,21 @@ func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest)
 	return &proto.SetConnectionConfigResponse{}, err
 }
 
+func (s PluginServer) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (res *proto.SetConnectionConfigResponse, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = helpers.ToError(r)
+		}
+	}()
+	err = s.setAllConnectionConfigsFunc(req.Configs)
+	return &proto.SetConnectionConfigResponse{}, err
+}
+
 func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return &proto.GetSupportedOperationsResponse{
-		QueryCache:             true,
-		CacheStream:            true,
-		SetConnectionConfigMap: true,
+		QueryCache:          true,
+		CacheStream:         true,
+		MultipleConnections: true,
 	}, nil
 }
 
