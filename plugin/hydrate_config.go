@@ -8,7 +8,8 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// HydrateConfig defines the hydrate function configurations, Name, Maximum number of concurrent calls to be allowed, dependencies
+// HydrateConfig defines the hydrate function configurations, including the function name, maximum number of concurrent calls to be allowed, retry and ignore config, and dependencies.
+// The function in GetConfig cannot have a separate HydrateConfig. Instead, please define any configurations directly in GetConfig.
 type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
