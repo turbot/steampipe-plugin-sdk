@@ -75,7 +75,7 @@ func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest
 	_, err := c.Stub.SetConnectionConfig(req)
 	if err != nil {
 		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
-		return HandleGrpcError(err, req.ConnectionName, "SetConnectionConfig")
+		return HandleGrpcError(err, c.Name, "SetConnectionConfig")
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func (c *PluginClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfig
 	_, err := c.Stub.SetAllConnectionConfigs(req)
 	if err != nil {
 		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
-		return HandleGrpcError(err, "", "SetConnectionConfig")
+		return HandleGrpcError(err, c.Name, "SetAllConnectionConfigs")
 	}
 	return nil
 }

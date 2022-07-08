@@ -173,13 +173,70 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	return p.ensureCache()
 }
 
+func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("SetAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
+		} else {
+			p.Logger.Debug("SetAllConnectionConfigs finished")
+		}
+	}()
+
+	for _, config := range configs {
+
+		connectionName := config.Connection
+		connectionConfigString := config.Config
+		log.Printf("[TRACE] SetConnectionConfig connection '%s'", connectionName)
+
+		// create connection object
+		c := &Connection{Name: connectionName}
+
+		// if config was provided, parse it
+		if connectionConfigString != "" {
+			if p.ConnectionConfigSchema == nil {
+				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+			}
+			// ask plugin for a struct to deserialise the config into
+			config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
+			if err != nil {
+				return err
+			}
+			c.Config = config
+		}
+
+		// if the plugin defines a CreateTables func, call it now
+		ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+		tableMap, err := p.initialiseTables(ctx, c)
+		if err != nil {
+			return err
+		}
+
+		// populate the plugin schema
+		schema, err := p.buildSchema(tableMap)
+		if err != nil {
+			return err
+		}
+
+		// add to connection map
+		p.ConnectionMap[connectionName] = &ConnectionData{
+			TableMap:          tableMap,
+			Connection:        c,
+			ConnectionManager: connection.NewManager(),
+			Schema:            schema,
+		}
+	}
+
+	// create the cache or update the schema if it already exists
+	return p.ensureCache()
+}
+
 // GetSchema is the handler function for the GetSchema grpc function
 // return the plugin schema.
 // Note: the connection config must be set before calling this function.
 func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 	connectionData, ok := p.ConnectionMap[connectionName]
 	if !ok {
-		return nil, fmt.Errorf("no connection data loaded for connection '%s'", connectionName)
+		return nil, fmt.Errorf("Plugin.GetSchema failed - no connection data loaded for connection '%s'", connectionName)
 	}
 	schema := &grpc.PluginSchema{Schema: connectionData.Schema, Mode: p.SchemaMode}
 	return schema, nil

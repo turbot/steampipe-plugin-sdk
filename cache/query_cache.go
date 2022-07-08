@@ -40,7 +40,6 @@ type CacheStats struct {
 type QueryCache struct {
 	Stats      *CacheStats
 	pluginName string
-	//connectionName  string
 	// map of connection name to plugin schema
 	PluginSchemaMap map[string]*grpc.PluginSchema
 	pendingData     map[string]*pendingIndexBucket
@@ -182,7 +181,7 @@ func (c *QueryCache) IterateSet(rows []*proto.Row, callId string) {
 	}
 }
 
-func (c *QueryCache) EndSet(rows []*proto.Row, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId ,connectionName, resultKey string) {
+func (c *QueryCache) EndSet(rows []*proto.Row, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, callId, connectionName, resultKey string) {
 	defer func() {
 		if r := recover(); r != nil {
 

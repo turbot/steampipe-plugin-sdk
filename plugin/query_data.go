@@ -93,7 +93,7 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 	connectionName := request.Connection
 	connectionData, ok := plugin.ConnectionMap[connectionName]
 	if !ok {
-		return nil, fmt.Errorf("no connection data loaded for connection '%s'", connectionName)
+		return nil, fmt.Errorf("newQueryData failed - no connection data loaded for connection '%s'", connectionName)
 	}
 	d := &QueryData{
 		ConnectionManager: connectionData.ConnectionManager,
