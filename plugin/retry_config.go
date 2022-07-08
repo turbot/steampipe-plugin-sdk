@@ -13,11 +13,16 @@ type RetryConfig struct {
 	// deprecated use ShouldRetryErrorFunc
 	ShouldRetryError ErrorPredicate
 
-	MaxRetries     int64
-	RetryMethod    string
-	RetryInterval  int64
+	// Maximum number of retry operation to be performed.
+	MaxRetries int64
+	// Retry method to use. Supported values: Fibonacci, Exponential, and Constant.
+	RetryMethod string
+	// Starting interval.
+	RetryInterval int64
+	// Set a maximum on the duration returned from the next backoff.
 	CappedDuration int64
-	MaxDuration    int64
+	// Sets a maximum on the total amount of time a backoff should execute.
+	MaxDuration int64
 }
 
 func (c *RetryConfig) String() interface{} {
