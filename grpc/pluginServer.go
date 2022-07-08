@@ -6,6 +6,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/v3/grpc/shared"
 	"github.com/turbot/steampipe-plugin-sdk/v3/version"
+	"log"
 )
 
 type PluginSchema struct {
@@ -29,11 +30,12 @@ type PluginServer struct {
 	establishCacheConnectionFunc EstablishCacheConnectionFunc
 }
 
-func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc, establishCacheConnectionFunc EstablishCacheConnectionFunc) *PluginServer {
+func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, setAllConnectionConfigsFunc SetAllConnectionConfigsFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc, establishCacheConnectionFunc EstablishCacheConnectionFunc) *PluginServer {
 	return &PluginServer{
 		pluginName:                   pluginName,
 		executeFunc:                  executeFunc,
 		setConnectionConfigFunc:      setConnectionConfigFunc,
+		setAllConnectionConfigsFunc:  setAllConnectionConfigsFunc,
 		getSchemaFunc:                getSchemaFunc,
 		establishCacheConnectionFunc: establishCacheConnectionFunc,
 	}
@@ -105,6 +107,7 @@ func (s PluginServer) Serve() {
 	pluginMap := map[string]plugin.Plugin{
 		s.pluginName: &pluginshared.WrapperPlugin{Impl: s},
 	}
+	log.Printf("[WARN] SERVE!!!!!!!!!!!!!! ")
 
 	plugin.Serve(&plugin.ServeConfig{
 		Plugins:    pluginMap,

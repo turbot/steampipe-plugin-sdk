@@ -61,6 +61,10 @@ func (m *GRPCServer) SetConnectionConfig(_ context.Context, req *proto.SetConnec
 	return m.Impl.SetConnectionConfig(req)
 }
 
+func (m *GRPCServer) SetAllConnectionConfigs(_ context.Context, req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error) {
+	return m.Impl.SetAllConnectionConfigs(req)
+}
+
 func (m *GRPCServer) GetSupportedOperations(_ context.Context, req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return m.Impl.GetSupportedOperations(req)
 }
