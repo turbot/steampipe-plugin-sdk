@@ -79,6 +79,14 @@ func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest
 	}
 	return nil
 }
+func (c *PluginClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) error {
+	_, err := c.Stub.SetAllConnectionConfigs(req)
+	if err != nil {
+		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
+		return HandleGrpcError(err, "", "SetConnectionConfig")
+	}
+	return nil
+}
 
 func (c *PluginClient) GetSupportedOperations() (*proto.GetSupportedOperationsResponse, error) {
 	resp, err := c.Stub.GetSupportedOperations(&proto.GetSupportedOperationsRequest{})

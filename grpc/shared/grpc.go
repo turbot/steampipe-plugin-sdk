@@ -29,6 +29,10 @@ func (c *GRPCClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) 
 	return c.client.SetConnectionConfig(c.ctx, req)
 }
 
+func (c *GRPCClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error) {
+	return c.client.SetAllConnectionConfigs(c.ctx, req)
+}
+
 func (c *GRPCClient) GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return c.client.GetSupportedOperations(c.ctx, req)
 }

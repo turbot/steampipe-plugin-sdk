@@ -7,6 +7,7 @@ service WrapperPlugin {
   rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
   rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
   rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
+  rpc SetAllConnectionConfigs(SetAllConnectionConfigsRequest) returns (SetConnectionConfigResponse);
   rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
   rpc EstablishCacheConnection(stream CacheResponse) returns (stream CacheRequest);
 }
@@ -108,7 +109,7 @@ message GetSupportedOperationsRequest{}
 message GetSupportedOperationsResponse{
   bool query_cache = 1;
   bool cache_stream = 2;
-  bool set_connection_config_map = 3;
+  bool multiple_connections = 3;
 }
 
 message SetConnectionConfigRequest{
@@ -122,10 +123,18 @@ message ConnectionConfigPayload{
   string connection_config = 2;
 }
 
-message SetConnectionConfigMapRequest{
-  repeated ConnectionConfigPayload configs = 1;
+message SetAllConnectionConfigsRequest{
+  repeated ConnectionConfig configs = 1;
 }
 
+
+message ConnectionConfig {
+  string connection = 1;
+  string plugin = 2;
+  string plugin_short_name = 3;
+  string config = 4;
+
+}
 
 message SetConnectionConfigResponse{}
 
