@@ -29,6 +29,20 @@ func (p *Plugin) Validate() string {
 	log.Printf("[TRACE] validate DefaultIgnoreConfig")
 	validationErrors = append(validationErrors, p.DefaultIgnoreConfig.Validate(nil)...)
 
+	log.Printf("[TRACE] validate table names")
+	validationErrors = append(validationErrors, p.validateTableNames()...)
+
 	log.Printf("[TRACE] plugin has %d validation errors", len(validationErrors))
 	return strings.Join(validationErrors, "\n")
+}
+
+// validate that table names are consistent with their key in the table map
+func (p *Plugin) validateTableNames() []string {
+	var validationErrors []string
+	for tableName, table := range p.TableMap {
+		if table.Name != tableName {
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' has inconsistent Name property: '%s'", tableName, table.Name))
+		}
+	}
+	return validationErrors
 }

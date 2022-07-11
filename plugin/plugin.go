@@ -416,6 +416,9 @@ func (p *Plugin) ensureCache() error {
 }
 
 func (p *Plugin) buildSchema() (map[string]*proto.TableSchema, error) {
+	log.Printf("[TRACE] buildSchema")
+	defer log.Printf("[TRACE] buildSchema complete")
+
 	// the connection property must be set already
 	if p.Connection == nil {
 		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
