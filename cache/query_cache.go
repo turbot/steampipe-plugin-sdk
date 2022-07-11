@@ -75,20 +75,20 @@ func NewQueryCache(pluginName string, cacheStream proto.WrapperPlugin_EstablishC
 // SetCacheStream sets the cache stream connection
 // if we already have a stream, it;s possible the cache server has reconnected
 // - call any pending callback functions with a suitable error
-func (c *QueryCache) SetCacheStream(cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer) {
-	// if there is already a cache stream, call back any existing listener with an error response
-	if c.cacheStream != nil {
-		log.Printf("[WARN] QueryCache SetCacheStream called when there is already a cache stream - sending errors to any waiting callbacks")
-		resp := &proto.CacheResponse{
-			Error: "cache stream reconnected",
-		}
-		for _, cb := range c.listeners {
-			cb(resp)
-		}
-	}
-	// now store new stream
-	c.cacheStream = cacheStream
-}
+//func (c *QueryCache) SetCacheStream(cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer) {
+//	// if there is already a cache stream, call back any existing listener with an error response
+//	if c.cacheStream != nil {
+//		log.Printf("[WARN] QueryCache SetCacheStream called when there is already a cache stream - sending errors to any waiting callbacks")
+//		resp := &proto.CacheResponse{
+//			Error: "cache stream reconnected",
+//		}
+//		for _, cb := range c.listeners {
+//			cb(resp)
+//		}
+//	}
+//	// now store new stream
+//	c.cacheStream = cacheStream
+//}
 
 func (c *QueryCache) Get(ctx context.Context, table string, qualMap map[string]*proto.Quals, columns []string, limit, clientTTLSeconds int64, rowCallback CacheCallback, callId, connectionName string) (err error) {
 	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", table)
@@ -515,7 +515,8 @@ func (c *QueryCache) cacheGetIndexBucket(key, callId string) (*IndexBucket, erro
 // listen for messages on the cache stream and invoke the appropriate callback function
 func (c *QueryCache) streamListener() {
 	for {
-		log.Printf("[TRACE] QueryCache streamListener waiting....")
+		log.Printf("[TRACE] QueryCache streamListener waiting.... c.cacheStream %v", c.cacheStream)
+
 		res, err := c.cacheStream.Recv()
 		log.Printf("[TRACE] QueryCache streamListener received response (err %v)", err)
 		if err != nil {

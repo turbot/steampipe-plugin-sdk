@@ -117,60 +117,9 @@ func (p *Plugin) Initialise() {
 	p.setuLimit()
 }
 
-// SetConnectionConfig is the handler function for the GetSchema grpc function
-// parse the connection config string, and populate the connection data for this connection.
-// It also calls the table creation factory function, if provided by the plugin.
-// Note: SetConnectionConfig is always called before any other plugin function except EstablishCacheConnection.
+// SetConnectionConfig is no longer supported - SetAllConnectionConfigs should be called instead
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
-		} else {
-			p.Logger.Debug("SetConnectionConfig finished")
-		}
-	}()
-
-	log.Printf("[TRACE] SetConnectionConfig connection '%s'", connectionName)
-
-	// create connection object
-	c := &Connection{Name: connectionName}
-
-	// if config was provided, parse it
-	if connectionConfigString != "" {
-		if p.ConnectionConfigSchema == nil {
-			return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
-		}
-		// ask plugin for a struct to deserialise the config into
-		config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
-		if err != nil {
-			return err
-		}
-		c.Config = config
-	}
-
-	// if the plugin defines a CreateTables func, call it now
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
-	tableMap, err := p.initialiseTables(ctx, c)
-	if err != nil {
-		return err
-	}
-
-	// populate the plugin schema
-	schema, err := p.buildSchema(tableMap)
-	if err != nil {
-		return err
-	}
-
-	// add to connection map
-	p.ConnectionMap[connectionName] = &ConnectionData{
-		TableMap:          tableMap,
-		Connection:        c,
-		ConnectionManager: connection.NewManager(),
-		Schema:            schema,
-	}
-
-	// create the cache or update the schema if it already exists
-	return p.ensureCache()
+	return fmt.Errorf("SetConnectionConfig is no longer supported - plugin supports multiple connections per instance - use SetAllConnectionConfigs instead")
 }
 
 func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err error) {
@@ -182,11 +131,17 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 		}
 	}()
 
+	log.Printf("[WARN] SetAllConnectionConfigs %d configs", len(configs))
+	for _, v := range configs {
+		log.Printf("[WARN]  plugin '%s', connection '%s'", v.PluginShortName, v.Connection)
+	}
 	for _, config := range configs {
-
 		connectionName := config.Connection
 		connectionConfigString := config.Config
-		log.Printf("[TRACE] SetConnectionConfig connection '%s'", connectionName)
+		if connectionName == "" {
+			log.Printf("[WARN] SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
+			return fmt.Errorf("SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
+		}
 
 		// create connection object
 		c := &Connection{Name: connectionName}
@@ -225,9 +180,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 			Schema:            schema,
 		}
 	}
-
-	// create the cache or update the schema if it already exists
-	return p.ensureCache()
+	return nil
 }
 
 // GetSchema is the handler function for the GetSchema grpc function
@@ -423,12 +376,11 @@ func (p *Plugin) cacheGet(req *proto.ExecuteRequest, ctx context.Context, table 
 func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error {
 	log.Printf("[TRACE] EstablishCacheConnection - cache stream connection established for connection")
 	p.cacheStream = stream
-	if p.queryCache != nil {
-		// - as the cache may have lost connection
-		// maybe we are reestablishing connection
-		log.Printf("[WARN] EstablishCacheConnection - query cache already exists - updating cache stream")
-		p.queryCache.SetCacheStream(stream)
+	// create the cache or update the schema if it already exists
+	if err := p.ensureCache(); err != nil {
+		return err
 	}
+
 	// hold stream open
 	for {
 	}
