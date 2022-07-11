@@ -108,7 +108,7 @@ func (c *PluginClient) EstablishCacheConnection() (proto.WrapperPlugin_Establish
 	return c.Stub.EstablishCacheConnection()
 }
 
-// Exited returned whether the underlying client has exited, i.e. th eplugin has terminated
+// Exited returned whether the underlying client has exited, i.e. the plugin has terminated
 func (c *PluginClient) Exited() bool {
 	return c.client.Exited()
 }
