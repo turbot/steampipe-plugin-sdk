@@ -304,6 +304,8 @@ func (c *QueryCache) getKeyColumnsForTable(table string) map[string]*proto.KeyCo
 		for _, k := range append(tableSchema.ListCallKeyColumnList, tableSchema.GetCallKeyColumnList...) {
 			res[k.Name] = k
 		}
+	} else {
+		log.Printf("[WARN] getKeyColumnsForTable found NO SCHEMA FOR %s", table)
 	}
 	return res
 }
