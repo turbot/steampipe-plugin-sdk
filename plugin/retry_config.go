@@ -14,9 +14,9 @@ type RetryConfig struct {
 	ShouldRetryError ErrorPredicate
 
 	// Maximum number of retry operation to be performed.
-	MaxRetries int64
-	// Retry method to use. Supported values: Fibonacci, Exponential, and Constant.
-	RetryMethod string
+	MaxAttempts int64
+	// Algorithm for the backoff. Supported values: Fibonacci, Exponential, and Constant.
+	BackoffAlgorithm string
 	// Starting interval.
 	RetryInterval int64
 	// Set a maximum on the duration returned from the next backoff.

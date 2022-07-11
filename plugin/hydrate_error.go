@@ -30,18 +30,18 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	}()
 
 	// Defaults
-	maxRetries := uint64(10) // default set to 10
-	if retryConfig.MaxRetries != 0 {
-		maxRetries = uint64(retryConfig.MaxRetries)
+	maxAttempts := uint64(10) // default set to 10
+	if retryConfig.MaxAttempts != 0 {
+		maxAttempts = uint64(retryConfig.MaxAttempts)
 	}
 
 	// Create the backoff based on the given mode
-	backoff, err := checkRetryMode(retryConfig)
+	backoff, err := getBackoff(retryConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	err = retry.Do(ctx, retry.WithMaxRetries(maxRetries, backoff), func(ctx context.Context) error {
+	err = retry.Do(ctx, retry.WithMaxRetries(maxAttempts, backoff), func(ctx context.Context) error {
 		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
 		if err != nil {
 			if shouldRetryError(ctx, d, hydrateData, err, retryConfig) {
@@ -54,15 +54,15 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	return hydrateResult, err
 }
 
-func checkRetryMode(retryConfig *RetryConfig) (retry.Backoff, error) {
+func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 	// Default set to Fibonacci
-	retryMethod := "Fibonacci"
-	retryInterval := time.Duration(500) // in ms
+	backoffAlgorithm := "Fibonacci"
+	retryInterval := time.Duration(100) // in ms
 
 	// Check from config
 	if retryConfig != nil {
-		if retryConfig.RetryMethod != "" {
-			retryMethod = retryConfig.RetryMethod
+		if retryConfig.BackoffAlgorithm != "" {
+			backoffAlgorithm = retryConfig.BackoffAlgorithm
 		}
 
 		if retryConfig.RetryInterval != 0 {
@@ -72,7 +72,7 @@ func checkRetryMode(retryConfig *RetryConfig) (retry.Backoff, error) {
 
 	var backoff retry.Backoff
 	var err error
-	switch retryMethod {
+	switch backoffAlgorithm {
 	case "Fibonacci":
 		backoff, err = retry.NewFibonacci(retryInterval * time.Millisecond)
 		if err != nil {
