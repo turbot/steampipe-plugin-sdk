@@ -22,6 +22,8 @@ type GetConfig struct {
 	ShouldIgnoreError ErrorPredicate
 	IgnoreConfig      *IgnoreConfig
 	RetryConfig       *RetryConfig
+	// max concurrency - this applies when the get function is ALSO used as a column hydrate function
+	MaxConcurrency int
 }
 
 // initialise the GetConfig

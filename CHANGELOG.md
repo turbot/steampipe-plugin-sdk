@@ -1,3 +1,9 @@
+## v3.3.2  [2022-07-11]
+_What's new_
+* Add `MaxConcurrency` to `GetConfig` - for use when using the `Get` hydrate as a column hydrate function. ([#353](https://github.com/turbot/steampipe-plugin-sdk/issues/353))
+* Validate table Name property matches key in plugin's TableMap. ([#355](https://github.com/turbot/steampipe-plugin-sdk/issues/355))
+
+
 ## v3.3.1  [2022-06-30]
 
 _Bug fixes_
