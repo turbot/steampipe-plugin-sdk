@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/turbot/go-kit/helpers"
 )
@@ -13,15 +14,15 @@ type RetryConfig struct {
 	// deprecated use ShouldRetryErrorFunc
 	ShouldRetryError ErrorPredicate
 
-	// Maximum number of retry operation to be performed.
+	// Maximum number of retry operation to be performed. Default set to 10.
 	MaxAttempts int64
-	// Algorithm for the backoff. Supported values: Fibonacci, Exponential, and Constant.
+	// Algorithm for the backoff. Supported values: Fibonacci, Exponential, and Constant. Default set to Fibonacci.
 	BackoffAlgorithm string
-	// Starting interval.
+	// Starting interval. Default set to 100ms.
 	RetryInterval int64
-	// Set a maximum on the duration returned from the next backoff.
+	// Set a maximum on the duration (in ms) returned from the next backoff.
 	CappedDuration int64
-	// Sets a maximum on the total amount of time a backoff should execute.
+	// Sets a maximum on the total amount of time (in ms) a backoff should execute.
 	MaxDuration int64
 }
 
@@ -36,6 +37,9 @@ func (c *RetryConfig) String() interface{} {
 }
 
 func (c *RetryConfig) Validate(table *Table) []string {
+	var res []string
+	validBackoffAlgorithm := []string{"Constant", "Exponential", "Fibonacci"}
+
 	if c.ShouldRetryError != nil && c.ShouldRetryErrorFunc != nil {
 		log.Printf("[TRACE] RetryConfig validate failed - both ShouldRetryError and ShouldRetryErrorFunc are defined")
 		var tablePrefix string
@@ -43,9 +47,14 @@ func (c *RetryConfig) Validate(table *Table) []string {
 			tablePrefix = fmt.Sprintf("table '%s' ", table.Name)
 		}
 
-		return []string{fmt.Sprintf("%sboth ShouldRetryError and ShouldRetryErrorFunc are defined", tablePrefix)}
+		res = append(res, fmt.Sprintf("%sboth ShouldRetryError and ShouldRetryErrorFunc are defined", tablePrefix))
 	}
-	return nil
+
+	if !helpers.StringSliceContains(validBackoffAlgorithm, c.BackoffAlgorithm) {
+		res = append(res, fmt.Sprintf("BackoffAlgorithm value '%s' is not valid, it must be one of: %s", c.BackoffAlgorithm, strings.Join(validBackoffAlgorithm, ",")))
+	}
+
+	return res
 }
 
 func (c *RetryConfig) DefaultTo(other *RetryConfig) {
