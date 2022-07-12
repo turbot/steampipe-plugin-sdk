@@ -438,7 +438,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 
 	// TACTICAL force garbage collection every 1000 rows
 	if (d.QueryStatus.rowsStreamed)%100 == 0 {
-		//log.Printf("[TRACE] trigger garbage collection")
+		log.Printf("[WARN] trigger garbage collection")
 		runtime.GC()
 	}
 
