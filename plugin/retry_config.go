@@ -50,6 +50,10 @@ func (c *RetryConfig) Validate(table *Table) []string {
 		res = append(res, fmt.Sprintf("%sboth ShouldRetryError and ShouldRetryErrorFunc are defined", tablePrefix))
 	}
 
+	if c.BackoffAlgorithm == "" {
+		c.BackoffAlgorithm = "Fibonacci"
+	}
+
 	if !helpers.StringSliceContains(validBackoffAlgorithm, c.BackoffAlgorithm) {
 		res = append(res, fmt.Sprintf("BackoffAlgorithm value '%s' is not valid, it must be one of: %s", c.BackoffAlgorithm, strings.Join(validBackoffAlgorithm, ",")))
 	}
@@ -62,6 +66,7 @@ func (c *RetryConfig) DefaultTo(other *RetryConfig) {
 	if other == nil {
 		return
 	}
+
 	// if either ShouldIgnoreError or ShouldIgnoreErrorFunc are set, do not default to other
 	if c.ShouldRetryError != nil || c.ShouldRetryErrorFunc != nil {
 		log.Printf("[TRACE] RetryConfig DefaultTo: config defines a should retry function so not defaulting to base")
