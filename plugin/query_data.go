@@ -88,13 +88,9 @@ type QueryData struct {
 	cacheRows []*proto.Row
 }
 
-func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, plugin *Plugin, matrix []map[string]interface{}, request *proto.ExecuteRequest) (*QueryData, error) {
+func newQueryData(callId string, stream proto.WrapperPlugin_ExecuteServer, plugin *Plugin, queryContext *QueryContext, table *Table, matrix []map[string]interface{}, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData) (*QueryData, error) {
 	var wg sync.WaitGroup
-	connectionName := request.Connection
-	connectionData, ok := plugin.ConnectionMap[connectionName]
-	if !ok {
-		return nil, fmt.Errorf("newQueryData failed - no connection data loaded for connection '%s'", connectionName)
-	}
+
 	d := &QueryData{
 		ConnectionManager: connectionData.ConnectionManager,
 		Table:             table,
@@ -104,9 +100,9 @@ func newQueryData(queryContext *QueryContext, table *Table, stream proto.Wrapper
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
 		plugin:            plugin,
-		callId:            request.CallId,
-		cacheTtl:          request.CacheTtl,
-		cacheEnabled:      request.CacheEnabled,
+		callId:            callId,
+		cacheTtl:          executeData.CacheTtl,
+		cacheEnabled:      executeData.CacheEnabled,
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -530,11 +526,7 @@ func (d *QueryData) streamError(err error) {
 }
 
 // iterate over rowDataChan, for each item build the row and stream over rowChan
-func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
-	const rowBufferSize = 10
-
-	// stream data for each item
-	var rowChan = make(chan *proto.Row, rowBufferSize)
+func (d *QueryData) buildRows(ctx context.Context, rowChan chan *proto.Row) {
 	// we need to use a wait group for rows we cannot close the row channel when the item channel is closed
 	// as getRow is executing asyncronously
 	var rowWg sync.WaitGroup
@@ -567,7 +559,6 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 		}
 	}()
 
-	return rowChan
 }
 
 // execute necessary hydrate calls to populate row data
