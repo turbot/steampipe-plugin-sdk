@@ -198,154 +198,208 @@ func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 // Execute is the handler function for the Execute grpc function
 // execute a query and streams the results using the given GRPC stream.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+	defer log.Printf("[WARN] EXECUTE DONE************************")
+
+	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
+	errorChan := make(chan error, len(req.ExecuteConnectionData))
+	doneChan := make(chan bool)
+	var outputWg sync.WaitGroup
+
+	// add CallId to logs for the execute call
+	logger := p.Logger.Named(req.CallId)
+	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+	log.SetPrefix("")
+	log.SetFlags(0)
+
+	// get a context which includes telemetry data and logger
+	ctx := p.buildExecuteContext(stream.Context(), req, logger)
+
 	for connectionName, executeData := range req.ExecuteConnectionData {
-		const rowBufferSize = 100
-		var rowChan = make(chan *proto.Row, rowBufferSize)
-		// get limit and cache vars
-		limitParam := executeData.Limit
-		cacheTTL := executeData.CacheTtl
-		cacheEnabled := executeData.CacheEnabled
+		outputWg.Add(1)
+		go func(c string) {
+			defer outputWg.Done()
+			if err := p.executeForConnection(ctx, req, c, executeData, outputChan); err != nil {
+				log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
+				errorChan <- err
+			}
+		}(connectionName)
+	}
 
-		// add CallId to logs for the execute call
-		logger := p.Logger.Named(req.CallId)
+	var errors []error
 
-		log.Printf("[TRACE] EXECUTE callId: %s connection: %s table: %s cols: %s", req.CallId, req.Table, connectionName, strings.Join(req.QueryContext.Columns, ","))
+	go func() {
+		outputWg.Wait()
+		close(doneChan)
+	}()
 
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", req.CallId, req.Table, r)
-				log.Printf("[WARN] %s", debug.Stack())
-
-				if e, ok := r.(error); ok {
-					err = e
-				} else {
-					err = fmt.Errorf("%v", r)
-				}
-				return
+	complete := false
+	continueStreaming := true
+	for !complete {
+		select {
+		case row := <-outputChan:
+			// nil row means that connection is done streaming
+			if row == nil {
+				// continue looping
+				break
 			}
 
-			log.Printf("[TRACE] Execute complete callId: %s table: %s ", req.CallId, req.Table)
-		}()
-
-		// the connection property must be set already
-		connectionData, ok := p.ConnectionMap[connectionName]
-		if !ok {
-			return fmt.Errorf("no connection data loaded for connection '%s'", connectionName)
-		}
-
-		log.Printf("[TRACE] got connection data")
-
-		logging.LogTime("Start execute")
-
-		queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL)
-		table, ok := connectionData.TableMap[req.Table]
-		if !ok {
-			return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
-		}
-
-		logger.Trace("Got query context",
-			"table", req.Table,
-			"cols", queryContext.Columns)
-
-		// async approach
-		// 1) call list() in a goroutine. This writes pages of items to the rowDataChan. When complete it closes the channel
-		// 2) range over rowDataChan - for each item spawn a goroutine to build a row
-		// 3) Build row spawns goroutines for any required hydrate functions.
-		// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
-		// 5) Range over rowChan - for each row, send on results stream
-		log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
-		log.SetPrefix("")
-		log.SetFlags(0)
-
-		// get a context which includes telemetry data and logger
-		ctx := p.buildExecuteContext(stream.Context(), req, logger)
-
-		log.Printf("[TRACE] Start execute span")
-		ctx, executeSpan := p.startExecuteSpan(ctx, req)
-		defer func() {
-			log.Printf("[TRACE] End execute span")
-			executeSpan.End()
-		}()
-
-		log.Printf("[TRACE] GetMatrixItem")
-
-		// get the matrix item
-		var matrixItem []map[string]interface{}
-		if table.GetMatrixItem != nil {
-			matrixItem = table.GetMatrixItem(ctx, connectionData.Connection)
-		}
-
-		log.Printf("[TRACE] newQueryData")
-
-		queryData, err := p.newQueryData(req.CallId, stream, queryContext, table, matrixItem, connectionData, executeData)
-		if err != nil {
-			return err
-		}
-
-		limit := queryContext.GetLimit()
-
-		logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", limit)
-
-		// can we satisfy this request from the cache?
-		if cacheEnabled {
-			if p.queryCache == nil {
-				return fmt.Errorf("no cache connection has been established with the plugin manager")
+			if !continueStreaming {
+				break
 			}
 
-			log.Printf("[TRACE] q: %s %p", req.CallId, p.queryCache)
-			// try to fetch this data from the query cache
-			// if it is a cache hit, the data will be streamed  by cacheGet
-			var cacheHit bool
-
-			cacheHit, err = p.cacheGet(ctx, table, queryContext, limit, executeSpan, queryData, req.CallId, connectionName)
-			if err != nil {
-				log.Printf("[WARN] cacheGet returned err %s", err.Error())
+			if err := stream.Send(row); err != nil {
+				// cancel any ongoing operations
+				// abort any ongoing cache set operation in the cache server
+				//d.abortCacheSet()
+				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
+				continueStreaming = false
+				return err
 			}
-
-			if cacheHit {
-				log.Printf("[INFO] cacheGet returned CACHE HIT")
-				// nothing more to do
-				return nil
-			}
-
-			log.Printf("[INFO] cacheGet returned CACHE MISS")
-
-			// the cache will have added a pending item for this transfer
-			// and it is our responsibility to either call 'set' or 'cancel' for this pending item
-			defer func() {
-				if err != nil || ctx.Err() != nil {
-					log.Printf("[WARN] Execute call failed err: %v cancelled: %v - cancelling pending item in cache", err, ctx.Err())
-					p.queryCache.CancelPendingItem(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, connectionName)
-				}
-			}()
-		} else {
-			log.Printf("[TRACE] Cache DISABLED callId: %s", req.CallId)
-		}
-
-		log.Printf("[TRACE] fetch items callId: %s", req.CallId)
-		// asyncronously fetch items
-		if err := table.fetchItems(ctx, queryData); err != nil {
-			logger.Warn("fetchItems returned an error", "table", table.Name, "error", err)
-			return err
-		}
-		logging.LogTime("Calling build Rows")
-
-		log.Printf("[TRACE] buildRows callId: %s", req.CallId)
-
-		// asyncronously build rows
-		queryData.buildRows(ctx, rowChan)
-
-		log.Printf("[TRACE] streamRows callId: %s", req.CallId)
-
-		logging.LogTime("Calling streamRows")
-
-		// asyncronously stream rows across GRPC
-		err = queryData.streamRows(ctx, rowChan)
-		if err != nil {
-			return err
+		case err := <-errorChan:
+			log.Printf("[WARN] error channel received %s", err.Error())
+			errors = append(errors, err)
+		case <-doneChan:
+			log.Printf("[WARN] done, closing channels")
+			close(outputChan)
+			close(errorChan)
+			complete = true
 		}
 	}
-	return nil
+
+	return helpers.CombineErrors(errors...)
+}
+
+func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {
+	const rowBufferSize = 100
+	var rowChan = make(chan *proto.Row, rowBufferSize)
+	// get limit and cache vars
+	limitParam := executeData.Limit
+	cacheTTL := executeData.CacheTtl
+	cacheEnabled := executeData.CacheEnabled
+
+	log.Printf("[TRACE] EXECUTE callId: %s connection: %s table: %s cols: %s", req.CallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
+
+	defer func() {
+		log.Printf("[TRACE] executeForConnection RETURNING %s ***************", connectionName)
+		if r := recover(); r != nil {
+			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", req.CallId, req.Table, r)
+			log.Printf("[WARN] %s", debug.Stack())
+			err = helpers.ToError(r)
+			return
+		}
+
+		log.Printf("[TRACE] Execute complete callId: %s table: %s ", req.CallId, req.Table)
+	}()
+
+	// the connection property must be set already
+	connectionData, ok := p.ConnectionMap[connectionName]
+	if !ok {
+		return fmt.Errorf("no connection data loaded for connection '%s'", connectionName)
+	}
+
+	log.Printf("[TRACE] got connection data")
+
+	logging.LogTime("Start execute")
+
+	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL)
+	table, ok := connectionData.TableMap[req.Table]
+	if !ok {
+		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
+	}
+
+	log.Printf("[TRACE] Got query context, table: %s, cols: %v", req.Table, queryContext.Columns)
+
+	// async approach
+	// 1) call list() in a goroutine. This writes pages of items to the rowDataChan. When complete it closes the channel
+	// 2) range over rowDataChan - for each item spawn a goroutine to build a row
+	// 3) Build row spawns goroutines for any required hydrate functions.
+	// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
+	// 5) Range over rowChan - for each row, send on results stream
+	log.Printf("[TRACE] Start execute span")
+	ctx, executeSpan := p.startExecuteSpan(ctx, req)
+	defer func() {
+		log.Printf("[TRACE] End execute span")
+		executeSpan.End()
+	}()
+
+	log.Printf("[TRACE] GetMatrixItem")
+
+	// get the matrix item
+	var matrixItem []map[string]interface{}
+	if table.GetMatrixItem != nil {
+		matrixItem = table.GetMatrixItem(ctx, connectionData.Connection)
+	}
+
+	log.Printf("[TRACE] newQueryData")
+
+	queryData, err := p.newQueryData(req.CallId, queryContext, table, matrixItem, connectionData, executeData, outputChan)
+	if err != nil {
+		return err
+	}
+
+	limit := queryContext.GetLimit()
+
+	log.Printf("[TRACE] calling fetchItems, table: %s, matrixItem: %v, limit: %d", table.Name, queryData.Matrix, limit)
+
+	// can we satisfy this request from the cache?
+	if cacheEnabled {
+		if p.queryCache == nil {
+			return fmt.Errorf("no cache connection has been established with the plugin manager")
+		}
+
+		log.Printf("[TRACE] q: %s %p", req.CallId, p.queryCache)
+		// try to fetch this data from the query cache
+		// if it is a cache hit, the data will be streamed  by cacheGet
+		var cacheHit bool
+
+		cacheHit, err = p.cacheGet(ctx, table, queryContext, limit, executeSpan, queryData, req.CallId, connectionName)
+		if err != nil {
+			log.Printf("[WARN] cacheGet returned err %s", err.Error())
+		}
+
+		if cacheHit {
+			log.Printf("[INFO] cacheGet returned CACHE HIT")
+			// nothing more to do
+			return nil
+		}
+
+		log.Printf("[INFO] cacheGet returned CACHE MISS")
+
+		// the cache will have added a pending item for this transfer
+		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
+		defer func() {
+			if err != nil || ctx.Err() != nil {
+				log.Printf("[WARN] Execute call failed err: %v cancelled: %v - cancelling pending item in cache", err, ctx.Err())
+				p.queryCache.CancelPendingItem(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, connectionName)
+			}
+		}()
+	} else {
+		log.Printf("[TRACE] Cache DISABLED callId: %s", req.CallId)
+	}
+
+	log.Printf("[TRACE] fetch items callId: %s", req.CallId)
+	// asyncronously fetch items
+	if err := table.fetchItems(ctx, queryData); err != nil {
+		log.Printf("[WARN] fetchItems returned an error, table: %s, error: %v", table.Name, err)
+		return err
+
+	}
+	logging.LogTime("Calling build Rows")
+
+	log.Printf("[TRACE] buildRowsAsync callId: %s", req.CallId)
+
+	// asyncronously build rows
+	// channel used by streamRows when it receives an error to tell buildRowsAsync to stop
+	doneChan := make(chan bool)
+	queryData.buildRowsAsync(ctx, rowChan, doneChan)
+
+	log.Printf("[TRACE] streamRows callId: %s", req.CallId)
+
+	logging.LogTime("Calling streamRows")
+
+	//  stream rows across GRPC
+	return queryData.streamRows(ctx, rowChan, doneChan)
+
 }
 
 func (p *Plugin) cacheGet(ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData, callId, connectionName string) (bool, error) {
@@ -430,12 +484,12 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 	return ctx, span
 }
 
-func (p *Plugin) newQueryData(callId string, stream proto.WrapperPlugin_ExecuteServer, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}, connectionData *ConnectionData, executeConnectionData *proto.ExecuteConnectionData) (*QueryData, error) {
+func (p *Plugin) newQueryData(callId string, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}, connectionData *ConnectionData, executeConnectionData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	// lock access to the newQueryData - otherwise plugin crashes were observed
 	p.concurrencyLock.Lock()
 	defer p.concurrencyLock.Unlock()
 
-	return newQueryData(callId, stream, p, queryContext, table, matrixItem, connectionData, executeConnectionData)
+	return newQueryData(callId, p, queryContext, table, matrixItem, connectionData, executeConnectionData, outputChan)
 }
 
 // initialiseTables does 2 things:
