@@ -3,17 +3,10 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v3/connection"
-	"log"
-	"os"
-	"runtime/debug"
-	"strconv"
-	"strings"
-	"sync"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/cache"
+	"github.com/turbot/steampipe-plugin-sdk/v3/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
@@ -23,6 +16,12 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"log"
+	"os"
+	"runtime/debug"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 const (
@@ -233,7 +232,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	}()
 
 	complete := false
-	continueStreaming := true
 	for !complete {
 		select {
 		case row := <-outputChan:
@@ -243,28 +241,37 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				break
 			}
 
-			if !continueStreaming {
-				break
-			}
-
 			if err := stream.Send(row); err != nil {
 				// cancel any ongoing operations
 				// abort any ongoing cache set operation in the cache server
 				//d.abortCacheSet()
 				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
-				continueStreaming = false
-				return err
+				log.Printf("[WARNING] WAITING FOR DONE")
+
+				// HACKY MCHACK
+				for !complete {
+					select {
+					case <-errorChan:
+						log.Printf("[WARN] error chan select")
+					case <-doneChan:
+						log.Printf("[WARN] done chan select")
+						complete = true
+					}
+				}
+				errors = append(errors, err)
+				break
 			}
 		case err := <-errorChan:
 			log.Printf("[WARN] error channel received %s", err.Error())
 			errors = append(errors, err)
 		case <-doneChan:
 			log.Printf("[WARN] done, closing channels")
-			close(outputChan)
-			close(errorChan)
 			complete = true
 		}
 	}
+
+	close(outputChan)
+	close(errorChan)
 
 	return helpers.CombineErrors(errors...)
 }

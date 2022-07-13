@@ -445,6 +445,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	rd.ParentItem = d.parentItem
 	// NOTE: add the item as the hydrate data for the list call
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
+	log.Printf("[WARN] STREAM LIST ITEM %s", d.Connection.Name)
 	d.rowDataChan <- rd
 }
 
@@ -452,15 +453,16 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 func (d *QueryData) fetchComplete(ctx context.Context) {
 	log.Printf("[TRACE] QueryData.fetchComplete")
 
-	// if the context was cancelled, stream the cancellation error
-	if ctx.Err() != nil {
-		log.Printf("[WARN] context was cancelled - streaming context error")
-		d.errorChan <- ctx.Err()
-	}
-
 	// wait for any child fetches to complete before closing channel
 	d.listWg.Wait()
 	close(d.rowDataChan)
+
+	// if the context was cancelled, stream the cancellation error
+	if ctx.Err() != nil {
+		log.Printf("[WARN] context was cancelled - streaming context error %s", d.Connection.Name)
+		d.errorChan <- ctx.Err()
+		log.Printf("[WARN] SENT %s", d.Connection.Name)
+	}
 }
 
 // iterate over rowDataChan, for each item build the row and stream over rowChan
