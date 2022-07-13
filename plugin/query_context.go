@@ -5,20 +5,23 @@ import (
 )
 
 type QueryContext struct {
-	Columns     []string
-	UnsafeQuals map[string]*proto.Quals
-	Limit       *int64
+	Columns      []string
+	UnsafeQuals  map[string]*proto.Quals
+	Limit        *int64
+	CacheEnabled bool
+	CacheTTL     int64
 }
 
 // NewQueryContext maps from a proto.QueryContext to a plugin.QueryContext.
-// the only difference is the representation of the limit (as protobuf does not support pointers)
-func NewQueryContext(p *proto.QueryContext) *QueryContext {
+func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabled bool, cacheTTL int64) *QueryContext {
 	q := &QueryContext{
-		Columns:     p.Columns,
-		UnsafeQuals: p.Quals,
+		Columns:      p.Columns,
+		UnsafeQuals:  p.Quals,
+		CacheEnabled: cacheEnabled,
+		CacheTTL:     cacheTTL,
 	}
-	if p.Limit != nil {
-		q.Limit = &p.Limit.Value
+	if limit != nil {
+		q.Limit = &limit.Value
 	}
 	return q
 }
