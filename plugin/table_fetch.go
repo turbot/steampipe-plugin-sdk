@@ -463,6 +463,8 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.doList (%s)", t.Name)
 	defer span.End()
 
+	log.Printf("[WARN] doList %s", queryData.Connection.Name)
+
 	rd := newRowData(queryData, nil)
 
 	if len(queryData.Matrix) == 0 {
@@ -472,6 +474,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 		listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
 
 		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, t.List.IgnoreConfig, listRetryConfig); err != nil {
+			log.Printf("[WARN] doList callHydrateWithRetries conne  %s err %s", queryData.Connection.Name, err.Error())
 			queryData.streamError(err)
 		}
 	} else {
