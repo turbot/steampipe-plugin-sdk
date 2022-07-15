@@ -1,4 +1,4 @@
-package cache
+package query_cache
 
 const (
 	// Key column CacheMatch values

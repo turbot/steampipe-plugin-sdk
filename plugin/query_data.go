@@ -43,8 +43,12 @@ type QueryData struct {
 	// Matrix is an array of parameter maps (MatrixItems)
 	// the list/get calls with be executed for each element of this array
 	Matrix []map[string]interface{}
+
 	// object to handle caching of connection specific data
+	// deprecated
+	// use ConnectionCache
 	ConnectionManager *connection_manager.Manager
+	ConnectionCache   *connection_manager.ConnectionCache
 
 	// streaming funcs
 	StreamListItem func(ctx context.Context, item interface{})
@@ -90,8 +94,12 @@ type QueryData struct {
 func newQueryData(callId string, plugin *Plugin, queryContext *QueryContext, table *Table, matrix []map[string]interface{}, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
 
+	// create a connection manager
+	connectionCache := connection_manager.NewConnectionCache(connectionData.Connection.Name, plugin.connectionCacheStore)
 	d := &QueryData{
-		ConnectionManager: connectionData.ConnectionManager(),
+		// set deprecated ConnectionManager
+		ConnectionManager: connection_manager.NewManager(connectionCache),
+		ConnectionCache:   connectionCache,
 		Table:             table,
 		QueryContext:      queryContext,
 		Connection:        connectionData.Connection,
@@ -423,7 +431,7 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
-	// run garbage colleciton hen exiting - without this memory creeps up
+	// run garbage collection hen exiting - without this memory creeps up
 	defer runtime.GC()
 
 	// have we streamed enough already?

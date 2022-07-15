@@ -1,4 +1,4 @@
-package cache
+package query_cache
 
 import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
