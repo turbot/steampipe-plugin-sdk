@@ -580,6 +580,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
 			CacheHit:    d.QueryStatus.cacheHit,
 		},
+		Connection: d.Connection.Name,
 	}
 
 	d.outputChan <- resp
