@@ -139,9 +139,13 @@ func (p *Plugin) createConnectionCacheStore() error {
 	return nil
 }
 
-// SetConnectionConfig is no longer supported - SetAllConnectionConfigs should be called instead
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
-	return fmt.Errorf("SetConnectionConfig is no longer supported - plugin supports multiple connections per instance - use SetAllConnectionConfigs instead")
+	return p.SetAllConnectionConfigs([]*proto.ConnectionConfig{
+		{
+			Connection: connectionName,
+			Config:     connectionConfigString,
+		},
+	})
 }
 
 func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err error) {
@@ -223,9 +227,24 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 // return the plugin schema.
 // Note: the connection config must be set before calling this function.
 func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
-	connectionData, ok := p.ConnectionMap[connectionName]
-	if !ok {
-		return nil, fmt.Errorf("Plugin.GetSchema failed - no connection data loaded for connection '%s'", connectionName)
+	var connectionData *ConnectionData
+	if connectionName == "" {
+		// TACTICAL
+		// previous steampipe versions do not pass a connection name
+		// and instantiate a plugin per connection,
+		// is we have more than one connection, this is an error
+		if len(p.ConnectionMap) > 1 {
+			return nil, fmt.Errorf("Plugin.GetSchema failed - no connection name passed and multiple connections loaded")
+		}
+		// get first (and only) connection data
+		for _, connectionData = range p.ConnectionMap {
+		}
+	} else {
+		var ok bool
+		connectionData, ok = p.ConnectionMap[connectionName]
+		if !ok {
+			return nil, fmt.Errorf("Plugin.GetSchema failed - no connection data loaded for connection '%s'", connectionName)
+		}
 	}
 	schema := &grpc.PluginSchema{Schema: connectionData.Schema, Mode: p.SchemaMode}
 	return schema, nil
