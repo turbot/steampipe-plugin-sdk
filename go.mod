@@ -3,7 +3,6 @@ module github.com/turbot/steampipe-plugin-sdk/v3
 go 1.18
 
 require (
-	github.com/DmitriyVTitov/size v1.1.0
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.0
 	github.com/gertd/go-pluralize v0.2.1
@@ -32,6 +31,8 @@ require (
 	google.golang.org/protobuf v1.28.0
 )
 
+require github.com/cloudfoundry/gosigar v1.3.4
+
 require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/agext/levenshtein v1.2.2 // indirect
@@ -58,7 +59,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.7.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
 	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
-	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

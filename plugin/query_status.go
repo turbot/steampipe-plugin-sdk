@@ -11,6 +11,8 @@ type QueryStatus struct {
 	hydrateCalls      int64
 	cacheHit          bool
 	cachedRowsFetched int64
+	// flag which is true when we have streamed enough rows (or the context is cancelled)
+	StreamingComplete bool
 }
 
 func newQueryStatus(limit *int64) *QueryStatus {
