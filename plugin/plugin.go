@@ -474,18 +474,18 @@ func (p *Plugin) queryCacheGet(ctx context.Context, table *Table, queryContext *
 			doneChan <- false
 			return
 		}
+		queryData.QueryStatus.cacheHit = true
 		if len(resp.QueryResult.Rows) == 0 {
 			log.Printf("[TRACE] no rows - end of data")
 			executeSpan.SetAttributes(
 				attribute.Bool("cache-hit", true),
 			)
-
-			queryData.QueryStatus.cacheHit = true
+			log.Printf("[TRACE] CACHE HIT TRUE")
 			doneChan <- true
 		}
 		for _, r := range resp.QueryResult.Rows {
-			queryData.streamRow(r)
 			queryData.QueryStatus.cachedRowsFetched++
+			queryData.streamRow(r)
 		}
 	}
 

@@ -96,6 +96,7 @@ message ExecuteConnectionData {
 message ExecuteResponse {
   Row row = 1;
   QueryMetadata metadata = 2;
+  string connection = 3;
 }
 
 message QueryMetadata {
