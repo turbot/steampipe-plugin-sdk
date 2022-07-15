@@ -49,8 +49,8 @@ When executing for each matrix item, the matrix item is put into the context, av
 */
 
 // call either 'get' or 'list'.
-func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
-	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.fetchItems (%s)", t.Name)
+func (t *Table) fetchItemsAsync(ctx context.Context, queryData *QueryData) error {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.fetchItemsAsync (%s)", t.Name)
 
 	defer span.End()
 

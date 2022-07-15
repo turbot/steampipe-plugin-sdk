@@ -6,7 +6,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v3/cache"
-	"github.com/turbot/steampipe-plugin-sdk/v3/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
@@ -131,11 +130,14 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 	}()
 
 	log.Printf("[WARN] SetAllConnectionConfigs %d configs", len(configs))
-	for _, v := range configs {
-		log.Printf("[WARN]  plugin '%s', connection '%s'", v.PluginShortName, v.Connection)
-	}
+
+	// if this plugin does not have dynamic config, we can share table map and schema
+	var exemplarSchema map[string]*proto.TableSchema
+	var exemplarTableMap map[string]*Table
+
 	for _, config := range configs {
 		connectionName := config.Connection
+
 		connectionConfigString := config.Config
 		if connectionName == "" {
 			log.Printf("[WARN] SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
@@ -158,25 +160,36 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 			c.Config = config
 		}
 
-		// if the plugin defines a CreateTables func, call it now
-		ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
-		tableMap, err := p.initialiseTables(ctx, c)
-		if err != nil {
-			return err
-		}
+		schema := exemplarSchema
+		tableMap := exemplarTableMap
+		var err error
 
-		// populate the plugin schema
-		schema, err := p.buildSchema(tableMap)
-		if err != nil {
-			return err
+		if tableMap == nil {
+			log.Printf("[WARN] connection %s build schema and table map", connectionName)
+			// if the plugin defines a CreateTables func, call it now
+			ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+			tableMap, err = p.initialiseTables(ctx, c)
+			if err != nil {
+				return err
+			}
+
+			// populate the plugin schema
+			schema, err = p.buildSchema(tableMap)
+			if err != nil {
+				return err
+			}
+
+			if p.SchemaMode == SchemaModeStatic {
+				exemplarSchema = schema
+				exemplarTableMap = tableMap
+			}
 		}
 
 		// add to connection map
 		p.ConnectionMap[connectionName] = &ConnectionData{
-			TableMap:          tableMap,
-			Connection:        c,
-			ConnectionManager: connection.NewManager(),
-			Schema:            schema,
+			TableMap:   tableMap,
+			Connection: c,
+			Schema:     schema,
 		}
 	}
 	return nil
@@ -221,6 +234,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
 				errorChan <- err
 			}
+			log.Printf("[WARN] executeForConnection %s returned", c)
 		}(connectionName)
 	}
 
@@ -277,7 +291,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 }
 
 func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {
-	const rowBufferSize = 100
+	const rowBufferSize = 10
 	var rowChan = make(chan *proto.Row, rowBufferSize)
 	// get limit and cache vars
 	limitParam := executeData.Limit
@@ -346,7 +360,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	limit := queryContext.GetLimit()
 
-	log.Printf("[TRACE] calling fetchItems, table: %s, matrixItem: %v, limit: %d", table.Name, queryData.Matrix, limit)
+	log.Printf("[TRACE] calling fetchItemsAsync, table: %s, matrixItem: %v, limit: %d", table.Name, queryData.Matrix, limit)
 
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
@@ -386,8 +400,8 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	log.Printf("[TRACE] fetch items callId: %s", req.CallId)
 	// asyncronously fetch items
-	if err := table.fetchItems(ctx, queryData); err != nil {
-		log.Printf("[WARN] fetchItems returned an error, table: %s, error: %v", table.Name, err)
+	if err := table.fetchItemsAsync(ctx, queryData); err != nil {
+		log.Printf("[WARN] fetchItemsAsync returned an error, table: %s, error: %v", table.Name, err)
 		return err
 
 	}
