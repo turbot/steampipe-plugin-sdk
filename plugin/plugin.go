@@ -3,15 +3,18 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/dgraph-io/ristretto"
+	"github.com/eko/gocache/v3/cache"
+	"github.com/eko/gocache/v3/store"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/cache"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/os_specific"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v3/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -68,7 +71,10 @@ type Plugin struct {
 	// is this a static or dynamic schema
 	SchemaMode string
 
-	queryCache      *cache.QueryCache
+	queryCache *query_cache.QueryCache
+	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
+	connectionCacheStore *cache.Cache[any]
+
 	concurrencyLock sync.Mutex
 	// the cache stream - this is set in EstablishCacheConnection and used  when creating thew query cache in ensureCache
 	cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer
@@ -113,6 +119,24 @@ func (p *Plugin) Initialise() {
 
 	// set file limit
 	p.setuLimit()
+
+	if err := p.createConnectionCacheStore(); err != nil {
+		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
+	}
+}
+
+func (p *Plugin) createConnectionCacheStore() error {
+	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1000,
+		MaxCost:     100000,
+		BufferItems: 64,
+	})
+	if err != nil {
+		return err
+	}
+	ristrettoStore := store.NewRistretto(ristrettoCache)
+	p.connectionCacheStore = cache.New[any](ristrettoStore)
+	return nil
 }
 
 // SetConnectionConfig is no longer supported - SetAllConnectionConfigs should be called instead
@@ -370,21 +394,21 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 		log.Printf("[TRACE] q: %s %p", req.CallId, p.queryCache)
 		// try to fetch this data from the query cache
-		// if it is a cache hit, the data will be streamed  by cacheGet
+		// if it is a cache hit, the data will be streamed  by queryCacheGet
 		var cacheHit bool
 
-		cacheHit, err = p.cacheGet(ctx, table, queryContext, limit, executeSpan, queryData, req.CallId, connectionName)
+		cacheHit, err = p.queryCacheGet(ctx, table, queryContext, limit, executeSpan, queryData, req.CallId, connectionName)
 		if err != nil {
-			log.Printf("[WARN] cacheGet returned err %s", err.Error())
+			log.Printf("[WARN] queryCacheGet returned err %s", err.Error())
 		}
 
 		if cacheHit {
-			log.Printf("[INFO] cacheGet returned CACHE HIT")
+			log.Printf("[INFO] queryCacheGet returned CACHE HIT")
 			// nothing more to do
 			return nil
 		}
 
-		log.Printf("[INFO] cacheGet returned CACHE MISS")
+		log.Printf("[INFO] queryCacheGet returned CACHE MISS")
 
 		// the cache will have added a pending item for this transfer
 		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
@@ -423,7 +447,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 }
 
-func (p *Plugin) cacheGet(ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData, callId, connectionName string) (bool, error) {
+func (p *Plugin) queryCacheGet(ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData, callId, connectionName string) (bool, error) {
 	var doneChan = make(chan (bool))
 	callback := func(resp *proto.CacheResponse) {
 		if !resp.Success {
@@ -448,7 +472,7 @@ func (p *Plugin) cacheGet(ctx context.Context, table *Table, queryContext *Query
 
 	err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, queryContext.CacheTTL, callback, callId, connectionName)
 	if err != nil {
-		if cache.IsCacheMiss(err) {
+		if query_cache.IsCacheMiss(err) {
 			log.Printf("[TRACE] p.queryCache.Get returned cache miss error")
 			// do not return error for cache miss
 			err = nil
@@ -575,7 +599,7 @@ func (p *Plugin) ensureCache() error {
 	// build a connection schema map
 	connectionSchemaMap := p.buildConnectionSchemaMap()
 	if p.queryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Name, p.cacheStream, connectionSchemaMap)
+		queryCache, err := query_cache.NewQueryCache(p.Name, p.cacheStream, connectionSchemaMap)
 		if err != nil {
 			return err
 		}
