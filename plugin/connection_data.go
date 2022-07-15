@@ -13,4 +13,3 @@ type ConnectionData struct {
 	// schema - this may be connection specific for dynamic schemas
 	Schema map[string]*proto.TableSchema
 }
-
