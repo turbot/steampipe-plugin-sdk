@@ -27,7 +27,6 @@ type WrapperPluginClient interface {
 	SetConnectionConfig(ctx context.Context, in *SetConnectionConfigRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
 	SetAllConnectionConfigs(ctx context.Context, in *SetAllConnectionConfigsRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
 	GetSupportedOperations(ctx context.Context, in *GetSupportedOperationsRequest, opts ...grpc.CallOption) (*GetSupportedOperationsResponse, error)
-	EstablishCacheConnection(ctx context.Context, opts ...grpc.CallOption) (WrapperPlugin_EstablishCacheConnectionClient, error)
 }
 
 type wrapperPluginClient struct {
@@ -106,37 +105,6 @@ func (c *wrapperPluginClient) GetSupportedOperations(ctx context.Context, in *Ge
 	return out, nil
 }
 
-func (c *wrapperPluginClient) EstablishCacheConnection(ctx context.Context, opts ...grpc.CallOption) (WrapperPlugin_EstablishCacheConnectionClient, error) {
-	stream, err := c.cc.NewStream(ctx, &WrapperPlugin_ServiceDesc.Streams[1], "/proto.WrapperPlugin/EstablishCacheConnection", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &wrapperPluginEstablishCacheConnectionClient{stream}
-	return x, nil
-}
-
-type WrapperPlugin_EstablishCacheConnectionClient interface {
-	Send(*CacheResponse) error
-	Recv() (*CacheRequest, error)
-	grpc.ClientStream
-}
-
-type wrapperPluginEstablishCacheConnectionClient struct {
-	grpc.ClientStream
-}
-
-func (x *wrapperPluginEstablishCacheConnectionClient) Send(m *CacheResponse) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *wrapperPluginEstablishCacheConnectionClient) Recv() (*CacheRequest, error) {
-	m := new(CacheRequest)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // WrapperPluginServer is the server API for WrapperPlugin service.
 // All implementations must embed UnimplementedWrapperPluginServer
 // for forward compatibility
@@ -146,7 +114,6 @@ type WrapperPluginServer interface {
 	SetConnectionConfig(context.Context, *SetConnectionConfigRequest) (*SetConnectionConfigResponse, error)
 	SetAllConnectionConfigs(context.Context, *SetAllConnectionConfigsRequest) (*SetConnectionConfigResponse, error)
 	GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error)
-	EstablishCacheConnection(WrapperPlugin_EstablishCacheConnectionServer) error
 	mustEmbedUnimplementedWrapperPluginServer()
 }
 
@@ -168,9 +135,6 @@ func (UnimplementedWrapperPluginServer) SetAllConnectionConfigs(context.Context,
 }
 func (UnimplementedWrapperPluginServer) GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSupportedOperations not implemented")
-}
-func (UnimplementedWrapperPluginServer) EstablishCacheConnection(WrapperPlugin_EstablishCacheConnectionServer) error {
-	return status.Errorf(codes.Unimplemented, "method EstablishCacheConnection not implemented")
 }
 func (UnimplementedWrapperPluginServer) mustEmbedUnimplementedWrapperPluginServer() {}
 
@@ -278,32 +242,6 @@ func _WrapperPlugin_GetSupportedOperations_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
-func _WrapperPlugin_EstablishCacheConnection_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(WrapperPluginServer).EstablishCacheConnection(&wrapperPluginEstablishCacheConnectionServer{stream})
-}
-
-type WrapperPlugin_EstablishCacheConnectionServer interface {
-	Send(*CacheRequest) error
-	Recv() (*CacheResponse, error)
-	grpc.ServerStream
-}
-
-type wrapperPluginEstablishCacheConnectionServer struct {
-	grpc.ServerStream
-}
-
-func (x *wrapperPluginEstablishCacheConnectionServer) Send(m *CacheRequest) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *wrapperPluginEstablishCacheConnectionServer) Recv() (*CacheResponse, error) {
-	m := new(CacheResponse)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // WrapperPlugin_ServiceDesc is the grpc.ServiceDesc for WrapperPlugin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -333,12 +271,6 @@ var WrapperPlugin_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "Execute",
 			Handler:       _WrapperPlugin_Execute_Handler,
 			ServerStreams: true,
-		},
-		{
-			StreamName:    "EstablishCacheConnection",
-			Handler:       _WrapperPlugin_EstablishCacheConnection_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
 		},
 	},
 	Metadata: "plugin.proto",

@@ -528,10 +528,11 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 
 // read rows from rowChan and stream back across GRPC
 // (also return the rows so we can cache them when complete)
-func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) error {
+func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) ([]*proto.Row, error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
+	var rows []*proto.Row
 	log.Printf("[WARN] streamRows ********************** %s", d.Connection.Name)
 
 	defer func() {
@@ -545,30 +546,27 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		case err := <-d.errorChan:
 			log.Printf("[WARN] streamRows error chan select: %v", err)
 			log.Printf("[WARN] aborting cache set operation")
-			// abort any ongoing cache set operation in the cache server
-			d.abortCacheSet()
 
 			// close done chan - this will cancel buildRowsAsync
 			close(doneChan)
 			// return what we have sent
-			return err
+			return nil, err
 		case row := <-rowChan:
 			//log.Printf("[WARN] got row")
 
 			// nil row means we are done streaming
 			if row == nil {
 				log.Printf("[WARN] streamRows - nil row, stop streaming %s", d.Connection.Name)
-				d.endCacheSet()
-
-				return nil
+				return rows, nil
 			}
 			// if we are caching stream this row to the cache as well
 			// we do not get a return from set calls
-			d.streamRowToCache(row)
+			rows = append(rows, row)
 			d.streamRow(row)
 			//log.Printf("[WARN] streamed row")
 		}
 	}
+
 }
 
 func (d *QueryData) streamRow(row *proto.Row) {
@@ -590,6 +588,13 @@ func (d *QueryData) streamError(err error) {
 	log.Printf("[WARN] stream error %v", err)
 	d.errorChan <- err
 	log.Printf("[WARN] stream error DONE")
+}
+
+func (d *QueryData) streamCacheResult(result *proto.QueryResult) {
+	for _, r := range result.Rows {
+		d.QueryStatus.cachedRowsFetched++
+		d.streamRow(r)
+	}
 }
 
 // execute necessary hydrate calls to populate row data

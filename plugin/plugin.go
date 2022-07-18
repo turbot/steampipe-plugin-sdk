@@ -77,7 +77,7 @@ type Plugin struct {
 
 	concurrencyLock sync.Mutex
 	// the cache stream - this is set in EstablishCacheConnection and used  when creating thew query cache in ensureCache
-	cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer
+	//cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -405,24 +405,23 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	log.Printf("[TRACE] calling fetchItemsAsync, table: %s, matrixItem: %v, limit: %d", table.Name, queryData.Matrix, limit)
 
+	// convert qual map to trype used by cache
+	cacheQualMap := queryData.Quals.ToProtoQualMap()
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
-		if p.queryCache == nil {
-			return fmt.Errorf("no cache connection has been established with the plugin manager")
-		}
-
 		log.Printf("[TRACE] q: %s %p", req.CallId, p.queryCache)
 		// try to fetch this data from the query cache
-		// if it is a cache hit, the data will be streamed  by queryCacheGet
-		var cacheHit bool
 
-		cacheHit, err = p.queryCacheGet(ctx, table, queryContext, limit, executeSpan, queryData, req.CallId, connectionName)
+		result, err := p.queryCache.Get(ctx, table.Name, cacheQualMap, queryContext.Columns, limit, queryContext.CacheTTL, connectionName)
 		if err != nil {
 			log.Printf("[WARN] queryCacheGet returned err %s", err.Error())
-		}
+		} else {
 
-		if cacheHit {
 			log.Printf("[INFO] queryCacheGet returned CACHE HIT")
+			queryData.streamCacheResult(result)
+
+			// TODO maybe runtime.GC() ????
+
 			// nothing more to do
 			return nil
 		}
@@ -462,64 +461,18 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	logging.LogTime("Calling streamRows")
 
 	//  stream rows across GRPC
-	return queryData.streamRows(ctx, rowChan, doneChan)
+	rows, err := queryData.streamRows(ctx, rowChan, doneChan)
 
-}
-
-func (p *Plugin) queryCacheGet(ctx context.Context, table *Table, queryContext *QueryContext, limit int64, executeSpan trace.Span, queryData *QueryData, callId, connectionName string) (bool, error) {
-	var doneChan = make(chan (bool))
-	callback := func(resp *proto.CacheResponse) {
-		if !resp.Success {
-			log.Printf("[TRACE] cache response success = false - cache miss")
-			doneChan <- false
-			return
-		}
-		queryData.QueryStatus.cacheHit = true
-		if len(resp.QueryResult.Rows) == 0 {
-			log.Printf("[TRACE] no rows - end of data")
-			executeSpan.SetAttributes(
-				attribute.Bool("cache-hit", true),
-			)
-			log.Printf("[TRACE] CACHE HIT TRUE")
-			doneChan <- true
-		}
-		for _, r := range resp.QueryResult.Rows {
-			queryData.QueryStatus.cachedRowsFetched++
-			queryData.streamRow(r)
-		}
-	}
-
-	err := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, queryContext.CacheTTL, callback, callId, connectionName)
 	if err != nil {
-		if query_cache.IsCacheMiss(err) {
-			log.Printf("[TRACE] p.queryCache.Get returned cache miss error")
-			// do not return error for cache miss
-			err = nil
-		}
-		return false, err
-	}
-
-	res := <-doneChan
-
-	return res, nil
-}
-
-// EstablishCacheConnection is the handler function for the EstablishCacheConnection grpc function
-// it will be called _before_ SetConnectionConfig, which creates the local QueryCache
-// store the stream, then keep it open, i.e. do not return from this function
-// Note: SetConnectionConfig is always called immediately after instantiation
-func (p *Plugin) EstablishCacheConnection(stream proto.WrapperPlugin_EstablishCacheConnectionServer) error {
-	log.Printf("[TRACE] EstablishCacheConnection - cache stream connection established for connection")
-	p.cacheStream = stream
-	// create the cache or update the schema if it already exists
-	if err := p.ensureCache(); err != nil {
 		return err
 	}
-
-	// hold stream open
-	for {
+	err = p.queryCache.Set(ctx, rows, table.Name, cacheQualMap, queryContext.Columns, limit, connectionName)
+	if err != nil {
+		// just log error, do not fail
+		log.Printf("[WARN] cache set failed: %v", err)
 	}
 	return nil
+
 }
 
 func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequest, logger hclog.Logger) context.Context {
@@ -618,7 +571,8 @@ func (p *Plugin) ensureCache() error {
 	// build a connection schema map
 	connectionSchemaMap := p.buildConnectionSchemaMap()
 	if p.queryCache == nil {
-		queryCache, err := query_cache.NewQueryCache(p.Name, p.cacheStream, connectionSchemaMap)
+		// TODO max cache storage
+		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, 10000000)
 		if err != nil {
 			return err
 		}
