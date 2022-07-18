@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"log"
 
 	"github.com/hashicorp/go-hclog"
@@ -40,4 +41,5 @@ func Serve(opts *ServeOpts) {
 		log.Println("[TRACE] Shutdown instrumentation")
 		shutdown()
 	}()
+	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.GetSchema, p.Execute).Serve()
 }

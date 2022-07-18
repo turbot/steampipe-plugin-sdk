@@ -408,6 +408,9 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	d.listWg.Add(1)
 
 	go func() {
+		log.Printf("[WARN] streamListItem goroutine START")
+		defer log.Printf("[WARN] streamListItem goroutine END")
+
 		defer func() {
 			if r := recover(); r != nil {
 				err := helpers.ToError(r)
@@ -493,12 +496,17 @@ func (d *QueryData) fetchComplete(ctx context.Context) {
 
 // iterate over rowDataChan, for each item build the row and stream over rowChan
 func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) {
+	log.Printf("[WARN] buildRowsAsync START %s", d.Connection.Name)
+	defer log.Printf("[WARN] buildRowsAsync END %s", d.Connection.Name)
+
 	// we need to use a wait group for rows we cannot close the row channel when the item channel is closed
 	// as getRow is executing asyncronously
 	var rowWg sync.WaitGroup
 
 	// start goroutine to read items from item chan and generate row data
 	go func() {
+		log.Printf("[WARN] buildRowsAsync goroutine START %s", d.Connection.Name)
+		defer log.Printf("[WARN] buildRowsAsync goroutine END %s", d.Connection.Name)
 		for {
 			// wait for either an rowData or an error
 			select {
@@ -506,21 +514,20 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 				log.Printf("[WARN] buildRowsAsync done channel selected - quitting %s", d.Connection.Name)
 				return
 			case rowData := <-d.rowDataChan:
-
 				logging.LogTime("got rowData - calling getRow")
-				rowWg.Add(1)
-				d.buildRowAsync(ctx, rowData, rowChan, &rowWg)
-
-				// is channel closed?
+				// is there any more data?
 				if rowData == nil {
 					log.Printf("[WARN] rowData chan returned nil - wait for rows to complete %s", d.Connection.Name)
-					// now we know there will be no more items, start goroutine to close row chan when the wait group is complete
+					// now we know there will be no more items, close row chan when the wait group is complete
 					// this allows time for all hydrate goroutines to complete
-					go d.waitForRowsToComplete(&rowWg, rowChan)
-					log.Printf("[WARN] rows complete - buildRowsAsync goroutine returning %s", d.Connection.Name)
+					d.waitForRowsToComplete(&rowWg, rowChan)
+					log.Printf("[WARN] buildRowsAsync goroutine returning %s", d.Connection.Name)
 					// rowData channel closed - nothing more to do
 					return
 				}
+
+				rowWg.Add(1)
+				d.buildRowAsync(ctx, rowData, rowChan, &rowWg)
 			}
 		}
 	}()
@@ -633,9 +640,12 @@ func (d *QueryData) addContextData(row *proto.Row) {
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
-	log.Println("[TRACE] wait for rows")
+	log.Printf("[WARN] waitForRowsToComplete START %s", d.Connection.Name)
+	defer log.Printf("[WARN] waitForRowsToComplete END %s", d.Connection.Name)
+
+	log.Println("[WARN] wait for rows")
 	rowWg.Wait()
 	logging.DisplayProfileData(10 * time.Millisecond)
-	log.Println("[TRACE] rowWg complete - CLOSING ROW CHANNEL")
+	log.Println("[WARN] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
 }

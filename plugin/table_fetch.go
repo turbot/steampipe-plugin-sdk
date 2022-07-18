@@ -355,7 +355,8 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
 
-	log.Printf("[TRACE] executeListCall")
+	log.Printf("[WARN] executeListCall START %s", queryData.Connection.Name)
+	defer log.Printf("[WARN] executeListCall COMPLETE %s", queryData.Connection.Name)
 	defer func() {
 		if r := recover(); r != nil {
 			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", helpers.GetFunctionName(t.List.Hydrate), r)))
