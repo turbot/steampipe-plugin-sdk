@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 )
 
@@ -41,7 +42,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64, rowCallback CacheCallback, callId, connectionName string) error {
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64, connectionName string) (result *sdkproto.QueryResult, err error) {
 	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", table)
 	defer span.End()
 
@@ -52,9 +53,12 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		pendingItem.Wait()
 		close(transferCompleteChan)
 	}()
+
 	select {
 	case <-ctx.Done():
 		log.Printf("[WARN] waitForPendingItem aborting as context cancelled")
+		// TODO is this right? How is it handled upstream
+		err = ctx.Err()
 
 	case <-time.After(pendingQueryTimeout):
 		log.Printf("[WARN] waitForPendingItem timed out waiting for pending transfer, indexBucketKey: %s", indexBucketKey)
@@ -69,7 +73,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		c.pendingDataLock.Unlock()
 		log.Printf("[TRACE] added new pending item, returning cache miss")
 		// return cache miss error to force a fetch
-		return CacheMissError{}
+		err = CacheMissError{}
 
 	case <-transferCompleteChan:
 		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, indexBucketKey: %s", indexBucketKey)
@@ -77,7 +81,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		// now try to read from the cache again
 		var err error
 
-		err = c.getCachedResult(indexBucketKey, table, qualMap, columns, limit, ttlSeconds, rowCallback, callId, connectionName)
+		result, err = c.getCachedQueryResult(ctx, indexBucketKey, table, qualMap, columns, limit, ttlSeconds, connectionName)
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem - getCachedResult returned error: %v", err)
 			// if the data is still not in the cache, create a pending item
@@ -93,7 +97,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 			log.Printf("[TRACE] waitForPendingItem retrieved from cache, indexBucketKey: %s", indexBucketKey)
 		}
 	}
-	return nil
+	return result, err
 }
 
 func (c *QueryCache) addPendingResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionName string) {

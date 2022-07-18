@@ -104,10 +104,6 @@ func (c *PluginClient) GetSchema(connectionName string) (*proto.Schema, error) {
 	return resp.Schema, nil
 }
 
-func (c *PluginClient) EstablishCacheConnection() (proto.WrapperPlugin_EstablishCacheConnectionClient, error) {
-	return c.Stub.EstablishCacheConnection()
-}
-
 // Exited returned whether the underlying client has exited, i.e. the plugin has terminated
 func (c *PluginClient) Exited() bool {
 	return c.client.Exited()

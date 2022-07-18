@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
@@ -41,5 +40,4 @@ func Serve(opts *ServeOpts) {
 		log.Println("[TRACE] Shutdown instrumentation")
 		shutdown()
 	}()
-	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.GetSchema, p.Execute, p.EstablishCacheConnection).Serve()
 }
