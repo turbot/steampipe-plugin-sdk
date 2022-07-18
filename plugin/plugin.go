@@ -123,6 +123,8 @@ func (p *Plugin) Initialise() {
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
 	}
+
+	p.ensureCache()
 }
 
 func (p *Plugin) createConnectionCacheStore() error {
