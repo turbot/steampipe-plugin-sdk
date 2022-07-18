@@ -20,6 +20,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"log"
 	"os"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -123,8 +124,6 @@ func (p *Plugin) Initialise() {
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
 	}
-
-	p.ensureCache()
 }
 
 func (p *Plugin) createConnectionCacheStore() error {
@@ -222,6 +221,10 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 			Schema:     schema,
 		}
 	}
+
+	// now create the query cache - do this AFTER setting the connection config
+	p.ensureCache()
+
 	return nil
 }
 
@@ -411,7 +414,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	cacheQualMap := queryData.Quals.ToProtoQualMap()
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
-		log.Printf("[TRACE] q: %s %p", req.CallId, p.queryCache)
+		log.Printf("[WARN] cacheEnabled, try cache get")
 		// try to fetch this data from the query cache
 
 		result, err := p.queryCache.Get(ctx, table.Name, cacheQualMap, queryContext.Columns, limit, queryContext.CacheTTL, connectionName)
@@ -468,11 +471,17 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	if err != nil {
 		return err
 	}
-	err = p.queryCache.Set(ctx, rows, table.Name, cacheQualMap, queryContext.Columns, limit, connectionName)
-	if err != nil {
-		// just log error, do not fail
-		log.Printf("[WARN] cache set failed: %v", err)
+	if !IsCancelled(ctx) {
+		err = p.queryCache.Set(ctx, rows, table.Name, cacheQualMap, queryContext.Columns, limit, connectionName)
+		if err != nil {
+			// just log error, do not fail
+			log.Printf("[WARN] cache set failed: %v", err)
+		}
 	}
+	// TODO ensure we cleanup rows
+	rows = nil
+	runtime.GC()
+
 	return nil
 
 }

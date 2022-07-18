@@ -43,8 +43,9 @@ func IsCacheMiss(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	return err.Error() == CacheMissError{}.Error()
+	// BigCache returns "Entry not found"
+	errorStrings := []string{CacheMissError{}.Error(), "Entry not found"}
+	return helpers.StringSliceContains(errorStrings, err.Error())
 }
 
 type CacheStats struct {
@@ -233,6 +234,7 @@ func (c *QueryCache) getCachedIndexBucket(ctx context.Context, key string) (*Ind
 
 // try to fetch cached data for the given cache request
 func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey, table string, qualMap map[string]*sdkproto.Quals, columns []string, limit, ttlSeconds int64, connectionName string) (*sdkproto.QueryResult, error) {
+	log.Printf("[TRACE] QueryCache getCachedQueryResult - table %s, connectionName %s", table, connectionName)
 	keyColumns := c.getKeyColumnsForTable(table, connectionName)
 
 	log.Printf("[TRACE] QueryCache getCachedQueryResult - index bucket key: %s ttlSeconds %d\n", indexBucketKey, ttlSeconds)
@@ -317,6 +319,7 @@ func (c *QueryCache) formatQualMapForKey(qualMap map[string]*sdkproto.Quals) str
 
 // return a map of key column for the given table
 func (c *QueryCache) getKeyColumnsForTable(table string, connectionName string) map[string]*sdkproto.KeyColumn {
+	log.Printf("[TRACE] QueryCache getKeyColumnsForTable  c.PluginSchemaMap %v", c.PluginSchemaMap)
 	res := make(map[string]*sdkproto.KeyColumn)
 	// build a list of all key columns
 	tableSchema, ok := c.PluginSchemaMap[connectionName].Schema[table]
