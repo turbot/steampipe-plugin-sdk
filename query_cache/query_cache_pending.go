@@ -5,15 +5,14 @@ import (
 	"log"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
 )
 
 const pendingQueryTimeout = 10 * time.Second
 
-func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionName string) *pendingIndexItem {
-	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, columns, limit)
+func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheRequest) *pendingIndexItem {
+	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
 	var pendingItem *pendingIndexItem
 
 	// lock access to pending data map
@@ -26,7 +25,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 		log.Printf("[TRACE] got pending index bucket, checking for pending item")
 		// is there a pending index bucket for this query
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
-		pendingItem = pendingIndexBucket.GetItemWhichSatisfiesColumnsAndLimit(columns, limit)
+		pendingItem = pendingIndexBucket.GetItemWhichSatisfiesColumnsAndLimit(req.Columns, req.Limit)
 	}
 
 	// if there was no pending result  -  we assume the calling code will fetch the data and add it to the cache
@@ -34,7 +33,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 	if pendingItem == nil {
 		log.Printf("[TRACE] no pending index item - add pending result")
 		// add a pending result so anyone else asking for this data will wait the fetch to complete
-		c.addPendingResult(indexBucketKey, table, qualMap, columns, limit, connectionName)
+		c.addPendingResult(indexBucketKey, req)
 	}
 
 	log.Printf("[TRACE] getPendingResultItem returning %v", pendingItem)
@@ -42,8 +41,8 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, table string, q
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit, ttlSeconds int64, connectionName string) (result *sdkproto.QueryResult, err error) {
-	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", table)
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey string, req *CacheRequest) (result *sdkproto.QueryResult, err error) {
+	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", req.Table)
 	defer span.End()
 
 	log.Printf("[TRACE] waitForPendingItem indexBucketKey: %s", indexBucketKey)
@@ -69,7 +68,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		// remove the pending item - it has timed out
 		c.pendingData[indexBucketKey].delete(pendingItem)
 		// add a new pending item, within the lock
-		c.addPendingResult(indexBucketKey, table, qualMap, columns, limit, connectionName)
+		c.addPendingResult(indexBucketKey, req)
 		c.pendingDataLock.Unlock()
 		log.Printf("[TRACE] added new pending item, returning cache miss")
 		// return cache miss error to force a fetch
@@ -81,7 +80,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		// now try to read from the cache again
 		var err error
 
-		result, err = c.getCachedQueryResult(ctx, indexBucketKey, table, qualMap, columns, limit, ttlSeconds, connectionName)
+		result, err = c.getCachedQueryResult(ctx, indexBucketKey, req)
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem - getCachedResult returned error: %v", err)
 			// if the data is still not in the cache, create a pending item
@@ -90,7 +89,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 				// lock access to pending results map
 				c.pendingDataLock.Lock()
 				// add a new pending item, within the lock
-				c.addPendingResult(indexBucketKey, table, qualMap, columns, limit, connectionName)
+				c.addPendingResult(indexBucketKey, req)
 				c.pendingDataLock.Unlock()
 			}
 		} else {
@@ -100,9 +99,9 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 	return result, err
 }
 
-func (c *QueryCache) addPendingResult(indexBucketKey, table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionName string) {
+func (c *QueryCache) addPendingResult(indexBucketKey string, req *CacheRequest) {
 	// this must be called within a pendingDataLock
-	log.Printf("[TRACE] addPendingResult indexBucketKey %s, columns %v, limit %d", indexBucketKey, columns, limit)
+	log.Printf("[TRACE] addPendingResult indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
 
 	// do we have a pending bucket
 	pendingIndexBucket, ok := c.pendingData[indexBucketKey]
@@ -111,22 +110,22 @@ func (c *QueryCache) addPendingResult(indexBucketKey, table string, qualMap map[
 		pendingIndexBucket = newPendingIndexBucket()
 	}
 	// build a result key
-	resultKey := c.buildResultKey(table, qualMap, columns, limit, connectionName)
+	resultKey := c.buildResultKey(req)
 
 	// this pending item _may_ already exist - if we have previously fetched the same data (perhaps the ttl expired)
 	// create a new one anyway to replace that one
 	// NOTE: when creating a pending item the lock wait group is incremented automatically
-	pendingIndexBucket.Items[resultKey] = NewPendingIndexItem(columns, resultKey, limit)
+	pendingIndexBucket.Items[resultKey] = NewPendingIndexItem(req.Columns, resultKey, req.Limit)
 
 	// now write back to pending data map
 	c.pendingData[indexBucketKey] = pendingIndexBucket
 }
 
 // unlock pending result items from the map
-func (c *QueryCache) pendingItemComplete(table string, qualMap map[string]*proto.Quals, columns []string, limit int64, connectionName string) {
-	indexBucketKey := c.buildIndexKey(connectionName, table)
+func (c *QueryCache) pendingItemComplete(req *CacheRequest) {
+	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
 
-	log.Printf("[TRACE] pendingItemComplete indexBucketKey %s, columns %v, limit %d", indexBucketKey, columns, limit)
+	log.Printf("[TRACE] pendingItemComplete indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
 	defer log.Printf("[TRACE] pendingItemComplete done")
 
 	// lock access to pending data map
@@ -137,7 +136,7 @@ func (c *QueryCache) pendingItemComplete(table string, qualMap map[string]*proto
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
 		log.Printf("[TRACE] got pending index bucket, len %d", len(pendingIndexBucket.Items))
 		// the may be more than one pending item which is satisfied by this request - clear them all
-		pendingItems := pendingIndexBucket.GetItemsSatisfiedByColumns(columns, limit)
+		pendingItems := pendingIndexBucket.GetItemsSatisfiedByColumns(req.Columns, req.Limit)
 		for _, pendingItem := range pendingItems {
 			log.Printf("[TRACE] got pending item %s - removing from map as it is complete", pendingItem.item.Key)
 			// unlock the item

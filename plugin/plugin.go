@@ -20,7 +20,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"log"
 	"os"
-	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -77,8 +76,6 @@ type Plugin struct {
 	connectionCacheStore *cache.Cache[any]
 
 	concurrencyLock sync.Mutex
-	// the cache stream - this is set in EstablishCacheConnection and used  when creating thew query cache in ensureCache
-	//cacheStream proto.WrapperPlugin_EstablishCacheConnectionServer
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -346,18 +343,20 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	cacheTTL := executeData.CacheTtl
 	cacheEnabled := executeData.CacheEnabled
 
-	log.Printf("[TRACE] EXECUTE callId: %s connection: %s table: %s cols: %s", req.CallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
+	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
+	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)
+	log.Printf("[TRACE] EXECUTE callId: %s connection: %s table: %s cols: %s", connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
 		log.Printf("[TRACE] executeForConnection RETURNING %s ***************", connectionName)
 		if r := recover(); r != nil {
-			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", req.CallId, req.Table, r)
+			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
 			log.Printf("[WARN] %s", debug.Stack())
 			err = helpers.ToError(r)
 			return
 		}
 
-		log.Printf("[TRACE] Execute complete callId: %s table: %s ", req.CallId, req.Table)
+		log.Printf("[TRACE] Execute complete callId: %s table: %s ", connectionCallId, req.Table)
 	}()
 
 	// the connection property must be set already
@@ -401,7 +400,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	log.Printf("[TRACE] newQueryData")
 
-	queryData, err := p.newQueryData(req.CallId, queryContext, table, matrixItem, connectionData, executeData, outputChan)
+	queryData, err := p.newQueryData(connectionCallId, queryContext, table, matrixItem, connectionData, executeData, outputChan)
 	if err != nil {
 		return err
 	}
@@ -412,40 +411,53 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// convert qual map to trype used by cache
 	cacheQualMap := queryData.Quals.ToProtoQualMap()
+	cacheRequest := &query_cache.CacheRequest{
+		Table:          table.Name,
+		QualMap:        cacheQualMap,
+		Columns:        queryContext.Columns,
+		Limit:          limit,
+		ConnectionName: connectionName,
+		TtlSeconds:     queryContext.CacheTTL,
+		CallId:         connectionCallId,
+	}
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
 		log.Printf("[WARN] cacheEnabled, try cache get")
 		// try to fetch this data from the query cache
-
-		result, err := p.queryCache.Get(ctx, table.Name, cacheQualMap, queryContext.Columns, limit, queryContext.CacheTTL, connectionName)
-		if err != nil {
-			log.Printf("[WARN] queryCacheGet returned err %s", err.Error())
-		} else {
-
-			log.Printf("[INFO] queryCacheGet returned CACHE HIT")
+		result, cacheErr := p.queryCache.Get(ctx, cacheRequest)
+		if cacheErr == nil {
+			// so we got a cahced result - stream it out
+			log.Printf("[WARN] queryCacheGet returned CACHE HIT")
 			queryData.streamCacheResult(result)
-
-			// TODO maybe runtime.GC() ????
 
 			// nothing more to do
 			return nil
 		}
 
+		// so the cache call failed, with either a cahce-miss or other error
+		// in either case just log it
+		if query_cache.IsCacheMiss(cacheErr) {
+			log.Printf("[TRACE] cache MISS")
+		} else {
+			log.Printf("[WARN] queryCacheGet returned err %s", cacheErr.Error())
+		}
+
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS")
+		p.queryCache.StartSet(ctx, cacheRequest)
 
 		// the cache will have added a pending item for this transfer
 		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
 		defer func() {
-			if err != nil || ctx.Err() != nil {
+			if err != nil || ctx.Err() != nil && cacheEnabled {
 				log.Printf("[WARN] Execute call failed err: %v cancelled: %v - cancelling pending item in cache", err, ctx.Err())
-				p.queryCache.CancelPendingItem(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, connectionName)
+				p.queryCache.CancelPendingItem(cacheRequest)
 			}
 		}()
 	} else {
-		log.Printf("[TRACE] Cache DISABLED callId: %s", req.CallId)
+		log.Printf("[TRACE] Cache DISABLED connectionCallId: %s", connectionCallId)
 	}
 
-	log.Printf("[TRACE] fetch items callId: %s", req.CallId)
+	log.Printf("[TRACE] fetch items connectionCallId: %s", connectionCallId)
 	// asyncronously fetch items
 	if err := table.fetchItemsAsync(ctx, queryData); err != nil {
 		log.Printf("[WARN] fetchItemsAsync returned an error, table: %s, error: %v", table.Name, err)
@@ -454,33 +466,22 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	}
 	logging.LogTime("Calling build Rows")
 
-	log.Printf("[TRACE] buildRowsAsync callId: %s", req.CallId)
+	log.Printf("[TRACE] buildRowsAsync connectionCallId: %s", connectionCallId)
 
 	// asyncronously build rows
 	// channel used by streamRows when it receives an error to tell buildRowsAsync to stop
 	doneChan := make(chan bool)
 	queryData.buildRowsAsync(ctx, rowChan, doneChan)
 
-	log.Printf("[TRACE] streamRows callId: %s", req.CallId)
+	log.Printf("[TRACE] streamRows connectionCallId: %s", connectionCallId)
 
 	logging.LogTime("Calling streamRows")
 
 	//  stream rows across GRPC
-	rows, err := queryData.streamRows(ctx, rowChan, doneChan)
-
+	err = queryData.streamRows(ctx, rowChan, doneChan)
 	if err != nil {
 		return err
 	}
-	if !IsCancelled(ctx) {
-		err = p.queryCache.Set(ctx, rows, table.Name, cacheQualMap, queryContext.Columns, limit, connectionName)
-		if err != nil {
-			// just log error, do not fail
-			log.Printf("[WARN] cache set failed: %v", err)
-		}
-	}
-	// TODO ensure we cleanup rows
-	rows = nil
-	runtime.GC()
 
 	return nil
 
@@ -512,12 +513,12 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 	return ctx, span
 }
 
-func (p *Plugin) newQueryData(callId string, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}, connectionData *ConnectionData, executeConnectionData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
+func (p *Plugin) newQueryData(connectionCallId string, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}, connectionData *ConnectionData, executeConnectionData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	// lock access to the newQueryData - otherwise plugin crashes were observed
 	p.concurrencyLock.Lock()
 	defer p.concurrencyLock.Unlock()
 
-	return newQueryData(callId, p, queryContext, table, matrixItem, connectionData, executeConnectionData, outputChan)
+	return newQueryData(connectionCallId, p, queryContext, table, matrixItem, connectionData, executeConnectionData, outputChan)
 }
 
 // initialiseTables does 2 things:
