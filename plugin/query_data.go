@@ -4,6 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"runtime"
+	"sync"
+	"time"
+
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
@@ -12,10 +17,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
-	"log"
-	"runtime"
-	"sync"
-	"time"
 )
 
 const itemBufferSize = 10
@@ -60,7 +61,7 @@ type QueryData struct {
 	// internal
 
 	// the callId for the Execute call
-	callId string
+	connectionCallId string
 
 	plugin *Plugin
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
@@ -91,7 +92,7 @@ type QueryData struct {
 	cacheRows []*proto.Row
 }
 
-func newQueryData(callId string, plugin *Plugin, queryContext *QueryContext, table *Table, matrix []map[string]interface{}, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
+func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, matrix []map[string]interface{}, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
 
 	// create a connection manager
@@ -107,7 +108,7 @@ func newQueryData(callId string, plugin *Plugin, queryContext *QueryContext, tab
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
 		plugin:            plugin,
-		callId:            callId,
+		connectionCallId:  connectionCallId,
 		cacheTtl:          executeData.CacheTtl,
 		cacheEnabled:      executeData.CacheEnabled,
 
@@ -434,23 +435,17 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
-	// run garbage collection hen exiting - without this memory creeps up
+	// run garbage collection when exiting - without this memory creeps up
 	defer runtime.GC()
 
 	// have we streamed enough already?
 	if d.QueryStatus.StreamingComplete {
-		//m := mem.GetProcessMemory()
-		//log.Printf("[WARN] mem 1 %f", m)
 		return
 	}
 
 	// if this is the first time we have received a zero rows remaining, stream an empty row and mark stream
 	if d.QueryStatus.RowsRemaining(ctx) == 0 {
 		log.Printf("[WARN] streamListItem RowsRemaining zero, send nil row %s", d.Connection.Name)
-
-		// TODO better approach?
-		//d.StreamListItem = func(ctx context.Context, item interface{}) {}
-		//d.StreamLeafListItem = func(ctx context.Context, item interface{}) {}
 		d.QueryStatus.StreamingComplete = true
 		// if this is the first time we have received a zero rows remaining, stream an empty row
 		// to indicate downstream that we are done
@@ -484,14 +479,6 @@ func (d *QueryData) fetchComplete(ctx context.Context) {
 	// wait for any child fetches to complete before closing channel
 	d.listWg.Wait()
 	close(d.rowDataChan)
-
-	// if the context was cancelled, stream the cancellation error
-	//if ctx.Err() != nil {
-	//	log.Printf("[WARN] context was cancelled - streaming context error %s", d.Connection.Name)
-	//	d.errorChan <- ctx.Err()
-	//	log.Printf("[WARN] SENT %s", d.Connection.Name)
-	//}
-	//runtime.GC()
 }
 
 // iterate over rowDataChan, for each item build the row and stream over rowChan
@@ -535,18 +522,30 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 
 // read rows from rowChan and stream back across GRPC
 // (also return the rows so we can cache them when complete)
-func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) ([]*proto.Row, error) {
+func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) (err error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
-	var rows []*proto.Row
 	log.Printf("[WARN] streamRows ********************** %s", d.Connection.Name)
 
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
 		d.concurrencyManager.Close()
 		log.Printf("[WARN]streamRows DONE ********************** %s", d.Connection.Name)
+
+		// if there is an error or cancellation, abort the pending set
+		if err != nil || IsCancelled(ctx) {
+			d.plugin.queryCache.AbortSet(d.connectionCallId)
+		} else {
+			// call EndSet to write to the cache
+			cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
+			if cacheErr != nil {
+				// just log error, do not fail
+				log.Printf("[WARN] cache set failed: %v", cacheErr)
+			}
+		}
 	}()
+
 	for {
 		// wait for either an item or an error
 		select {
@@ -557,18 +556,19 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// close done chan - this will cancel buildRowsAsync
 			close(doneChan)
 			// return what we have sent
-			return nil, err
+			return err
 		case row := <-rowChan:
 			//log.Printf("[WARN] got row")
 
 			// nil row means we are done streaming
 			if row == nil {
 				log.Printf("[WARN] streamRows - nil row, stop streaming %s", d.Connection.Name)
-				return rows, nil
+				return nil
 			}
 			// if we are caching stream this row to the cache as well
-			// we do not get a return from set calls
-			rows = append(rows, row)
+			d.plugin.queryCache.IterateSet(row, d.connectionCallId)
+
+			// stream row
 			d.streamRow(row)
 			//log.Printf("[WARN] streamed row")
 		}

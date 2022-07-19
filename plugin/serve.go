@@ -4,6 +4,9 @@ import (
 	"context"
 	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
@@ -41,5 +44,13 @@ func Serve(opts *ServeOpts) {
 		log.Println("[TRACE] Shutdown instrumentation")
 		shutdown()
 	}()
+	if _, found := os.LookupEnv("STEAMPIPE_PPROF"); found {
+		log.Printf("[WARN] PROFILING!!!!")
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	} else {
+		log.Printf("[WARN] NOT PROFILING :(")
+	}
 	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.GetSchema, p.Execute).Serve()
 }

@@ -9,7 +9,6 @@ service WrapperPlugin {
   rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
   rpc SetAllConnectionConfigs(SetAllConnectionConfigsRequest) returns (SetConnectionConfigResponse);
   rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
-//  rpc EstablishCacheConnection(stream CacheResponse) returns (stream CacheRequest);
 }
 
 message Operator {
