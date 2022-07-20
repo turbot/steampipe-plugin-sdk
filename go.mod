@@ -1,4 +1,4 @@
-module github.com/turbot/steampipe-plugin-sdk/v3
+module github.com/turbot/steampipe-plugin-sdk/v4
 
 go 1.18
 

@@ -11,12 +11,12 @@ import (
 
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
 
 const itemBufferSize = 10
@@ -156,6 +156,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		QueryContext:      d.QueryContext,
 		Connection:        d.Connection,
 		ConnectionManager: d.ConnectionManager,
+		ConnectionCache:   d.ConnectionCache,
 		Matrix:            d.Matrix,
 		plugin:            d.plugin,
 		cacheTtl:          d.cacheTtl,

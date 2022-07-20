@@ -7,9 +7,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	pluginshared "github.com/turbot/steampipe-plugin-sdk/v3/grpc/shared"
-	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	pluginshared "github.com/turbot/steampipe-plugin-sdk/v4/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
 )
 
 // PluginClient is the client object used by clients of the plugin

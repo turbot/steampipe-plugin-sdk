@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
-	sdkproto "github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
 
 type CacheData interface {

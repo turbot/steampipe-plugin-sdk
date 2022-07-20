@@ -1,13 +1,13 @@
 package query_cache
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
 // IndexItem stores the columns and cached index for a single cached query result

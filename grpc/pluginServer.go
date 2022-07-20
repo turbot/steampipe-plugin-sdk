@@ -3,9 +3,9 @@ package grpc
 import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	pluginshared "github.com/turbot/steampipe-plugin-sdk/v3/grpc/shared"
-	"github.com/turbot/steampipe-plugin-sdk/v3/version"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	pluginshared "github.com/turbot/steampipe-plugin-sdk/v4/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/v4/version"
 	"log"
 )
 
@@ -89,6 +89,7 @@ func (s PluginServer) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigs
 }
 
 func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
+	log.Printf("[WARN] GetSupportedOperations!!!!")
 	return &proto.GetSupportedOperationsResponse{
 		QueryCache:          true,
 		CacheStream:         true,

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
 // KeyColumnEqualsQualMap is a map of column name to qual value, used to represent a map of any equals quals
