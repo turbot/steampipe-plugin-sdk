@@ -6,9 +6,9 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v3/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v4/query_cache"
 )
 
 const (

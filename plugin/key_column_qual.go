@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
 
 	"github.com/turbot/go-kit/helpers"
 )

@@ -1,10 +1,35 @@
+## v4.0.0 [tbd]
+
+_Breaking changes_
+* `Plugin` properties `Connection`, and `Schema` have been removed, and new property `ConnectionMap` added.  
+This is a map of `ConnectionData` objects, keyed by connection. This is needed as each plugin instance may support multiple connections.
+`ConnectionData` looks as follows
+``` // ConnectionData is the data stored by the plugin which is connection dependent
+type ConnectionData struct {
+	// TableMap is a map of all the tables in the plugin, keyed by the table name
+	TableMap map[string]*Table
+	// connection this plugin is instantiated for
+	Connection *Connection
+	// schema - this may be connection specific for dynamic schemas
+	Schema map[string]*proto.TableSchema
+}
+```
+* `Plugin` property `TableMapFunc` has changed signature, it is now 
+```
+func(ctx context.Context, p *Plugin, connection *Connection) (map[string]*Table, error)
+```
+This is the function which is called for plugins with dynamic schema to returntheir table schema. Note that the parameter `connection` has been added. 
+This may be used in place of the removes `Plugin.Connection` property. 
+* `Plugin` property `ConnectionManager`  has been removed and `QueryData` property `ConnectionManager` 
+has been renamed to `ConnectionCache`. As the plugin can support multiple connections, 
+each connection has its own `ConnectionCache`,  which is a wrapper round an single underlying connection data cache.
+
 ## v3.3.2  [2022-07-11]
 _What's new_
 * Add `MaxConcurrency` to `GetConfig` - for use when using the `Get` hydrate as a column hydrate function. ([#353](https://github.com/turbot/steampipe-plugin-sdk/issues/353))
 * Validate table Name property matches key in plugin's TableMap. ([#355](https://github.com/turbot/steampipe-plugin-sdk/issues/355))
 
-
-## v3.3.1  [2022-06-30]
+## v3.3.1  [2022-6-30]
 
 _Bug fixes_
 * Deprecated `ShouldIgnoreError` property is not being respected if defined in `plugin.DefaultGetConfig`. ([#347](https://github.com/turbot/steampipe-plugin-sdk/issues/347))

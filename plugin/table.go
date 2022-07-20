@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
 )
 
 // Table is a struct representing a plugin table.
