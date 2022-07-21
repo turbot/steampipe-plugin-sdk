@@ -28,7 +28,6 @@ type PluginFunc func(context.Context) *Plugin
 type CreatePlugin func(context.Context, string) (*Plugin, error)
 
 func Serve(opts *ServeOpts) {
-
 	ctx := context.WithValue(context.Background(), context_key.Logger, logging.NewLogger(&hclog.LoggerOptions{DisableTime: true}))
 
 	// call plugin function to build a plugin object
@@ -45,12 +44,11 @@ func Serve(opts *ServeOpts) {
 		shutdown()
 	}()
 	if _, found := os.LookupEnv("STEAMPIPE_PPROF"); found {
-		log.Printf("[WARN] PROFILING!!!!")
+		log.Printf("[INFO] PROFILING!!!!")
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
-	} else {
-		log.Printf("[WARN] NOT PROFILING :(")
 	}
+
 	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.GetSchema, p.Execute).Serve()
 }
