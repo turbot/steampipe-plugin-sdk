@@ -155,13 +155,21 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 		}
 	}()
 
-	log.Printf("[WARN] SetAllConnectionConfigs %d configs", len(configs))
+	log.Printf("[WARN] SetAllConnectionConfigs %d for configs", len(configs))
 
 	// if this plugin does not have dynamic config, we can share table map and schema
 	var exemplarSchema map[string]*proto.TableSchema
 	var exemplarTableMap map[string]*Table
 
+	var aggregators []*proto.ConnectionConfig
 	for _, config := range configs {
+		// NOTE: do not set connection config for aggregator connections
+		if len(config.ChildConnections) > 0 {
+			log.Printf("[WARN] connection %s is an aggregator - handle separately")
+			aggregators = append(aggregators, config)
+			continue
+		}
+
 		connectionName := config.Connection
 
 		connectionConfigString := config.Config
@@ -216,6 +224,21 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 			TableMap:   tableMap,
 			Connection: c,
 			Schema:     schema,
+		}
+	}
+
+	for _, aggregatorConfig := range aggregators {
+		firstChild := p.ConnectionMap[aggregatorConfig.ChildConnections[0]]
+		// we do not currently support aggregator connections for dynamic schema
+		if p.SchemaMode == SchemaModeDynamic {
+			return fmt.Errorf("aggregator connections are not supported for dynamic plugins: connection '%s', plugin: '%s'", aggregatorConfig.Connection, aggregatorConfig.Plugin)
+		}
+
+		// add to connection map using the first child's schema
+		p.ConnectionMap[aggregatorConfig.Connection] = &ConnectionData{
+			TableMap:   firstChild.TableMap,
+			Connection: &Connection{Name: aggregatorConfig.Connection},
+			Schema:     firstChild.Schema,
 		}
 	}
 

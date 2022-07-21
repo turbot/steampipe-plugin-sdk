@@ -141,7 +141,7 @@ message ConnectionConfig {
   string plugin = 2;
   string plugin_short_name = 3;
   string config = 4;
-
+  repeated string child_connections = 5;
 }
 
 message SetConnectionConfigResponse{}
