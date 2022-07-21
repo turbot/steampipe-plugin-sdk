@@ -19,6 +19,8 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
 
+const EnvMaxCacheSize = "STEAMPIPE_MAX_CACHE_SIZE"
+
 type CacheData interface {
 	proto.Message
 	*sdkproto.QueryResult | *sdkproto.IndexBucket
@@ -172,10 +174,10 @@ func (c *QueryCache) StartSet(ctx context.Context, req *CacheRequest) {
 	//req.count = 0
 	//req.resultKeyRoot = c.buildResultKey(req)
 	c.setRequests[req.CallId] = req
-	go c.CollectData(ctx, req.CallId, req.dataChan)
+	go c.collectData(ctx, req.CallId, req.dataChan)
 }
 
-func (c *QueryCache) CollectData(ctx context.Context, callId string, dataChan chan *sdkproto.Row) {
+func (c *QueryCache) collectData(ctx context.Context, callId string, dataChan chan *sdkproto.Row) {
 	for c.collectRow(dataChan, callId) {
 	}
 }
@@ -184,7 +186,7 @@ func (c *QueryCache) collectRow(dataChan chan *sdkproto.Row, callId string) bool
 	row := <-dataChan
 
 	if row == nil {
-		log.Printf("[WARN] QueryCache CollectData null row - exiting")
+		log.Printf("[WARN] QueryCache collectData null row - exiting")
 		// remove pending item
 		delete(c.setRequests, callId)
 		return false
@@ -194,7 +196,7 @@ func (c *QueryCache) collectRow(dataChan chan *sdkproto.Row, callId string) bool
 	defer c.setLock.Unlock()
 	setReq, ok := c.setRequests[callId]
 	if !ok {
-		log.Printf("[ERROR] QueryCache CollectData failed - call id %s was not found in setRequests", callId)
+		log.Printf("[ERROR] QueryCache collectData failed - call id %s was not found in setRequests", callId)
 		return true
 	}
 

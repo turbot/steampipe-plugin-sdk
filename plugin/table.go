@@ -40,6 +40,9 @@ type Table struct {
 	// error handling and concurrency behaviour
 	HydrateConfig []HydrateConfig
 
+	// is caching disabled for this table
+	DisableCache bool
+
 	// map of hydrate function name to columns it provides
 	hydrateColumnMap map[string][]string
 	hydrateConfigMap map[string]*HydrateConfig
