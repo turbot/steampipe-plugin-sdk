@@ -172,44 +172,53 @@ func (c *QueryCache) StartSet(ctx context.Context, req *CacheRequest) {
 	//req.count = 0
 	//req.resultKeyRoot = c.buildResultKey(req)
 	c.setRequests[req.CallId] = req
-	go c.CollectData(ctx, req)
+	go c.CollectData(ctx, req.CallId, req.dataChan)
 }
 
-func (c *QueryCache) CollectData(ctx context.Context, req *CacheRequest) {
-	for {
-		row := <-req.dataChan
-		if row == nil {
-			log.Printf("[WARN] QueryCache CollectData null row - exiting")
-			return
-		}
-		c.setLock.Lock()
-		req, ok := c.setRequests[req.CallId]
-		if !ok {
-			log.Printf("[ERROR] QueryCache CollectData failed - call id %s was not found in setRequests", req.CallId)
-			return
-		}
-
-		//idx := req.count % rowBufferSize
-		req.Rows = append(req.Rows, row)
-		//req.count++
-		//if idx+1 == rowBufferSize {
-		//	// how many buffers have been written
-		//	var blockCount int = req.count / rowBufferSize
-		//	// write to cache - construct result key
-		//	resultKey := fmt.Sprintf("%s=%d", req.resultKeyRoot, blockCount)
-		//	req.resultKeys = append(req.resultKeys, resultKey)
-		//	result := &sdkproto.QueryResult{Rows: req.Rows}
-		//	err := doSet(ctx, resultKey, result, time.Duration(req.TtlSeconds)*time.Second, c.cache)
-		//	if err != nil {
-		//		log.Printf("[WARN] cache Set failed: %v", err)
-		//
-		//	} else {
-		//		log.Printf("[WARN] QueryCache Set - result written")
-		//	}
-		//}
-		c.setRequests[req.CallId] = req
-		c.setLock.Unlock()
+func (c *QueryCache) CollectData(ctx context.Context, callId string, dataChan chan *sdkproto.Row) {
+	for c.collectRow(dataChan, callId) {
 	}
+}
+
+func (c *QueryCache) collectRow(dataChan chan *sdkproto.Row, callId string) bool {
+	row := <-dataChan
+
+	if row == nil {
+		log.Printf("[WARN] QueryCache CollectData null row - exiting")
+		// remove pending item
+		delete(c.setRequests, callId)
+		return false
+	}
+
+	c.setLock.Lock()
+	defer c.setLock.Unlock()
+	setReq, ok := c.setRequests[callId]
+	if !ok {
+		log.Printf("[ERROR] QueryCache CollectData failed - call id %s was not found in setRequests", callId)
+		return true
+	}
+
+	//idx := req.count % rowBufferSize
+	setReq.Rows = append(setReq.Rows, row)
+	//req.count++
+	//if idx+1 == rowBufferSize {
+	//	// how many buffers have been written
+	//	var blockCount int = req.count / rowBufferSize
+	//	// write to cache - construct result key
+	//	resultKey := fmt.Sprintf("%s=%d", req.resultKeyRoot, blockCount)
+	//	req.resultKeys = append(req.resultKeys, resultKey)
+	//	result := &sdkproto.QueryResult{Rows: req.Rows}
+	//	err := doSet(ctx, resultKey, result, time.Duration(req.TtlSeconds)*time.Second, c.cache)
+	//	if err != nil {
+	//		log.Printf("[WARN] cache Set failed: %v", err)
+	//
+	//	} else {
+	//		log.Printf("[WARN] QueryCache Set - result written")
+	//	}
+	//}
+	c.setRequests[callId] = setReq
+
+	return true
 }
 
 func (c *QueryCache) IterateSet(row *sdkproto.Row, callId string) error {
@@ -232,6 +241,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	// get the ongoing request
 	req, ok := c.setRequests[callId]
 	if !ok {
+		log.Printf("[WARN] EndSet called for callId %s but there is no in progress set operation", callId)
 		return fmt.Errorf("EndSet called for callId %s but there is no in progress set operation", callId)
 	}
 	// close the data channel
@@ -246,11 +256,9 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
 		c.pendingItemComplete(req)
-		// remove pending item
-		delete(c.setRequests, callId)
 	}()
 
-	log.Printf("[TRACE] QueryCache EndSet - CacheCommand_SET_RESULT_END command executed")
+	log.Printf("[WARN] QueryCache EndSet - CacheCommand_SET_RESULT_END command executed")
 
 	// get ttl - read here in case the property is updated  between the 2 uses below
 	ttl := c.ttl
@@ -260,10 +268,10 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	result := &sdkproto.QueryResult{Rows: req.Rows}
 	err = doSet(ctx, resultKey, result, ttl, c.cache)
 	if err != nil {
-		log.Printf("[WARN] cache Set failed: %v", err)
+		log.Printf("[WARN] QueryCache EndSet - result Set failed: %v", err)
 		return err
 	} else {
-		log.Printf("[TRACE] QueryCache Set - result written")
+		log.Printf("[WARN] QueryCache EndSet - result written")
 	}
 
 	// now update the index
@@ -272,7 +280,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
 		if IsCacheMiss(err) {
-			log.Printf("[TRACE] getCachedIndexBucket returned cache miss")
+			log.Printf("[WARN] getCachedIndexBucket returned cache miss")
 		} else {
 			// if there is an error fetching the index bucket, log it and return
 			// we do not want to risk overwriting an existing index bucketan
@@ -287,13 +295,13 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		indexBucket = newIndexBucket()
 	}
 	indexBucket.Append(indexItem)
-	log.Printf("[TRACE] Added index item to bucket, key %s", resultKey)
+	log.Printf("[WARN] QueryCache EndSet - Added index item to bucket, key %s", resultKey)
 	err = c.cacheSetIndexBucket(ctx, indexBucketKey, indexBucket, ttl)
 
 	if err != nil {
 		log.Printf("[WARN] cache Set failed for index bucket: %v", err)
 	} else {
-		log.Printf("[TRACE] QueryCache EndSet - IndexBucket written")
+		log.Printf("[WARN] QueryCache EndSet - IndexBucket written")
 	}
 
 	return err
