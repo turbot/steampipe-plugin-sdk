@@ -16,6 +16,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
 	"github.com/turbot/steampipe-plugin-sdk/v4/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v4/version"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"log"
@@ -81,6 +82,8 @@ type Plugin struct {
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) Initialise() {
+	log.Printf("[INFO] Initialise plugin '%s', using sdk version %s", p.Name, version.String())
+
 	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionMap = make(map[string]*ConnectionData)
 
@@ -165,7 +168,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 	for _, config := range configs {
 		// NOTE: do not set connection config for aggregator connections
 		if len(config.ChildConnections) > 0 {
-			log.Printf("[WARN] connection %s is an aggregator - handle separately")
+			log.Printf("[WARN] connection %s is an aggregator - handle separately", config.Connection)
 			aggregators = append(aggregators, config)
 			continue
 		}

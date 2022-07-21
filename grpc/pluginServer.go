@@ -6,7 +6,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/v4/grpc/shared"
 	"github.com/turbot/steampipe-plugin-sdk/v4/version"
-	"log"
 )
 
 type PluginSchema struct {
@@ -89,10 +88,8 @@ func (s PluginServer) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigs
 }
 
 func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
-	log.Printf("[WARN] GetSupportedOperations!!!!")
 	return &proto.GetSupportedOperationsResponse{
 		QueryCache:          true,
-		CacheStream:         true,
 		MultipleConnections: true,
 	}, nil
 }
@@ -101,8 +98,6 @@ func (s PluginServer) Serve() {
 	pluginMap := map[string]plugin.Plugin{
 		s.pluginName: &pluginshared.WrapperPlugin{Impl: s},
 	}
-	log.Printf("[WARN] SERVE!!!!!!!!!!!!!! ")
-
 	plugin.Serve(&plugin.ServeConfig{
 		Plugins:    pluginMap,
 		GRPCServer: plugin.DefaultGRPCServer,

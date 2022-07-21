@@ -116,8 +116,7 @@ message GetSupportedOperationsRequest{}
 
 message GetSupportedOperationsResponse{
   bool query_cache = 1;
-  bool cache_stream = 2;
-  bool multiple_connections = 3;
+  bool multiple_connections = 2;
 }
 
 message SetConnectionConfigRequest{
