@@ -333,7 +333,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
 				log.Printf("[WARNING] WAITING FOR DONE")
 
-				// HACKY MCHACK
+				// TODO HACKY MCHACK
 				for !complete {
 					select {
 					case <-errorChan:
@@ -364,10 +364,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {
 	const rowBufferSize = 10
 	var rowChan = make(chan *proto.Row, rowBufferSize)
-	// get limit and cache vars
-	limitParam := executeData.Limit
-	cacheTTL := executeData.CacheTtl
-	cacheEnabled := executeData.CacheEnabled
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)
@@ -390,16 +386,27 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	if !ok {
 		return fmt.Errorf("no connection data loaded for connection '%s'", connectionName)
 	}
-
 	log.Printf("[TRACE] got connection data")
 
-	logging.LogTime("Start execute")
-
-	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL)
 	table, ok := connectionData.TableMap[req.Table]
 	if !ok {
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
+
+	// get limit and cache vars
+	limitParam := executeData.Limit
+	cacheTTL := executeData.CacheTtl
+	cacheEnabled := executeData.CacheEnabled
+
+	// check whether the cache is disabled for this table
+	if table.DisableCache {
+		cacheEnabled = false
+		log.Printf("[INFO] caching is disabled for table %s", table.Name)
+	}
+
+	logging.LogTime("Start execute")
+
+	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL)
 
 	log.Printf("[TRACE] Got query context, table: %s, cols: %v", req.Table, queryContext.Columns)
 
@@ -435,8 +442,9 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	log.Printf("[TRACE] calling fetchItemsAsync, table: %s, matrixItem: %v, limit: %d", table.Name, queryData.Matrix, limit)
 
-	// convert qual map to trype used by cache
+	// convert qual map to type used by cache
 	cacheQualMap := queryData.Quals.ToProtoQualMap()
+	// build cache request
 	cacheRequest := &query_cache.CacheRequest{
 		Table:          table.Name,
 		QualMap:        cacheQualMap,
@@ -609,8 +617,17 @@ func (p *Plugin) ensureCache() error {
 	// build a connection schema map
 	connectionSchemaMap := p.buildConnectionSchemaMap()
 	if p.queryCache == nil {
-		// TODO max cache storage
-		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, 10000000)
+		maxCacheStorageMb := 1000000
+		log.Printf("[WARN] Plugin ensureCache")
+		if maxCacheSizeEnv, ok := os.LookupEnv(query_cache.EnvMaxCacheSize); ok {
+			log.Printf("[WARN] found STEAMPIPE_MAX_CACHE_SIZE env var: %s", maxCacheSizeEnv)
+			parsedEnv, err := strconv.Atoi(maxCacheSizeEnv)
+			if err != nil {
+				log.Printf("[WARN] parsed STEAMPIPE_MAX_CACHE_SIZE env var: %s", parsedEnv)
+				maxCacheStorageMb = parsedEnv
+			}
+		}
+		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, maxCacheStorageMb)
 		if err != nil {
 			return err
 		}
