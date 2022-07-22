@@ -132,6 +132,7 @@ message ConnectionConfigPayload{
 
 message SetAllConnectionConfigsRequest{
   repeated ConnectionConfig configs = 1;
+  int64 max_cache_size_mb = 2;
 }
 
 
