@@ -7,6 +7,10 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
 )
 
+type TableCacheOptions struct {
+	Enabled bool
+}
+
 // Table is a struct representing a plugin table.
 // It defines the table columns, the function used to list table results (List)
 // as well as (optionally) the function used to retrieve a single result by key (Get)
@@ -39,9 +43,8 @@ type Table struct {
 	// Config for any required hydrate functions, including dependencies between hydrate functions,
 	// error handling and concurrency behaviour
 	HydrateConfig []HydrateConfig
-
-	// is caching disabled for this table
-	DisableCache bool
+	// cache options - allows disabling of cache for this table
+	Cache *TableCacheOptions
 
 	// map of hydrate function name to columns it provides
 	hydrateColumnMap map[string][]string
