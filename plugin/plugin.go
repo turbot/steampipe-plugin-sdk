@@ -146,10 +146,10 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 			Connection: connectionName,
 			Config:     connectionConfigString,
 		},
-	})
+	}, 0)
 }
 
-func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err error) {
+func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
@@ -158,7 +158,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 		}
 	}()
 
-	log.Printf("[WARN] SetAllConnectionConfigs %d for configs", len(configs))
+	log.Printf("[WARN] SetAllConnectionConfigs setting %d configs", len(configs))
 
 	// if this plugin does not have dynamic config, we can share table map and schema
 	var exemplarSchema map[string]*proto.TableSchema
@@ -245,8 +245,9 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig) (err
 		}
 	}
 
-	// now create the query cache - do this AFTER setting the connection config
-	p.ensureCache()
+	// now create the query cache - do this AFTER setting the connection config so the cache can build
+	// the connection schema map
+	p.ensureCache(maxCacheSizeMb)
 
 	return nil
 }
@@ -613,21 +614,14 @@ func (p *Plugin) setuLimit() {
 
 // if query cache does not exist, create
 // if the query cache exists, update the schema
-func (p *Plugin) ensureCache() error {
+func (p *Plugin) ensureCache(maxCacheSizeMb int) error {
 	// build a connection schema map
 	connectionSchemaMap := p.buildConnectionSchemaMap()
 	if p.queryCache == nil {
-		maxCacheStorageMb := 1000000
-		log.Printf("[WARN] Plugin ensureCache")
-		if maxCacheSizeEnv, ok := os.LookupEnv(query_cache.EnvMaxCacheSize); ok {
-			log.Printf("[WARN] found STEAMPIPE_MAX_CACHE_SIZE env var: %s", maxCacheSizeEnv)
-			parsedEnv, err := strconv.Atoi(maxCacheSizeEnv)
-			if err != nil {
-				log.Printf("[WARN] parsed STEAMPIPE_MAX_CACHE_SIZE env var: %s", parsedEnv)
-				maxCacheStorageMb = parsedEnv
-			}
-		}
-		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, maxCacheStorageMb)
+
+		log.Printf("[WARN] Plugin ensureCache creating cache, maxCacheStorageMb %d", maxCacheSizeMb)
+
+		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, maxCacheSizeMb)
 		if err != nil {
 			return err
 		}

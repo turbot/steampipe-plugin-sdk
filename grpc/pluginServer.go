@@ -15,7 +15,7 @@ type PluginSchema struct {
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
-type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig) error
+type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) error
 
 // PluginServer is the server for a single plugin
 type PluginServer struct {
@@ -83,7 +83,7 @@ func (s PluginServer) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigs
 			err = helpers.ToError(r)
 		}
 	}()
-	err = s.setAllConnectionConfigsFunc(req.Configs)
+	err = s.setAllConnectionConfigsFunc(req.Configs, int(req.MaxCacheSizeMb))
 	return &proto.SetConnectionConfigResponse{}, err
 }
 

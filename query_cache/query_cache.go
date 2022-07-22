@@ -19,8 +19,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
 
-const EnvMaxCacheSize = "STEAMPIPE_MAX_CACHE_SIZE"
-
 type CacheData interface {
 	proto.Message
 	*sdkproto.QueryResult | *sdkproto.IndexBucket
@@ -94,25 +92,25 @@ func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSch
 		setRequests:     make(map[string]*CacheRequest),
 		ttl:             defaultTTL,
 	}
-	if err := queryCache.createCache(maxCacheStorageMb, queryCache); err != nil {
+	if err := queryCache.createCache(maxCacheStorageMb); err != nil {
 		return nil, err
 	}
 	log.Printf("[INFO] query cache created")
 	return queryCache, nil
 }
 
-func (c *QueryCache) createCache(maxCacheStorageMb int, queryCache *QueryCache) error {
+func (c *QueryCache) createCache(maxCacheStorageMb int) error {
 	cacheStore, err := c.createCacheStore(maxCacheStorageMb)
 	if err != nil {
 		return err
 	}
-	queryCache.cache = cache.New[[]byte](cacheStore)
+	c.cache = cache.New[[]byte](cacheStore)
 	return nil
 }
 
 func (c *QueryCache) createCacheStore(maxCacheStorageMb int) (store.StoreInterface, error) {
 	config := bigcache.DefaultConfig(5 * time.Minute)
-	config.HardMaxCacheSize = maxCacheStorageMb
+	log.Printf("[TRACE] createCacheStore for plugin '%s' setting max size to %dMb", c.pluginName, maxCacheStorageMb)
 	//config.Shards = 10
 	// max entry size is HardMaxCacheSize/1000
 	//config.MaxEntrySize = (maxCacheStorageMb) * 1024 * 1024
