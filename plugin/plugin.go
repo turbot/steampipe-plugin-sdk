@@ -401,7 +401,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// check whether the cache is disabled for this table
 	if table.Cache != nil {
-		cacheEnabled = table.Cache.Enabled
+		cacheEnabled = table.Cache.Enabled && cacheEnabled
 		if !cacheEnabled {
 			log.Printf("[INFO] caching is disabled for table %s", table.Name)
 		}
