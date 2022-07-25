@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/sync/semaphore"
 	"log"
-	"runtime"
 	"sync"
 	"time"
 
@@ -18,8 +18,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
-
-const itemBufferSize = 10
 
 // NOTE - any field added here must also be added to ShallowCopy
 
@@ -90,12 +88,17 @@ type QueryData struct {
 	cacheColumns []string
 	// buffer rows before sending to the cache in chunks
 	cacheRows []*proto.Row
+	// semaphore used to limit the number of concurrent rows to process
+	rowSemaphore *semaphore.Weighted
 }
 
 func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, matrix []map[string]interface{}, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
 
-	// create a connection manager
+	// limit the number of rows which are processed concurrently
+	maxConcurrentRows := getMaxConcurrentRows()
+
+	// create a connection cache
 	connectionCache := connection_manager.NewConnectionCache(connectionData.Connection.Name, plugin.connectionCacheStore)
 	d := &QueryData{
 		// set deprecated ConnectionManager
@@ -114,11 +117,13 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
-		rowDataChan: make(chan *RowData, itemBufferSize),
-		errorChan:   make(chan error),
-		outputChan:  outputChan,
-		listWg:      &wg,
+		rowDataChan:  make(chan *RowData, maxConcurrentRows),
+		errorChan:    make(chan error),
+		outputChan:   outputChan,
+		listWg:       &wg,
+		rowSemaphore: semaphore.NewWeighted(int64(maxConcurrentRows)),
 	}
+
 	d.StreamListItem = d.streamListItem
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
 	d.StreamLeafListItem = d.streamLeafListItem
@@ -136,7 +141,6 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
-
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
@@ -147,7 +151,6 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 // ShallowCopy creates a shallow copy of the QueryData
 // this is used to pass different quals to multiple list/get calls, when an in() clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
-
 	clone := &QueryData{
 		Table:             d.Table,
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
@@ -171,6 +174,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		listWg:             d.listWg,
 		columns:            d.columns,
 		QueryStatus:        d.QueryStatus,
+		rowSemaphore:       semaphore.NewWeighted(int64(getMaxConcurrentRows())),
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -436,9 +440,6 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
-	// run garbage collection when exiting - without this memory creeps up
-	defer runtime.GC()
-
 	// have we streamed enough already?
 	if d.QueryStatus.StreamingComplete {
 		return
@@ -460,6 +461,12 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	}
 	// increment the stream count
 	d.QueryStatus.rowsStreamed++
+
+	// acquire the rowdata semaphore to limit concurrent rows
+	if err := d.rowSemaphore.Acquire(ctx, 1); err != nil {
+		log.Printf("[WARN] failed to acquire rowData semaphore: %s", err.Error())
+	}
+	defer d.rowSemaphore.Release(1)
 
 	// create rowData, passing matrixItem from context
 	rd := newRowData(d, item)
@@ -538,11 +545,16 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		if err != nil || IsCancelled(ctx) {
 			d.plugin.queryCache.AbortSet(d.connectionCallId)
 		} else {
-			// call EndSet to write to the cache
-			cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
-			if cacheErr != nil {
-				// just log error, do not fail
-				log.Printf("[WARN] cache set failed: %v", cacheErr)
+			// if we are caching call EndSet to write to the cache
+			if d.cacheEnabled {
+				cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
+				if cacheErr != nil {
+					// just log error, do not fail
+					log.Printf("[WARN] cache set failed: %v", cacheErr)
+				} else {
+					log.Printf("[WARN] cache set succeeded")
+				}
+
 			}
 		}
 	}()
@@ -567,7 +579,9 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				return nil
 			}
 			// if we are caching stream this row to the cache as well
-			d.plugin.queryCache.IterateSet(row, d.connectionCallId)
+			if d.cacheEnabled {
+				d.plugin.queryCache.IterateSet(row, d.connectionCallId)
+			}
 
 			// stream row
 			d.streamRow(row)
