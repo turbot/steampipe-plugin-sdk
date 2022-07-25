@@ -135,7 +135,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest) (*sdkproto.Quer
 
 	if IsCacheMiss(err) {
 		log.Printf("[TRACE] getCachedQueryResult returned CACHE MISS - checking for pending transfers")
-		// there was no cached result - is there data fetch in progress?
+		// there was no cached result - is there data fetch in progress?q
 		if pendingItem := c.getPendingResultItem(indexBucketKey, req); pendingItem != nil {
 			log.Printf("[TRACE] found pending item - waiting for it")
 			// so there is a pending result, wait for it
