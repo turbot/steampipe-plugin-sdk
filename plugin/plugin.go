@@ -348,11 +348,12 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			if err := stream.Send(row); err != nil {
 				// cancel any ongoing operations
 				// abort any ongoing cache set operation in the cache server
-				d.abortCacheSet()
+				// TODO
+				//d.abortCacheSet()
 				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
 				log.Printf("[WARNING] WAITING FOR DONE")
 
-				// TODO HACKY MCHACK
+				// TODO TEST CANCELLATION - IS THIS NEEDED?
 				//for !complete {
 				//	select {
 				//	case <-errorChan:
