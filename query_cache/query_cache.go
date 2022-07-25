@@ -46,7 +46,7 @@ type CacheStats struct {
 	Misses int
 }
 
-const rowBufferSize = 100000
+const rowBufferSize = 10000
 
 type CacheRequest struct {
 	CallId         string
@@ -57,12 +57,6 @@ type CacheRequest struct {
 	ConnectionName string
 	Rows           []*sdkproto.Row
 	TtlSeconds     int64
-
-	// internal fields
-	dataChan chan *sdkproto.Row
-	//count         int
-	//resultKeyRoot string
-	//resultKeys    []string
 }
 
 type QueryCache struct {
@@ -166,59 +160,11 @@ func (c *QueryCache) StartSet(ctx context.Context, req *CacheRequest) {
 	log.Printf("[WARN] StartSet %s", req.CallId)
 	c.setLock.Lock()
 	defer c.setLock.Unlock()
-	req.dataChan = make(chan *sdkproto.Row, 100)
 
 	req.Rows = make([]*sdkproto.Row, 0, rowBufferSize)
 	//req.count = 0
 	//req.resultKeyRoot = c.buildResultKey(req)
 	c.setRequests[req.CallId] = req
-	go c.collectData(ctx, req.CallId, req.dataChan)
-}
-
-func (c *QueryCache) collectData(ctx context.Context, callId string, dataChan chan *sdkproto.Row) {
-	for c.collectRow(dataChan, callId) {
-	}
-}
-
-func (c *QueryCache) collectRow(dataChan chan *sdkproto.Row, callId string) bool {
-	row := <-dataChan
-
-	if row == nil {
-		log.Printf("[WARN] QueryCache collectData null row - exiting")
-		// remove pending item
-		delete(c.setRequests, callId)
-		return false
-	}
-
-	c.setLock.Lock()
-	defer c.setLock.Unlock()
-	setReq, ok := c.setRequests[callId]
-	if !ok {
-		log.Printf("[ERROR] QueryCache collectData failed - call id %s was not found in setRequests", callId)
-		return true
-	}
-
-	//idx := req.count % rowBufferSize
-	setReq.Rows = append(setReq.Rows, row)
-	//req.count++
-	//if idx+1 == rowBufferSize {
-	//	// how many buffers have been written
-	//	var blockCount int = req.count / rowBufferSize
-	//	// write to cache - construct result key
-	//	resultKey := fmt.Sprintf("%s=%d", req.resultKeyRoot, blockCount)
-	//	req.resultKeys = append(req.resultKeys, resultKey)
-	//	result := &sdkproto.QueryResult{Rows: req.Rows}
-	//	err := doSet(ctx, resultKey, result, time.Duration(req.TtlSeconds)*time.Second, c.cache)
-	//	if err != nil {
-	//		log.Printf("[WARN] cache Set failed: %v", err)
-	//
-	//	} else {
-	//		log.Printf("[WARN] QueryCache Set - result written")
-	//	}
-	//}
-	c.setRequests[callId] = setReq
-
-	return true
 }
 
 func (c *QueryCache) IterateSet(row *sdkproto.Row, callId string) error {
@@ -229,7 +175,7 @@ func (c *QueryCache) IterateSet(row *sdkproto.Row, callId string) error {
 	if !ok {
 		return fmt.Errorf("IterateSet called for callId %s but there is no in progress set operation", callId)
 	}
-	req.dataChan <- row
+	req.Rows = append(req.Rows, row)
 
 	return nil
 }
@@ -244,8 +190,8 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		log.Printf("[WARN] EndSet called for callId %s but there is no in progress set operation", callId)
 		return fmt.Errorf("EndSet called for callId %s but there is no in progress set operation", callId)
 	}
-	// close the data channel
-	close(req.dataChan)
+	// remove entry from the map
+	defer delete(c.setRequests, callId)
 
 	defer func() {
 		if r := recover(); r != nil {

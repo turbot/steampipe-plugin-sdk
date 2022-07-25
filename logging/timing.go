@@ -23,7 +23,7 @@ type timeLog struct {
 var timing []timeLog
 
 func shouldProfile() bool {
-	return strings.ToUpper(os.Getenv(ProfileEnvVar)) == "TRUE"
+	return strings.ToUpper(os.Getenv(EnvProfile)) == "TRUE"
 }
 
 func LogTime(operation string) {

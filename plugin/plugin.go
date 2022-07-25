@@ -19,6 +19,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/version"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/semaphore"
 	"log"
 	"os"
 	"runtime/debug"
@@ -284,6 +285,11 @@ func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	defer log.Printf("[WARN] EXECUTE DONE************************")
 
+	// limit the plugin memory
+	newLimit := GetMaxMemoryBytes()
+	debug.SetMemoryLimit(newLimit)
+	log.Printf("[WARN] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
+
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
 	doneChan := make(chan bool)
@@ -298,10 +304,22 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// get a context which includes telemetry data and logger
 	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
+	// control how many connections are executed in parallel
+	maxConcurrentConnections := getMaxConcurrentConnections()
+	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
+
 	for connectionName, executeData := range req.ExecuteConnectionData {
 		outputWg.Add(1)
+
 		go func(c string) {
 			defer outputWg.Done()
+
+			if err := sem.Acquire(ctx, 1); err != nil {
+				log.Printf("[WARN] semaphore error: %s", err.Error())
+				return
+			}
+			defer sem.Release(1)
+
 			if err := p.executeForConnection(ctx, req, c, executeData, outputChan); err != nil {
 				log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
 				errorChan <- err
@@ -330,20 +348,20 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			if err := stream.Send(row); err != nil {
 				// cancel any ongoing operations
 				// abort any ongoing cache set operation in the cache server
-				//d.abortCacheSet()
+				d.abortCacheSet()
 				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
 				log.Printf("[WARNING] WAITING FOR DONE")
 
 				// TODO HACKY MCHACK
-				for !complete {
-					select {
-					case <-errorChan:
-						log.Printf("[WARN] error chan select")
-					case <-doneChan:
-						log.Printf("[WARN] done chan select")
-						complete = true
-					}
-				}
+				//for !complete {
+				//	select {
+				//	case <-errorChan:
+				//		log.Printf("[WARN] error chan select")
+				//	case <-doneChan:
+				//		log.Printf("[WARN] done chan select")
+				//		complete = true
+				//	}
+				//}
 				errors = append(errors, err)
 				break
 			}
@@ -368,7 +386,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)
-	log.Printf("[TRACE] EXECUTE callId: %s connection: %s table: %s cols: %s", connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
+	log.Printf("[WARN] EXECUTE callId: %s connection: %s table: %s cols: %s", connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
 		log.Printf("[TRACE] executeForConnection RETURNING %s ***************", connectionName)
@@ -434,7 +452,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		matrixItem = table.GetMatrixItem(ctx, connectionData.Connection)
 	}
 
-	log.Printf("[TRACE] newQueryData")
+	log.Printf("[TRACE] creating query data")
 
 	queryData, err := p.newQueryData(connectionCallId, queryContext, table, matrixItem, connectionData, executeData, outputChan)
 	if err != nil {
@@ -442,8 +460,6 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	}
 
 	limit := queryContext.GetLimit()
-
-	log.Printf("[TRACE] calling fetchItemsAsync, table: %s, matrixItem: %v, limit: %d", table.Name, queryData.Matrix, limit)
 
 	// convert qual map to type used by cache
 	cacheQualMap := queryData.Quals.ToProtoQualMap()
@@ -459,12 +475,12 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	}
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
-		log.Printf("[WARN] cacheEnabled, try cache get")
+		log.Printf("[WARN] cacheEnabled, try cache get (%s)", connectionCallId)
 		// try to fetch this data from the query cache
 		result, cacheErr := p.queryCache.Get(ctx, cacheRequest)
 		if cacheErr == nil {
-			// so we got a cahced result - stream it out
-			log.Printf("[WARN] queryCacheGet returned CACHE HIT")
+			// so we got a cached result - stream it out
+			log.Printf("[WARN] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
 			queryData.streamCacheResult(result)
 
 			// nothing more to do
@@ -479,7 +495,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 			log.Printf("[WARN] queryCacheGet returned err %s", cacheErr.Error())
 		}
 
-		log.Printf("[INFO] queryCacheGet returned CACHE MISS")
+		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 		p.queryCache.StartSet(ctx, cacheRequest)
 
 		// the cache will have added a pending item for this transfer
@@ -494,8 +510,8 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		log.Printf("[TRACE] Cache DISABLED connectionCallId: %s", connectionCallId)
 	}
 
-	log.Printf("[TRACE] fetch items connectionCallId: %s", connectionCallId)
 	// asyncronously fetch items
+	log.Printf("[TRACE] calling fetchItemsAsync, table: %s, matrixItem: %v, limit: %d,  connectionCallId: %s\"", table.Name, queryData.Matrix, limit, connectionCallId)
 	if err := table.fetchItemsAsync(ctx, queryData); err != nil {
 		log.Printf("[WARN] fetchItemsAsync returned an error, table: %s, error: %v", table.Name, err)
 		return err
@@ -551,9 +567,10 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 }
 
 func (p *Plugin) newQueryData(connectionCallId string, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}, connectionData *ConnectionData, executeConnectionData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
+	// TODO remove this lock and observe any ill effects
 	// lock access to the newQueryData - otherwise plugin crashes were observed
-	p.concurrencyLock.Lock()
-	defer p.concurrencyLock.Unlock()
+	//p.concurrencyLock.Lock()
+	//defer p.concurrencyLock.Unlock()
 
 	return newQueryData(connectionCallId, p, queryContext, table, matrixItem, connectionData, executeConnectionData, outputChan)
 }
