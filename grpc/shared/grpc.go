@@ -24,6 +24,9 @@ func (c *GRPCClient) Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_Exe
 	client, err := c.client.Execute(ctx, req)
 	return client, ctx, cancel, err
 }
+func (c *GRPCClient) EndExecute(req *proto.EndExecuteRequest) (*proto.EndExecuteResponse, error) {
+	return c.client.EndExecute(c.ctx, req)
+}
 
 func (c *GRPCClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) {
 	return c.client.SetConnectionConfig(c.ctx, req)
@@ -50,7 +53,10 @@ func (m *GRPCServer) GetSchema(_ context.Context, req *proto.GetSchemaRequest) (
 
 func (m *GRPCServer) Execute(req *proto.ExecuteRequest, server proto.WrapperPlugin_ExecuteServer) error {
 	return m.Impl.Execute(req, server)
+}
 
+func (m *GRPCServer) EndExecute(_ context.Context, req *proto.EndExecuteRequest) (*proto.EndExecuteResponse, error) {
+	return m.Impl.EndExecute(req)
 }
 
 func (m *GRPCServer) SetConnectionConfig(_ context.Context, req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) {

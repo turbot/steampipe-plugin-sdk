@@ -8,6 +8,7 @@ import (
 	"github.com/eko/gocache/v3/store"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
@@ -77,7 +78,10 @@ type Plugin struct {
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
 	connectionCacheStore *cache.Cache[any]
 
-	concurrencyLock sync.Mutex
+	// map of completed execution callIds
+	// (populated when Postgres calls EndForeignScan when it has sufficient data
+	completedExecutions    map[string]struct{}
+	completedExecutionLock sync.Mutex
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -120,8 +124,10 @@ func (p *Plugin) Initialise() {
 	}
 
 	// set file limit
+	// TODO REMOVE WITH GO 1.19
 	p.setuLimit()
 
+	p.completedExecutions = make(map[string]struct{})
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
 	}
@@ -346,24 +352,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 
 			if err := stream.Send(row); err != nil {
-				// cancel any ongoing operations
-				// abort any ongoing cache set operation in the cache server
-				// TODO
-				//d.abortCacheSet()
-				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
-				log.Printf("[WARNING] WAITING FOR DONE")
-
-				// TODO TEST CANCELLATION - IS THIS NEEDED?
-				//for !complete {
-				//	select {
-				//	case <-errorChan:
-				//		log.Printf("[WARN] error chan select")
-				//	case <-doneChan:
-				//		log.Printf("[WARN] done chan select")
-				//		complete = true
-				//	}
-				//}
-				errors = append(errors, err)
+				// ignore context cancellation - they will get picked up further downstream
+				if !error_helpers.IsContextCancelledError(err) {
+					errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
+				}
 				break
 			}
 		case err := <-errorChan:
@@ -379,6 +371,21 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	close(errorChan)
 
 	return helpers.CombineErrors(errors...)
+}
+
+// EndExecute is called by the FDW when Postgres has called EndForeignScan
+// It does this when it has received enough data to satisfy the limit
+// We need to tell the plugin the scan has been successfully ended
+// as the context will be cancelled and we need to ensure
+// that any outstanding cache operations are completed
+func (p *Plugin) EndExecute(req *proto.EndExecuteRequest) error {
+	// TODO map on ongoing executions with status
+	log.Printf("[WARN] plugin EndExecute for callId %s", req.CallId)
+	p.completedExecutionLock.Lock()
+	defer p.completedExecutionLock.Unlock()
+	p.completedExecutions[req.CallId] = struct{}{}
+	return nil
+
 }
 
 func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {
@@ -455,7 +462,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	log.Printf("[TRACE] creating query data")
 
-	queryData, err := p.newQueryData(connectionCallId, queryContext, table, matrixItem, connectionData, executeData, outputChan)
+	queryData, err := newQueryData(connectionCallId, p, queryContext, table, matrixItem, connectionData, executeData, outputChan)
 	if err != nil {
 		return err
 	}
@@ -498,15 +505,6 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 		p.queryCache.StartSet(ctx, cacheRequest)
-
-		// the cache will have added a pending item for this transfer
-		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
-		defer func() {
-			if err != nil || ctx.Err() != nil && cacheEnabled {
-				log.Printf("[WARN] Execute call failed err: %v cancelled: %v - cancelling pending item in cache", err, ctx.Err())
-				p.queryCache.CancelPendingItem(cacheRequest)
-			}
-		}()
 	} else {
 		log.Printf("[TRACE] Cache DISABLED connectionCallId: %s", connectionCallId)
 	}
@@ -565,15 +563,6 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value))
 	}
 	return ctx, span
-}
-
-func (p *Plugin) newQueryData(connectionCallId string, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}, connectionData *ConnectionData, executeConnectionData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
-	// TODO remove this lock and observe any ill effects
-	// lock access to the newQueryData - otherwise plugin crashes were observed
-	//p.concurrencyLock.Lock()
-	//defer p.concurrencyLock.Unlock()
-
-	return newQueryData(connectionCallId, p, queryContext, table, matrixItem, connectionData, executeConnectionData, outputChan)
 }
 
 // initialiseTables does 2 things:
