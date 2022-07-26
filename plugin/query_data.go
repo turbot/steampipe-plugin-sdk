@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"golang.org/x/sync/semaphore"
 	"log"
 	"sync"
@@ -58,7 +59,7 @@ type QueryData struct {
 
 	// internal
 
-	// the callId for the Execute call
+	// the callId for this connection
 	connectionCallId string
 
 	plugin *Plugin
@@ -542,7 +543,11 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		log.Printf("[WARN] QueryData streamRows DONE %s", d.Connection.Name)
 
 		// if there is an error or cancellation, abort the pending set
-		if err != nil || IsCancelled(ctx) {
+		// if the context is cancelled and the parent callId is in the list of completed executions,
+		// this means Postgres has called EndForeignScan as it has enough data, and the context has been cancelled
+		// call EndSet
+		if err != nil || (error_helpers.IsCancelled(ctx) && !d.executionEnded()) {
+			log.Printf("[WARN] streamRows for %s - execution has failed or been cancelled - calling queryCache.AbortSet", d.connectionCallId)
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId)
 		} else {
 			// if we are caching call EndSet to write to the cache
@@ -656,4 +661,18 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	logging.DisplayProfileData(10 * time.Millisecond)
 	log.Println("[WARN] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
+}
+
+// has our execution been happily terminated by postgres (i.e. because it has enough data)
+func (d *QueryData) executionEnded() bool {
+	callId, _, err := grpc.ParseConnectionCallId(d.connectionCallId)
+	if err != nil {
+		return false
+	}
+	d.plugin.completedExecutionLock.Lock()
+	defer d.plugin.completedExecutionLock.Unlock()
+
+	// is this call id in the list of completed executions?
+	_, isCompleted := d.plugin.completedExecutions[callId]
+	return isCompleted
 }
