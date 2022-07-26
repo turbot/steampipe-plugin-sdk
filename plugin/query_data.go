@@ -534,16 +534,16 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
-	log.Printf("[WARN] streamRows ********************** %s", d.Connection.Name)
+	log.Printf("[WARN] QueryData streamRows %s", d.Connection.Name)
 
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
 		d.concurrencyManager.Close()
-		log.Printf("[WARN]streamRows DONE ********************** %s", d.Connection.Name)
+		log.Printf("[WARN] QueryData streamRows DONE %s", d.Connection.Name)
 
 		// if there is an error or cancellation, abort the pending set
 		if err != nil || IsCancelled(ctx) {
-			d.plugin.queryCache.AbortSet(d.connectionCallId)
+			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId)
 		} else {
 			// if we are caching call EndSet to write to the cache
 			if d.cacheEnabled {
@@ -580,7 +580,7 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			}
 			// if we are caching stream this row to the cache as well
 			if d.cacheEnabled {
-				d.plugin.queryCache.IterateSet(row, d.connectionCallId)
+				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
 			}
 
 			// stream row
@@ -610,13 +610,6 @@ func (d *QueryData) streamError(err error) {
 	log.Printf("[WARN] stream error %v", err)
 	d.errorChan <- err
 	log.Printf("[WARN] stream error DONE")
-}
-
-func (d *QueryData) streamCacheResult(result *proto.QueryResult) {
-	for _, r := range result.Rows {
-		d.QueryStatus.cachedRowsFetched++
-		d.streamRow(r)
-	}
 }
 
 // execute necessary hydrate calls to populate row data

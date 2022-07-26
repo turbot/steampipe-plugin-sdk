@@ -41,7 +41,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey string, req *CacheRequest) (result *sdkproto.QueryResult, err error) {
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (rowCount int64, err error) {
 	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", req.Table)
 	defer span.End()
 
@@ -80,7 +80,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		// now try to read from the cache again
 		var err error
 
-		result, err = c.getCachedQueryResult(ctx, indexBucketKey, req)
+		rowCount, err = c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem - getCachedResult returned error: %v", err)
 			// if the data is still not in the cache, create a pending item
@@ -96,7 +96,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 			log.Printf("[TRACE] waitForPendingItem retrieved from cache, indexBucketKey: %s", indexBucketKey)
 		}
 	}
-	return result, err
+	return rowCount, err
 }
 
 func (c *QueryCache) addPendingResult(indexBucketKey string, req *CacheRequest) {
@@ -115,7 +115,7 @@ func (c *QueryCache) addPendingResult(indexBucketKey string, req *CacheRequest) 
 	// this pending item _may_ already exist - if we have previously fetched the same data (perhaps the ttl expired)
 	// create a new one anyway to replace that one
 	// NOTE: when creating a pending item the lock wait group is incremented automatically
-	pendingIndexBucket.Items[resultKey] = NewPendingIndexItem(req.Columns, resultKey, req.Limit)
+	pendingIndexBucket.Items[resultKey] = NewPendingIndexItem(req)
 
 	// now write back to pending data map
 	c.pendingData[indexBucketKey] = pendingIndexBucket
