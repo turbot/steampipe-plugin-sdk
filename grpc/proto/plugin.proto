@@ -293,5 +293,6 @@ message IndexItem{
   map<string, Quals> quals = 3;
   repeated string columns=4;
   int64 limit = 5;
-  google.protobuf.Timestamp insertion_time =6;
+  int64 page_count = 6;
+  google.protobuf.Timestamp insertion_time =7;
 }

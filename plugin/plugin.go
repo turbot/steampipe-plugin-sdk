@@ -478,11 +478,11 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	if cacheEnabled {
 		log.Printf("[WARN] cacheEnabled, try cache get (%s)", connectionCallId)
 		// try to fetch this data from the query cache
-		result, cacheErr := p.queryCache.Get(ctx, cacheRequest)
+		cachedRowCount, cacheErr := p.queryCache.Get(ctx, cacheRequest, queryData.streamRow)
 		if cacheErr == nil {
 			// so we got a cached result - stream it out
 			log.Printf("[WARN] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
-			queryData.streamCacheResult(result)
+			queryData.QueryStatus.cachedRowsFetched += cachedRowCount
 
 			// nothing more to do
 			return nil

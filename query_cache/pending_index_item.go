@@ -52,34 +52,34 @@ func (b *pendingIndexBucket) delete(pendingItem *pendingIndexItem) {
 // note - this index item it tied to a specific table and set of quals
 type pendingIndexItem struct {
 	item *IndexItem
-	lock *sync.WaitGroup
+	wg   *sync.WaitGroup
 	// used for logging purposes only (as we cannot access wait groups count)
 	count int
 }
 
-func (p *pendingIndexItem) Lock() {
-	log.Printf("[TRACE] pendingIndexItem Lock count before %d", p.count)
-	p.lock.Add(1)
-	p.count++
+func (i *pendingIndexItem) Lock() {
+	log.Printf("[TRACE] pendingIndexItem Lock count before %d", i.count)
+	i.wg.Add(1)
+	i.count++
 }
 
-func (p *pendingIndexItem) Unlock() {
-	log.Printf("[TRACE] pendingIndexItem Unlock count before %d", p.count)
-	p.lock.Done()
-	p.count--
+func (i *pendingIndexItem) Unlock() {
+	log.Printf("[TRACE] pendingIndexItem Unlock count before %d", i.count)
+	i.wg.Done()
+	i.count--
 }
 
-func (p *pendingIndexItem) Wait() {
+func (i *pendingIndexItem) Wait() {
 	log.Printf("[TRACE] pendingIndexItem Wait")
 
-	p.lock.Wait()
+	i.wg.Wait()
 	log.Printf("[TRACE] pendingIndexItem Wait DONE")
 }
 
-func NewPendingIndexItem(columns []string, key string, limit int64) *pendingIndexItem {
+func NewPendingIndexItem(req *CacheRequest) *pendingIndexItem {
 	res := &pendingIndexItem{
-		item: NewIndexItem(columns, key, limit, nil),
-		lock: new(sync.WaitGroup),
+		item: NewIndexItem(req),
+		wg:   new(sync.WaitGroup),
 	}
 	// increment wait group - indicate this item is pending
 	res.Lock()

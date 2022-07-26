@@ -42,6 +42,7 @@ func (b *IndexBucket) AsProto() *proto.IndexBucket {
 			Quals:         item.Quals,
 			Columns:       item.Columns,
 			Limit:         item.Limit,
+			PageCount:     item.PageCount,
 			InsertionTime: timestamppb.New(item.InsertionTime),
 		}
 	}
@@ -58,6 +59,7 @@ func IndexBucketfromProto(b *proto.IndexBucket) *IndexBucket {
 			Quals:         item.Quals,
 			Columns:       item.Columns,
 			Limit:         item.Limit,
+			PageCount:     item.PageCount,
 			InsertionTime: item.InsertionTime.AsTime(),
 		}
 	}
