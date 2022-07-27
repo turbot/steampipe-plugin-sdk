@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 )
 
 const (
@@ -306,14 +305,15 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
 	// control how many connections are executed in parallel
-	maxConcurrentConnections := 1 //getMaxConcurrentConnections()
+	maxConcurrentConnections := getMaxConcurrentConnections()
 	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
 
 	for connectionName, executeData := range req.ExecuteConnectionData {
-		log.Printf("[WARN] SPAWN executeForConnection - INC WG")
 		outputWg.Add(1)
 
 		go func(c string) {
+			defer outputWg.Done()
+
 			if err := sem.Acquire(ctx, 1); err != nil {
 				log.Printf("[WARN] semaphore error: %s", err.Error())
 				return
@@ -332,21 +332,17 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	go func() {
 		outputWg.Wait()
-		log.Printf("[WARN] WG COMPLETE - CLOSED OUTPUT CHANNEL")
 		close(doneChan)
 	}()
 
-	log.Printf("[WARN] STARTED ALL CONNECTIONS")
 	complete := false
 	for !complete {
 		select {
 		case row := <-outputChan:
-			log.Printf("[WARN] GOT ROW ON OUTPUT CHANNEL")
-			// nil row means that one connection is done streaming
+			// nil row means that connection is done streaming
 			if row == nil {
-				log.Printf("[WARN] EMPTY ROW ON OUTPUT CHANNEL - DEC WG")
-				// decrement wait group
-				outputWg.Done()
+				// continue looping
+				break
 			}
 
 			if err := stream.Send(row); err != nil {
@@ -367,8 +363,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	close(outputChan)
 	close(errorChan)
-
-	log.Printf("[WARN] RETURN")
 
 	return helpers.CombineErrors(errors...)
 }
@@ -469,22 +463,12 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
 		log.Printf("[WARN] cacheEnabled, try cache get (%s)", connectionCallId)
-
-		// create a function to increment cachedRowsFetched and stream a row
-		streamRowFunc := func(row *proto.Row) {
-			// if row is not nil (indicating completion), increment cachedRowsFetched
-			if row != nil {
-				atomic.AddInt64(&queryData.QueryStatus.cachedRowsFetched, 1)
-			}
-			queryData.streamRow(row)
-			log.Printf("[WARN] STREAM ROW____ cached rows fetched %d", queryData.streamRow) //queryData.QueryStatus.cachedRowsFetched)
-		}
-
 		// try to fetch this data from the query cache
-		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamRowFunc)
+		cachedRowCount, cacheErr := p.queryCache.Get(ctx, cacheRequest, queryData.streamRow)
 		if cacheErr == nil {
 			// so we got a cached result - stream it out
 			log.Printf("[WARN] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
+			queryData.QueryStatus.cachedRowsFetched += cachedRowCount
 
 			// nothing more to do
 			return nil
