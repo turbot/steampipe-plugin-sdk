@@ -120,6 +120,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 			// so there is a pending result, wait for it
 			return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, req, streamRowFunc)
 		}
+		log.Printf("[WARN] CACHE MISS ")
 	}
 
 	return rowCount, err
@@ -167,9 +168,7 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 		//defer req.rowLock.Unlock()
 
 		req.err = c.writePageToCache(ctx, req)
-		// reset the row buffer index and increment the page count
-		req.rowIndex = 0
-		req.pageCount++
+
 		//}()
 	}
 
@@ -213,9 +212,6 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	} else {
 		log.Printf("[WARN] QueryCache EndSet - result written")
 	}
-
-	// update the page count for this final (incomplete) page
-	req.pageCount++
 
 	// now update the index
 	// get the index bucket for this table and quals
@@ -296,6 +292,7 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *CacheRequest) er
 	if len(rows) == 0 {
 		return nil
 	}
+
 	pageKey := req.getPageResultKey()
 
 	log.Printf("[WARN] QueryCache writePageToCache: %d rows, page key %s", len(rows), pageKey)
@@ -307,11 +304,15 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *CacheRequest) er
 	} else {
 		log.Printf("[WARN] writePageToCache Set - result written")
 	}
+
+	// reset the row buffer index and increment the page count
+	req.rowIndex = 0
+	req.pageCount++
+
 	return err
 }
 
 func (c *QueryCache) getCachedIndexBucket(ctx context.Context, key string) (*IndexBucket, error) {
-
 	var indexBucket = &sdkproto.IndexBucket{}
 	if err := doGet(ctx, key, c.cache, indexBucket); err != nil {
 		if IsCacheMiss(err) {
@@ -334,7 +335,7 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 	log.Printf("[WARN] QueryCache getCachedQueryResult - table %s, connectionName %s", req.Table, req.ConnectionName)
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
 
-	log.Printf("[WARN] QueryCache getCachedQueryResult - index bucket key: %s ttlSeconds %d\n", indexBucketKey, req.TtlSeconds)
+	log.Printf("[WARN] index bucket key: %s ttlSeconds %d limit: %d\n", indexBucketKey, req.TtlSeconds, req.Limit)
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
 		return 0, err
@@ -380,7 +381,7 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 			var cacheResult = &sdkproto.QueryResult{}
 			if err := doGet[*sdkproto.QueryResult](ctx, pageKey, c.cache, cacheResult); err != nil {
 				if IsCacheMiss(err) {
-					log.Printf("[TRACE] getCachedQueryResult - no item retrieved for cache key %s", indexItem.Key)
+					log.Printf("[WARN] getCachedQueryResult - no item retrieved for cache key %s", pageKey)
 				} else {
 					log.Printf("[WARN] cacheGetResult Get failed %v", err)
 				}
@@ -408,12 +409,14 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 	for {
 		select {
 		case err := <-errorChan:
+			log.Printf("[WARN] received error: %s", err.Error())
 			if IsCacheMiss(err) {
 				cacheHit = false
 			} else {
 				errors = append(errors, err)
 			}
 		case <-doneChan:
+			log.Printf("[WARN] DONE")
 			// any real errors return them
 			if len(errors) > 0 {
 				return 0, helpers.CombineErrors(errors...)

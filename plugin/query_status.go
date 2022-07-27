@@ -2,7 +2,7 @@ package plugin
 
 import (
 	"context"
-kj	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"math"
 )
 

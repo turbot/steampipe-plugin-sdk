@@ -546,7 +546,7 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		// if the context is cancelled and the parent callId is in the list of completed executions,
 		// this means Postgres has called EndForeignScan as it has enough data, and the context has been cancelled
 		// call EndSet
-		if err != nil || (error_helpers.IsCancelled(ctx) && !d.executionEnded()) {
+		if err != nil || error_helpers.IsCancelled(ctx) {
 			log.Printf("[WARN] streamRows for %s - execution has failed or been cancelled - calling queryCache.AbortSet", d.connectionCallId)
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId)
 		} else {
@@ -559,7 +559,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				} else {
 					log.Printf("[WARN] cache set succeeded")
 				}
-
 			}
 		}
 	}()
@@ -590,7 +589,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 
 			// stream row
 			d.streamRow(row)
-			//log.Printf("[WARN] streamed row")
 		}
 	}
 
@@ -607,7 +605,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 		},
 		Connection: d.Connection.Name,
 	}
-
+	log.Printf("[WARN] streamRow d.QueryStatus.rowsStreamed %d d.QueryStatus.cachedRowsFetched %d", d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched)
 	d.outputChan <- resp
 }
 
@@ -661,18 +659,4 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	logging.DisplayProfileData(10 * time.Millisecond)
 	log.Println("[WARN] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
-}
-
-// has our execution been happily terminated by postgres (i.e. because it has enough data)
-func (d *QueryData) executionEnded() bool {
-	callId, _, err := grpc.ParseConnectionCallId(d.connectionCallId)
-	if err != nil {
-		return false
-	}
-	d.plugin.completedExecutionLock.Lock()
-	defer d.plugin.completedExecutionLock.Unlock()
-
-	// is this call id in the list of completed executions?
-	_, isCompleted := d.plugin.completedExecutions[callId]
-	return isCompleted
 }
