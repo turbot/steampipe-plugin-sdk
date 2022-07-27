@@ -41,7 +41,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 	return pendingItem
 }
 
-func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (rowCount int64, err error) {
+func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (err error) {
 	ctx, span := telemetry.StartSpan(ctx, c.pluginName, "QueryCache.waitForPendingItem (%s)", req.Table)
 	defer span.End()
 
@@ -80,7 +80,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		// now try to read from the cache again
 		var err error
 
-		rowCount, err = c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
+		_, err = c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem - getCachedResult returned error: %v", err)
 			// if the data is still not in the cache, create a pending item
@@ -96,7 +96,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 			log.Printf("[TRACE] waitForPendingItem retrieved from cache, indexBucketKey: %s", indexBucketKey)
 		}
 	}
-	return rowCount, err
+	return err
 }
 
 func (c *QueryCache) addPendingResult(indexBucketKey string, req *CacheRequest) {
