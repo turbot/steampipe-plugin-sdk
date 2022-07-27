@@ -581,6 +581,9 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		case row := <-rowChan:
 			//log.Printf("[WARN] got row")
 
+			// stream row (even if it is nil)
+			//d.streamRow(row)
+
 			// nil row means we are done streaming
 			if row == nil {
 				log.Printf("[WARN] streamRows - nil row, stop streaming %s", d.Connection.Name)
@@ -609,7 +612,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 		},
 		Connection: d.Connection.Name,
 	}
-	log.Printf("[WARN] streamRow d.QueryStatus.rowsStreamed %d d.QueryStatus.cachedRowsFetched %d", d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched)
+	//log.Printf("[WARN] streamRow d.QueryStatus.rowsStreamed %d d.QueryStatus.cachedRowsFetched %d", d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched)
 	d.outputChan <- resp
 }
 

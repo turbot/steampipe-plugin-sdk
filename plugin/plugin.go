@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -292,7 +293,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
-	doneChan := make(chan bool)
+	//doneChan := make(chan bool)
 	var outputWg sync.WaitGroup
 
 	// add CallId to logs for the execute call
@@ -305,10 +306,11 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
 	// control how many connections are executed in parallel
-	maxConcurrentConnections := getMaxConcurrentConnections()
+	maxConcurrentConnections := 1 //getMaxConcurrentConnections()
 	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
 
 	for connectionName, executeData := range req.ExecuteConnectionData {
+		log.Printf("[WARN] SPAWN executeForConnection - INC WG")
 		outputWg.Add(1)
 
 		go func(c string) {
@@ -332,16 +334,21 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	go func() {
 		outputWg.Wait()
-		close(doneChan)
+		// so all executeForConnection calls are complete
+		// stream a nil row to indicate completion
+		log.Printf("[WARN] WG COMPLETE - CLOSED OUTPUT CHANNEL")
+		outputChan <- nil
 	}()
 
 	complete := false
 	for !complete {
 		select {
 		case row := <-outputChan:
-			// nil row means that connection is done streaming
+			//log.Printf("[WARN] GOT ROW ON OUTPUT CHANNEL")
+			// nil row means that one connection is done streaming
 			if row == nil {
-				// continue looping
+				log.Printf("[WARN] EMPTY ROW ON OUTPUT CHANNEL - WE ARE DONE")
+				complete = true
 				break
 			}
 
@@ -355,14 +362,13 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		case err := <-errorChan:
 			log.Printf("[WARN] error channel received %s", err.Error())
 			errors = append(errors, err)
-		case <-doneChan:
-			log.Printf("[WARN] done, closing channels")
-			complete = true
 		}
 	}
 
 	close(outputChan)
 	close(errorChan)
+
+	log.Printf("[WARN] RETURN")
 
 	return helpers.CombineErrors(errors...)
 }
@@ -463,12 +469,22 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
 		log.Printf("[WARN] cacheEnabled, try cache get (%s)", connectionCallId)
+
+		// create a function to increment cachedRowsFetched and stream a row
+		streamRowFunc := func(row *proto.Row) {
+			// if row is not nil (indicating completion), increment cachedRowsFetched
+			if row != nil {
+				atomic.AddInt64(&queryData.QueryStatus.cachedRowsFetched, 1)
+			}
+			queryData.streamRow(row)
+			log.Printf("[WARN] STREAM ROW____ cached rows fetched %d", queryData.streamRow) //queryData.QueryStatus.cachedRowsFetched)
+		}
+
 		// try to fetch this data from the query cache
-		cachedRowCount, cacheErr := p.queryCache.Get(ctx, cacheRequest, queryData.streamRow)
+		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamRowFunc)
 		if cacheErr == nil {
 			// so we got a cached result - stream it out
 			log.Printf("[WARN] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
-			queryData.QueryStatus.cachedRowsFetched += cachedRowCount
 
 			// nothing more to do
 			return nil
