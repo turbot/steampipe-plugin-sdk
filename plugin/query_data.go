@@ -115,12 +115,12 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 		Table:             table,
 		QueryContext:      queryContext,
 		Connection:        connectionData.Connection,
-		KeyColumnQuals:   make(map[string]*proto.QualValue),
-		Quals:            make(KeyColumnQualMap),
-		plugin:           plugin,
-		connectionCallId: connectionCallId,
-		cacheTtl:         executeData.CacheTtl,
-		cacheEnabled:     executeData.CacheEnabled,
+		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		Quals:             make(KeyColumnQualMap),
+		plugin:            plugin,
+		connectionCallId:  connectionCallId,
+		cacheTtl:          executeData.CacheTtl,
+		cacheEnabled:      executeData.CacheEnabled,
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -687,4 +687,3 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	log.Println("[WARN] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
 }
-
