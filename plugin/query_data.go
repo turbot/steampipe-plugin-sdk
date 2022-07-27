@@ -100,7 +100,7 @@ type QueryData struct {
 	freeMemInterval int64
 }
 
-func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, matrix []map[string]interface{}, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
+func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
 
 	// limit the number of rows which are processed concurrently
@@ -115,13 +115,12 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 		Table:             table,
 		QueryContext:      queryContext,
 		Connection:        connectionData.Connection,
-		Matrix:            matrix,
-		KeyColumnQuals:    make(map[string]*proto.QualValue),
-		Quals:             make(KeyColumnQualMap),
-		plugin:            plugin,
-		connectionCallId:  connectionCallId,
-		cacheTtl:          executeData.CacheTtl,
-		cacheEnabled:      executeData.CacheEnabled,
+		KeyColumnQuals:   make(map[string]*proto.QualValue),
+		Quals:            make(KeyColumnQualMap),
+		plugin:           plugin,
+		connectionCallId: connectionCallId,
+		cacheTtl:         executeData.CacheTtl,
+		cacheEnabled:     executeData.CacheEnabled,
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -137,10 +136,6 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
 	d.StreamLeafListItem = d.streamLeafListItem
 	d.setFetchType(table)
-	// if we have key column quals for any matrix properties, filter the matrix
-	// to exclude items which do not satisfy the quals
-	// this populates the property filteredMatrix
-	d.filterMatrixItems()
 
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	ensureColumns(queryContext, table)
@@ -155,6 +150,14 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
 
 	return d, nil
+}
+
+func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
+	d.Matrix = matrix
+	// if we have key column quals for any matrix properties, filter the matrix
+	// to exclude items which do not satisfy the quals
+	// this populates the property filteredMatrix
+	d.filterMatrixItems()
 }
 
 // ShallowCopy creates a shallow copy of the QueryData
@@ -684,3 +687,4 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	log.Println("[WARN] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
 }
+
