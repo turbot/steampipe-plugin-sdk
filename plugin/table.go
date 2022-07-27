@@ -47,7 +47,7 @@ type Table struct {
 	Cache *TableCacheOptions
 
 	// map of hydrate function name to columns it provides
-	hydrateColumnMap map[string][]string
+	//hydrateColumnMap map[string][]string
 	hydrateConfigMap map[string]*HydrateConfig
 }
 
@@ -166,13 +166,17 @@ func (t *Table) buildHydrateConfigMap() {
 // first. BEFORE the other hydration functions
 // NOTE2: this function also populates the resolvedHydrateName for each column (used to retrieve column values),
 // and the hydrateColumnMap (used to determine which columns to return)
-func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*HydrateCall {
+func (d *QueryData) populateRequiredHydrateCalls() {
+	t := d.Table
+	colsUsed := d.QueryContext.Columns
+	fetchType := d.FetchType
+
 	// what is the name of the fetch call (i.e. the get/list call)
 	fetchFunc := t.getFetchFunc(fetchType)
 	fetchCallName := helpers.GetFunctionName(fetchFunc)
 
 	// initialise hydrateColumnMap
-	t.hydrateColumnMap = make(map[string][]string)
+	d.hydrateColumnMap = make(map[string][]string)
 	requiredCallBuilder := newRequiredHydrateCallBuilder(t, fetchCallName)
 
 	// populate a map keyed by function name to ensure we only store each hydrate function once
@@ -196,9 +200,9 @@ func (t *Table) requiredHydrateCalls(colsUsed []string, fetchType fetchType) []*
 		}
 
 		// now update hydrateColumnMap
-		t.hydrateColumnMap[hydrateName] = append(t.hydrateColumnMap[hydrateName], column.Name)
+		d.hydrateColumnMap[hydrateName] = append(d.hydrateColumnMap[hydrateName], column.Name)
 	}
-	return requiredCallBuilder.Get()
+	d.hydrateCalls = requiredCallBuilder.Get()
 }
 
 func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {

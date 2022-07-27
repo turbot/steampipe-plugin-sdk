@@ -91,6 +91,10 @@ type QueryData struct {
 	cacheRows []*proto.Row
 	// semaphore used to limit the number of concurrent rows to process
 	rowSemaphore *semaphore.Weighted
+
+	// map of hydrate function name to columns it provides
+	// (this is in queryData not Table as it gets modified per query)
+	hydrateColumnMap map[string][]string
 }
 
 func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, matrix []map[string]interface{}, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -138,7 +142,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	ensureColumns(queryContext, table)
 
 	// build list of required hydrate calls, based on requested columns
-	d.hydrateCalls = table.requiredHydrateCalls(queryContext.Columns, d.FetchType)
+	d.populateRequiredHydrateCalls()
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
@@ -208,7 +212,7 @@ func (d *QueryData) populateColumns() {
 // get the column returned by the given hydrate call
 func (d *QueryData) addColumnsForHydrate(hydrateName string) []*QueryColumn {
 	var cols []*QueryColumn
-	for _, columnName := range d.Table.hydrateColumnMap[hydrateName] {
+	for _, columnName := range d.hydrateColumnMap[hydrateName] {
 		// get the column from the table
 		column := d.Table.getColumn(columnName)
 		// NOTE: use this to instantiate a QueryColumn
