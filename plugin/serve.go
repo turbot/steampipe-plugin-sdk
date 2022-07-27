@@ -50,5 +50,5 @@ func Serve(opts *ServeOpts) {
 		}()
 	}
 
-	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.GetSchema, p.Execute, p.EndExecute).Serve()
+	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.GetSchema, p.Execute).Serve()
 }

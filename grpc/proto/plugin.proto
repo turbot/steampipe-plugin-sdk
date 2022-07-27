@@ -6,7 +6,6 @@ option go_package = ".;proto";
 service WrapperPlugin {
   rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
   rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
-  rpc EndExecute(EndExecuteRequest) returns ( EndExecuteResponse);
   rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
   rpc SetAllConnectionConfigs(SetAllConnectionConfigsRequest) returns (SetConnectionConfigResponse);
   rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
@@ -86,10 +85,6 @@ message ExecuteRequest {
   map<string, ExecuteConnectionData> executeConnectionData = 8;
 }
 
-message EndExecuteRequest {
-  string call_id = 1;
-}
-
 message ExecuteConnectionData {
   NullableInt limit = 2;
   bool cache_enabled = 3;
@@ -101,9 +96,6 @@ message ExecuteResponse {
   Row row = 1;
   QueryMetadata metadata = 2;
   string connection = 3;
-}
-
-message EndExecuteResponse {
 }
 
 message QueryMetadata {
@@ -250,6 +242,43 @@ enum ColumnType {
   LTREE = 10;
   UNKNOWN = -1;
 }
+//
+//enum CacheCommand {
+//  GET_INDEX = 0;
+//  GET_RESULT = 1;
+//  SET_INDEX = 2;
+//  SET_RESULT_START = 3;
+//  SET_RESULT_ITERATE = 4;
+//  SET_RESULT_END = 5;
+//  SET_RESULT_ABORT = 6;
+//  DELETE_INDEX = 7;
+//  DELETE_RESULT = 8;
+//}
+//
+//message CacheRequest{
+//  CacheCommand command = 1;
+//  string key = 2;
+//  int64 ttl=3;
+//  // for SetIndex command only
+//  IndexBucket indexBucket = 4;
+//  // for SET_RESULT_ITERATE command only
+//  QueryResult result = 6;
+//  // unique id - returned from SET_RESULT_START and passed with SET_RESULT_ITERATE and  SET_RESULT_END
+//  string callId = 7;
+//}
+//
+//message CacheResponse{
+//  // For Get* commands this represents whether a cache hit occurred
+//  // For Set* commands this represents whether the set was successful
+//  bool success = 1;
+//  string error = 2;
+//  // for GetIndex command only
+//  IndexBucket indexBucket = 3;
+//  // for GetResult command only
+//  QueryResult query_result = 4;
+//  // unique id - returned from SET_RESULT_START
+//  string callId = 5;
+//}
 
 message QueryResult{
   repeated Row rows = 1;

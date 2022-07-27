@@ -13,7 +13,6 @@ type PluginSchema struct {
 	Mode   string
 }
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
-type EndExecuteFunc func(req *proto.EndExecuteRequest) error
 type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) error
@@ -23,17 +22,15 @@ type PluginServer struct {
 	proto.UnimplementedWrapperPluginServer
 	pluginName                  string
 	executeFunc                 ExecuteFunc
-	endExecuteFunc              EndExecuteFunc
 	setConnectionConfigFunc     SetConnectionConfigFunc
 	setAllConnectionConfigsFunc SetAllConnectionConfigsFunc
 	getSchemaFunc               GetSchemaFunc
 }
 
-func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, setAllConnectionConfigsFunc SetAllConnectionConfigsFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc, endExecuteFunc EndExecuteFunc) *PluginServer {
+func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, setAllConnectionConfigsFunc SetAllConnectionConfigsFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc) *PluginServer {
 	return &PluginServer{
 		pluginName:                  pluginName,
 		executeFunc:                 executeFunc,
-		endExecuteFunc:              endExecuteFunc,
 		setConnectionConfigFunc:     setConnectionConfigFunc,
 		setAllConnectionConfigsFunc: setAllConnectionConfigsFunc,
 		getSchemaFunc:               getSchemaFunc,
@@ -68,16 +65,6 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 		}
 	}()
 	return s.executeFunc(req, stream)
-}
-
-func (s PluginServer) EndExecute(req *proto.EndExecuteRequest) (res *proto.EndExecuteResponse, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = helpers.ToError(r)
-		}
-	}()
-	err = s.endExecuteFunc(req)
-	return &proto.EndExecuteResponse{}, err
 }
 
 func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) {
