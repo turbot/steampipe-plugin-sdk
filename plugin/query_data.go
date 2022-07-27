@@ -7,6 +7,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"golang.org/x/sync/semaphore"
 	"log"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -95,6 +96,8 @@ type QueryData struct {
 	// map of hydrate function name to columns it provides
 	// (this is in queryData not Table as it gets modified per query)
 	hydrateColumnMap map[string][]string
+	// tactical - free memory after streaming this many rows
+	freeMemInterval int64
 }
 
 func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, matrix []map[string]interface{}, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -122,11 +125,12 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
-		rowDataChan:  make(chan *RowData, maxConcurrentRows),
-		errorChan:    make(chan error),
-		outputChan:   outputChan,
-		listWg:       &wg,
-		rowSemaphore: semaphore.NewWeighted(int64(maxConcurrentRows)),
+		rowDataChan:     make(chan *RowData, maxConcurrentRows),
+		errorChan:       make(chan error),
+		outputChan:      outputChan,
+		listWg:          &wg,
+		rowSemaphore:    semaphore.NewWeighted(int64(maxConcurrentRows)),
+		freeMemInterval: GetFreeMemInterval(),
 	}
 
 	d.StreamListItem = d.streamListItem
@@ -457,7 +461,15 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 		// if this is the first time we have received a zero rows remaining, stream an empty row
 		// to indicate downstream that we are done
 		d.rowDataChan <- nil
+		// we are done - give memory back to OS at once
+		debug.FreeOSMemory()
 		return
+	}
+
+	// tactical - if we have specified freeMemInterval, check whether we have reached it and need to free memory
+	// this is to reduce memory pressure dure to streaming high row counts
+	if d.shouldFreeMemory() {
+		debug.FreeOSMemory()
 	}
 
 	// do a deep nil check on item - if nil, just return
@@ -470,6 +482,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	// acquire the rowdata semaphore to limit concurrent rows
 	if err := d.rowSemaphore.Acquire(ctx, 1); err != nil {
 		log.Printf("[WARN] failed to acquire rowData semaphore: %s", err.Error())
+		return
 	}
 	defer d.rowSemaphore.Release(1)
 
@@ -483,6 +496,10 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
 	//log.Printf("[WARN] STREAM LIST ITEM %s", d.Connection.Name)
 	d.rowDataChan <- rd
+}
+
+func (d *QueryData) shouldFreeMemory() bool {
+	return d.freeMemInterval != 0 && d.QueryStatus.rowsStreamed%d.freeMemInterval == 0
 }
 
 // called when all items have been fetched - close the item chan
