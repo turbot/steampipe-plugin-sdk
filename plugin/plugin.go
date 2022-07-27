@@ -438,17 +438,21 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	log.Printf("[TRACE] GetMatrixItem")
 
 	// get the matrix item
+	queryData, err := newQueryData(connectionCallId, p, queryContext, table, connectionData, executeData, outputChan)
+	if err != nil {
+		return err
+	}
+
 	var matrixItem []map[string]interface{}
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, connectionData.Connection)
 	}
+	if table.GetMatrixItemFunc != nil {
+		matrixItem = table.GetMatrixItemFunc(ctx, queryData)
+	}
+	queryData.setMatrixItem(matrixItem)
 
 	log.Printf("[TRACE] creating query data")
-
-	queryData, err := newQueryData(connectionCallId, p, queryContext, table, matrixItem, connectionData, executeData, outputChan)
-	if err != nil {
-		return err
-	}
 
 	limit := queryContext.GetLimit()
 

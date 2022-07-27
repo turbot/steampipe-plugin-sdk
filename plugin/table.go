@@ -25,8 +25,10 @@ type Table struct {
 	List *ListConfig
 	// the function used to efficiently retrieve a row by id
 	Get *GetConfig
+	// deprecated
 	// the function used when retrieving data for multiple 'matrix items', e.g. regions
-	GetMatrixItem MatrixItemFunc
+	GetMatrixItem     MatrixItemFunc
+	GetMatrixItemFunc MatrixItemMapFunc
 	// default transform applied to all columns
 	DefaultTransform *transform.ColumnTransforms
 	// function controlling default error handling behaviour
