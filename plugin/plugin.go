@@ -286,10 +286,11 @@ func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	defer log.Printf("[WARN] EXECUTE DONE************************")
 
+	// TODO enable this when we move to go 1.19
 	// limit the plugin memory
-	newLimit := GetMaxMemoryBytes()
-	debug.SetMemoryLimit(newLimit)
-	log.Printf("[WARN] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
+	//newLimit := GetMaxMemoryBytes()
+	//debug.SetMemoryLimit(newLimit)
+	//log.Printf("[WARN] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
@@ -306,11 +307,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
 	// control how many connections are executed in parallel
-	maxConcurrentConnections := 1 //getMaxConcurrentConnections()
+	maxConcurrentConnections := getMaxConcurrentConnections()
 	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
 
 	for connectionName, executeData := range req.ExecuteConnectionData {
-		log.Printf("[WARN] SPAWN executeForConnection - INC WG")
 		outputWg.Add(1)
 
 		go func(c string) {
@@ -326,7 +326,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
 				errorChan <- err
 			}
-			log.Printf("[WARN] executeForConnection %s returned", c)
+			log.Printf("[TRACE] executeForConnection %s returned", c)
 		}(connectionName)
 	}
 
@@ -336,7 +336,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		outputWg.Wait()
 		// so all executeForConnection calls are complete
 		// stream a nil row to indicate completion
-		log.Printf("[WARN] WG COMPLETE - CLOSED OUTPUT CHANNEL")
+		log.Printf("[TRACE] output wg complete - send nil row")
 		outputChan <- nil
 	}()
 
@@ -347,7 +347,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			//log.Printf("[WARN] GOT ROW ON OUTPUT CHANNEL")
 			// nil row means that one connection is done streaming
 			if row == nil {
-				log.Printf("[WARN] EMPTY ROW ON OUTPUT CHANNEL - WE ARE DONE")
+				log.Printf("[TRACE] empty row on output channel - we are done ")
 				complete = true
 				break
 			}
@@ -367,8 +367,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	close(outputChan)
 	close(errorChan)
-
-	log.Printf("[WARN] RETURN")
 
 	return helpers.CombineErrors(errors...)
 }

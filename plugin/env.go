@@ -9,9 +9,11 @@ const (
 	envMaxConcurrentConnection      = "STEAMPIPE_MAX_CONCURRENT_CONNECTIONS"
 	envMaxConcurrentRow             = "STEAMPIPE_MAX_CONCURRENT_ROWS"
 	envMaxMemoryMb                  = "STEAMPIPE_MAX_MEMORY_MB"
+	envFreeMemInterval              = "STEAMPIPE_FREE_MEM_INTERVAL"
 	defaultMaxConcurrentConnections = 5
-	defaultMaxConcurrentRows        = 5
+	defaultMaxConcurrentRows        = 25
 	defaultMaxMemoryMb              = 500
+	defaultFreeMemInterval          = 100
 )
 
 func getMaxConcurrentConnections() int {
@@ -36,4 +38,12 @@ func GetMaxMemoryBytes() int64 {
 		maxMemoryMb = defaultMaxMemoryMb
 	}
 	return int64(1024 * 1024 * maxMemoryMb)
+}
+
+func GetFreeMemInterval() int64 {
+	freeMemInterval, _ := strconv.Atoi(os.Getenv(envFreeMemInterval))
+	if freeMemInterval == 0 {
+		freeMemInterval = defaultFreeMemInterval
+	}
+	return int64(freeMemInterval)
 }
