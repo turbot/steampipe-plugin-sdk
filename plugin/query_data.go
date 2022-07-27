@@ -577,18 +577,19 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		case row := <-rowChan:
 			//log.Printf("[WARN] got row")
 
+			// stream row (even if it is nil - plugin.Execute waits for a nil row from all connections)
+			d.streamRow(row)
+
 			// nil row means we are done streaming
 			if row == nil {
 				log.Printf("[WARN] streamRows - nil row, stop streaming %s", d.Connection.Name)
 				return nil
 			}
-			// if we are caching stream this row to the cache as well
+
+			// if we are caching and the row is NOT nil, stream this row to the cache as well
 			if d.cacheEnabled {
 				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
 			}
-
-			// stream row
-			d.streamRow(row)
 		}
 	}
 
@@ -601,11 +602,11 @@ func (d *QueryData) streamRow(row *proto.Row) {
 			HydrateCalls: d.QueryStatus.hydrateCalls,
 			// only 1 of these will be non zero
 			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
-			CacheHit:    d.QueryStatus.cacheHit,
+			CacheHit:    d.QueryStatus.cachedRowsFetched > 0,
 		},
 		Connection: d.Connection.Name,
 	}
-	log.Printf("[WARN] streamRow d.QueryStatus.rowsStreamed %d d.QueryStatus.cachedRowsFetched %d", d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched)
+	//log.Printf("[WARN] streamRow d.QueryStatus.rowsStreamed %d d.QueryStatus.cachedRowsFetched %d", d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched)
 	d.outputChan <- resp
 }
 

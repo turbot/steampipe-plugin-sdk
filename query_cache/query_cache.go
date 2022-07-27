@@ -89,7 +89,7 @@ func (c *QueryCache) createCacheStore(maxCacheStorageMb int) (store.StoreInterfa
 	return bigcacheStore, nil
 }
 
-func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (int64, error) {
+func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
 	cacheHit := false
 	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", req.Table)
 	defer func() {
@@ -108,7 +108,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, quals", indexBucketKey)
 
 	// do we have a cached result?
-	rowCount, err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
+	_, err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
 	if err == nil {
 		// only set cache hit if there was no error
 		cacheHit = true
@@ -123,7 +123,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 		log.Printf("[WARN] CACHE MISS ")
 	}
 
-	return rowCount, err
+	return err
 }
 
 func (c *QueryCache) StartSet(_ context.Context, req *CacheRequest) {
@@ -370,8 +370,8 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 	for pageIdx := int64(0); pageIdx < indexItem.PageCount; pageIdx++ {
 		sem.Acquire(ctx, 1)
 		wg.Add(1)
-		// construct the page key
-		p := getPageKey(req.resultKeyRoot, pageIdx)
+		// construct the page key, _using the index item key as the root_
+		p := getPageKey(indexItem.Key, pageIdx)
 
 		go func(pageKey string) {
 			defer wg.Done()
@@ -387,8 +387,10 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 				}
 				errorChan <- err
 				return
-
 			}
+
+			log.Printf("[WARN] got result: %d rows", len(cacheResult.Rows))
+
 			for _, r := range cacheResult.Rows {
 				// check for context cancellation
 				if error_helpers.IsCancelled(ctx) {
@@ -416,7 +418,10 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 				errors = append(errors, err)
 			}
 		case <-doneChan:
-			log.Printf("[WARN] DONE")
+			log.Printf("[WARN] CACHE GET DONE, STREAMING NULL ROW")
+			// now stream a nil row to indicate completion
+			streamRowFunc(nil)
+
 			// any real errors return them
 			if len(errors) > 0 {
 				return 0, helpers.CombineErrors(errors...)
@@ -443,11 +448,12 @@ func (c *QueryCache) buildIndexKey(connectionName, table string) string {
 }
 
 func (c *QueryCache) buildResultKey(req *CacheRequest) string {
-	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s",
+	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s%d",
 		req.ConnectionName,
 		req.Table,
 		c.formatQualMapForKey(req.QualMap),
-		strings.Join(req.Columns, ",")))
+		strings.Join(req.Columns, ","),
+		req.Limit))
 	return str
 }
 
