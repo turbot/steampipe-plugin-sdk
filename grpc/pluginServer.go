@@ -64,6 +64,24 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 			err = helpers.ToError(r)
 		}
 	}()
+
+	// NOTE: Compatibility
+	// if a pre-v16 version of Steampipe is being used,
+	// the deprecated Connection, CacheEnabled and CacheTtl will be set, and ExecuteConnectionData will be nil
+	// populate ExecuteConnectionData
+	if req.ExecuteConnectionData == nil {
+		if req.Connection == "" {
+			return fmt.Errorf("either ExecuteConnectionData or Connection must be provided")
+		}
+		req.ExecuteConnectionData = map[string]*proto.ExecuteConnectionData{
+			req.Connection: {
+				Limit:        req.QueryContext.Limit,
+				CacheEnabled: req.CacheEnabled,
+				CacheTtl:     req.CacheTtl,
+			},
+		}
+	}
+
 	return s.executeFunc(req, stream)
 }
 
