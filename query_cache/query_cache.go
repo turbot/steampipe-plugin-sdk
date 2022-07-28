@@ -482,8 +482,12 @@ func (c *QueryCache) formatQualMapForKey(qualMap map[string]*sdkproto.Quals) str
 // return a map of key column for the given table
 func (c *QueryCache) getKeyColumnsForTable(table string, connectionName string) map[string]*sdkproto.KeyColumn {
 	res := make(map[string]*sdkproto.KeyColumn)
+	schema, ok := c.PluginSchemaMap[connectionName]
+	if !ok {
+		return res
+	}
 	// build a list of all key columns
-	tableSchema, ok := c.PluginSchemaMap[connectionName].Schema[table]
+	tableSchema, ok := schema.Schema[table]
 	if ok {
 		for _, k := range append(tableSchema.ListCallKeyColumnList, tableSchema.GetCallKeyColumnList...) {
 			res[k.Name] = k

@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"fmt"
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
@@ -16,6 +17,7 @@ type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_Exec
 type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) error
+type UpdateConnectionConfigsFunc func([]*proto.ConnectionConfig, []*proto.ConnectionConfig, []*proto.ConnectionConfig) error
 
 // PluginServer is the server for a single plugin
 type PluginServer struct {
@@ -24,15 +26,23 @@ type PluginServer struct {
 	executeFunc                 ExecuteFunc
 	setConnectionConfigFunc     SetConnectionConfigFunc
 	setAllConnectionConfigsFunc SetAllConnectionConfigsFunc
+	updateConnectionConfigsFunc UpdateConnectionConfigsFunc
 	getSchemaFunc               GetSchemaFunc
 }
 
-func NewPluginServer(pluginName string, setConnectionConfigFunc SetConnectionConfigFunc, setAllConnectionConfigsFunc SetAllConnectionConfigsFunc, getSchemaFunc GetSchemaFunc, executeFunc ExecuteFunc) *PluginServer {
+func NewPluginServer(pluginName string,
+	setConnectionConfigFunc SetConnectionConfigFunc,
+	setAllConnectionConfigsFunc SetAllConnectionConfigsFunc,
+	updateConnectionConfigsFunc UpdateConnectionConfigsFunc,
+	getSchemaFunc GetSchemaFunc,
+	executeFunc ExecuteFunc) *PluginServer {
+
 	return &PluginServer{
 		pluginName:                  pluginName,
 		executeFunc:                 executeFunc,
 		setConnectionConfigFunc:     setConnectionConfigFunc,
 		setAllConnectionConfigsFunc: setAllConnectionConfigsFunc,
+		updateConnectionConfigsFunc: updateConnectionConfigsFunc,
 		getSchemaFunc:               getSchemaFunc,
 	}
 }
@@ -103,6 +113,16 @@ func (s PluginServer) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigs
 	}()
 	err = s.setAllConnectionConfigsFunc(req.Configs, int(req.MaxCacheSizeMb))
 	return &proto.SetConnectionConfigResponse{}, err
+}
+
+func (s PluginServer) UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (res *proto.UpdateConnectionConfigsResponse, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = helpers.ToError(r)
+		}
+	}()
+	err = s.updateConnectionConfigsFunc(req.Added, req.Deleted, req.Changed)
+	return &proto.UpdateConnectionConfigsResponse{}, err
 }
 
 func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {

@@ -8,6 +8,7 @@ service WrapperPlugin {
   rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
   rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
   rpc SetAllConnectionConfigs(SetAllConnectionConfigsRequest) returns (SetConnectionConfigResponse);
+  rpc UpdateConnectionConfigs(UpdateConnectionConfigsRequest) returns (UpdateConnectionConfigsResponse);
   rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
 }
 
@@ -135,6 +136,12 @@ message SetAllConnectionConfigsRequest{
   int64 max_cache_size_mb = 2;
 }
 
+message UpdateConnectionConfigsRequest{
+  repeated ConnectionConfig added = 1;
+  repeated ConnectionConfig deleted = 2;
+  repeated ConnectionConfig changed = 3;
+}
+
 
 message ConnectionConfig {
   string connection = 1;
@@ -145,6 +152,7 @@ message ConnectionConfig {
 }
 
 message SetConnectionConfigResponse{}
+message UpdateConnectionConfigsResponse{}
 
 message Row {
   map<string, Column> columns = 1;

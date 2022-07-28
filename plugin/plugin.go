@@ -143,6 +143,7 @@ func (p *Plugin) createConnectionCacheStore() error {
 }
 
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
+	log.Printf("[TRACE] SetConnectionConfig %s", connectionName)
 	return p.SetAllConnectionConfigs([]*proto.ConnectionConfig{
 		{
 			Connection: connectionName,
@@ -250,6 +251,57 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	// now create the query cache - do this AFTER setting the connection config so the cache can build
 	// the connection schema map
 	p.ensureCache(maxCacheSizeMb)
+
+	return nil
+}
+
+func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) error {
+	log.Printf("[TRACE] UpdateConnectionConfigs added %v, deleted %v, changed %v", added, deleted, changed)
+
+	// if this plugin does not have dynamic config, we can share table map and schema
+	var exemplarSchema map[string]*proto.TableSchema
+	var exemplarTableMap map[string]*Table
+	if p.SchemaMode == SchemaModeStatic {
+		for _, connectionData := range p.ConnectionMap {
+			exemplarSchema = connectionData.Schema
+			exemplarTableMap = connectionData.TableMap
+		}
+	}
+
+	for _, addedConnection := range added {
+		schema := exemplarSchema
+		tableMap := exemplarTableMap
+		// create connection object
+		c := &Connection{Name: addedConnection.Connection}
+
+		if p.SchemaMode == SchemaModeDynamic {
+			var err error
+			log.Printf("[TRACE] UpdateConnectionConfigs - connection %s build schema and table map", addedConnection.Connection)
+			ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+			tableMap, err = p.initialiseTables(ctx, c)
+			if err != nil {
+				return err
+			}
+
+			// populate the plugin schema
+			schema, err = p.buildSchema(tableMap)
+			if err != nil {
+				return err
+			}
+		}
+
+		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
+			TableMap:   tableMap,
+			Connection: c,
+			Schema:     schema,
+		}
+	}
+
+	// update the query cache schema map
+	connectionSchemaMap := p.buildConnectionSchemaMap()
+	p.queryCache.PluginSchemaMap = connectionSchemaMap
+
+	// Ignore deleted and updated for now
 
 	return nil
 }

@@ -1,9 +1,16 @@
 ## v4.0.0 [tbd]
 
 _Breaking changes_
+* `Plugin` property `TableMapFunc` has changed signature, it is now 
+```
+func(ctx context.Context, connection *Connection) (map[string]*Table, error)
+```
+This is the function which is called for plugins with dynamic schema to return their table schema. Note that the parameter `connection` has been added. 
+This may be used in place of the removes `Plugin.Connection` property. 
+
 * `Plugin` properties `Connection`, and `Schema` have been removed, and new property `ConnectionMap` added.  
-This is a map of `ConnectionData` objects, keyed by connection. This is needed as each plugin instance may support multiple connections.
-`ConnectionData` looks as follows
+  This is a map of `ConnectionData` objects, keyed by connection. This is needed as each plugin instance may support multiple connections.
+  `ConnectionData` looks as follows
 ``` // ConnectionData is the data stored by the plugin which is connection dependent
 type ConnectionData struct {
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
