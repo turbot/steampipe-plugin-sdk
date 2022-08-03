@@ -35,7 +35,7 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 	)
 
 	// wait for value to pass through buffers (necessary for ristretto)
-	//time.Sleep(10 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	return err
 }
 
