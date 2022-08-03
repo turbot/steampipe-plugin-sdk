@@ -7,7 +7,7 @@ import (
 )
 
 // ProtocolVersion marks the protobuf interface version
-//// Update this if breaking changes are made to the protobuf spec (for example column types)
+// // Update this if breaking changes are made to the protobuf spec (for example column types)
 var ProtocolVersion int64 = 20220201
 
 // Version is the main version number that is being run at the moment.
@@ -16,7 +16,7 @@ var version = "4.0.0"
 // A pre-release marker for the version. If this is "" (empty string)
 // then it means that it is a final release. Otherwise, this is a pre-release
 // such as "dev" (in development), "beta", "rc1", etc.
-var prerelease = "rc.1"
+var prerelease = "rc.2"
 
 // semVer is an instance of version.Version. This has the secondary
 // benefit of verifying during tests and init time that our version is a
