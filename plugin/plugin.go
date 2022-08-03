@@ -336,7 +336,8 @@ func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 // Execute is the handler function for the Execute grpc function
 // execute a query and streams the results using the given GRPC stream.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
-	defer log.Printf("[WARN] EXECUTE DONE************************")
+	log.Printf("[INFO] Plugin Execute (%s)", req.CallId)
+	defer log.Printf("[INFO]  Plugin Execute complete (%s)", req.CallId)
 
 	// TODO enable this when we move to go 1.19
 	// limit the plugin memory
@@ -522,7 +523,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	}
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
-		log.Printf("[WARN] cacheEnabled, try cache get (%s)", connectionCallId)
+		log.Printf("[INFO] cacheEnabled, trying cache get (%s)", connectionCallId)
 
 		// create a function to increment cachedRowsFetched and stream a row
 		streamRowFunc := func(row *proto.Row) {
@@ -531,14 +532,13 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 				atomic.AddInt64(&queryData.QueryStatus.cachedRowsFetched, 1)
 			}
 			queryData.streamRow(row)
-			log.Printf("[WARN] STREAM ROW____ cached rows fetched %d", queryData.streamRow) //queryData.QueryStatus.cachedRowsFetched)
 		}
 
 		// try to fetch this data from the query cache
 		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamRowFunc)
 		if cacheErr == nil {
 			// so we got a cached result - stream it out
-			log.Printf("[WARN] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
+			log.Printf("[INFO] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
 
 			// nothing more to do
 			return nil
@@ -549,13 +549,13 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		if query_cache.IsCacheMiss(cacheErr) {
 			log.Printf("[TRACE] cache MISS")
 		} else {
-			log.Printf("[WARN] queryCacheGet returned err %s", cacheErr.Error())
+			log.Printf("[TRACE] queryCacheGet returned err %s", cacheErr.Error())
 		}
 
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 		p.queryCache.StartSet(ctx, cacheRequest)
 	} else {
-		log.Printf("[TRACE] Cache DISABLED connectionCallId: %s", connectionCallId)
+		log.Printf("[INFO] Cache DISABLED connectionCallId: %s", connectionCallId)
 	}
 
 	// asyncronously fetch items

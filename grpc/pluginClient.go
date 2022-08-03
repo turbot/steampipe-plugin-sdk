@@ -100,7 +100,7 @@ func (c *PluginClient) UpdateConnectionConfigs(req *proto.UpdateConnectionConfig
 func (c *PluginClient) GetSupportedOperations() (*proto.GetSupportedOperationsResponse, error) {
 	resp, err := c.Stub.GetSupportedOperations(&proto.GetSupportedOperationsRequest{})
 	if err != nil {
-		return nil, err
+		return nil, HandleGrpcError(err, c.Name, "GetSupportedOperations")
 	}
 	return resp, nil
 }
@@ -108,7 +108,7 @@ func (c *PluginClient) GetSupportedOperations() (*proto.GetSupportedOperationsRe
 func (c *PluginClient) GetSchema(connectionName string) (*proto.Schema, error) {
 	resp, err := c.Stub.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
 	if err != nil {
-		return nil, err
+		return nil, HandleGrpcError(err, c.Name, "GetSchema")
 	}
 	return resp.Schema, nil
 }

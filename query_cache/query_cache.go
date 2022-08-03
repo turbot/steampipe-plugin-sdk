@@ -44,15 +44,15 @@ type QueryCache struct {
 	pendingDataLock sync.Mutex
 	ttlLock         sync.Mutex
 	ttl             time.Duration
-	streamLock      sync.Mutex
-	cache           *cache.Cache[[]byte]
+	// lock while streaming data and setting data, to avoid eviction while streaming is in progress
+	streamLock sync.Mutex
+	cache      *cache.Cache[[]byte]
 	// map of ongoing set requests, keyed by callId
 	setRequests       map[string]*CacheRequest
 	setRequestMapLock sync.Mutex
 }
 
 func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSchema, maxCacheStorageMb int) (*QueryCache, error) {
-
 	queryCache := &QueryCache{
 		Stats:           &CacheStats{},
 		pluginName:      pluginName,
@@ -79,7 +79,16 @@ func (c *QueryCache) createCache(maxCacheStorageMb int) error {
 
 func (c *QueryCache) createCacheStore(maxCacheStorageMb int) (store.StoreInterface, error) {
 	config := bigcache.DefaultConfig(5 * time.Minute)
-	log.Printf("[TRACE] createCacheStore for plugin '%s' setting max size to %dMb", c.pluginName, maxCacheStorageMb)
+	// ensure each shard is at least 5Mb
+	config.Shards = 1024
+	for maxCacheStorageMb/config.Shards < 5 {
+		config.Shards = config.Shards / 2
+		if config.Shards == 2 {
+			break
+		}
+	}
+	config.HardMaxCacheSize = maxCacheStorageMb
+	log.Printf("[WARN] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
 	//config.Shards = 10
 	// max entry size is HardMaxCacheSize/1000
 	//config.MaxEntrySize = (maxCacheStorageMb) * 1024 * 1024
@@ -298,6 +307,11 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *CacheRequest) er
 	log.Printf("[TRACE] QueryCache writePageToCache: %d rows, page key %s", len(rows), pageKey)
 	// write to cache - construct result key
 	result := &sdkproto.QueryResult{Rows: rows}
+
+	// lock the stream lock to avoid eviction during streaming
+	c.streamLock.Lock()
+	defer c.streamLock.Unlock()
+
 	err := doSet(ctx, pageKey, result, req.ttl(), c.cache)
 	if err != nil {
 		log.Printf("[WARN] writePageToCache cache Set failed: %v", err)
@@ -356,32 +370,59 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 	// so we have a cache index, retrieve the item
 	log.Printf("[TRACE] got an index item - try to retrieve rows from cache")
 
+	// lock the stream lock to avoid eviction during streaming
+	c.streamLock.Lock()
+	defer c.streamLock.Unlock()
+
 	var cachedRowsFetched int64 = 0
 	cacheHit := true
 	var errors []error
 	errorChan := make(chan (error), indexItem.PageCount)
-
 	var wg sync.WaitGroup
 	const maxReadThreads = 5
-	var sem = semaphore.NewWeighted(maxReadThreads)
+	var maxReadSem = semaphore.NewWeighted(maxReadThreads)
 	log.Printf("[TRACE] %d pages", indexItem.PageCount)
 
+	// define streaming function
+	streamRows := func(cacheResult *sdkproto.QueryResult) {
+		for _, r := range cacheResult.Rows {
+			// check for context cancellation
+			if error_helpers.IsCancelled(ctx) {
+				log.Printf("[INFO] getCachedQueryResult context cancelled - returning")
+				return
+			}
+			atomic.AddInt64(&cachedRowsFetched, 1)
+			streamRowFunc(r)
+		}
+	}
 	// ok so we have an index item - we now stream
-	for pageIdx := int64(0); pageIdx < indexItem.PageCount; pageIdx++ {
-		sem.Acquire(ctx, 1)
+	// ensure the first page exists (evictions start with oldest item so if first page exists, they all exist)
+	pageIdx := int64(0)
+	pageKey := getPageKey(indexItem.Key, pageIdx)
+	var cacheResult = &sdkproto.QueryResult{}
+	if err := doGet[*sdkproto.QueryResult](ctx, pageKey, c.cache, cacheResult); err != nil {
+		return 0, err
+	}
+	// ok it's there, stream rows
+	streamRows(cacheResult)
+
+	// now fetch the rest (if any), in parallel maxReadThreads at a time
+	for ; pageIdx < indexItem.PageCount; pageIdx++ {
+		maxReadSem.Acquire(ctx, 1)
 		wg.Add(1)
 		// construct the page key, _using the index item key as the root_
 		p := getPageKey(indexItem.Key, pageIdx)
 
 		go func(pageKey string) {
 			defer wg.Done()
-			defer sem.Release(1)
+			defer maxReadSem.Release(1)
 
 			log.Printf("[TRACE] fetching key: %s", pageKey)
 			var cacheResult = &sdkproto.QueryResult{}
 			if err := doGet[*sdkproto.QueryResult](ctx, pageKey, c.cache, cacheResult); err != nil {
 				if IsCacheMiss(err) {
-					log.Printf("[TRACE] getCachedQueryResult - no item retrieved for cache key %s", pageKey)
+					// This is not expected
+					log.Printf("[WARN] getCachedQueryResult - no item retrieved for cache key %s", pageKey)
 				} else {
 					log.Printf("[WARN] cacheGetResult Get failed %v", err)
 				}
@@ -391,15 +432,7 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 
 			log.Printf("[TRACE] got result: %d rows", len(cacheResult.Rows))
 
-			for _, r := range cacheResult.Rows {
-				// check for context cancellation
-				if error_helpers.IsCancelled(ctx) {
-					log.Printf("[TRACE] getCachedQueryResult context cancelled - returning")
-					return
-				}
-				atomic.AddInt64(&cachedRowsFetched, 1)
-				streamRowFunc(r)
-			}
+			streamRows(cacheResult)
 		}(p)
 	}
 	doneChan := make(chan bool)
@@ -411,7 +444,7 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 	for {
 		select {
 		case err := <-errorChan:
-			log.Printf("[WARN] received error: %s", err.Error())
+			log.Printf("[WARN] getCachedQueryResult received error: %s", err.Error())
 			if IsCacheMiss(err) {
 				cacheHit = false
 			} else {
@@ -508,10 +541,11 @@ func (c *QueryCache) sanitiseKey(str string) string {
 func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, key string, indexBucket *IndexBucket, ttl time.Duration) error {
 	log.Printf("[TRACE] cacheSetIndexBucket %s", key)
 
+	// lock the stream lock to avoid eviction during streaming
+	c.streamLock.Lock()
+	defer c.streamLock.Unlock()
+
 	return doSet(ctx, key, indexBucket.AsProto(), ttl, c.cache)
-}
-func (c *QueryCache) cacheSetResult(ctx context.Context, key string, result *sdkproto.QueryResult, ttl time.Duration, callId string) error {
-	return doSet(ctx, key, result, ttl, c.cache)
 }
 
 func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]byte], target T) error {

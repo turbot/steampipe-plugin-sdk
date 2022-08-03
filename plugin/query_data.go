@@ -628,18 +628,16 @@ func (d *QueryData) streamRow(row *proto.Row) {
 			HydrateCalls: d.QueryStatus.hydrateCalls,
 			// only 1 of these will be non zero
 			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
-			CacheHit:    d.QueryStatus.cacheHit,
+			CacheHit:    d.QueryStatus.cachedRowsFetched > 0,
 		},
 		Connection: d.Connection.Name,
 	}
-	//log.Printf("[WARN] streamRow d.QueryStatus.rowsStreamed %d d.QueryStatus.cachedRowsFetched %d", d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched)
 	d.outputChan <- resp
 }
 
 func (d *QueryData) streamError(err error) {
-	log.Printf("[WARN] stream error %v", err)
+	log.Printf("[WARN] QueryData StreamError %v", err)
 	d.errorChan <- err
-	log.Printf("[WARN] stream error DONE")
 }
 
 // execute necessary hydrate calls to populate row data
@@ -652,7 +650,6 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *RowData, rowChan
 			wg.Done()
 		}()
 		if rowData == nil {
-			// TODO NOT SURE ABOUT THIS
 			log.Printf("[WARN] buildRowAsync nil rowData - streaming nil row %s", d.Connection.Name)
 			rowChan <- nil
 			return
@@ -678,12 +675,12 @@ func (d *QueryData) addContextData(row *proto.Row) {
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
-	log.Printf("[WARN] waitForRowsToComplete START %s", d.Connection.Name)
-	defer log.Printf("[WARN] waitForRowsToComplete END %s", d.Connection.Name)
+	//log.Printf("[WARN] waitForRowsToComplete START %s", d.Connection.Name)
+	//defer log.Printf("[WARN] waitForRowsToComplete END %s", d.Connection.Name)
+	//log.Println("[WARN] wait for rows")
 
-	log.Println("[WARN] wait for rows")
 	rowWg.Wait()
 	logging.DisplayProfileData(10 * time.Millisecond)
-	log.Println("[WARN] rowWg complete - CLOSING ROW CHANNEL")
+	//log.Println("[WARN] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
 }
