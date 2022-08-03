@@ -502,7 +502,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 }
 
 func (d *QueryData) shouldFreeMemory() bool {
-	return d.freeMemInterval != -1 && d.QueryStatus.rowsStreamed%d.freeMemInterval == 0
+	return d.freeMemInterval != 0 && d.QueryStatus.rowsStreamed%d.freeMemInterval == 0
 }
 
 // called when all items have been fetched - close the item chan

@@ -42,9 +42,13 @@ func GetMaxMemoryBytes() int64 {
 }
 
 func GetFreeMemInterval() int64 {
-	freeMemInterval, _ := strconv.Atoi(os.Getenv(envFreeMemInterval))
-	if freeMemInterval == 0 {
-		freeMemInterval = defaultFreeMemInterval
+	freeMemInterval := defaultFreeMemInterval
+	intervalEnv, ok := os.LookupEnv(envFreeMemInterval)
+	if ok {
+		if parsedInterval, err := strconv.Atoi(intervalEnv); err != nil {
+			freeMemInterval = parsedInterval
+		}
 	}
+
 	return int64(freeMemInterval)
 }
