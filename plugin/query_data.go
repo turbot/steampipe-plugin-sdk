@@ -426,15 +426,12 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 	d.listWg.Add(1)
 
 	go func() {
-		log.Printf("[WARN] streamListItem goroutine START")
-		defer log.Printf("[WARN] streamListItem goroutine END")
-
 		defer func() {
 			if r := recover(); r != nil {
 				err := helpers.ToError(r)
 				if !d.verifyCallerIsListCall(callingFunction) {
 					err = fmt.Errorf("'streamListItem' must only be called from a list call. Calling function name is '%s'", callingFunction)
-					log.Printf("[TRACE] 'streamListItem' failed with panic: %s. Calling function name is '%s'", err, callingFunction)
+					log.Printf("[WARN] 'streamListItem' failed with panic: %s. Calling function name is '%s'", err, callingFunction)
 				}
 				d.streamError(err)
 			}
@@ -459,7 +456,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
 
 	// if this is the first time we have received a zero rows remaining, stream an empty row and mark stream
 	if d.QueryStatus.RowsRemaining(ctx) == 0 {
-		log.Printf("[WARN] streamListItem RowsRemaining zero, send nil row %s", d.Connection.Name)
+		log.Printf("[TRACE] streamListItem RowsRemaining zero, send nil row %s", d.Connection.Name)
 		d.QueryStatus.StreamingComplete = true
 		// if this is the first time we have received a zero rows remaining, stream an empty row
 		// to indicate downstream that we are done
@@ -516,32 +513,27 @@ func (d *QueryData) fetchComplete(ctx context.Context) {
 
 // iterate over rowDataChan, for each item build the row and stream over rowChan
 func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) {
-	log.Printf("[WARN] buildRowsAsync START %s", d.Connection.Name)
-	defer log.Printf("[WARN] buildRowsAsync END %s", d.Connection.Name)
-
 	// we need to use a wait group for rows we cannot close the row channel when the item channel is closed
 	// as getRow is executing asyncronously
 	var rowWg sync.WaitGroup
 
 	// start goroutine to read items from item chan and generate row data
 	go func() {
-		log.Printf("[WARN] buildRowsAsync goroutine START %s", d.Connection.Name)
-		defer log.Printf("[WARN] buildRowsAsync goroutine END %s", d.Connection.Name)
 		for {
 			// wait for either an rowData or an error
 			select {
 			case <-doneChan:
-				log.Printf("[WARN] buildRowsAsync done channel selected - quitting %s", d.Connection.Name)
+				log.Printf("[TRACE] buildRowsAsync done channel selected - quitting %s", d.Connection.Name)
 				return
 			case rowData := <-d.rowDataChan:
 				logging.LogTime("got rowData - calling getRow")
 				// is there any more data?
 				if rowData == nil {
-					log.Printf("[WARN] rowData chan returned nil - wait for rows to complete %s", d.Connection.Name)
+					log.Printf("[TRACE] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
 					// now we know there will be no more items, close row chan when the wait group is complete
 					// this allows time for all hydrate goroutines to complete
 					d.waitForRowsToComplete(&rowWg, rowChan)
-					log.Printf("[WARN] buildRowsAsync goroutine returning %s", d.Connection.Name)
+					log.Printf("[TRACE] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
 					return
 				}
@@ -559,12 +551,12 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
-	log.Printf("[WARN] QueryData streamRows %s", d.Connection.Name)
+	log.Printf("[TRACE] QueryData streamRows (%s)", d.connectionCallId)
 
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
 		d.concurrencyManager.Close()
-		log.Printf("[WARN] QueryData streamRows DONE %s", d.Connection.Name)
+		log.Printf("[TRACE] QueryData streamRows DONE (%s)", d.connectionCallId)
 
 		// if there is an error or cancellation, abort the pending set
 		// if the context is cancelled and the parent callId is in the list of completed executions,
@@ -581,7 +573,7 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 					// just log error, do not fail
 					log.Printf("[WARN] cache set failed: %v", cacheErr)
 				} else {
-					log.Printf("[WARN] cache set succeeded")
+					log.Printf("[TRACE] cache set succeeded")
 				}
 			}
 		}
@@ -606,7 +598,7 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 
 			// nil row means we are done streaming
 			if row == nil {
-				log.Printf("[WARN] streamRows - nil row, stop streaming %s", d.Connection.Name)
+				log.Printf("[TRACE] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
 				return nil
 			}
 			// if we are caching stream this row to the cache as well
@@ -636,7 +628,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 }
 
 func (d *QueryData) streamError(err error) {
-	log.Printf("[WARN] QueryData StreamError %v", err)
+	log.Printf("[WARN] QueryData StreamError %v (%s)", err, d.connectionCallId)
 	d.errorChan <- err
 }
 
@@ -650,7 +642,7 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *RowData, rowChan
 			wg.Done()
 		}()
 		if rowData == nil {
-			log.Printf("[WARN] buildRowAsync nil rowData - streaming nil row %s", d.Connection.Name)
+			log.Printf("[TRACE] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
 			rowChan <- nil
 			return
 		}
@@ -675,12 +667,7 @@ func (d *QueryData) addContextData(row *proto.Row) {
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
-	//log.Printf("[WARN] waitForRowsToComplete START %s", d.Connection.Name)
-	//defer log.Printf("[WARN] waitForRowsToComplete END %s", d.Connection.Name)
-	//log.Println("[WARN] wait for rows")
-
 	rowWg.Wait()
 	logging.DisplayProfileData(10 * time.Millisecond)
-	//log.Println("[WARN] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
 }

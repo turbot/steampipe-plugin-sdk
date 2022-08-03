@@ -88,7 +88,7 @@ func (c *QueryCache) createCacheStore(maxCacheStorageMb int) (store.StoreInterfa
 		}
 	}
 	config.HardMaxCacheSize = maxCacheStorageMb
-	log.Printf("[WARN] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
+	log.Printf("[TRACE] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
 	//config.Shards = 10
 	// max entry size is HardMaxCacheSize/1000
 	//config.MaxEntrySize = (maxCacheStorageMb) * 1024 * 1024
@@ -129,14 +129,14 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 			// so there is a pending result, wait for it
 			return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, req, streamRowFunc)
 		}
-		log.Printf("[WARN] CACHE MISS ")
+		log.Printf("[INFO] CACHE MISS ")
 	}
 
 	return err
 }
 
 func (c *QueryCache) StartSet(_ context.Context, req *CacheRequest) {
-	log.Printf("[WARN] StartSet %s", req.CallId)
+	log.Printf("[TRACE] StartSet (%s)", req.CallId)
 
 	// set root result key
 	req.resultKeyRoot = c.buildResultKey(req)
@@ -526,7 +526,7 @@ func (c *QueryCache) getKeyColumnsForTable(table string, connectionName string) 
 			res[k.Name] = k
 		}
 	} else {
-		log.Printf("[WARN] getKeyColumnsForTable found NO SCHEMA FOR %s", table)
+		log.Printf("[WARN] getKeyColumnsForTable found no schema for table '%s'", table)
 	}
 	return res
 }

@@ -71,7 +71,7 @@ func (t *Table) fetchItemsAsync(ctx context.Context, queryData *QueryData) error
 	return nil
 }
 
-//  execute a get call for every value in the key column quals
+// execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
@@ -157,8 +157,7 @@ func (t *Table) getListQualValueForGetCall(queryData *QueryData) (string, *proto
 }
 
 func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, keyColumnName string, qualValueList *proto.QualValueList) error {
-
-	log.Printf("[WARN] executeGetCall - single qual, qual value is a list - executing get for each qual value item, qualValueList: %v", qualValueList)
+	log.Printf("[TRACE] doGetForQualValues - single qual, qual value is a list - executing get for each qual value item, qualValueList: %v", qualValueList)
 
 	var getWg sync.WaitGroup
 	var errorChan = make(chan (error), len(qualValueList.Values))
@@ -355,8 +354,8 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
 
-	log.Printf("[WARN] executeListCall START %s", queryData.Connection.Name)
-	defer log.Printf("[WARN] executeListCall COMPLETE %s", queryData.Connection.Name)
+	log.Printf("[TRACE] executeListCall START (%s)", queryData.connectionCallId)
+	defer log.Printf("[TRACE] executeListCall COMPLETE (%s)", queryData.connectionCallId)
 	defer func() {
 		if r := recover(); r != nil {
 			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", helpers.GetFunctionName(t.List.Hydrate), r)))
@@ -464,7 +463,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.doList (%s)", t.Name)
 	defer span.End()
 
-	log.Printf("[WARN] doList %s", queryData.Connection.Name)
+	log.Printf("[TRACE] doList (%s)", queryData.connectionCallId)
 
 	rd := newRowData(queryData, nil)
 
@@ -475,7 +474,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 		listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
 
 		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, t.List.IgnoreConfig, listRetryConfig); err != nil {
-			log.Printf("[WARN] doList callHydrateWithRetries conne  %s err %s", queryData.Connection.Name, err.Error())
+			log.Printf("[WARN] doList callHydrateWithRetries (%s) returned err %s", queryData.connectionCallId, err.Error())
 			queryData.streamError(err)
 		}
 	} else {

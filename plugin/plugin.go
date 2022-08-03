@@ -161,7 +161,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		}
 	}()
 
-	log.Printf("[WARN] SetAllConnectionConfigs setting %d configs", len(configs))
+	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))
 
 	// if this plugin does not have dynamic config, we can share table map and schema
 	var exemplarSchema map[string]*proto.TableSchema
@@ -171,7 +171,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	for _, config := range configs {
 		// NOTE: do not set connection config for aggregator connections
 		if len(config.ChildConnections) > 0 {
-			log.Printf("[WARN] connection %s is an aggregator - handle separately", config.Connection)
+			log.Printf("[TRACE] connection %s is an aggregator - handle separately", config.Connection)
 			aggregators = append(aggregators, config)
 			continue
 		}
@@ -205,7 +205,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		var err error
 
 		if tableMap == nil {
-			log.Printf("[WARN] connection %s build schema and table map", connectionName)
+			log.Printf("[TRACE] connection %s build schema and table map", connectionName)
 			// if the plugin defines a CreateTables func, call it now
 			ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 			tableMap, err = p.initialiseTables(ctx, c)
@@ -342,7 +342,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// limit the plugin memory
 	newLimit := GetMaxMemoryBytes()
 	debug.SetMemoryLimit(newLimit)
-	log.Printf("[WARN] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
+	log.Printf("[TRACE] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
@@ -429,13 +429,12 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)
-	log.Printf("[WARN] EXECUTE callId: %s connection: %s table: %s cols: %s", connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
+	log.Printf("[TRACE] executeForConnection callId: %s connection: %s table: %s cols: %s", connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
-		log.Printf("[TRACE] executeForConnection RETURNING %s ***************", connectionName)
+		log.Printf("[TRACE] executeForConnection (%s) ", connectionCallId)
 		if r := recover(); r != nil {
 			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
-			log.Printf("[WARN] %s", debug.Stack())
 			err = helpers.ToError(r)
 			return
 		}
@@ -675,8 +674,7 @@ func (p *Plugin) ensureCache(maxCacheSizeMb int) error {
 	// build a connection schema map
 	connectionSchemaMap := p.buildConnectionSchemaMap()
 	if p.queryCache == nil {
-
-		log.Printf("[WARN] Plugin ensureCache creating cache, maxCacheStorageMb %d", maxCacheSizeMb)
+		log.Printf("[TRACE] Plugin ensureCache creating cache, maxCacheStorageMb %d", maxCacheSizeMb)
 
 		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, maxCacheSizeMb)
 		if err != nil {
