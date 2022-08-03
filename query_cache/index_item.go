@@ -1,13 +1,13 @@
-package cache
+package query_cache
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
 // IndexItem stores the columns and cached index for a single cached query result
@@ -18,15 +18,18 @@ type IndexItem struct {
 	Limit         int64
 	Quals         map[string]*proto.Quals
 	InsertionTime time.Time
+	PageCount     int64
 }
 
-func NewIndexItem(columns []string, key string, limit int64, quals map[string]*proto.Quals) *IndexItem {
+func NewIndexItem(req *CacheRequest) *IndexItem {
 	return &IndexItem{
-		Columns:       columns,
-		Key:           key,
-		Limit:         limit,
-		Quals:         quals,
-		InsertionTime: time.Now()}
+		Columns:       req.Columns,
+		Key:           req.resultKeyRoot,
+		Limit:         req.Limit,
+		Quals:         req.QualMap,
+		InsertionTime: time.Now(),
+		PageCount:     req.pageCount,
+	}
 }
 
 // SatisfiesColumns returns whether this index item satisfies the given columns

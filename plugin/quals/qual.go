@@ -1,7 +1,7 @@
 package quals
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
 const QualOperatorIsNull = "is null"
@@ -25,6 +25,15 @@ func NewQual(q *proto.Qual) *Qual {
 func (q *Qual) Equals(other *Qual) bool {
 	return q.Column == other.Column && q.Operator == other.Operator && q.Value.String() == other.Value.String()
 }
+func (q *Qual) ToProto() *proto.Qual {
+	return &proto.Qual{
+		FieldName: q.Column,
+		Operator: &proto.Qual_StringValue{
+			StringValue: q.Operator,
+		},
+		Value: q.Value,
+	}
+}
 
 type QualSlice []*Qual
 
@@ -42,4 +51,14 @@ func (s QualSlice) Contains(other *Qual) bool {
 	}
 
 	return alreadyExists
+}
+
+func (s QualSlice) ToProto() *proto.Quals {
+	res := &proto.Quals{
+		Quals: make([]*proto.Qual, len(s)),
+	}
+	for i, q := range s {
+		res.Quals[i] = q.ToProto()
+	}
+	return res
 }

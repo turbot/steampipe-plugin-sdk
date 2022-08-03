@@ -25,6 +25,8 @@ type WrapperPluginClient interface {
 	GetSchema(ctx context.Context, in *GetSchemaRequest, opts ...grpc.CallOption) (*GetSchemaResponse, error)
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (WrapperPlugin_ExecuteClient, error)
 	SetConnectionConfig(ctx context.Context, in *SetConnectionConfigRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
+	SetAllConnectionConfigs(ctx context.Context, in *SetAllConnectionConfigsRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
+	UpdateConnectionConfigs(ctx context.Context, in *UpdateConnectionConfigsRequest, opts ...grpc.CallOption) (*UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(ctx context.Context, in *GetSupportedOperationsRequest, opts ...grpc.CallOption) (*GetSupportedOperationsResponse, error)
 }
 
@@ -86,6 +88,24 @@ func (c *wrapperPluginClient) SetConnectionConfig(ctx context.Context, in *SetCo
 	return out, nil
 }
 
+func (c *wrapperPluginClient) SetAllConnectionConfigs(ctx context.Context, in *SetAllConnectionConfigsRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error) {
+	out := new(SetConnectionConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/SetAllConnectionConfigs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wrapperPluginClient) UpdateConnectionConfigs(ctx context.Context, in *UpdateConnectionConfigsRequest, opts ...grpc.CallOption) (*UpdateConnectionConfigsResponse, error) {
+	out := new(UpdateConnectionConfigsResponse)
+	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/UpdateConnectionConfigs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *wrapperPluginClient) GetSupportedOperations(ctx context.Context, in *GetSupportedOperationsRequest, opts ...grpc.CallOption) (*GetSupportedOperationsResponse, error) {
 	out := new(GetSupportedOperationsResponse)
 	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/GetSupportedOperations", in, out, opts...)
@@ -102,6 +122,8 @@ type WrapperPluginServer interface {
 	GetSchema(context.Context, *GetSchemaRequest) (*GetSchemaResponse, error)
 	Execute(*ExecuteRequest, WrapperPlugin_ExecuteServer) error
 	SetConnectionConfig(context.Context, *SetConnectionConfigRequest) (*SetConnectionConfigResponse, error)
+	SetAllConnectionConfigs(context.Context, *SetAllConnectionConfigsRequest) (*SetConnectionConfigResponse, error)
+	UpdateConnectionConfigs(context.Context, *UpdateConnectionConfigsRequest) (*UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error)
 	mustEmbedUnimplementedWrapperPluginServer()
 }
@@ -118,6 +140,12 @@ func (UnimplementedWrapperPluginServer) Execute(*ExecuteRequest, WrapperPlugin_E
 }
 func (UnimplementedWrapperPluginServer) SetConnectionConfig(context.Context, *SetConnectionConfigRequest) (*SetConnectionConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetConnectionConfig not implemented")
+}
+func (UnimplementedWrapperPluginServer) SetAllConnectionConfigs(context.Context, *SetAllConnectionConfigsRequest) (*SetConnectionConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetAllConnectionConfigs not implemented")
+}
+func (UnimplementedWrapperPluginServer) UpdateConnectionConfigs(context.Context, *UpdateConnectionConfigsRequest) (*UpdateConnectionConfigsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateConnectionConfigs not implemented")
 }
 func (UnimplementedWrapperPluginServer) GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSupportedOperations not implemented")
@@ -192,6 +220,42 @@ func _WrapperPlugin_SetConnectionConfig_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WrapperPlugin_SetAllConnectionConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAllConnectionConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WrapperPluginServer).SetAllConnectionConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.WrapperPlugin/SetAllConnectionConfigs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WrapperPluginServer).SetAllConnectionConfigs(ctx, req.(*SetAllConnectionConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WrapperPlugin_UpdateConnectionConfigs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateConnectionConfigsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WrapperPluginServer).UpdateConnectionConfigs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.WrapperPlugin/UpdateConnectionConfigs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WrapperPluginServer).UpdateConnectionConfigs(ctx, req.(*UpdateConnectionConfigsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _WrapperPlugin_GetSupportedOperations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetSupportedOperationsRequest)
 	if err := dec(in); err != nil {
@@ -224,6 +288,14 @@ var WrapperPlugin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetConnectionConfig",
 			Handler:    _WrapperPlugin_SetConnectionConfig_Handler,
+		},
+		{
+			MethodName: "SetAllConnectionConfigs",
+			Handler:    _WrapperPlugin_SetAllConnectionConfigs_Handler,
+		},
+		{
+			MethodName: "UpdateConnectionConfigs",
+			Handler:    _WrapperPlugin_UpdateConnectionConfigs_Handler,
 		},
 		{
 			MethodName: "GetSupportedOperations",

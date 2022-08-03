@@ -9,12 +9,12 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -49,8 +49,8 @@ When executing for each matrix item, the matrix item is put into the context, av
 */
 
 // call either 'get' or 'list'.
-func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
-	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.fetchItems (%s)", t.Name)
+func (t *Table) fetchItemsAsync(ctx context.Context, queryData *QueryData) error {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.fetchItemsAsync (%s)", t.Name)
 
 	defer span.End()
 
@@ -71,7 +71,7 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 	return nil
 }
 
-//  execute a get call for every value in the key column quals
+// execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
@@ -157,8 +157,7 @@ func (t *Table) getListQualValueForGetCall(queryData *QueryData) (string, *proto
 }
 
 func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, keyColumnName string, qualValueList *proto.QualValueList) error {
-
-	log.Printf("[WARN] executeGetCall - single qual, qual value is a list - executing get for each qual value item, qualValueList: %v", qualValueList)
+	log.Printf("[TRACE] doGetForQualValues - single qual, qual value is a list - executing get for each qual value item, qualValueList: %v", qualValueList)
 
 	var getWg sync.WaitGroup
 	var errorChan = make(chan (error), len(qualValueList.Values))
@@ -284,11 +283,10 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowDat
 			matrixQueryData := queryData.ShallowCopy()
 			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
 
-			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
 			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
 			if err != nil {
-				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
+				log.Printf("[WARN] callHydrateWithRetries returned error %v", err)
 				errorChan <- err
 			} else if !helpers.IsNil(item) {
 				// stream the get item AND the matrix item
@@ -356,7 +354,8 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
 
-	log.Printf("[TRACE] executeListCall")
+	log.Printf("[TRACE] executeListCall START (%s)", queryData.connectionCallId)
+	defer log.Printf("[TRACE] executeListCall COMPLETE (%s)", queryData.connectionCallId)
 	defer func() {
 		if r := recover(); r != nil {
 			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", helpers.GetFunctionName(t.List.Hydrate), r)))
@@ -464,6 +463,8 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.doList (%s)", t.Name)
 	defer span.End()
 
+	log.Printf("[TRACE] doList (%s)", queryData.connectionCallId)
+
 	rd := newRowData(queryData, nil)
 
 	if len(queryData.Matrix) == 0 {
@@ -473,6 +474,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 		listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
 
 		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, t.List.IgnoreConfig, listRetryConfig); err != nil {
+			log.Printf("[WARN] doList callHydrateWithRetries (%s) returned err %s", queryData.connectionCallId, err.Error())
 			queryData.streamError(err)
 		}
 	} else {
@@ -518,14 +520,12 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 			matrixQueryData := queryData.ShallowCopy()
 			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
 
-			log.Printf("[TRACE] callHydrateWithRetries for matrixItem %v, key columns %v", matrixItem, matrixQueryData.KeyColumnQuals)
-
 			// we cannot retry errors in the list hydrate function after streaming has started
 			listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
 
 			_, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, listCall, t.List.IgnoreConfig, listRetryConfig)
 			if err != nil {
-				log.Printf("[TRACE] callHydrateWithRetries returned error %v", err)
+				log.Printf("[WARN] callHydrateWithRetries returned error %v", err)
 				queryData.streamError(err)
 			}
 		}(matrixItem)

@@ -2,17 +2,14 @@ package plugin
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
 func (t *Table) validate(name string, requiredColumns []*Column) []string {
-	log.Printf("[TRACE] validate table %s", t.Name)
-
 	var validationErrors []string
 
 	// does table have a name set?
@@ -20,34 +17,25 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 		validationErrors = append(validationErrors, fmt.Sprintf("table with key '%s' in plugin table map does not have a name property set", name))
 	}
 
-	log.Printf("[TRACE] validateRequiredColumns")
 	// verify all required columns exist
 	validationErrors = t.validateRequiredColumns(requiredColumns)
 
-	log.Printf("[TRACE] validateListAndGetConfig")
 	// validated list and get config
 	// NOTE: this also sets key column require and operators to default value if not specified
 	validationErrors = append(validationErrors, t.validateListAndGetConfig()...)
 
-	log.Printf("[TRACE] validateHydrateDependencies")
 	// verify hydrate dependencies are valid
 	// the map entries are strings - ensure they correspond to actual functions
 	validationErrors = append(validationErrors, t.validateHydrateDependencies()...)
 
-	log.Printf("[TRACE] DefaultRetryConfig")
 	validationErrors = append(validationErrors, t.DefaultRetryConfig.Validate(t)...)
 
-	log.Printf("[TRACE] DefaultIgnoreConfig")
 	validationErrors = append(validationErrors, t.DefaultIgnoreConfig.Validate(t)...)
 
-	log.Printf("[TRACE] validate hydrate configs")
-
 	for _, h := range t.hydrateConfigMap {
-		log.Printf("[TRACE] validate hydrate config for  '%s'", helpers.GetFunctionName(h.Func))
 		validationErrors = append(validationErrors, h.Validate(t)...)
 	}
 
-	log.Printf("[TRACE] table %s has %d validation errors", t.Name, len(validationErrors))
 	return validationErrors
 }
 

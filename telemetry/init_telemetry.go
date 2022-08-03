@@ -76,7 +76,7 @@ func Init(serviceName string) (func(), error) {
 		defer cancel()
 
 		if tracingEnabled {
-			// TODO not sure why this is necessary - maybe because of batching?
+			// not sure why this is necessary - maybe because of batching?
 			tracerProvider.ForceFlush(context.Background())
 			if err := traceExp.Shutdown(cxt); err != nil {
 				log.Printf("[TRACE] error occurred during telemetry shutdown: %s", err.Error())

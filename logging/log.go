@@ -22,7 +22,7 @@ func NewLogger(options *hclog.LoggerOptions) hclog.Logger {
 }
 
 func LogLevel() string {
-	level, ok := os.LookupEnv(LogLevelEnvVar)
+	level, ok := os.LookupEnv(EnvLogLevel)
 	if ok {
 		return level
 	}

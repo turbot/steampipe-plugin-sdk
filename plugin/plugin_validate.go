@@ -9,6 +9,8 @@ import (
 )
 
 func (p *Plugin) Validate() string {
+	// TODO KAI for dynamic schema we must validate all table maps in ConnectionMap
+
 	log.Printf("[TRACE] validate plugin %s, required columns %v", p.Name, p.RequiredColumns)
 	var validationErrors []string
 	for tableName, table := range p.TableMap {
