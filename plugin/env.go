@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"math"
 	"os"
 	"strconv"
 )
@@ -12,7 +13,7 @@ const (
 	envFreeMemInterval              = "STEAMPIPE_FREE_MEM_INTERVAL"
 	defaultMaxConcurrentConnections = 5
 	defaultMaxConcurrentRows        = 25
-	defaultMaxMemoryMb              = 500
+	defaultMaxMemoryMb              = math.MaxInt64 // no memory limit
 	defaultFreeMemInterval          = 100
 )
 

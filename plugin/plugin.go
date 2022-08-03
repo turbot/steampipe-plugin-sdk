@@ -339,11 +339,10 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.Printf("[INFO] Plugin Execute (%s)", req.CallId)
 	defer log.Printf("[INFO]  Plugin Execute complete (%s)", req.CallId)
 
-	// TODO enable this when we move to go 1.19
 	// limit the plugin memory
-	//newLimit := GetMaxMemoryBytes()
-	//debug.SetMemoryLimit(newLimit)
-	//log.Printf("[WARN] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
+	newLimit := GetMaxMemoryBytes()
+	debug.SetMemoryLimit(newLimit)
+	log.Printf("[WARN] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
