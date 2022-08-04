@@ -1,12 +1,17 @@
-## v4.0.0 [tbd]
+## v4.0.0 [2022-08-04]
+_What's new_
+* A single plugin instance now supports multiple connections, as opposed to an instance being created per connection. ([#365](https://github.com/turbot/steampipe-plugin-sdk/issues/365))
+* Memory usage has been substantially reduced, particularly when streaming high row counts. ([#366](https://github.com/turbot/steampipe-plugin-sdk/issues/366))
 
 _Breaking changes_
-* `Plugin` property `TableMapFunc` has changed signature, it is now 
+* `Plugin` property `TableMapFunc` has changed signature. This is the function which is called for plugins with dynamic schema to return their table schema. Note that the parameter `connection` has been added.
+  This may be used in place of the removed `Plugin.Connection` property.
+
+The new signature is:
 ```
 func(ctx context.Context, connection *Connection) (map[string]*Table, error)
 ```
-This is the function which is called for plugins with dynamic schema to return their table schema. Note that the parameter `connection` has been added. 
-This may be used in place of the removed `Plugin.Connection` property. 
+
 
 * `Plugin` properties `Connection`, and `Schema` have been removed, and new property `ConnectionMap` added.  
   This is a map of `ConnectionData` objects, keyed by connection. This is needed as each plugin instance may support multiple connections.
@@ -21,8 +26,10 @@ type ConnectionData struct {
 	Schema map[string]*proto.TableSchema
 }
 ```
-* `ConnectionManager` has been renamed to `ConnectionCache`. As the plugin can support multiple connections, 
-each connection has its own `ConnectionCache`,  which is a wrapper round an single underlying connection data cache.
+* `ConnectionManager` has been renamed to `ConnectionCache`. As the plugin can support multiple connections,
+  each connection has its own `ConnectionCache`,  which is a wrapper round an single underlying connection data cache.
+
+NOTE: the property `QueryData.ConnectionManager` has been retained for comptibility reasons - this will be deprecated in a future version
 
 ## v3.3.2  [2022-07-11]
 _What's new_
