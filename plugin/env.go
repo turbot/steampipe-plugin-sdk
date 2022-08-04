@@ -23,6 +23,7 @@ func getMaxConcurrentConnections() int {
 	if maxConcurrentConnections == 0 {
 		maxConcurrentConnections = defaultMaxConcurrentConnections
 	}
+	log.Printf("[INFO] Setting max concurrent connections to %d", maxConcurrentConnections)
 	return maxConcurrentConnections
 }
 
@@ -30,8 +31,9 @@ func getMaxConcurrentRows() int {
 	maxConcurrentRows, _ := strconv.Atoi(os.Getenv(envMaxConcurrentRow))
 	if maxConcurrentRows == 0 {
 		maxConcurrentRows = defaultMaxConcurrentRows
+	} else {
+		log.Printf("[INFO] Setting max concurrent rows %d", maxConcurrentRows)
 	}
-	log.Printf("[WARN] max concurrent rows %d", maxConcurrentRows)
 	return maxConcurrentRows
 }
 
@@ -39,8 +41,9 @@ func GetMaxMemoryBytes() int64 {
 	maxMemoryMb, _ := strconv.Atoi(os.Getenv(envMaxMemoryMb))
 	if maxMemoryMb == 0 {
 		maxMemoryMb = defaultMaxMemoryMb
+	} else {
+		log.Printf("[INFO] Setting max memory %dMb", maxMemoryMb)
 	}
-	log.Printf("[WARN] max memory %dMb", maxMemoryMb)
 	return int64(1024 * 1024 * maxMemoryMb)
 }
 
@@ -52,7 +55,7 @@ func GetFreeMemInterval() int64 {
 			freeMemInterval = parsedInterval
 		}
 	}
-	log.Printf("[WARN] free memory interval %d rows", freeMemInterval)
+	log.Printf("[INFO] Setting free memory interval to %d rows", freeMemInterval)
 
 	return int64(freeMemInterval)
 }

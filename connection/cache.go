@@ -27,9 +27,7 @@ func (c *Cache) SetWithTTL(key string, value interface{}, ttl time.Duration) boo
 }
 
 func (c *Cache) Get(key string) (interface{}, bool) {
-	val, err := c.connectionCache.Get(context.Background(), key)
-	success := err == nil
-	return val, success
+	return c.connectionCache.Get(context.Background(), key)
 }
 
 func (c *Cache) Delete(key string) {
