@@ -456,6 +456,11 @@ func (d *QueryData) callParentHydrate(ctx context.Context, parentListHydrate Hyd
 func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}) {
 	// loop over items
 	for _, item := range items {
+		// acquire the rowdata semaphore to limit concurrent rows
+		if err := d.rowSemaphore.Acquire(ctx, 1); err != nil {
+			return
+		}
+
 		// have we streamed enough already?
 		if d.QueryStatus.StreamingComplete {
 			return
@@ -538,12 +543,6 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 					d.waitForRowsToComplete(&rowWg, rowChan)
 					log.Printf("[TRACE] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
-					return
-				}
-
-				// acquire the rowdata semaphore to limit concurrent rows
-				if err := d.rowSemaphore.Acquire(ctx, 1); err != nil {
-					log.Printf("[WARN] failed to acquire rowData semaphore: %s", err.Error())
 					return
 				}
 

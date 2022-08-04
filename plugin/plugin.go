@@ -345,7 +345,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// limit the plugin memory
 	newLimit := GetMaxMemoryBytes()
 	debug.SetMemoryLimit(newLimit)
-	log.Printf("[TRACE] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
+	log.Printf("[INFO] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
@@ -372,7 +372,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			defer outputWg.Done()
 
 			if err := sem.Acquire(ctx, 1); err != nil {
-				log.Printf("[WARN] semaphore error: %s", err.Error())
 				return
 			}
 			defer sem.Release(1)
