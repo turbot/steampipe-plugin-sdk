@@ -39,10 +39,13 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 	return err
 }
 
-func (c *ConnectionCache) Get(ctx context.Context, key string) (interface{}, error) {
+func (c *ConnectionCache) Get(ctx context.Context, key string) (interface{}, bool) {
 	// build a key which includes the connection name
 	key = c.buildCacheKey(key)
-	return c.cache.Get(ctx, key)
+	item, err := c.cache.Get(ctx, key)
+	success := err == nil
+
+	return item, success
 }
 
 func (c *ConnectionCache) Delete(ctx context.Context, key string) {
