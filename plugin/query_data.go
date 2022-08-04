@@ -52,14 +52,13 @@ type QueryData struct {
 	ConnectionCache   *connection_manager.ConnectionCache
 
 	// streaming funcs
-	StreamListItem func(ctx context.Context, item interface{})
+	StreamListItem func(context.Context, ...interface{})
 
 	// deprecated - plugins should no longer call StreamLeafListItem directly and should just call StreamListItem
 	// event for the child list of a parent child list call
-	StreamLeafListItem func(ctx context.Context, item interface{})
+	StreamLeafListItem func(context.Context, ...interface{})
 
 	// internal
-
 	// the callId for this connection
 	connectionCallId string
 
@@ -103,9 +102,6 @@ type QueryData struct {
 func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
 
-	// limit the number of rows which are processed concurrently
-	maxConcurrentRows := getMaxConcurrentRows()
-
 	// create a connection cache
 	connectionCache := connection_manager.NewConnectionCache(connectionData.Connection.Name, plugin.connectionCacheStore)
 	d := &QueryData{
@@ -124,11 +120,12 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
-		rowDataChan:     make(chan *RowData, maxConcurrentRows),
-		errorChan:       make(chan error),
-		outputChan:      outputChan,
-		listWg:          &wg,
-		rowSemaphore:    semaphore.NewWeighted(int64(maxConcurrentRows)),
+		rowDataChan: make(chan *RowData),
+		errorChan:   make(chan error),
+		outputChan:  outputChan,
+		listWg:      &wg,
+
+		rowSemaphore:    semaphore.NewWeighted(int64(plugin.maxConcurrentRows)),
 		freeMemInterval: GetFreeMemInterval(),
 	}
 
@@ -140,8 +137,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	ensureColumns(queryContext, table)
 
-	// build list of required hydrate calls, based on requested columns
-	d.populateRequiredHydrateCalls()
+	// build list of required hydrate calls, based on requested columns	d.populateRequiredHydrateCalls()
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
@@ -186,7 +182,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		listWg:             d.listWg,
 		columns:            d.columns,
 		QueryStatus:        d.QueryStatus,
-		rowSemaphore:       semaphore.NewWeighted(int64(getMaxConcurrentRows())),
+		rowSemaphore:       semaphore.NewWeighted(int64(d.plugin.maxConcurrentRows)),
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -400,24 +396,30 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 }
 
 // stream an item returned from the list call
-// wrap in a rowData object
-func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
-	// have we streamed enough already?
-	if d.QueryStatus.StreamingComplete {
-		return
+func (d *QueryData) streamListItem(ctx context.Context, items ...interface{}) {
+	// loop over items
+	for _, item := range items {
+		// have we streamed enough already?
+		if d.QueryStatus.StreamingComplete {
+			return
+		}
+		// if this table has no parent hydrate function, just call streamLeafListItem directly
+		parentListHydrate := d.Table.List.ParentHydrate
+		if parentListHydrate != nil {
+			// so there is a parent hydrate - call it
+			d.callParentHydrate(ctx, parentListHydrate, item)
+		} else {
+			// otherwise call streamLeafListItem directly
+			d.streamLeafListItem(ctx, item)
+		}
 	}
-	// if this table has no parent hydrate function, just call streamLeafListItem directly
-	parentListHydrate := d.Table.List.ParentHydrate
-	if parentListHydrate == nil {
-		d.streamLeafListItem(ctx, item)
-		return
-	}
+}
 
-	// do a deep nil check on item - if nil, just return
+func (d *QueryData) callParentHydrate(ctx context.Context, parentListHydrate HydrateFunc, item interface{}) {
+	// do a deep nil check on item - if nil, just return to skip this item
 	if helpers.IsNil(item) {
 		return
 	}
-
 	callingFunction := helpers.GetCallingFunction(1)
 	parentHydrateName := helpers.GetFunctionName(parentListHydrate)
 	Logger(ctx).Trace("StreamListItem: called from parent hydrate function - streaming result to child hydrate function",
@@ -442,62 +444,62 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
 		childQueryData.parentItem = item
-		if _, err := d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: item}); err != nil {
+		// now call the parent list
+		_, err := parentListHydrate(ctx, childQueryData, &HydrateData{Item: item})
+		if err != nil {
 			d.streamError(err)
 		}
 	}()
 }
 
-func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
-	// have we streamed enough already?
-	if d.QueryStatus.StreamingComplete {
-		return
+func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}) {
+	// loop over items
+	for _, item := range items {
+		// have we streamed enough already?
+		if d.QueryStatus.StreamingComplete {
+			return
+		}
+
+		// if this is the first time we have received a zero rows remaining, stream an empty row and mark stream
+		if d.QueryStatus.RowsRemaining(ctx) == 0 {
+			log.Printf("[TRACE] streamListItem RowsRemaining zero, send nil row %s", d.Connection.Name)
+			d.QueryStatus.StreamingComplete = true
+			// if this is the first time we have received a zero rows remaining, stream an empty row
+			// to indicate downstream that we are done
+			d.rowDataChan <- nil
+			// we are done - give memory back to OS at once
+			debug.FreeOSMemory()
+			return
+		}
+
+		// tactical - if we have specified freeMemInterval, check whether we have reached it and need to free memory
+		// this is to reduce memory pressure dure to streaming high row counts
+		if d.shouldFreeMemory() {
+			debug.FreeOSMemory()
+		}
+
+		// do a deep nil check on item - if nil, just skipthis item
+		if helpers.IsNil(item) {
+			log.Printf("[WARN] streamLeafListItem received nil item, skipping")
+			continue
+		}
+		// increment the stream count
+		d.QueryStatus.rowsStreamed++
+
+		// create rowData, passing matrixItem from context
+		rd := newRowData(d, item)
+
+		rd.matrixItem = GetMatrixItem(ctx)
+		// set the parent item on the row data
+		rd.ParentItem = d.parentItem
+		// NOTE: add the item as the hydrate data for the list call
+		rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
+
+		d.rowDataChan <- rd
 	}
-
-	// if this is the first time we have received a zero rows remaining, stream an empty row and mark stream
-	if d.QueryStatus.RowsRemaining(ctx) == 0 {
-		log.Printf("[TRACE] streamListItem RowsRemaining zero, send nil row %s", d.Connection.Name)
-		d.QueryStatus.StreamingComplete = true
-		// if this is the first time we have received a zero rows remaining, stream an empty row
-		// to indicate downstream that we are done
-		d.rowDataChan <- nil
-		// we are done - give memory back to OS at once
-		debug.FreeOSMemory()
-		return
-	}
-
-	// tactical - if we have specified freeMemInterval, check whether we have reached it and need to free memory
-	// this is to reduce memory pressure dure to streaming high row counts
-	if d.shouldFreeMemory() {
-		debug.FreeOSMemory()
-	}
-
-	// do a deep nil check on item - if nil, just return
-	if helpers.IsNil(item) {
-		return
-	}
-	// increment the stream count
-	d.QueryStatus.rowsStreamed++
-
-	// acquire the rowdata semaphore to limit concurrent rows
-	if err := d.rowSemaphore.Acquire(ctx, 1); err != nil {
-		log.Printf("[WARN] failed to acquire rowData semaphore: %s", err.Error())
-		return
-	}
-	defer d.rowSemaphore.Release(1)
-
-	// create rowData, passing matrixItem from context
-	rd := newRowData(d, item)
-
-	rd.matrixItem = GetMatrixItem(ctx)
-	// set the parent item on the row data
-	rd.ParentItem = d.parentItem
-	// NOTE: add the item as the hydrate data for the list call
-	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
-	//log.Printf("[WARN] STREAM LIST ITEM %s", d.Connection.Name)
-	d.rowDataChan <- rd
 }
 
+// if a free memory interval has been set, check if we have reached it
 func (d *QueryData) shouldFreeMemory() bool {
 	return d.freeMemInterval != 0 && d.QueryStatus.rowsStreamed%d.freeMemInterval == 0
 }
@@ -535,6 +537,12 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 					d.waitForRowsToComplete(&rowWg, rowChan)
 					log.Printf("[TRACE] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
+					return
+				}
+
+				// acquire the rowdata semaphore to limit concurrent rows
+				if err := d.rowSemaphore.Acquire(ctx, 1); err != nil {
+					log.Printf("[WARN] failed to acquire rowData semaphore: %s", err.Error())
 					return
 				}
 
@@ -639,6 +647,7 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *RowData, rowChan
 			if r := recover(); r != nil {
 				d.streamError(helpers.ToError(r))
 			}
+			d.rowSemaphore.Release(1)
 			wg.Done()
 		}()
 		if rowData == nil {
