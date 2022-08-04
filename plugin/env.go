@@ -41,10 +41,10 @@ func getMaxConcurrentRows() int {
 func GetMaxMemoryBytes() int64 {
 	maxMemoryMb, _ := strconv.Atoi(os.Getenv(envMaxMemoryMb))
 	if maxMemoryMb == 0 {
-		log.Printf("[INFO] No memory limit set")
+		log.Printf("[TRACE] No memory limit set")
 		maxMemoryMb = defaultMaxMemoryMb
 	} else {
-		log.Printf("[INFO] Setting max memory %dMb", maxMemoryMb)
+		log.Printf("[TRACE] Setting max memory %dMb", maxMemoryMb)
 	}
 	return int64(1024 * 1024 * maxMemoryMb)
 }

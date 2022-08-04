@@ -446,7 +446,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	// the connection property must be set already
 	connectionData, ok := p.ConnectionMap[connectionName]
 	if !ok {
-		return fmt.Errorf("no connection data loaded for connection '%s'", connectionName)
+		return fmt.Errorf("plugin execute failed - no connection data loaded for connection '%s'", connectionName)
 	}
 	log.Printf("[TRACE] got connection data")
 
