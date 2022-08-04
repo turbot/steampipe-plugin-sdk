@@ -137,7 +137,8 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	ensureColumns(queryContext, table)
 
-	// build list of required hydrate calls, based on requested columns	d.populateRequiredHydrateCalls()
+	// build list of required hydrate calls, based on requested columns
+	d.populateRequiredHydrateCalls()
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
