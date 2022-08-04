@@ -399,7 +399,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	for !complete {
 		select {
 		case row := <-outputChan:
-			//log.Printf("[WARN] GOT ROW ON OUTPUT CHANNEL")
 			// nil row means that one connection is done streaming
 			if row == nil {
 				log.Printf("[TRACE] empty row on output channel - we are done ")

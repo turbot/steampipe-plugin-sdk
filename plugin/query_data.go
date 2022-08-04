@@ -481,7 +481,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 
 		// do a deep nil check on item - if nil, just skipthis item
 		if helpers.IsNil(item) {
-			log.Printf("[WARN] streamLeafListItem received nil item, skipping")
+			log.Printf("[TRACE] streamLeafListItem received nil item, skipping")
 			continue
 		}
 		// increment the stream count
