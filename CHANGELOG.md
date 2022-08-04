@@ -2,6 +2,7 @@
 _What's new_
 * A single plugin instance now supports multiple connections, as opposed to an instance being created per connection. ([#365](https://github.com/turbot/steampipe-plugin-sdk/issues/365))
 * Memory usage has been substantially reduced, particularly when streaming high row counts. ([#366](https://github.com/turbot/steampipe-plugin-sdk/issues/366))
+* Allow control of maximum cache memory usage. ([#302](https://github.com/turbot/steampipe-plugin-sdk/issues/302))
 
 _Breaking changes_
 * `Plugin` property `TableMapFunc` has changed signature. This is the function which is called for plugins with dynamic schema to return their table schema. Note that the parameter `connection` has been added.
