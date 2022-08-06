@@ -185,7 +185,7 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 }
 
 func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
-	log.Printf("[TRACE] QueryCache EndSet %s", callId)
+	log.Printf("[TRACE] QueryCache EndSet (%s)", callId)
 	c.setRequestMapLock.Lock()
 	defer c.setRequestMapLock.Unlock()
 	// get the ongoing request
@@ -195,10 +195,13 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		return fmt.Errorf("EndSet called for callId %s but there is no in progress set operation", callId)
 	}
 
+	log.Printf("[TRACE] EndSet %s table %s", callId, req.Table)
+
 	// lock the rowlock to ensure any previous writes are complete
 	//req.rowLock.Lock()
 
 	defer func() {
+		log.Printf("[TRACE] EndSet DEFER (%s) table %s", callId, req.Table)
 		if r := recover(); r != nil {
 			log.Printf("[WARN] QueryCache EndSet suffered a panic: %v", helpers.ToError(r))
 			err = helpers.ToError(r)
@@ -208,9 +211,11 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 
 		// remove entry from the map
 		delete(c.setRequests, callId)
+		log.Printf("[WARN] calling pendingItemComplete (%s)", callId)
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
 		c.pendingItemComplete(req)
+		log.Printf("[WARN] called pendingItemComplete")
 	}()
 
 	// write the remainder to the result cache

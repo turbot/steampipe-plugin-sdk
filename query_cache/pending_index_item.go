@@ -64,16 +64,16 @@ func (i *pendingIndexItem) Lock() {
 }
 
 func (i *pendingIndexItem) Unlock() {
-	log.Printf("[TRACE] pendingIndexItem Unlock count before %d", i.count)
+	log.Printf("[TRACE] pendingIndexItem Unlock count before %d key %s", i.count, i.item.Key)
 	i.wg.Done()
 	i.count--
 }
 
 func (i *pendingIndexItem) Wait() {
-	log.Printf("[TRACE] pendingIndexItem Wait")
+	log.Printf("[TRACE] pendingIndexItem Wait %p, %s", i, i.item.Key)
 
 	i.wg.Wait()
-	log.Printf("[TRACE] pendingIndexItem Wait DONE")
+	log.Printf("[TRACE] pendingIndexItem Wait DONE  %p, %s", i, i.item.Key)
 }
 
 func NewPendingIndexItem(req *CacheRequest) *pendingIndexItem {
