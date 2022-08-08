@@ -2,7 +2,7 @@
 _Bug fixes_
 * Fix query results with zero rows not being cached, leading to timeouts and failure to load pending cache results. ([#372](https://github.com/turbot/steampipe-plugin-sdk/issues/372))
 * Fix duplicate results returned from cache. ([#371](https://github.com/turbot/steampipe-plugin-sdk/issues/371))
-* Remove max concurrent row semaphore. ([#369](https://github.com/turbot/steampipe-plugin-sdk/issues/369))
+* Remove max concurrent row semaphore. Max concurrent row limiting is disabled by default, and under certain circumstances has been seen to cause a NRE. Removed for now until more detailed benchmarking can be done to justify re-adding. ([#369](https://github.com/turbot/steampipe-plugin-sdk/issues/369))
 
 
 ## v4.0.0 [2022-08-04]
