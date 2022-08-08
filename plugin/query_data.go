@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
-	"golang.org/x/sync/semaphore"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -89,8 +88,6 @@ type QueryData struct {
 	cacheColumns []string
 	// buffer rows before sending to the cache in chunks
 	cacheRows []*proto.Row
-	// semaphore used to limit the number of concurrent rows to process
-	rowSemaphore *semaphore.Weighted
 
 	// map of hydrate function name to columns it provides
 	// (this is in queryData not Table as it gets modified per query)
@@ -125,7 +122,6 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 		outputChan:  outputChan,
 		listWg:      &wg,
 
-		rowSemaphore:    semaphore.NewWeighted(int64(plugin.maxConcurrentRows)),
 		freeMemInterval: GetFreeMemInterval(),
 	}
 
@@ -183,7 +179,6 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		listWg:             d.listWg,
 		columns:            d.columns,
 		QueryStatus:        d.QueryStatus,
-		rowSemaphore:       semaphore.NewWeighted(int64(d.plugin.maxConcurrentRows)),
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -422,10 +417,6 @@ func (d *QueryData) callParentHydrate(ctx context.Context, parentListHydrate Hyd
 		return
 	}
 	callingFunction := helpers.GetCallingFunction(1)
-	parentHydrateName := helpers.GetFunctionName(parentListHydrate)
-	Logger(ctx).Trace("StreamListItem: called from parent hydrate function - streaming result to child hydrate function",
-		"parent hydrate", parentHydrateName,
-		"child hydrate", helpers.GetFunctionName(d.Table.List.Hydrate))
 	d.listWg.Add(1)
 
 	go func() {
@@ -456,11 +447,6 @@ func (d *QueryData) callParentHydrate(ctx context.Context, parentListHydrate Hyd
 func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}) {
 	// loop over items
 	for _, item := range items {
-		// acquire the rowdata semaphore to limit concurrent rows
-		if err := d.rowSemaphore.Acquire(ctx, 1); err != nil {
-			return
-		}
-
 		// have we streamed enough already?
 		if d.QueryStatus.StreamingComplete {
 			return
@@ -647,7 +633,6 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *RowData, rowChan
 			if r := recover(); r != nil {
 				d.streamError(helpers.ToError(r))
 			}
-			d.rowSemaphore.Release(1)
 			wg.Done()
 		}()
 		if rowData == nil {

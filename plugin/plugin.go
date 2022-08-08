@@ -78,8 +78,6 @@ type Plugin struct {
 	queryCache *query_cache.QueryCache
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
 	connectionCacheStore *cache.Cache[any]
-	// the maximum numer of rows which may be processed in parallel
-	maxConcurrentRows int
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -125,7 +123,6 @@ func (p *Plugin) Initialise() {
 	// TODO REMOVE WITH GO 1.19
 	p.setuLimit()
 
-	p.maxConcurrentRows = getMaxConcurrentRows()
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
 	}
