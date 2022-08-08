@@ -1,3 +1,10 @@
+## v4.0.1 [tbd]
+_Bug fixes_
+* Fix query results with zero rows not being cached, leading to timeouts and failure to load pending cache results. ([#372](https://github.com/turbot/steampipe-plugin-sdk/issues/372))
+* Fix duplicate results returned from cache. ([#371](https://github.com/turbot/steampipe-plugin-sdk/issues/371))
+* Remove max concurrent row semaphore. ([#369](https://github.com/turbot/steampipe-plugin-sdk/issues/369))
+
+
 ## v4.0.0 [2022-08-04]
 _What's new_
 * A single plugin instance now supports multiple connections, as opposed to an instance being created per connection. ([#365](https://github.com/turbot/steampipe-plugin-sdk/issues/365))
@@ -6,6 +13,7 @@ _What's new_
 * `QueryData` functions `StreamListItem` and `StreamLeafListItem` are now variadic, and accept multiple items to passed in a single call, simplifying the streaming of a page of data. ([#341](https://github.com/turbot/steampipe-plugin-sdk/issues/341))
 
 _Breaking changes_
+* Go version updated to 1.19
 * `Plugin` property `TableMapFunc` has changed signature. This is the function which is called for plugins with dynamic schema to return their table schema. Note that the parameter `connection` has been added.
   This may be used in place of the removed `Plugin.Connection` property.
 
