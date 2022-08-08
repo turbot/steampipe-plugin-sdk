@@ -336,6 +336,12 @@ func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 // Execute is the handler function for the Execute grpc function
 // execute a query and streams the results using the given GRPC stream.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+	// add CallId to logs for the execute call
+	logger := p.Logger.Named(req.CallId)
+	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+	log.SetPrefix("")
+	log.SetFlags(0)
+
 	log.Printf("[INFO] Plugin Execute (%s)", req.CallId)
 	defer log.Printf("[INFO]  Plugin Execute complete (%s)", req.CallId)
 
@@ -348,12 +354,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
 	//doneChan := make(chan bool)
 	var outputWg sync.WaitGroup
-
-	// add CallId to logs for the execute call
-	logger := p.Logger.Named(req.CallId)
-	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
-	log.SetPrefix("")
-	log.SetFlags(0)
 
 	// get a context which includes telemetry data and logger
 	ctx := p.buildExecuteContext(stream.Context(), req, logger)
@@ -427,10 +427,10 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)
-	log.Printf("[TRACE] executeForConnection callId: %s connection: %s table: %s cols: %s", connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
+	log.Printf("[TRACE] executeForConnection callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
-		log.Printf("[TRACE] executeForConnection (%s) ", connectionCallId)
+		log.Printf("[TRACE] executeForConnection DEFER (%s) ", connectionCallId)
 		if r := recover(); r != nil {
 			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
 			err = helpers.ToError(r)
