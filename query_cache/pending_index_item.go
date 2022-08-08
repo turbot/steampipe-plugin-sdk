@@ -1,6 +1,7 @@
 package query_cache
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -9,6 +10,7 @@ import (
 )
 
 // pendingIndexBucket contains index items for all pending cache results for a given table and qual set
+// (keyed by the root result key)
 type pendingIndexBucket struct {
 	Items map[string]*pendingIndexItem
 }
@@ -46,6 +48,14 @@ func (b *pendingIndexBucket) GetItemsSatisfiedByColumns(columns []string, limit 
 
 func (b *pendingIndexBucket) delete(pendingItem *pendingIndexItem) {
 	delete(b.Items, pendingItem.item.Key)
+}
+
+func (b *pendingIndexBucket) String() any {
+	var sb strings.Builder
+	for itemKey, item := range b.Items {
+		sb.WriteString(fmt.Sprintf("item: %p, count: %d, key:%s\n", item, item.count, itemKey))
+	}
+	return sb.String()
 }
 
 // pendingIndexItem stores the columns and cached index for a single pending query result
@@ -87,17 +97,17 @@ func NewPendingIndexItem(req *CacheRequest) *pendingIndexItem {
 }
 
 // SatisfiesColumns returns whether our index item satisfies the given columns
-func (i pendingIndexItem) SatisfiesColumns(columns []string) bool {
+func (i *pendingIndexItem) SatisfiesColumns(columns []string) bool {
 	return i.item.SatisfiesColumns(columns)
 }
 
 // SatisfiesLimit returns whether our index item satisfies the given limit
-func (i pendingIndexItem) SatisfiesLimit(limit int64) bool {
+func (i *pendingIndexItem) SatisfiesLimit(limit int64) bool {
 	return i.item.SatisfiesLimit(limit)
 }
 
 // SatisfiedByColumns returns whether we would be satisfied by the given columns
-func (i pendingIndexItem) SatisfiedByColumns(columns []string) bool {
+func (i *pendingIndexItem) SatisfiedByColumns(columns []string) bool {
 	// does columns contain all out index item columns?
 	for _, c := range i.item.Columns {
 		if !helpers.StringSliceContains(columns, c) {
@@ -109,7 +119,7 @@ func (i pendingIndexItem) SatisfiedByColumns(columns []string) bool {
 }
 
 // SatisfiedByLimit returns whether we would be satisfied by the given limt
-func (i pendingIndexItem) SatisfiedByLimit(limit int64) bool {
+func (i *pendingIndexItem) SatisfiedByLimit(limit int64) bool {
 	// if index item has no limit, we would only be satisfied by no limit
 	if i.item.Limit == -1 {
 		satisfied := limit == -1

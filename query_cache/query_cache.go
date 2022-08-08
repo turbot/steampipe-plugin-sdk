@@ -185,7 +185,6 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 }
 
 func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
-	log.Printf("[TRACE] QueryCache EndSet (%s)", callId)
 	c.setRequestMapLock.Lock()
 	defer c.setRequestMapLock.Unlock()
 	// get the ongoing request
@@ -195,7 +194,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		return fmt.Errorf("EndSet called for callId %s but there is no in progress set operation", callId)
 	}
 
-	log.Printf("[TRACE] EndSet %s table %s", callId, req.Table)
+	log.Printf("[TRACE] EndSet (%s) table %s", callId, req.Table)
 
 	// lock the rowlock to ensure any previous writes are complete
 	//req.rowLock.Lock()
@@ -211,11 +210,10 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 
 		// remove entry from the map
 		delete(c.setRequests, callId)
-		log.Printf("[WARN] calling pendingItemComplete (%s)", callId)
+		log.Printf("[TRACE] calling pendingItemComplete (%s)", callId)
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
 		c.pendingItemComplete(req)
-		log.Printf("[WARN] called pendingItemComplete")
 	}()
 
 	// write the remainder to the result cache
@@ -249,12 +247,10 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		indexBucket = newIndexBucket()
 	}
 	indexBucket.Append(indexItem)
-	log.Printf("[TRACE] QueryCache EndSet - Added index item to bucket, page count %d,  key %s", req.pageCount, req.resultKeyRoot)
+	log.Printf("[TRACE] QueryCache EndSet - Added index item (%p) to bucket (%p), page count %d,  key root %s", indexItem, indexBucket, req.pageCount, req.resultKeyRoot)
 
 	// write index bucket back to cache
 	err = c.cacheSetIndexBucket(ctx, indexBucketKey, indexBucket, req.ttl())
-	indexBucket, err = c.getCachedIndexBucket(ctx, indexBucketKey)
-
 	if err != nil {
 		log.Printf("[WARN] cache Set failed for index bucket: %v", err)
 	} else {
@@ -303,13 +299,15 @@ func (c *QueryCache) setTtl(clientTTLSeconds int64) {
 func (c *QueryCache) writePageToCache(ctx context.Context, req *CacheRequest) error {
 	// ask the request for it's currently buffered rows
 	rows := req.getRows()
-	if len(rows) == 0 {
-		return nil
-	}
+	// reset the row buffer index and increment the page count
+	// (BEFORE building pageKey)
+	req.pageCount++
+	req.rowIndex = 0
 
+	// build a cache key for this page
 	pageKey := req.getPageResultKey()
 
-	log.Printf("[TRACE] QueryCache writePageToCache: %d rows, page key %s", len(rows), pageKey)
+	log.Printf("[TRACE] QueryCache writePageToCache: %d rows, pageCount %d, page key %s", len(rows), req.pageCount, pageKey)
 	// write to cache - construct result key
 	result := &sdkproto.QueryResult{Rows: rows}
 
@@ -323,10 +321,6 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *CacheRequest) er
 	} else {
 		log.Printf("[TRACE] writePageToCache Set - result written")
 	}
-
-	// reset the row buffer index and increment the page count
-	req.rowIndex = 0
-	req.pageCount++
 
 	return err
 }
@@ -348,8 +342,6 @@ func (c *QueryCache) getCachedIndexBucket(ctx context.Context, key string) (*Ind
 	return res, nil
 }
 
-// try to fetch cached data for the given cache request
-// this is factored into a separate function from Get to support fetching pending results with same code
 func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (int64, error) {
 	log.Printf("[TRACE] QueryCache getCachedQueryResult - table %s, connectionName %s", req.Table, req.ConnectionName)
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
@@ -372,6 +364,10 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 		return 0, new(CacheMissError)
 	}
 
+	return c.getCachedQueryResultFromIndexItem(ctx, indexItem, streamRowFunc)
+}
+
+func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, indexItem *IndexItem, streamRowFunc func(row *sdkproto.Row)) (int64, error) {
 	// so we have a cache index, retrieve the item
 	log.Printf("[TRACE] got an index item - try to retrieve rows from cache")
 

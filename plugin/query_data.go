@@ -562,9 +562,7 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		} else {
 			// if we are caching call EndSet to write to the cache
 			if d.cacheEnabled {
-				log.Printf("[WARN] calling EndSet")
 				cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
-				log.Printf("[WARN] called EndSet")
 				if cacheErr != nil {
 					// just log error, do not fail
 					log.Printf("[WARN] cache set failed: %v", cacheErr)

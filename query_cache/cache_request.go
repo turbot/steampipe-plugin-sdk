@@ -31,7 +31,7 @@ func (req *CacheRequest) ttl() time.Duration {
 
 // get result key for the most recent page of the request
 func (req *CacheRequest) getPageResultKey() string {
-	return getPageKey(req.resultKeyRoot, req.pageCount)
+	return getPageKey(req.resultKeyRoot, req.pageCount-1)
 }
 
 func (req *CacheRequest) getRows() []*sdkproto.Row {
