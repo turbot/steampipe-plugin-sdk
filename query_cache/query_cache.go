@@ -405,6 +405,8 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 	}
 	// ok it's there, stream rows
 	streamRows(cacheResult)
+	// update page index
+	pageIdx++
 
 	// now fetch the rest (if any), in parallel maxReadThreads at a time
 	for ; pageIdx < indexItem.PageCount; pageIdx++ {
