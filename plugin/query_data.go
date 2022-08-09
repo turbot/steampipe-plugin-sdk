@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
@@ -58,6 +58,7 @@ type QueryData struct {
 	StreamLeafListItem func(context.Context, ...interface{})
 
 	// internal
+
 	// the callId for this connection
 	connectionCallId string
 
@@ -556,10 +557,24 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		// if the context is cancelled and the parent callId is in the list of completed executions,
 		// this means Postgres has called EndForeignScan as it has enough data, and the context has been cancelled
 		// call EndSet
-		if err != nil || error_helpers.IsCancelled(ctx) {
-			log.Printf("[WARN] streamRows for %s - execution has failed or been cancelled - calling queryCache.AbortSet", d.connectionCallId)
+		if err != nil || (error_helpers.IsCancelled(ctx) && !d.executionEnded()) {
+			log.Printf("[WARN] streamRows for %s - execution has failed or been cancelled - calling queryCache.AbortSet. err %v, ctx.Error() %v", d.connectionCallId, err, ctx.Err())
+
+			// HACK
+			if error_helpers.IsCancelled(ctx) {
+				d.plugin.completedExecutionLock.Lock()
+				log.Printf("[WARN] COMPLETED EXECUTIONS")
+				for c := range d.plugin.completedExecutions {
+					log.Printf("[WARN] %s", c)
+				}
+				d.plugin.completedExecutionLock.Unlock()
+			}
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId)
 		} else {
+
+			if err != nil || (error_helpers.IsCancelled(ctx)) {
+				log.Printf("[WARN] streamRows for %s - execution has been ended - write to cache", d.connectionCallId)
+			}
 			// if we are caching call EndSet to write to the cache
 			if d.cacheEnabled {
 				cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
@@ -664,4 +679,18 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	rowWg.Wait()
 	logging.DisplayProfileData(10 * time.Millisecond)
 	close(rowChan)
+}
+
+// has our execution been happily terminated by postgres (i.e. because it has enough data)
+func (d *QueryData) executionEnded() bool {
+	callId, _, err := grpc.ParseConnectionCallId(d.connectionCallId)
+	if err != nil {
+		return false
+	}
+	d.plugin.completedExecutionLock.Lock()
+	defer d.plugin.completedExecutionLock.Unlock()
+
+	// is this call id in the list of completed executions?
+	_, isCompleted := d.plugin.completedExecutions[callId]
+	return isCompleted
 }

@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type WrapperPluginClient interface {
 	GetSchema(ctx context.Context, in *GetSchemaRequest, opts ...grpc.CallOption) (*GetSchemaResponse, error)
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (WrapperPlugin_ExecuteClient, error)
+	EndExecute(ctx context.Context, in *EndExecuteRequest, opts ...grpc.CallOption) (*EndExecuteResponse, error)
 	SetConnectionConfig(ctx context.Context, in *SetConnectionConfigRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
 	SetAllConnectionConfigs(ctx context.Context, in *SetAllConnectionConfigsRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(ctx context.Context, in *UpdateConnectionConfigsRequest, opts ...grpc.CallOption) (*UpdateConnectionConfigsResponse, error)
@@ -79,6 +80,15 @@ func (x *wrapperPluginExecuteClient) Recv() (*ExecuteResponse, error) {
 	return m, nil
 }
 
+func (c *wrapperPluginClient) EndExecute(ctx context.Context, in *EndExecuteRequest, opts ...grpc.CallOption) (*EndExecuteResponse, error) {
+	out := new(EndExecuteResponse)
+	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/EndExecute", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *wrapperPluginClient) SetConnectionConfig(ctx context.Context, in *SetConnectionConfigRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error) {
 	out := new(SetConnectionConfigResponse)
 	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/SetConnectionConfig", in, out, opts...)
@@ -121,6 +131,7 @@ func (c *wrapperPluginClient) GetSupportedOperations(ctx context.Context, in *Ge
 type WrapperPluginServer interface {
 	GetSchema(context.Context, *GetSchemaRequest) (*GetSchemaResponse, error)
 	Execute(*ExecuteRequest, WrapperPlugin_ExecuteServer) error
+	EndExecute(context.Context, *EndExecuteRequest) (*EndExecuteResponse, error)
 	SetConnectionConfig(context.Context, *SetConnectionConfigRequest) (*SetConnectionConfigResponse, error)
 	SetAllConnectionConfigs(context.Context, *SetAllConnectionConfigsRequest) (*SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(context.Context, *UpdateConnectionConfigsRequest) (*UpdateConnectionConfigsResponse, error)
@@ -137,6 +148,9 @@ func (UnimplementedWrapperPluginServer) GetSchema(context.Context, *GetSchemaReq
 }
 func (UnimplementedWrapperPluginServer) Execute(*ExecuteRequest, WrapperPlugin_ExecuteServer) error {
 	return status.Errorf(codes.Unimplemented, "method Execute not implemented")
+}
+func (UnimplementedWrapperPluginServer) EndExecute(context.Context, *EndExecuteRequest) (*EndExecuteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method EndExecute not implemented")
 }
 func (UnimplementedWrapperPluginServer) SetConnectionConfig(context.Context, *SetConnectionConfigRequest) (*SetConnectionConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetConnectionConfig not implemented")
@@ -200,6 +214,24 @@ type wrapperPluginExecuteServer struct {
 
 func (x *wrapperPluginExecuteServer) Send(m *ExecuteResponse) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _WrapperPlugin_EndExecute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EndExecuteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WrapperPluginServer).EndExecute(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.WrapperPlugin/EndExecute",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WrapperPluginServer).EndExecute(ctx, req.(*EndExecuteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _WrapperPlugin_SetConnectionConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -284,6 +316,10 @@ var WrapperPlugin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSchema",
 			Handler:    _WrapperPlugin_GetSchema_Handler,
+		},
+		{
+			MethodName: "EndExecute",
+			Handler:    _WrapperPlugin_EndExecute_Handler,
 		},
 		{
 			MethodName: "SetConnectionConfig",

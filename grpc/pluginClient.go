@@ -71,6 +71,15 @@ func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlug
 	return c.Stub.Execute(req)
 }
 
+func (c *PluginClient) EndExecute(req *proto.EndExecuteRequest) error {
+	_, err := c.Stub.EndExecute(req)
+	if err != nil {
+		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
+		return HandleGrpcError(err, c.Name, "EndExecute")
+	}
+	return nil
+}
+
 func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) error {
 	_, err := c.Stub.SetConnectionConfig(req)
 	if err != nil {
