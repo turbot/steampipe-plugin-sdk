@@ -601,7 +601,6 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	log.Printf("[TRACE] streamRows connectionCallId: %s", connectionCallId)
 
 	logging.LogTime("Calling streamRows")
-	log.Printf("[WARN] Calling streamRows")
 	//  stream rows across GRPC
 	err = queryData.streamRows(ctx, rowChan, doneChan)
 	if err != nil {

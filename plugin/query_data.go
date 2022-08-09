@@ -559,21 +559,10 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		// call EndSet
 		if err != nil || (error_helpers.IsCancelled(ctx) && !d.executionEnded()) {
 			log.Printf("[WARN] streamRows for %s - execution has failed or been cancelled - calling queryCache.AbortSet. err %v, ctx.Error() %v", d.connectionCallId, err, ctx.Err())
-
-			// HACK
-			if error_helpers.IsCancelled(ctx) {
-				d.plugin.completedExecutionLock.Lock()
-				log.Printf("[WARN] COMPLETED EXECUTIONS")
-				for c := range d.plugin.completedExecutions {
-					log.Printf("[WARN] %s", c)
-				}
-				d.plugin.completedExecutionLock.Unlock()
-			}
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId)
 		} else {
-
 			if err != nil || (error_helpers.IsCancelled(ctx)) {
-				log.Printf("[WARN] streamRows for %s - execution has been ended - write to cache", d.connectionCallId)
+				log.Printf("[TRACE] streamRows for %s - execution has been ended - write to cache", d.connectionCallId)
 			}
 			// if we are caching call EndSet to write to the cache
 			if d.cacheEnabled {
