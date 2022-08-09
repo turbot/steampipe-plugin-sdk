@@ -272,7 +272,21 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		schema := exemplarSchema
 		tableMap := exemplarTableMap
 		// create connection object
-		c := &Connection{Name: addedConnection.Connection}
+		c := &Connection{
+			Name:   addedConnection.Connection,
+			Config: addedConnection.Config,
+		}
+		if addedConnection.Config != "" {
+			if p.ConnectionConfigSchema == nil {
+				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", addedConnection, p.Name)
+			}
+			// ask plugin for a struct to deserialise the config into
+			config, err := p.ConnectionConfigSchema.Parse(addedConnection.Config)
+			if err != nil {
+				return err
+			}
+			c.Config = config
+		}
 
 		if p.SchemaMode == SchemaModeDynamic {
 			var err error
