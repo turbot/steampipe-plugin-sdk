@@ -28,6 +28,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -88,12 +89,11 @@ type Plugin struct {
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) Initialise() {
-	log.Printf("[INFO] Initialise plugin '%s', using sdk version %s", p.Name, version.String())
-
-	log.Println("[TRACE] Plugin Initialise creating connection manager")
 	p.ConnectionMap = make(map[string]*ConnectionData)
 
 	p.Logger = p.setupLogger()
+	log.Printf("[INFO] Initialise plugin '%s', using sdk version %s", p.Name, version.String())
+
 	// default the schema mode to static
 	if p.SchemaMode == "" {
 		log.Println("[TRACE] defaulting SchemaMode to SchemaModeStatic")
@@ -550,6 +550,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 			queryData.streamRow(row)
 		}
 
+		start := time.Now()
 		// try to fetch this data from the query cache
 		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamRowFunc)
 		if cacheErr == nil {
@@ -558,6 +559,11 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 			// nothing more to do
 			return nil
+		}
+
+		getDuration := time.Since(start)
+		if getDuration > time.Second {
+			log.Printf("[TRACE] queryCache.Get took %.1fs: (%s),", getDuration.Seconds(), connectionCallId)
 		}
 
 		// so the cache call failed, with either a cahce-miss or other error
