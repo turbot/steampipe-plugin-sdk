@@ -401,10 +401,9 @@ func (d *QueryData) streamListItem(ctx context.Context, items ...interface{}) {
 			return
 		}
 		// if this table has no parent hydrate function, just call streamLeafListItem directly
-		parentListHydrate := d.Table.List.ParentHydrate
-		if parentListHydrate != nil {
-			// so there is a parent hydrate - call it
-			d.callParentHydrate(ctx, parentListHydrate, item)
+		if d.Table.List.ParentHydrate != nil {
+			// so there is a parent-child hydrate - call the child hydrate, passing 'item' as the parent item
+			d.callChildListHydrate(ctx, item)
 		} else {
 			// otherwise call streamLeafListItem directly
 			d.streamLeafListItem(ctx, item)
@@ -412,9 +411,10 @@ func (d *QueryData) streamListItem(ctx context.Context, items ...interface{}) {
 	}
 }
 
-func (d *QueryData) callParentHydrate(ctx context.Context, parentListHydrate HydrateFunc, item interface{}) {
+// there is a parent-child list hydration - call the child list function passing 'item' as the parent item'
+func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interface{}) {
 	// do a deep nil check on item - if nil, just return to skip this item
-	if helpers.IsNil(item) {
+	if helpers.IsNil(parentItem) {
 		return
 	}
 	callingFunction := helpers.GetCallingFunction(1)
@@ -436,9 +436,9 @@ func (d *QueryData) callParentHydrate(ctx context.Context, parentListHydrate Hyd
 		childQueryData := d.ShallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
-		childQueryData.parentItem = item
+		childQueryData.parentItem = parentItem
 		// now call the parent list
-		_, err := parentListHydrate(ctx, childQueryData, &HydrateData{Item: item})
+		_, err := d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: parentItem})
 		if err != nil {
 			d.streamError(err)
 		}
