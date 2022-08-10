@@ -1,12 +1,10 @@
 ## v4.0.1 [tbd]
-_What's new_
-* Add `EndExecute` GRPC function and use to ensure we write all query data to cache when Postgres terminates a query early. ([#377](https://github.com/turbot/steampipe-plugin-sdk/issues/377))
-
 _Bug fixes_
 * Fix UpdateConnectionConfigs not setting the connection config. ([#375](https://github.com/turbot/steampipe-plugin-sdk/issues/375))
 * Fix query results with zero rows not being cached, leading to timeouts and failure to load pending cache results. ([#372](https://github.com/turbot/steampipe-plugin-sdk/issues/372))
 * Fix duplicate results returned from cache. ([#371](https://github.com/turbot/steampipe-plugin-sdk/issues/371))
 * Remove max concurrent row semaphore. Max concurrent row limiting is disabled by default, and under certain circumstances has been seen to cause a NRE. Removed for now until more detailed benchmarking can be done to justify re-adding. ([#369](https://github.com/turbot/steampipe-plugin-sdk/issues/369))
+* Fix parent-child listing, which was broken in v4.0.x  ([#378](https://github.com/turbot/steampipe-plugin-sdk/issues/378))
 
 
 ## v4.0.0 [2022-08-04]
