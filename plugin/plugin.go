@@ -79,11 +79,6 @@ type Plugin struct {
 	queryCache *query_cache.QueryCache
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
 	connectionCacheStore *cache.Cache[any]
-
-	// map of completed execution callIds
-	// (populated when Postgres calls EndForeignScan when it has sufficient data
-	completedExecutions    map[string]struct{}
-	completedExecutionLock sync.Mutex
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -128,7 +123,6 @@ func (p *Plugin) Initialise() {
 	// TODO REMOVE WITH GO 1.19
 	p.setuLimit()
 
-	p.completedExecutions = make(map[string]struct{})
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
 	}
@@ -441,20 +435,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	return helpers.CombineErrors(errors...)
 }
 
-// EndExecute is called by the FDW when Postgres has called EndForeignScan
-// It does this when it has received enough data to satisfy the limit
-// We need to tell the plugin the scan has been successfully ended
-// as the context will be cancelled and we need to ensure
-// that any outstanding cache operations are completed
-func (p *Plugin) EndExecute(req *proto.EndExecuteRequest) error {
-	// TODO map on ongoing executions with status
-	log.Printf("[WARN] plugin EndExecute for callId %s", req.CallId)
-	p.completedExecutionLock.Lock()
-	defer p.completedExecutionLock.Unlock()
-	p.completedExecutions[req.CallId] = struct{}{}
-	return nil
-}
-
 func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {
 	const rowBufferSize = 10
 	var rowChan = make(chan *proto.Row, rowBufferSize)
@@ -590,8 +570,6 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 		p.queryCache.StartSet(ctx, cacheRequest)
-
-		log.Printf("[WARN] START SET DONE")
 	} else {
 		log.Printf("[INFO] Cache DISABLED connectionCallId: %s", connectionCallId)
 	}
@@ -615,6 +593,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	log.Printf("[TRACE] streamRows connectionCallId: %s", connectionCallId)
 
 	logging.LogTime("Calling streamRows")
+
 	//  stream rows across GRPC
 	err = queryData.streamRows(ctx, rowChan, doneChan)
 	if err != nil {
