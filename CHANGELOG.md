@@ -1,4 +1,4 @@
-## v4.0.1 [tbd]
+## v4.0.1 [2022-08-11]
 _Bug fixes_
 * Fix UpdateConnectionConfigs not setting the connection config. ([#375](https://github.com/turbot/steampipe-plugin-sdk/issues/375))
 * Fix query results with zero rows not being cached, leading to timeouts and failure to load pending cache results. ([#372](https://github.com/turbot/steampipe-plugin-sdk/issues/372))
