@@ -250,7 +250,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	log.Printf("[TRACE] QueryCache EndSet - Added index item (%p) to bucket (%p), page count %d,  key root %s", indexItem, indexBucket, req.pageCount, req.resultKeyRoot)
 
 	// write index bucket back to cache
-	err = c.cacheSetIndexBucket(ctx, indexBucketKey, indexBucket, req.ttl())
+	err = c.cacheSetIndexBucket(ctx, indexBucketKey, indexBucket, req)
 	if err != nil {
 		log.Printf("[WARN] cache Set failed for index bucket: %v", err)
 	} else {
@@ -284,6 +284,11 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string) {
 	delete(c.setRequests, callId)
 }
 
+// ClearForConnection removes all cache entries for the given connection
+func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) {
+	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
+}
+
 func (c *QueryCache) setTtl(clientTTLSeconds int64) {
 	clientTTL := time.Duration(clientTTLSeconds) * time.Second
 	// lock to handle concurrent updates
@@ -315,7 +320,9 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *CacheRequest) er
 	c.streamLock.Lock()
 	defer c.streamLock.Unlock()
 
-	err := doSet(ctx, pageKey, result, req.ttl(), c.cache)
+	// put connection name in tags
+	tags := []string{req.ConnectionName}
+	err := doSet(ctx, pageKey, result, req.ttl(), c.cache, tags)
 	if err != nil {
 		log.Printf("[WARN] writePageToCache cache Set failed: %v", err)
 	} else {
@@ -541,14 +548,17 @@ func (c *QueryCache) sanitiseKey(str string) string {
 }
 
 // write index bucket back to cache
-func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, key string, indexBucket *IndexBucket, ttl time.Duration) error {
-	log.Printf("[TRACE] cacheSetIndexBucket %s", key)
+func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, indexBucketKey string, indexBucket *IndexBucket, req *CacheRequest) error {
+	log.Printf("[TRACE] cacheSetIndexBucket %s", indexBucketKey)
 
 	// lock the stream lock to avoid eviction during streaming
 	c.streamLock.Lock()
 	defer c.streamLock.Unlock()
 
-	return doSet(ctx, key, indexBucket.AsProto(), ttl, c.cache)
+	// put connection name in tags
+	tags := []string{req.ConnectionName}
+	return doSet(ctx, indexBucketKey, indexBucket.AsProto(), req.ttl(), c.cache, tags)
+
 }
 
 func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]byte], target T) error {
@@ -574,7 +584,7 @@ func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]by
 	return nil
 }
 
-func doSet[T CacheData](ctx context.Context, key string, value T, ttl time.Duration, cache *cache.Cache[[]byte]) error {
+func doSet[T CacheData](ctx context.Context, key string, value T, ttl time.Duration, cache *cache.Cache[[]byte], tags []string) error {
 	bytes, err := proto.Marshal(value)
 	if err != nil {
 		log.Printf("[WARN] doSet - marshal failed: %v", err)
@@ -585,6 +595,7 @@ func doSet[T CacheData](ctx context.Context, key string, value T, ttl time.Durat
 		key,
 		bytes,
 		store.WithExpiration(ttl),
+		store.WithTags(tags),
 	)
 	if err != nil {
 		log.Printf("[WARN] doSet cache.Set failed: %v", err)

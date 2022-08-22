@@ -16,7 +16,10 @@ type ConnectionCache struct {
 }
 
 func NewConnectionCache(connectionName string, connectionCache *cache.Cache[any]) *ConnectionCache {
-	return &ConnectionCache{connectionName, connectionCache}
+	return &ConnectionCache{
+		connectionName: connectionName,
+		cache:          connectionCache,
+	}
 }
 
 func (c *ConnectionCache) Set(ctx context.Context, key string, value interface{}) error {
@@ -32,10 +35,13 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 		key,
 		value,
 		store.WithExpiration(expiration),
+		// put connection name in tags
+		store.WithTags([]string{c.connectionName}),
 	)
 
 	// wait for value to pass through buffers (necessary for ristretto)
 	time.Sleep(10 * time.Millisecond)
+
 	return err
 }
 
@@ -53,6 +59,11 @@ func (c *ConnectionCache) Delete(ctx context.Context, key string) {
 	key = c.buildCacheKey(key)
 
 	c.cache.Delete(ctx, key)
+}
+
+// Clear deletes all cache items for this connection
+func (c *ConnectionCache) Clear(ctx context.Context) {
+	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{c.connectionName}))
 }
 
 func (c *ConnectionCache) buildCacheKey(key string) string {
