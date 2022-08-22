@@ -32,12 +32,6 @@ type ConnectionConfigSchema struct {
 	NewInstance ConnectionConfigInstanceFunc
 }
 
-func NewConnectionConfigSchema() *ConnectionConfigSchema {
-	return &ConnectionConfigSchema{
-		Schema: map[string]*schema.Attribute{},
-	}
-}
-
 // Parse function parses the hcl string into a connection config struct.
 // The schema and the  struct to parse into are provided by the plugin
 func (c *ConnectionConfigSchema) Parse(configString string) (config interface{}, err error) {
