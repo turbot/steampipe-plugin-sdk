@@ -575,9 +575,9 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	}
 
 	// asyncronously fetch items
-	log.Printf("[TRACE] calling fetchItemsAsync, table: %s, matrixItem: %v, limit: %d,  connectionCallId: %s\"", table.Name, queryData.Matrix, limit, connectionCallId)
-	if err := table.fetchItemsAsync(ctx, queryData); err != nil {
-		log.Printf("[WARN] fetchItemsAsync returned an error, table: %s, error: %v", table.Name, err)
+	log.Printf("[TRACE] calling fetchItems, table: %s, matrixItem: %v, limit: %d,  connectionCallId: %s\"", table.Name, queryData.Matrix, limit, connectionCallId)
+	if err := table.fetchItems(ctx, queryData); err != nil {
+		log.Printf("[WARN] fetchItems returned an error, table: %s, error: %v", table.Name, err)
 		return err
 
 	}
