@@ -20,6 +20,9 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
 
+// how may rows do we cache in the rowdata channel
+const rowDataBufferSize = 100
+
 // NOTE - any field added here must also be added to ShallowCopy
 
 type QueryData struct {
@@ -117,8 +120,8 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
-		rowDataChan: make(chan *RowData),
-		errorChan:   make(chan error),
+		rowDataChan: make(chan *RowData, rowDataBufferSize),
+		errorChan:   make(chan error, 1),
 		outputChan:  outputChan,
 		listWg:      &wg,
 

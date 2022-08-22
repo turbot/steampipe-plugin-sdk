@@ -49,8 +49,8 @@ When executing for each matrix item, the matrix item is put into the context, av
 */
 
 // call either 'get' or 'list'.
-func (t *Table) fetchItemsAsync(ctx context.Context, queryData *QueryData) error {
-	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.fetchItemsAsync (%s)", t.Name)
+func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.fetchItems (%s)", t.Name)
 
 	defer span.End()
 
@@ -161,6 +161,12 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 
 	var getWg sync.WaitGroup
 	var errorChan = make(chan (error), len(qualValueList.Values))
+
+	// NOTE: ensure QueryData.rowDataChan can buffer sufficient items
+	// (we normally expect it would be sufficient)
+	if len(qualValueList.Values) > rowDataBufferSize {
+		queryData.rowDataChan = make(chan *RowData, len(qualValueList.Values))
+	}
 
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
