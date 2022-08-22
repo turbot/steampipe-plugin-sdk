@@ -72,7 +72,7 @@ type Plugin struct {
 	ConnectionConfigSchema *ConnectionConfigSchema
 	// ConnectionConfigChangedFunc is a callback function which is called from UpdateConnectionConfigs
 	// when any connection configs have changed
-	ConnectionConfigChangedFunc func(p *Plugin, old, new *Connection)
+	ConnectionConfigChangedFunc func(ctx context.Context, p *Plugin, old, new *Connection)
 
 	// map of connection data (schema, config, connection cache)
 	// keyed by connection name
@@ -492,7 +492,6 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
 // 2) call initialise on the table, plassing the plugin pointer which the table stores
 func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (tableMap map[string]*Table, err error) {
-
 	tableMap = p.TableMap
 
 	if p.TableMapFunc != nil {

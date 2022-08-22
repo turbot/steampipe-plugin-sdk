@@ -188,6 +188,8 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	connectionSchemaMap := p.buildConnectionSchemaMap()
 	p.queryCache.PluginSchemaMap = connectionSchemaMap
 
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+
 	for _, changedConnection := range changed {
 		// get the existing connection data
 		connectionData, ok := p.ConnectionMap[changedConnection.Connection]
@@ -210,7 +212,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		updatedConnection.Config = config
 
 		// call the ConnectionConfigChanged callback function
-		p.ConnectionConfigChangedFunc(p, existingConnection, updatedConnection)
+		p.ConnectionConfigChangedFunc(ctx, p, existingConnection, updatedConnection)
 
 		// now update connectionData and write back
 		connectionData.Connection = updatedConnection
@@ -222,8 +224,8 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 // this is the default ConnectionConfigChanged callback function - it clears both the query cache and connection cache
 // for the given connection
-func defaultConnectionConfigChangedFunc(p *Plugin, old *Connection, new *Connection) {
+func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Connection, new *Connection) {
 	// clear the connection and query cache for this connection
-	p.ClearConnectionCache(context.Background(), new.Name)
-	p.ClearQueryCache(context.Background(), new.Name)
+	p.ClearConnectionCache(ctx, new.Name)
+	p.ClearQueryCache(ctx, new.Name)
 }
