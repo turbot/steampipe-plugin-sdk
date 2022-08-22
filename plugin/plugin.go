@@ -489,6 +489,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 // ClearConnectionCache clears the connection cache for the given connection
 func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
+	// get the connection cache for this connection
 	connectionCache, ok := p.connectionCacheMap[connectionName]
 	if !ok {
 		// not expected
