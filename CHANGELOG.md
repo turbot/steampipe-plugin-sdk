@@ -1,3 +1,7 @@
+## v4.0.2 [2022-08-22]
+_Bug fixes_
+* Fix Get calls stalling due to attempt to write to an unbuffered channel. ([#382](https://github.com/turbot/steampipe-plugin-sdk/issues/382))
+
 ## v4.0.1 [2022-08-11]
 _Bug fixes_
 * Fix UpdateConnectionConfigs not setting the connection config. ([#375](https://github.com/turbot/steampipe-plugin-sdk/issues/375))
