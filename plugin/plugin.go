@@ -8,6 +8,7 @@ import (
 	"github.com/eko/gocache/v3/store"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
@@ -69,6 +70,9 @@ type Plugin struct {
 	// every table must implement these columns
 	RequiredColumns        []*Column
 	ConnectionConfigSchema *ConnectionConfigSchema
+	// ConnectionConfigChangedFunc is a callback function which is called from UpdateConnectionConfigs
+	// when any connection configs have changed
+	ConnectionConfigChangedFunc func(*Plugin, *proto.ConnectionConfig)
 
 	// map of connection data (schema, config, connection cache)
 	// keyed by connection name
@@ -79,12 +83,15 @@ type Plugin struct {
 	queryCache *query_cache.QueryCache
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
 	connectionCacheStore *cache.Cache[any]
+	// map of the connection caches, keyed by connection name
+	connectionCacheMap map[string]*connection_manager.ConnectionCache
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) Initialise() {
 	p.ConnectionMap = make(map[string]*ConnectionData)
+	p.connectionCacheMap = make(map[string]*connection_manager.ConnectionCache)
 
 	p.Logger = p.setupLogger()
 	log.Printf("[INFO] Initialise plugin '%s', using sdk version %s", p.Name, version.String())
@@ -119,6 +126,11 @@ func (p *Plugin) Initialise() {
 		p.DefaultGetConfig.initialise(nil)
 	}
 
+	// create default ConnectionConfigChangedFunc if needed
+	if p.ConnectionConfigChangedFunc == nil {
+		p.ConnectionConfigChangedFunc = defaultConnectionConfigChangedFunc
+	}
+
 	// set file limit
 	// TODO REMOVE WITH GO 1.19
 	p.setuLimit()
@@ -140,6 +152,13 @@ func (p *Plugin) createConnectionCacheStore() error {
 	ristrettoStore := store.NewRistretto(ristrettoCache)
 	p.connectionCacheStore = cache.New[any](ristrettoStore)
 	return nil
+}
+
+func (p *Plugin) newConnectionCache(connectionName string) *connection_manager.ConnectionCache {
+	connectionCache := connection_manager.NewConnectionCache(connectionName, p.connectionCacheStore)
+	// add to map of connection caches
+	p.connectionCacheMap[connectionName] = connectionCache
+	return connectionCache
 }
 
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
@@ -315,7 +334,10 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	connectionSchemaMap := p.buildConnectionSchemaMap()
 	p.queryCache.PluginSchemaMap = connectionSchemaMap
 
-	// Ignore deleted and updated for now
+	for _, changedConnection := range changed {
+		p.ConnectionConfigChangedFunc(p, changedConnection)
+	}
+	// Ignore deleted configs
 
 	return nil
 }
@@ -433,6 +455,28 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	close(errorChan)
 
 	return helpers.CombineErrors(errors...)
+}
+
+// ClearConnectionCache clears the connection cache for the given connection
+func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
+	connectionCache, ok := p.connectionCacheMap[connectionName]
+	if !ok {
+		// not expected
+		log.Printf("[WARN] ClearConnectionCache failed - no connection cache found for connection %s", connectionName)
+		return
+	}
+	connectionCache.Clear(ctx)
+}
+
+// ClearQueryCache clears the query cache for the given connection
+func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
+	p.queryCache.ClearForConnection(ctx, connectionName)
+}
+
+func defaultConnectionConfigChangedFunc(plugin *Plugin, changedConfig *proto.ConnectionConfig) {
+	// clear the connection and query cache for this connection
+	plugin.ClearConnectionCache(context.Background(), changedConfig.Connection)
+	plugin.ClearQueryCache(context.Background(), changedConfig.Connection)
 }
 
 func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {

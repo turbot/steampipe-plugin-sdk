@@ -103,7 +103,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	var wg sync.WaitGroup
 
 	// create a connection cache
-	connectionCache := connection_manager.NewConnectionCache(connectionData.Connection.Name, plugin.connectionCacheStore)
+	connectionCache := plugin.newConnectionCache(connectionData.Connection.Name)
 	d := &QueryData{
 		// set deprecated ConnectionManager
 		ConnectionManager: connection_manager.NewManager(connectionCache),
