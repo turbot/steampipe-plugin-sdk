@@ -13,15 +13,12 @@ import (
 type ConnectionCache struct {
 	connectionName string
 	cache          *cache.Cache[any]
-	// map of cache keys - used to clear cache for a specific connection
-	keys map[string]struct{}
 }
 
 func NewConnectionCache(connectionName string, connectionCache *cache.Cache[any]) *ConnectionCache {
 	return &ConnectionCache{
 		connectionName: connectionName,
 		cache:          connectionCache,
-		keys:           make(map[string]struct{}),
 	}
 }
 
@@ -38,15 +35,13 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 		key,
 		value,
 		store.WithExpiration(expiration),
+		// put connection name in tags
+		store.WithTags([]string{c.connectionName}),
 	)
 
 	// wait for value to pass through buffers (necessary for ristretto)
 	time.Sleep(10 * time.Millisecond)
 
-	// add to map of keys
-	if err == nil {
-		c.keys[key] = struct{}{}
-	}
 	return err
 }
 
@@ -63,18 +58,12 @@ func (c *ConnectionCache) Delete(ctx context.Context, key string) {
 	// build a key which includes the connection name
 	key = c.buildCacheKey(key)
 
-	err := c.cache.Delete(ctx, key)
-	// remove from map of keys
-	if err == nil {
-		delete(c.keys, key)
-	}
+	c.cache.Delete(ctx, key)
 }
 
 // Clear deletes all cache items for this connection
 func (c *ConnectionCache) Clear(ctx context.Context) {
-	for key := range c.keys {
-		c.Delete(ctx, key)
-	}
+	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{c.connectionName}))
 }
 
 func (c *ConnectionCache) buildCacheKey(key string) string {

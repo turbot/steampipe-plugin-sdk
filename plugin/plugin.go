@@ -72,7 +72,7 @@ type Plugin struct {
 	ConnectionConfigSchema *ConnectionConfigSchema
 	// ConnectionConfigChangedFunc is a callback function which is called from UpdateConnectionConfigs
 	// when any connection configs have changed
-	ConnectionConfigChangedFunc func(*Plugin, *proto.ConnectionConfig)
+	ConnectionConfigChangedFunc func(p *Plugin, old, new *Connection)
 
 	// map of connection data (schema, config, connection cache)
 	// keyed by connection name
@@ -287,6 +287,12 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		}
 	}
 
+	// remove deleted connections
+	for _, deletedConnection := range deleted {
+		delete(p.ConnectionMap, deletedConnection.Connection)
+	}
+
+	// add added connections
 	for _, addedConnection := range added {
 		schema := exemplarSchema
 		tableMap := exemplarTableMap
@@ -297,9 +303,9 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		}
 		if addedConnection.Config != "" {
 			if p.ConnectionConfigSchema == nil {
-				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", addedConnection, p.Name)
+				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", addedConnection.Connection, p.Name)
 			}
-			// ask plugin for a struct to deserialise the config into
+			// ask plugin to parse the config
 			config, err := p.ConnectionConfigSchema.Parse(addedConnection.Config)
 			if err != nil {
 				return err
@@ -335,9 +341,33 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	p.queryCache.PluginSchemaMap = connectionSchemaMap
 
 	for _, changedConnection := range changed {
-		p.ConnectionConfigChangedFunc(p, changedConnection)
+		// get the existing connection data
+		connectionData, ok := p.ConnectionMap[changedConnection.Connection]
+		if !ok {
+			return fmt.Errorf("no connection config found for changed connection %s", changedConnection.Connection)
+		}
+		existingConnection := connectionData.Connection
+		updatedConnection := &Connection{
+			Name:   changedConnection.Connection,
+			Config: changedConnection.Config,
+		}
+		if p.ConnectionConfigSchema == nil {
+			return fmt.Errorf("connection config has been updated for connection '%s', but plugin '%s' does not define connection config schema", changedConnection.Connection, p.Name)
+		}
+		// ask plugin to parse the config
+		config, err := p.ConnectionConfigSchema.Parse(changedConnection.Config)
+		if err != nil {
+			return err
+		}
+		updatedConnection.Config = config
+
+		// call the ConnectionConfigChanged callback function
+		p.ConnectionConfigChangedFunc(p, existingConnection, updatedConnection)
+
+		// now update connectionData and write back
+		connectionData.Connection = updatedConnection
+		p.ConnectionMap[changedConnection.Connection] = connectionData
 	}
-	// Ignore deleted configs
 
 	return nil
 }
@@ -473,10 +503,10 @@ func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 	p.queryCache.ClearForConnection(ctx, connectionName)
 }
 
-func defaultConnectionConfigChangedFunc(plugin *Plugin, changedConfig *proto.ConnectionConfig) {
+func defaultConnectionConfigChangedFunc(p *Plugin, old *Connection, new *Connection) {
 	// clear the connection and query cache for this connection
-	plugin.ClearConnectionCache(context.Background(), changedConfig.Connection)
-	plugin.ClearQueryCache(context.Background(), changedConfig.Connection)
+	p.ClearConnectionCache(context.Background(), new.Name)
+	p.ClearQueryCache(context.Background(), new.Name)
 }
 
 func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {

@@ -50,8 +50,6 @@ type QueryCache struct {
 	// map of ongoing set requests, keyed by callId
 	setRequests       map[string]*CacheRequest
 	setRequestMapLock sync.Mutex
-	// map of cache keys, keyed by connection - used to clear cache for a specific connection
-	keys map[string][]string
 }
 
 func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSchema, maxCacheStorageMb int) (*QueryCache, error) {
@@ -61,7 +59,6 @@ func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSch
 		PluginSchemaMap: pluginSchemaMap,
 		pendingData:     make(map[string]*pendingIndexBucket),
 		setRequests:     make(map[string]*CacheRequest),
-		keys:            make(map[string][]string),
 		ttl:             defaultTTL,
 	}
 	if err := queryCache.createCache(maxCacheStorageMb); err != nil {
@@ -289,17 +286,7 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string) {
 
 // ClearForConnection removes all cache entries for the given connection
 func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) {
-	// get all cache keys for this connection
-	keys, ok := c.keys[connectionName]
-	if !ok {
-		return
-	}
-	// remove keys from map
-	delete(c.keys, connectionName)
-	// delete keys from cache
-	for _, key := range keys {
-		c.cache.Delete(ctx, key)
-	}
+	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
 }
 
 func (c *QueryCache) setTtl(clientTTLSeconds int64) {
@@ -333,7 +320,9 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *CacheRequest) er
 	c.streamLock.Lock()
 	defer c.streamLock.Unlock()
 
-	err := doSet(ctx, pageKey, result, req.ttl(), c.cache)
+	// put connection name in tags
+	tags := []string{req.ConnectionName}
+	err := doSet(ctx, pageKey, result, req.ttl(), c.cache, tags)
 	if err != nil {
 		log.Printf("[WARN] writePageToCache cache Set failed: %v", err)
 	} else {
@@ -566,24 +555,10 @@ func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, indexBucketKey str
 	c.streamLock.Lock()
 	defer c.streamLock.Unlock()
 
-	err := doSet(ctx, indexBucketKey, indexBucket.AsProto(), req.ttl(), c.cache)
-	if err == nil {
-		// add all keys to the key map
-		c.storeKeys(req, indexBucketKey, indexBucket)
-	}
-	return err
-}
+	// put connection name in tags
+	tags := []string{req.ConnectionName}
+	return doSet(ctx, indexBucketKey, indexBucket.AsProto(), req.ttl(), c.cache, tags)
 
-func (c *QueryCache) storeKeys(req *CacheRequest, indexBucketKey string, indexBucket *IndexBucket) {
-	// add the index bucket key
-	c.keys[req.ConnectionName] = append(c.keys[req.ConnectionName], indexBucketKey)
-	// for each index item, add all page keys
-	for _, indexItem := range indexBucket.Items {
-		for pageIdx := int64(0); pageIdx < indexItem.PageCount; pageIdx++ {
-			// construct the page key, _using the index item key as the root_
-			c.keys[req.ConnectionName] = append(c.keys[req.ConnectionName], getPageKey(indexItem.Key, pageIdx))
-		}
-	}
 }
 
 func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]byte], target T) error {
@@ -609,7 +584,7 @@ func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]by
 	return nil
 }
 
-func doSet[T CacheData](ctx context.Context, key string, value T, ttl time.Duration, cache *cache.Cache[[]byte]) error {
+func doSet[T CacheData](ctx context.Context, key string, value T, ttl time.Duration, cache *cache.Cache[[]byte], tags []string) error {
 	bytes, err := proto.Marshal(value)
 	if err != nil {
 		log.Printf("[WARN] doSet - marshal failed: %v", err)
@@ -620,6 +595,7 @@ func doSet[T CacheData](ctx context.Context, key string, value T, ttl time.Durat
 		key,
 		bytes,
 		store.WithExpiration(ttl),
+		store.WithTags(tags),
 	)
 	if err != nil {
 		log.Printf("[WARN] doSet cache.Set failed: %v", err)
