@@ -1,3 +1,7 @@
+## v4.1.0 [tbd]
+_What's new_
+* Add `Plugin` property`ConnectionConfigChangedFunc`. This is a callback function invoked when the connection config changes. The default implementation clears the connection cache and query cache for the changed connection. ([#387](https://github.com/turbot/steampipe-plugin-sdk/issues/387))
+
 ## v4.0.2 [2022-08-22]
 _Bug fixes_
 * Fix Get calls stalling due to attempt to write to an unbuffered channel. ([#382](https://github.com/turbot/steampipe-plugin-sdk/issues/382))
