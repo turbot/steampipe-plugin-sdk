@@ -224,8 +224,9 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 // this is the default ConnectionConfigChanged callback function - it clears both the query cache and connection cache
 // for the given connection
-func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Connection, new *Connection) {
+func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Connection, new *Connection) error {
 	// clear the connection and query cache for this connection
 	p.ClearConnectionCache(ctx, new.Name)
 	p.ClearQueryCache(ctx, new.Name)
+	return nil
 }

@@ -72,7 +72,7 @@ type Plugin struct {
 	ConnectionConfigSchema *ConnectionConfigSchema
 	// ConnectionConfigChangedFunc is a callback function which is called from UpdateConnectionConfigs
 	// when any connection configs have changed
-	ConnectionConfigChangedFunc func(ctx context.Context, p *Plugin, old, new *Connection)
+	ConnectionConfigChangedFunc func(ctx context.Context, p *Plugin, old, new *Connection) error
 
 	// map of connection data (schema, config, connection cache)
 	// keyed by connection name
