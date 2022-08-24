@@ -1,10 +1,10 @@
-## v4.1.0 [tbd]
+## v4.1.0 [2022-08-24]
 _What's new_
 * Add `Plugin` property`ConnectionConfigChangedFunc`. This is a callback function invoked when the connection config changes. The default implementation clears the connection cache and query cache for the changed connection. ([#387](https://github.com/turbot/steampipe-plugin-sdk/issues/387))
 
 ## v4.0.2 [2022-08-22]
 _Bug fixes_
-* Fix Get calls stalling due to attempt to write to an unbuffered channel. ([#382](https://github.com/turbot/steampipe-plugin-sdk/issues/382))
+* Fix `Get` calls stalling due to an attempt to write to an unbuffered channel. ([#382](https://github.com/turbot/steampipe-plugin-sdk/issues/382))
 
 ## v4.0.1 [2022-08-11]
 _Bug fixes_
@@ -13,7 +13,6 @@ _Bug fixes_
 * Fix duplicate results returned from cache. ([#371](https://github.com/turbot/steampipe-plugin-sdk/issues/371))
 * Remove max concurrent row semaphore. Max concurrent row limiting is disabled by default, and under certain circumstances has been seen to cause a NRE. Removed for now until more detailed benchmarking can be done to justify re-adding. ([#369](https://github.com/turbot/steampipe-plugin-sdk/issues/369))
 * Fix parent-child listing, which was broken in v4.0.x  ([#378](https://github.com/turbot/steampipe-plugin-sdk/issues/378))
-
 
 ## v4.0.0 [2022-08-04]
 _What's new_
