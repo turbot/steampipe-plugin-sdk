@@ -1,3 +1,7 @@
+## v4.1.1 [2022-08-24]
+_Bug fixes_
+* Fix concurrent map access crash for Plugin.connectionCacheMap. ([#389](https://github.com/turbot/steampipe-plugin-sdk/issues/389))
+
 ## v4.1.0 [2022-08-24]
 _What's new_
 * Add `Plugin` property`ConnectionConfigChangedFunc`. This is a callback function invoked when the connection config changes. The default implementation clears the connection cache and query cache for the changed connection. ([#387](https://github.com/turbot/steampipe-plugin-sdk/issues/387))

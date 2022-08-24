@@ -84,7 +84,8 @@ type Plugin struct {
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
 	connectionCacheStore *cache.Cache[any]
 	// map of the connection caches, keyed by connection name
-	connectionCacheMap map[string]*connection_manager.ConnectionCache
+	connectionCacheMap     map[string]*connection_manager.ConnectionCache
+	connectionCacheMapLock sync.Mutex
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -156,6 +157,8 @@ func (p *Plugin) createConnectionCacheStore() error {
 
 func (p *Plugin) newConnectionCache(connectionName string) *connection_manager.ConnectionCache {
 	connectionCache := connection_manager.NewConnectionCache(connectionName, p.connectionCacheStore)
+	p.connectionCacheMapLock.Lock()
+	defer p.connectionCacheMapLock.Unlock()
 	// add to map of connection caches
 	p.connectionCacheMap[connectionName] = connectionCache
 	return connectionCache
@@ -278,6 +281,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 // ClearConnectionCache clears the connection cache for the given connection
 func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
+	p.connectionCacheMapLock.Lock()
+	defer p.connectionCacheMapLock.Unlock()
+
 	// get the connection cache for this connection
 	connectionCache, ok := p.connectionCacheMap[connectionName]
 	if !ok {
