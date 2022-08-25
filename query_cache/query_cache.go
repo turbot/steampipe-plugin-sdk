@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
@@ -117,7 +116,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, quals", indexBucketKey)
 
 	// do we have a cached result?
-	_, err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
+	err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
 	if err == nil {
 		// only set cache hit if there was no error
 		cacheHit = true
@@ -316,10 +315,6 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *CacheRequest) er
 	// write to cache - construct result key
 	result := &sdkproto.QueryResult{Rows: rows}
 
-	// lock the stream lock to avoid eviction during streaming
-	c.streamLock.Lock()
-	defer c.streamLock.Unlock()
-
 	// put connection name in tags
 	tags := []string{req.ConnectionName}
 	err := doSet(ctx, pageKey, result, req.ttl(), c.cache, tags)
@@ -349,14 +344,14 @@ func (c *QueryCache) getCachedIndexBucket(ctx context.Context, key string) (*Ind
 	return res, nil
 }
 
-func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (int64, error) {
+func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
 	log.Printf("[TRACE] QueryCache getCachedQueryResult - table %s, connectionName %s", req.Table, req.ConnectionName)
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
 
 	log.Printf("[TRACE] index bucket key: %s ttlSeconds %d limit: %d\n", indexBucketKey, req.TtlSeconds, req.Limit)
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	// now check whether we have a cache entry that covers the required quals and columns - check the index
@@ -368,21 +363,16 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 		}
 		c.Stats.Misses++
 		log.Printf("[TRACE] getCachedQueryResult - no cached data covers columns %v, limit %s\n", req.Columns, limitString)
-		return 0, new(CacheMissError)
+		return new(CacheMissError)
 	}
 
 	return c.getCachedQueryResultFromIndexItem(ctx, indexItem, streamRowFunc)
 }
 
-func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, indexItem *IndexItem, streamRowFunc func(row *sdkproto.Row)) (int64, error) {
+func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, indexItem *IndexItem, streamRowFunc func(row *sdkproto.Row)) error {
 	// so we have a cache index, retrieve the item
 	log.Printf("[TRACE] got an index item - try to retrieve rows from cache")
 
-	// lock the stream lock to avoid eviction during streaming
-	c.streamLock.Lock()
-	defer c.streamLock.Unlock()
-
-	var cachedRowsFetched int64 = 0
 	cacheHit := true
 	var errors []error
 	errorChan := make(chan (error), indexItem.PageCount)
@@ -399,7 +389,6 @@ func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, inde
 				log.Printf("[INFO] getCachedQueryResult context cancelled - returning")
 				return
 			}
-			atomic.AddInt64(&cachedRowsFetched, 1)
 			streamRowFunc(r)
 		}
 	}
@@ -409,7 +398,7 @@ func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, inde
 	pageKey := getPageKey(indexItem.Key, pageIdx)
 	var cacheResult = &sdkproto.QueryResult{}
 	if err := doGet[*sdkproto.QueryResult](ctx, pageKey, c.cache, cacheResult); err != nil {
-		return 0, err
+		return err
 	}
 	// ok it's there, stream rows
 	streamRows(cacheResult)
@@ -463,17 +452,17 @@ func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, inde
 		case <-doneChan:
 			// any real errors return them
 			if len(errors) > 0 {
-				return 0, helpers.CombineErrors(errors...)
+				return helpers.CombineErrors(errors...)
 			}
 			if cacheHit {
 				// this was a hit - return
 				log.Printf("[INFO] CACHE HIT")
 				c.Stats.Hits++
-				return cachedRowsFetched, nil
+				return nil
 			} else {
 				log.Printf("[INFO] CACHE MISS")
 				c.Stats.Misses++
-				return 0, CacheMissError{}
+				return CacheMissError{}
 			}
 		}
 	}
@@ -551,14 +540,9 @@ func (c *QueryCache) sanitiseKey(str string) string {
 func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, indexBucketKey string, indexBucket *IndexBucket, req *CacheRequest) error {
 	log.Printf("[TRACE] cacheSetIndexBucket %s", indexBucketKey)
 
-	// lock the stream lock to avoid eviction during streaming
-	c.streamLock.Lock()
-	defer c.streamLock.Unlock()
-
 	// put connection name in tags
 	tags := []string{req.ConnectionName}
 	return doSet(ctx, indexBucketKey, indexBucket.AsProto(), req.ttl(), c.cache, tags)
-
 }
 
 func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]byte], target T) error {
