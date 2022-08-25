@@ -1,3 +1,7 @@
+## v4.1.2 [2022-08-25]
+_Bug fixes_
+* Fix queries sometimes hanging when multiple scans are accessing the cache. ([#391](https://github.com/turbot/steampipe-plugin-sdk/issues/391))
+
 ## v4.1.1 [2022-08-24]
 _Bug fixes_
 * Fix concurrent map access crash for Plugin.connectionCacheMap. ([#389](https://github.com/turbot/steampipe-plugin-sdk/issues/389))
