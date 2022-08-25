@@ -89,7 +89,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, (%s) pending item %p index item %p indexBucketKey: %s, item key %s", req.CallId, pendingItem, pendingItem.item, indexBucketKey, pendingItem.item.Key)
 
 		// now try to read from the cache again
-		_, err := c.getCachedQueryResultFromIndexItem(ctx, pendingItem.item, streamRowFunc)
+		err := c.getCachedQueryResultFromIndexItem(ctx, pendingItem.item, streamRowFunc)
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem (%s) - pending item %p, key %s, transferCompleteChan was signalled but getCachedResult returned error: %v", req.CallId, pendingItem, pendingItem.item.Key, err)
 			// if the data is still not in the cache, create a pending item
