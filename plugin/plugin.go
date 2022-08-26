@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/v3/cache"
@@ -424,11 +425,15 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 			log.Printf("[TRACE] queryCache.Get took %.1fs: (%s),", getDuration.Seconds(), connectionCallId)
 		}
 
-		// so the cache call failed, with either a cahce-miss or other error
-		// in either case just log it
+		// so the cache call failed, with either a cache-miss or other error
 		if query_cache.IsCacheMiss(cacheErr) {
 			log.Printf("[TRACE] cache MISS")
+		} else if errors.Is(cacheErr, error_helpers.QueryError{}) {
+			// if this is a QueryError, this means the pending item we were waitign for failed
+			// > we also fail
+			return cacheErr
 		} else {
+			// otherwise just log the cache error
 			log.Printf("[TRACE] queryCacheGet returned err %s", cacheErr.Error())
 		}
 
