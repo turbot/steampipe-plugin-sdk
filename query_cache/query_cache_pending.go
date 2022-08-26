@@ -57,10 +57,10 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		log.Printf("[TRACE] waitForPendingItem (%s) %p indexBucketKey: %s, item key %s", req.CallId, pendingItem, indexBucketKey, pendingItem.item.Key)
 		// if pendingItem.Wait() returns an error it means the query we are waiting for failed - we should fail as well
 		err := pendingItem.Wait()
-		log.Printf("[WARN] pendingItem.Wait() returned, error: %v", err)
+		log.Printf("[TRACE] pendingItem.Wait() returned, error: %v", err)
 		if err != nil {
 			if !error_helpers.IsContextCancelledError(err) {
-				log.Printf("[WARN] wrapping error in a QueryError and returning")
+				log.Printf("[WARN] wrapping error %v in a QueryError and returning", err)
 				// wrap the error in a query error to the calling code realizes this was not just a cache error
 				err = error_helpers.NewQueryError(err)
 			}
@@ -74,7 +74,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 
 	select {
 	case <-ctx.Done():
-		log.Printf("[WARN] waitForPendingItem aborting as context cancelled")
+		log.Printf("[TRACE] waitForPendingItem aborting as context cancelled")
 		err = ctx.Err()
 
 	case <-time.After(pendingQueryTimeout):
@@ -119,7 +119,9 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 			log.Printf("[TRACE] waitForPendingItem retrieved from cache, (%s) indexBucketKey: %s, item key %s", req.CallId, indexBucketKey, pendingItem.item.Key)
 		}
 	case err = <-errChan:
-		log.Printf("[WARN] waitForPendingItem returned error %s", err.Error())
+		if !error_helpers.IsContextCancelledError(err) {
+			log.Printf("[WARN] waitForPendingItem returned error %s", err.Error())
+		}
 		// fall through
 	}
 	return err

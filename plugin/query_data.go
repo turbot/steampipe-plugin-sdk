@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -563,7 +564,11 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			err = ctx.Err()
 		}
 		if err != nil {
-			log.Printf("[WARN] streamRows for %s - execution has failed or been cancelled (%s) - calling queryCache.AbortSet", d.connectionCallId, err.Error())
+			if error_helpers.IsContextCancelledError(err) {
+				log.Printf("[TRACE] streamRows for %s - execution has been cancelled - calling queryCache.AbortSet")
+			} else {
+				log.Printf("[WARN] streamRows for %s - execution has failed (%s) - calling queryCache.AbortSet", d.connectionCallId, err.Error())
+			}
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
 		} else {
 			// if we are caching call EndSet to write to the cache
@@ -583,8 +588,8 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		// wait for either an item or an error
 		select {
 		case err := <-d.errorChan:
-			log.Printf("[WARN] streamRows error chan select: %v", err)
-			log.Printf("[WARN] aborting cache set operation")
+			log.Printf("[TRACE] streamRows error chan select: %v", err)
+			log.Printf("[TRACE] aborting cache set operation")
 
 			// close done chan - this will cancel buildRowsAsync
 			close(doneChan)

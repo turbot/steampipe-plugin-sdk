@@ -233,7 +233,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			defer sem.Release(1)
 
 			if err := p.executeForConnection(ctx, req, c, executeData, outputChan); err != nil {
-				log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
+				if !error_helpers.IsContextCancelledError(err) {
+					log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
+				}
 				errorChan <- err
 			}
 			log.Printf("[TRACE] executeForConnection %s returned", c)
@@ -269,7 +271,9 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				break
 			}
 		case err := <-errorChan:
-			log.Printf("[WARN] error channel received %s", err.Error())
+			if !error_helpers.IsContextCancelledError(err) {
+				log.Printf("[WARN] error channel received %s", err.Error())
+			}
 			errors = append(errors, err)
 		}
 	}

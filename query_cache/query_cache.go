@@ -269,10 +269,10 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	}
 
 	// clear the corresponding pending item
-	log.Printf("[WARN] QueryCache AbortSet table: %s, cancelling pending item", req.Table)
+	log.Printf("[TRACE] QueryCache AbortSet table: %s, cancelling pending item", req.Table)
 	c.pendingItemComplete(req, err)
 
-	log.Printf("[WARN] QueryCache AbortSet - deleting %d pages from the cache", req.pageCount)
+	log.Printf("[TRACE] QueryCache AbortSet - deleting %d pages from the cache", req.pageCount)
 	// remove all pages that have already been written
 	for i := int64(0); i < req.pageCount; i++ {
 		pageKey := getPageKey(req.resultKeyRoot, i)
