@@ -65,6 +65,7 @@ type pendingIndexItem struct {
 	wg   *sync.WaitGroup
 	// used for logging purposes only (as we cannot access wait groups count)
 	count int
+	err   error
 }
 
 func (i *pendingIndexItem) Lock() {
@@ -73,17 +74,19 @@ func (i *pendingIndexItem) Lock() {
 	i.count++
 }
 
-func (i *pendingIndexItem) Unlock() {
+func (i *pendingIndexItem) Unlock(err error) {
+	i.err = err
 	log.Printf("[TRACE] pendingIndexItem Unlock count before %d key %s", i.count, i.item.Key)
 	i.wg.Done()
 	i.count--
 }
 
-func (i *pendingIndexItem) Wait() {
+func (i *pendingIndexItem) Wait() error {
 	log.Printf("[TRACE] pendingIndexItem Wait %p, %s", i, i.item.Key)
 
 	i.wg.Wait()
-	log.Printf("[TRACE] pendingIndexItem Wait DONE  %p, %s", i, i.item.Key)
+	log.Printf("[TRACE] pendingIndexItem Wait DONE %p, %s, err: %v", i, i.item.Key, i.err)
+	return i.err
 }
 
 func NewPendingIndexItem(req *CacheRequest) *pendingIndexItem {

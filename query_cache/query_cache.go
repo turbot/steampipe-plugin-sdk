@@ -212,7 +212,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		log.Printf("[TRACE] calling pendingItemComplete (%s)", callId)
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
-		c.pendingItemComplete(req)
+		c.pendingItemComplete(req, err)
 	}()
 
 	// write the remainder to the result cache
@@ -259,7 +259,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	return err
 }
 
-func (c *QueryCache) AbortSet(ctx context.Context, callId string) {
+func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	c.setRequestMapLock.Lock()
 	defer c.setRequestMapLock.Unlock()
 	// get the ongoing request
@@ -270,7 +270,7 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string) {
 
 	// clear the corresponding pending item
 	log.Printf("[WARN] QueryCache AbortSet table: %s, cancelling pending item", req.Table)
-	c.pendingItemComplete(req)
+	c.pendingItemComplete(req, err)
 
 	log.Printf("[WARN] QueryCache AbortSet - deleting %d pages from the cache", req.pageCount)
 	// remove all pages that have already been written

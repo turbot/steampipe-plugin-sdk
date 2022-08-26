@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
@@ -51,9 +52,22 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 	defer span.End()
 
 	transferCompleteChan := make(chan bool, 1)
+	errChan := make(chan error, 1)
 	go func() {
 		log.Printf("[TRACE] waitForPendingItem (%s) %p indexBucketKey: %s, item key %s", req.CallId, pendingItem, indexBucketKey, pendingItem.item.Key)
-		pendingItem.Wait()
+		// if pendingItem.Wait() returns an error it means the query we are waiting for failed - we should fail as well
+		err := pendingItem.Wait()
+		log.Printf("[WARN] pendingItem.Wait() returned, error: %v", err)
+		if err != nil {
+			if !error_helpers.IsContextCancelledError(err) {
+				log.Printf("[WARN] wrapping error in a QueryError and returning")
+				// wrap the error in a query error to the calling code realizes this was not just a cache error
+				err = error_helpers.NewQueryError(err)
+			}
+			errChan <- err
+			return
+		}
+
 		log.Printf("[TRACE] pending item COMPLETE (%s) %p indexBucketKey: %s, item key %s", req.CallId, pendingItem, indexBucketKey, pendingItem.item.Key)
 		close(transferCompleteChan)
 	}()
@@ -104,6 +118,9 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		} else {
 			log.Printf("[TRACE] waitForPendingItem retrieved from cache, (%s) indexBucketKey: %s, item key %s", req.CallId, indexBucketKey, pendingItem.item.Key)
 		}
+	case err = <-errChan:
+		log.Printf("[WARN] waitForPendingItem returned error %s", err.Error())
+		// fall through
 	}
 	return err
 }
@@ -136,7 +153,7 @@ func (c *QueryCache) addPendingResult(indexBucketKey string, req *CacheRequest) 
 }
 
 // unlock pending result items from the map
-func (c *QueryCache) pendingItemComplete(req *CacheRequest) {
+func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
 
 	log.Printf("[TRACE] pendingItemComplete (%s) indexBucketKey %s, columns %v, limit %d", req.CallId, indexBucketKey, req.Columns, req.Limit)
@@ -156,8 +173,8 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest) {
 			pendingItem.item.PageCount = req.pageCount
 
 			log.Printf("[TRACE] found completed pending item (%s) %p, key %s - removing from map as it is complete", req.CallId, pendingItem, pendingItem.item.Key)
-			// unlock the item
-			pendingItem.Unlock()
+			// unlock the item passing err (which may be nil)
+			pendingItem.Unlock(err)
 			// remove it from the map
 			delete(pendingIndexBucket.Items, pendingItem.item.Key)
 			log.Printf("[TRACE] deleted from pending, (%s) len %d", req.CallId, len(pendingIndexBucket.Items))

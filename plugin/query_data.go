@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -559,9 +558,13 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		// if the context is cancelled and the parent callId is in the list of completed executions,
 		// this means Postgres has called EndForeignScan as it has enough data, and the context has been cancelled
 		// call EndSet
-		if err != nil || error_helpers.IsCancelled(ctx) {
-			log.Printf("[WARN] streamRows for %s - execution has failed or been cancelled - calling queryCache.AbortSet", d.connectionCallId)
-			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId)
+		if err == nil {
+			// use the context error instead
+			err = ctx.Err()
+		}
+		if err != nil {
+			log.Printf("[WARN] streamRows for %s - execution has failed or been cancelled (%s) - calling queryCache.AbortSet", d.connectionCallId, err.Error())
+			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
 		} else {
 			// if we are caching call EndSet to write to the cache
 			if d.cacheEnabled {
