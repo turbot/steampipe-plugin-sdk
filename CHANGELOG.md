@@ -1,3 +1,7 @@
+## v4.1.4 [2022-08-26]
+_What's new_
+* Remove verbose error logging
+
 ## v4.1.3 [2022-08-26]
 _Bug fixes_
 * Fix timeout waiting for pending cached item - if pending item has error, all queries waiting for that pending item now return error rather than rerunning the query. ([#396](https://github.com/turbot/steampipe-plugin-sdk/issues/396))
