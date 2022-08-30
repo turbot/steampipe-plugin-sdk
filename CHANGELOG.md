@@ -1,6 +1,6 @@
-## v4.1.4 [2022-08-26]
-_What's new_
-* Remove verbose error logging
+## v4.1.5 [2022-08-26]
+_Bug fixes_
+* Fix connection cache SetWithTtl. ([#399](https://github.com/turbot/steampipe-plugin-sdk/issues/399))
 
 ## v4.1.3 [2022-08-26]
 _Bug fixes_
