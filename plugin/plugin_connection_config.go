@@ -211,12 +211,13 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		}
 		updatedConnection.Config = config
 
-		// call the ConnectionConfigChanged callback function
-		p.ConnectionConfigChangedFunc(ctx, p, existingConnection, updatedConnection)
-
 		// now update connectionData and write back
 		connectionData.Connection = updatedConnection
 		p.ConnectionMap[changedConnection.Connection] = connectionData
+
+		// call the ConnectionConfigChanged callback function
+		p.ConnectionConfigChangedFunc(ctx, p, existingConnection, updatedConnection)
+
 	}
 
 	return nil
