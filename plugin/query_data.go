@@ -565,7 +565,7 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		}
 		if err != nil {
 			if error_helpers.IsContextCancelledError(err) {
-				log.Printf("[TRACE] streamRows for %s - execution has been cancelled - calling queryCache.AbortSet")
+				log.Printf("[TRACE] streamRows for %s - execution has been cancelled - calling queryCache.AbortSet", d.connectionCallId)
 			} else {
 				log.Printf("[WARN] streamRows for %s - execution has failed (%s) - calling queryCache.AbortSet", d.connectionCallId, err.Error())
 			}

@@ -29,12 +29,11 @@ func (c *ConnectionCache) Set(ctx context.Context, key string, value interface{}
 func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	// build a key which includes the connection name
 	key = c.buildCacheKey(key)
-	expiration := ttl * time.Second
 
 	err := c.cache.Set(ctx,
 		key,
 		value,
-		store.WithExpiration(expiration),
+		store.WithExpiration(ttl),
 		// put connection name in tags
 		store.WithTags([]string{c.connectionName}),
 	)
