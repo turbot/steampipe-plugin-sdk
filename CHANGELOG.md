@@ -1,6 +1,10 @@
-## v4.1.5 [2022-08-26]
+## v4.1.5 [2022-08-31]
 _Bug fixes_
-* Fix connection cache SetWithTtl. ([#399](https://github.com/turbot/steampipe-plugin-sdk/issues/399))
+* Fix `ConnectionCache.SetWithTTL`. ([#399](https://github.com/turbot/steampipe-plugin-sdk/issues/399))
+* When connection config changes, store updated connection config _before_ calling `ConnectionConfigChangedFunc`. ([#401](https://github.com/turbot/steampipe-plugin-sdk/issues/401))
+
+## v4.1.4 [2022-08-26]
+Remove warning logs
 
 ## v4.1.3 [2022-08-26]
 _Bug fixes_
