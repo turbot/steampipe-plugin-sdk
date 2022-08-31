@@ -7,6 +7,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
 	"log"
+	"strings"
 )
 
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
@@ -123,7 +124,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 }
 
 func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) error {
-	log.Printf("[TRACE] UpdateConnectionConfigs added %v, deleted %v, changed %v", added, deleted, changed)
+	p.logChanges(added, deleted, changed)
 
 	// if this plugin does not have dynamic config, we can share table map and schema
 	var exemplarSchema map[string]*proto.TableSchema
@@ -221,6 +222,23 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	}
 
 	return nil
+}
+
+func (p *Plugin) logChanges(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) {
+	// build list of names
+	addedNames := make([]string, len(added))
+	deletedNames := make([]string, len(deleted))
+	changedNames := make([]string, len(changed))
+	for i, c := range added {
+		addedNames[i] = c.Connection
+	}
+	for i, c := range deleted {
+		deletedNames[i] = c.Connection
+	}
+	for i, c := range changed {
+		changedNames[i] = c.Connection
+	}
+	log.Printf("[TRACE] UpdateConnectionConfigs added: %s, deleted: %s, changed: %s", strings.Join(addedNames, ","), strings.Join(deletedNames, ","), strings.Join(changedNames, ","))
 }
 
 // this is the default ConnectionConfigChanged callback function - it clears both the query cache and connection cache

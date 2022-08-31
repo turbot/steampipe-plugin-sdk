@@ -293,7 +293,7 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 	connectionCache, ok := p.connectionCacheMap[connectionName]
 	if !ok {
 		// not expected
-		log.Printf("[WARN] ClearConnectionCache failed - no connection cache found for connection %s", connectionName)
+		log.Printf("[TRACE] ClearConnectionCache failed - no connection cache found for connection %s", connectionName)
 		return
 	}
 	connectionCache.Clear(ctx)
