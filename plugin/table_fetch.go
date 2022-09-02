@@ -473,7 +473,11 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 
 	rd := newRowData(queryData, nil)
 
-	if len(queryData.Matrix) == 0 {
+	// if a matrix is defined, run listForEach
+	if len(queryData.Matrix) > 0 {
+		log.Printf("[TRACE] doList: matrix len %d - calling  listForEach", len(queryData.Matrix))
+		t.listForEach(ctx, queryData, listCall)
+	} else {
 		log.Printf("[TRACE] doList: no matrix item")
 
 		// we cannot retry errors in the list hydrate function after streaming has started
@@ -483,8 +487,6 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 			log.Printf("[WARN] doList callHydrateWithRetries (%s) returned err %s", queryData.connectionCallId, err.Error())
 			queryData.streamError(err)
 		}
-	} else {
-		t.listForEach(ctx, queryData, listCall)
 	}
 }
 
@@ -500,14 +502,6 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 	// NOTE - we use the filtered matrix - which means we may not actually run any hydrate calls
 	// if the quals have filtered out all matrix items (e.g. select where region = 'invalid')
 	for _, matrixItem := range queryData.filteredMatrix {
-
-		// check whether there is a single equals qual for each matrix item property and if so, check whether
-		// the matrix item property values satisfy the conditions
-		if !t.matrixItemMeetsQuals(matrixItem, queryData) {
-			log.Printf("[INFO] listForEach: matrix item item does not meet quals, %v\n", matrixItem)
-			continue
-		}
-
 		// create a context with the matrixItem
 		fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 		wg.Add(1)
@@ -537,22 +531,4 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 		}(matrixItem)
 	}
 	wg.Wait()
-}
-
-func (t *Table) matrixItemMeetsQuals(matrixItem map[string]interface{}, queryData *QueryData) bool {
-	// for the purposes of optimisation , assume matrix item properties correspond to column names
-	// if this is NOT the case, it will not fail, but this optimisation will not do anything
-	for columnName, metadataValue := range matrixItem {
-		// is there a single equals qual for this column
-		if qualValue, ok := queryData.Quals[columnName]; ok {
-			if qualValue.SingleEqualsQual() {
-				// get the underlying qual value
-				requiredValue := grpc.GetQualValue(qualValue.Quals[0].Value)
-				if requiredValue != metadataValue {
-					return false
-				}
-			}
-		}
-	}
-	return true
 }

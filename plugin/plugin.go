@@ -367,14 +367,13 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		executeSpan.End()
 	}()
 
-	log.Printf("[TRACE] GetMatrixItem")
-
-	// get the matrix item
 	queryData, err := newQueryData(connectionCallId, p, queryContext, table, connectionData, executeData, outputChan)
 	if err != nil {
 		return err
 	}
 
+	// get the matrix item
+	log.Printf("[TRACE] GetMatrixItem")
 	var matrixItem []map[string]interface{}
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, connectionData.Connection)
@@ -389,7 +388,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	limit := queryContext.GetLimit()
 
 	// convert qual map to type used by cache
-	cacheQualMap := queryData.Quals.ToProtoQualMap()
+	cacheQualMap := queryData.getCacheQualMap()
 	// build cache request
 	cacheRequest := &query_cache.CacheRequest{
 		Table:          table.Name,

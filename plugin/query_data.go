@@ -80,6 +80,8 @@ type QueryData struct {
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
 	parentItem     interface{}
 	filteredMatrix []map[string]interface{}
+	// column quals which were used to filter the matrix
+	filteredMatrixColumns []string
 
 	// ttl for the execute call
 	cacheTtl int64
@@ -313,6 +315,10 @@ func (d *QueryData) filterMatrixItems() {
 				// if there IS a single equals qual which DOES NOT match this matrix item, exclude the matrix item
 				if matrixQuals.SingleEqualsQual() {
 					includeMatrixItem = d.shouldIncludeMatrixItem(matrixQuals, val)
+					// store this column - we will need this when building a cache key
+					if !includeMatrixItem {
+						d.filteredMatrixColumns = append(d.filteredMatrixColumns, col)
+					}
 				}
 			} else {
 				log.Printf("[TRACE] quals found for matrix column: %s", col)
@@ -675,4 +681,18 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	rowWg.Wait()
 	logging.DisplayProfileData(10 * time.Millisecond)
 	close(rowChan)
+}
+
+// build a map of all quals to include in the cache key
+// this will include all key column quals, and also any quals which were used to filter the matrix items
+func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
+	res := d.Quals.ToProtoQualMap()
+	// now add in any additional (non-keycolumn) quals which were used to folter the matrix
+	for _, col := range d.filteredMatrixColumns {
+		if _, ok := res[col]; !ok {
+			log.Printf("[TRACE] getCacheQualMap - adding non-key column qual %s as it was used to filter the matrix items", col)
+			res[col] = d.QueryContext.UnsafeQuals[col]
+		}
+	}
+	return res
 }
