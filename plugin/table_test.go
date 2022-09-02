@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
 // isGet
 
 type isGetTest struct {
-	table    Table
+	table    *Table
 	quals    map[string]*proto.Quals
 	expected interface{}
 }
@@ -33,7 +33,7 @@ func testList(context.Context, *QueryData, *HydrateData) (interface{}, error) {
 
 var testCasesIsGet = map[string]isGetTest{
 	"no keyColumn": {
-		table: Table{
+		table: &Table{
 			Name:    "aws_s3_bucket",
 			Columns: []*Column{},
 		},
@@ -41,7 +41,7 @@ var testCasesIsGet = map[string]isGetTest{
 		expected: isGetTestResult{nil, false},
 	},
 	"single keyColumn, single equals constraint": {
-		table: Table{
+		table: &Table{
 			Name: "aws_s3_bucket",
 			Get: &GetConfig{
 				KeyColumns: SingleColumn("name"),
@@ -57,7 +57,7 @@ var testCasesIsGet = map[string]isGetTest{
 	},
 
 	"single keyColumn, no constraint": {
-		table: Table{
+		table: &Table{
 			Name: "aws_s3_bucket",
 			Get: &GetConfig{
 				KeyColumns: SingleColumn("name"),
@@ -69,7 +69,7 @@ var testCasesIsGet = map[string]isGetTest{
 		expected: isGetTestResult{nil, false},
 	},
 	"single keyColumn, single equals constraint and other unrelated constraint": {
-		table: Table{
+		table: &Table{
 			Name: "aws_s3_bucket",
 			Get: &GetConfig{
 				KeyColumns: SingleColumn("name"),
@@ -83,7 +83,7 @@ var testCasesIsGet = map[string]isGetTest{
 		expected: isGetTestResult{map[string]*proto.QualValue{"name": {Value: &proto.QualValue_StringValue{StringValue: "dave"}}}, true},
 	},
 	"all keyColumns, single equals constraint for each": {
-		table: Table{
+		table: &Table{
 			Name: "aws_s3_bucket",
 			Get: &GetConfig{
 				KeyColumns: AllColumns([]string{"name", "age"}),
@@ -100,7 +100,7 @@ var testCasesIsGet = map[string]isGetTest{
 			"age":  {Value: &proto.QualValue_StringValue{StringValue: "100"}}}, true},
 	},
 	"all keyColumns, single equals constraint for one": {
-		table: Table{
+		table: &Table{
 			Name: "aws_s3_bucket",
 			Get: &GetConfig{
 				KeyColumns: AllColumns([]string{"name", "age"}),
@@ -113,7 +113,7 @@ var testCasesIsGet = map[string]isGetTest{
 		expected: isGetTestResult{nil, false},
 	},
 	"any keyColumns, single equals constraint for one": {
-		table: Table{
+		table: &Table{
 			Name: "aws_s3_bucket",
 			Get: &GetConfig{
 				KeyColumns: AnyColumn([]string{"name", "age"}),
@@ -126,7 +126,7 @@ var testCasesIsGet = map[string]isGetTest{
 		expected: isGetTestResult{map[string]*proto.QualValue{"name": {Value: &proto.QualValue_StringValue{StringValue: "dave"}}}, true},
 	},
 	"any keyColumns, single equals constraint for both": {
-		table: Table{
+		table: &Table{
 			Name: "aws_s3_bucket",
 			Get: &GetConfig{
 				KeyColumns: AnyColumn([]string{"name", "age"}),
@@ -140,7 +140,7 @@ var testCasesIsGet = map[string]isGetTest{
 		expected: isGetTestResult{map[string]*proto.QualValue{"name": {Value: &proto.QualValue_StringValue{StringValue: "dave"}}}, true},
 	},
 	"any keyColumns, no quals": {
-		table: Table{
+		table: &Table{
 			Name: "aws_s3_bucket",
 			Get: &GetConfig{
 				KeyColumns: AnyColumn([]string{"name", "age"}),
@@ -176,7 +176,7 @@ func TestIsGet(t *testing.T) {
 // listHydrate, getHydrate, hydrate1, hydrate2, hydrate3, hydrate4
 
 type requiredHydrateCallsTest struct {
-	table     Table
+	table     *Table
 	columns   []string
 	fetchType fetchType
 	expected  []*HydrateCall
@@ -184,7 +184,7 @@ type requiredHydrateCallsTest struct {
 
 var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 	"list no hydrate": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1"},
@@ -204,7 +204,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		expected:  []*HydrateCall{},
 	},
 	"list - 1 hydrate": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -220,7 +220,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1"}},
 	},
 	"list - 1 hydrate, depends [HydrateDependencies]": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -236,7 +236,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2"}},
 	},
 	"get - 2 hydrate, depends [HydrateDependencies]": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -253,7 +253,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}, {Func: hydrate2, Name: "hydrate2"}},
 	},
 	"get - 2 depends [HydrateDependencies]": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -273,7 +273,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}},
 	},
 	"get - unreferenced depends [HydrateDependencies]": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -294,7 +294,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 	},
 
 	"list - 1 hydrate, depends": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -310,7 +310,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2"}},
 	},
 	"get - 2 hydrate, depends": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -327,7 +327,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}, {Func: hydrate2, Name: "hydrate2"}},
 	},
 	"get - 2 depends": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -347,7 +347,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}},
 	},
 	"get - unreferenced depends": {
-		table: Table{
+		table: &Table{
 			Name: "table",
 			Columns: []*Column{
 				{Name: "c1", Hydrate: hydrate1},
@@ -373,7 +373,9 @@ func TestRequiredHydrateCalls(t *testing.T) {
 	plugin.Initialise()
 	for name, test := range testCasesRequiredHydrateCalls {
 		test.table.initialise(plugin)
-		result := test.table.requiredHydrateCalls(test.columns, test.fetchType)
+
+		d, _ := newTestQueryData(plugin, &QueryContext{Columns: test.columns}, test.table, test.fetchType)
+		result := d.hydrateCalls
 
 		if len(test.expected) == 0 && len(result) == 0 {
 			continue
@@ -384,6 +386,34 @@ func TestRequiredHydrateCalls(t *testing.T) {
 			t.Errorf("Test: '%s'' FAILED : expected \n%v\ngot \n%v", name, expectedString, actualString)
 		}
 	}
+}
+func newTestQueryData(plugin *Plugin, queryContext *QueryContext, table *Table, fetchType fetchType) (*QueryData, error) {
+	d := &QueryData{
+		Table:        table,
+		QueryContext: queryContext,
+		//Connection:        connectionData.Connection,
+		KeyColumnQuals: make(map[string]*proto.QualValue),
+		Quals:          make(KeyColumnQualMap),
+		FetchType:      fetchType,
+		plugin:         plugin,
+		// asyncronously read items using the 'get' or 'list' API
+		// items are streamed on rowDataChan, errors returned on errorChan
+	}
+	d.setFetchType(table)
+
+	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
+	ensureColumns(queryContext, table)
+
+	// build list of required hydrate calls, based on requested columns
+	d.populateRequiredHydrateCalls()
+	// build list of all columns returned by these hydrate calls (and the fetch call)
+	d.populateColumns()
+
+	// populate the query status
+	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
+	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
+
+	return d, nil
 }
 
 func hydrateArrayToString(calls []*HydrateCall) string {

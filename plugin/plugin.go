@@ -2,26 +2,35 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/dgraph-io/ristretto"
+	"github.com/eko/gocache/v3/cache"
+	"github.com/eko/gocache/v3/store"
+	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/go-kit/helpers"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/os_specific"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v4/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v4/version"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/semaphore"
 	"log"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/cache"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/os_specific"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
-	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"sync/atomic"
+	"time"
 )
 
 const (
@@ -44,11 +53,12 @@ type Plugin struct {
 	Name   string
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
+	// NOTE: it must be NULL for plugins with dynamic schema
 	TableMap map[string]*Table
 	// TableMapFunc is a callback function which can be used to populate the table map
 	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
 	// (connection config is not available at plugin creation time)
-	TableMapFunc        func(ctx context.Context, p *Plugin) (map[string]*Table, error)
+	TableMapFunc        func(ctx context.Context, connection *Connection) (map[string]*Table, error)
 	DefaultTransform    *transform.ColumnTransforms
 	DefaultConcurrency  *DefaultConcurrencyConfig
 	DefaultRetryConfig  *RetryConfig
@@ -61,25 +71,33 @@ type Plugin struct {
 	// every table must implement these columns
 	RequiredColumns        []*Column
 	ConnectionConfigSchema *ConnectionConfigSchema
-	// connection this plugin is instantiated for
-	Connection *Connection
-	// object to handle caching of connection specific data
-	ConnectionManager *connection_manager.Manager
+	// ConnectionConfigChangedFunc is a callback function which is called from UpdateConnectionConfigs
+	// when any connection configs have changed
+	ConnectionConfigChangedFunc func(ctx context.Context, p *Plugin, old, new *Connection) error
+
+	// map of connection data (schema, config, connection cache)
+	// keyed by connection name
+	ConnectionMap map[string]*ConnectionData
 	// is this a static or dynamic schema
 	SchemaMode string
-	Schema     map[string]*proto.TableSchema
 
-	queryCache      *cache.QueryCache
-	concurrencyLock sync.Mutex
+	queryCache *query_cache.QueryCache
+	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
+	connectionCacheStore *cache.Cache[any]
+	// map of the connection caches, keyed by connection name
+	connectionCacheMap     map[string]*connection_manager.ConnectionCache
+	connectionCacheMapLock sync.Mutex
 }
 
 // Initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) Initialise() {
-	log.Println("[TRACE] Plugin Initialise creating connection manager")
-	p.ConnectionManager = connection_manager.NewManager()
+	p.ConnectionMap = make(map[string]*ConnectionData)
+	p.connectionCacheMap = make(map[string]*connection_manager.ConnectionCache)
 
 	p.Logger = p.setupLogger()
+	log.Printf("[INFO] Initialise plugin '%s', using sdk version %s", p.Name, version.String())
+
 	// default the schema mode to static
 	if p.SchemaMode == "" {
 		log.Println("[TRACE] defaulting SchemaMode to SchemaModeStatic")
@@ -110,104 +128,231 @@ func (p *Plugin) Initialise() {
 		p.DefaultGetConfig.initialise(nil)
 	}
 
+	// create default ConnectionConfigChangedFunc if needed
+	if p.ConnectionConfigChangedFunc == nil {
+		p.ConnectionConfigChangedFunc = defaultConnectionConfigChangedFunc
+	}
+
 	// set file limit
+	// TODO REMOVE WITH GO 1.19
 	p.setuLimit()
+
+	if err := p.createConnectionCacheStore(); err != nil {
+		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
+	}
 }
 
-// SetConnectionConfig parses the connection config string, and populate the connection data for this connection.
-// It also calls the table creation factory function, if provided by the plugin.
-// Note: SetConnectionConfig is always called before any other plugin function.
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("SetConnectionConfig failed: %s", helpers.ToError(r).Error())
-		} else {
-			p.Logger.Debug("SetConnectionConfig finished")
-		}
-	}()
-
-	// create connection object
-	p.Connection = &Connection{Name: connectionName}
-
-	// if config was provided, parse it
-	if connectionConfigString != "" {
-		if p.ConnectionConfigSchema == nil {
-			return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
-		}
-		// ask plugin for a struct to deserialise the config into
-		config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
-		if err != nil {
-			return err
-		}
-		p.Connection.Config = config
-	}
-
-	// if the plugin defines a CreateTables func, call it now
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
-	if err := p.initialiseTables(ctx); err != nil {
-		return err
-	}
-
-	// populate the plugin schema
-	p.Schema, err = p.buildSchema()
+func (p *Plugin) createConnectionCacheStore() error {
+	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1000,
+		MaxCost:     100000,
+		BufferItems: 64,
+	})
 	if err != nil {
 		return err
 	}
-
-	// create the cache or update the schema if it already exists
-	return p.ensureCache()
+	ristrettoStore := store.NewRistretto(ristrettoCache)
+	p.connectionCacheStore = cache.New[any](ristrettoStore)
+	return nil
 }
 
-// GetSchema returns the plugin schema.
-// Note: the connection config must be set before calling this function.
-func (p *Plugin) GetSchema() (*grpc.PluginSchema, error) {
-	// the connection property must be set already
-	if p.Connection == nil {
-		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
-	}
+func (p *Plugin) newConnectionCache(connectionName string) *connection_manager.ConnectionCache {
+	connectionCache := connection_manager.NewConnectionCache(connectionName, p.connectionCacheStore)
+	p.connectionCacheMapLock.Lock()
+	defer p.connectionCacheMapLock.Unlock()
+	// add to map of connection caches
+	p.connectionCacheMap[connectionName] = connectionCache
+	return connectionCache
+}
 
-	schema := &grpc.PluginSchema{Schema: p.Schema, Mode: p.SchemaMode}
+// GetSchema is the handler function for the GetSchema grpc function
+// return the plugin schema.
+// Note: the connection config must be set before calling this function.
+func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
+	var connectionData *ConnectionData
+	if connectionName == "" {
+		// TACTICAL
+		// previous steampipe versions do not pass a connection name
+		// and instantiate a plugin per connection,
+		// is we have more than one connection, this is an error
+		if len(p.ConnectionMap) > 1 {
+			return nil, fmt.Errorf("Plugin.GetSchema failed - no connection name passed and multiple connections loaded")
+		}
+		// get first (and only) connection data
+		for _, connectionData = range p.ConnectionMap {
+		}
+	} else {
+		var ok bool
+		connectionData, ok = p.ConnectionMap[connectionName]
+		if !ok {
+			return nil, fmt.Errorf("Plugin.GetSchema failed - no connection data loaded for connection '%s'", connectionName)
+		}
+	}
+	schema := &grpc.PluginSchema{Schema: connectionData.Schema, Mode: p.SchemaMode}
 	return schema, nil
 }
 
-// Execute executes a query and streams the results using the given GRPC stream.
+// Execute is the handler function for the Execute grpc function
+// execute a query and streams the results using the given GRPC stream.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
+	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+	log.SetPrefix("")
+	log.SetFlags(0)
 
-	log.Printf("[TRACE] EXECUTE callId: %s table: %s cols: %s", req.CallId, req.Table, strings.Join(req.QueryContext.Columns, ","))
+	log.Printf("[INFO] Plugin Execute (%s)", req.CallId)
+	defer log.Printf("[INFO]  Plugin Execute complete (%s)", req.CallId)
+
+	// limit the plugin memory
+	newLimit := GetMaxMemoryBytes()
+	debug.SetMemoryLimit(newLimit)
+	log.Printf("[INFO] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
+
+	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
+	errorChan := make(chan error, len(req.ExecuteConnectionData))
+	//doneChan := make(chan bool)
+	var outputWg sync.WaitGroup
+
+	// get a context which includes telemetry data and logger
+	ctx := p.buildExecuteContext(stream.Context(), req, logger)
+
+	// control how many connections are executed in parallel
+	maxConcurrentConnections := getMaxConcurrentConnections()
+	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
+
+	for connectionName, executeData := range req.ExecuteConnectionData {
+		outputWg.Add(1)
+
+		go func(c string) {
+			defer outputWg.Done()
+
+			if err := sem.Acquire(ctx, 1); err != nil {
+				return
+			}
+			defer sem.Release(1)
+
+			if err := p.executeForConnection(ctx, req, c, executeData, outputChan); err != nil {
+				if !error_helpers.IsContextCancelledError(err) {
+					log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
+				}
+				errorChan <- err
+			}
+			log.Printf("[TRACE] executeForConnection %s returned", c)
+		}(connectionName)
+	}
+
+	var errors []error
+
+	go func() {
+		outputWg.Wait()
+		// so all executeForConnection calls are complete
+		// stream a nil row to indicate completion
+		log.Printf("[TRACE] output wg complete - send nil row")
+		outputChan <- nil
+	}()
+
+	complete := false
+	for !complete {
+		select {
+		case row := <-outputChan:
+			// nil row means that one connection is done streaming
+			if row == nil {
+				log.Printf("[TRACE] empty row on output channel - we are done ")
+				complete = true
+				break
+			}
+
+			if err := stream.Send(row); err != nil {
+				// ignore context cancellation - they will get picked up further downstream
+				if !error_helpers.IsContextCancelledError(err) {
+					errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
+				}
+				break
+			}
+		case err := <-errorChan:
+			if !error_helpers.IsContextCancelledError(err) {
+				log.Printf("[WARN] error channel received %s", err.Error())
+			}
+			errors = append(errors, err)
+		}
+	}
+
+	close(outputChan)
+	close(errorChan)
+
+	return helpers.CombineErrors(errors...)
+}
+
+// ClearConnectionCache clears the connection cache for the given connection
+func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
+	p.connectionCacheMapLock.Lock()
+	defer p.connectionCacheMapLock.Unlock()
+
+	// get the connection cache for this connection
+	connectionCache, ok := p.connectionCacheMap[connectionName]
+	if !ok {
+		// not expected
+		log.Printf("[TRACE] ClearConnectionCache failed - no connection cache found for connection %s", connectionName)
+		return
+	}
+	connectionCache.Clear(ctx)
+}
+
+// ClearQueryCache clears the query cache for the given connection
+func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
+	p.queryCache.ClearForConnection(ctx, connectionName)
+}
+
+func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {
+	const rowBufferSize = 10
+	var rowChan = make(chan *proto.Row, rowBufferSize)
+
+	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
+	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)
+	log.Printf("[TRACE] executeForConnection callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
+		log.Printf("[TRACE] executeForConnection DEFER (%s) ", connectionCallId)
 		if r := recover(); r != nil {
-			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", req.CallId, req.Table, r)
-			if e, ok := r.(error); ok {
-				err = e
-			} else {
-				err = fmt.Errorf("%v", r)
-			}
+			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
+			err = helpers.ToError(r)
 			return
 		}
 
-		log.Printf("[TRACE] Execute complete callId: %s table: %s ", req.CallId, req.Table)
+		log.Printf("[TRACE] Execute complete callId: %s table: %s ", connectionCallId, req.Table)
 	}()
 
 	// the connection property must be set already
-	if p.Connection == nil {
-		return fmt.Errorf("plugin.Execute called before setting connection config")
+	connectionData, ok := p.ConnectionMap[connectionName]
+	if !ok {
+		return fmt.Errorf("plugin execute failed - no connection data loaded for connection '%s'", connectionName)
 	}
+	log.Printf("[TRACE] got connection data")
 
-	logging.LogTime("Start execute")
-	logger.Trace("Execute ", "connection", req.Connection, "table", req.Table)
-
-	queryContext := NewQueryContext(req.QueryContext)
-	table, ok := p.TableMap[req.Table]
+	table, ok := connectionData.TableMap[req.Table]
 	if !ok {
 		return fmt.Errorf("plugin %s does not provide table %s", p.Name, req.Table)
 	}
 
-	logger.Trace("Got query context",
-		"table", req.Table,
-		"cols", queryContext.Columns)
+	// get limit and cache vars
+	limitParam := executeData.Limit
+	cacheTTL := executeData.CacheTtl
+	cacheEnabled := executeData.CacheEnabled
+
+	// check whether the cache is disabled for this table
+	if table.Cache != nil {
+		cacheEnabled = table.Cache.Enabled && cacheEnabled
+		if !cacheEnabled {
+			log.Printf("[INFO] caching is disabled for table %s", table.Name)
+		}
+	}
+
+	logging.LogTime("Start execute")
+
+	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL)
+
+	log.Printf("[TRACE] Got query context, table: %s, cols: %v", req.Table, queryContext.Columns)
 
 	// async approach
 	// 1) call list() in a goroutine. This writes pages of items to the rowDataChan. When complete it closes the channel
@@ -215,13 +360,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// 3) Build row spawns goroutines for any required hydrate functions.
 	// 4) When hydrate functions are complete, apply transforms to generate column values. When row is ready, send on rowChan
 	// 5) Range over rowChan - for each row, send on results stream
-	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
-	log.SetPrefix("")
-	log.SetFlags(0)
-
-	// get a context which includes telemetry data and logger
-	ctx := p.buildExecuteContext(stream.Context(), req, logger)
-
 	log.Printf("[TRACE] Start execute span")
 	ctx, executeSpan := p.startExecuteSpan(ctx, req)
 	defer func() {
@@ -229,84 +367,114 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		executeSpan.End()
 	}()
 
+	log.Printf("[TRACE] GetMatrixItem")
+
 	// get the matrix item
-	var matrixItem []map[string]interface{}
-	if table.GetMatrixItem != nil {
-		matrixItem = table.GetMatrixItem(ctx, p.Connection)
-	}
-
-	// lock access to the newQueryData - otherwise plugin crashes were observed
-	queryData := p.newQueryData(req, stream, queryContext, table, matrixItem)
-
-	logger.Trace("calling fetchItems", "table", table.Name, "matrixItem", queryData.Matrix, "limit", queryContext.Limit)
-
-	// convert limit from *int64 to an int64 (where -1 means no limit)
-	var limit int64 = -1
-	if queryContext.Limit != nil {
-		limit = *queryContext.Limit
-	}
-	// can we satisfy this request from the cache?
-	if req.CacheEnabled {
-		log.Printf("[TRACE] Cache ENABLED callId: %s", req.CallId)
-		cachedResult := p.queryCache.Get(ctx, table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, req.CacheTtl)
-		cacheHit := cachedResult != nil
-		executeSpan.SetAttributes(
-			attribute.Bool("cache-hit", cacheHit),
-		)
-		if cacheHit {
-			// mark this as a cache hit in the query status
-			queryData.QueryStatus.cacheHit = true
-			queryData.QueryStatus.cachedRowsFetched = int64(len(cachedResult.Rows))
-			log.Printf("[TRACE] stream cached result callId: %s", req.CallId)
-			for _, r := range cachedResult.Rows {
-				queryData.streamRow(r)
-			}
-			return
-		}
-
-		// so cache is enabled but the data is not in the cache
-		// the cache will have added a pending item for this transfer
-		// and it is our responsibility to either call 'set' or 'cancel' for this pending item
-		defer func() {
-			if err != nil || ctx.Err() != nil {
-				log.Printf("[WARN] Execute call failed err: %v cancelled: %v - cancelling pending item in cache", err, ctx.Err())
-				p.queryCache.CancelPendingItem(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit)
-			}
-		}()
-	} else {
-		log.Printf("[TRACE] Cache DISABLED callId: %s", req.CallId)
-	}
-
-	log.Printf("[TRACE] fetch items callId: %s", req.CallId)
-	// asyncronously fetch items
-	if err := table.fetchItems(ctx, queryData); err != nil {
-		logger.Warn("fetchItems returned an error", "table", table.Name, "error", err)
-		return err
-	}
-	logging.LogTime("Calling build Rows")
-
-	log.Printf("[TRACE] buildRows callId: %s", req.CallId)
-
-	// asyncronously build rows
-	rowChan := queryData.buildRows(ctx)
-
-	log.Printf("[TRACE] streamRows callId: %s", req.CallId)
-
-	logging.LogTime("Calling streamRows")
-
-	// asyncronously stream rows across GRPC
-	rows, err := queryData.streamRows(ctx, rowChan)
+	queryData, err := newQueryData(connectionCallId, p, queryContext, table, connectionData, executeData, outputChan)
 	if err != nil {
 		return err
 	}
 
-	if req.CacheEnabled {
-		log.Printf("[TRACE] queryCache.Set callId: %s", req.CallId)
-
-		cacheResult := &cache.QueryCacheResult{Rows: rows}
-		p.queryCache.Set(table.Name, queryContext.UnsafeQuals, queryContext.Columns, limit, cacheResult)
+	var matrixItem []map[string]interface{}
+	if table.GetMatrixItem != nil {
+		matrixItem = table.GetMatrixItem(ctx, connectionData.Connection)
 	}
+	if table.GetMatrixItemFunc != nil {
+		matrixItem = table.GetMatrixItemFunc(ctx, queryData)
+	}
+	queryData.setMatrixItem(matrixItem)
+
+	log.Printf("[TRACE] creating query data")
+
+	limit := queryContext.GetLimit()
+
+	// convert qual map to type used by cache
+	cacheQualMap := queryData.Quals.ToProtoQualMap()
+	// build cache request
+	cacheRequest := &query_cache.CacheRequest{
+		Table:          table.Name,
+		QualMap:        cacheQualMap,
+		Columns:        queryContext.Columns,
+		Limit:          limit,
+		ConnectionName: connectionName,
+		TtlSeconds:     queryContext.CacheTTL,
+		CallId:         connectionCallId,
+	}
+	// can we satisfy this request from the cache?
+	if cacheEnabled {
+		log.Printf("[INFO] cacheEnabled, trying cache get (%s)", connectionCallId)
+
+		// create a function to increment cachedRowsFetched and stream a row
+		streamRowFunc := func(row *proto.Row) {
+			// if row is not nil (indicating completion), increment cachedRowsFetched
+			if row != nil {
+				atomic.AddInt64(&queryData.QueryStatus.cachedRowsFetched, 1)
+			}
+			queryData.streamRow(row)
+		}
+
+		start := time.Now()
+		// try to fetch this data from the query cache
+		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamRowFunc)
+		if cacheErr == nil {
+			// so we got a cached result - stream it out
+			log.Printf("[INFO] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
+
+			// nothing more to do
+			return nil
+		}
+
+		getDuration := time.Since(start)
+		if getDuration > time.Second {
+			log.Printf("[TRACE] queryCache.Get took %.1fs: (%s),", getDuration.Seconds(), connectionCallId)
+		}
+
+		// so the cache call failed, with either a cache-miss or other error
+		if query_cache.IsCacheMiss(cacheErr) {
+			log.Printf("[TRACE] cache MISS")
+		} else if errors.Is(cacheErr, error_helpers.QueryError{}) {
+			// if this is a QueryError, this means the pending item we were waitign for failed
+			// > we also fail
+			return cacheErr
+		} else {
+			// otherwise just log the cache error
+			log.Printf("[TRACE] queryCacheGet returned err %s", cacheErr.Error())
+		}
+
+		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
+		p.queryCache.StartSet(ctx, cacheRequest)
+	} else {
+		log.Printf("[INFO] Cache DISABLED connectionCallId: %s", connectionCallId)
+	}
+
+	// asyncronously fetch items
+	log.Printf("[TRACE] calling fetchItems, table: %s, matrixItem: %v, limit: %d,  connectionCallId: %s\"", table.Name, queryData.Matrix, limit, connectionCallId)
+	if err := table.fetchItems(ctx, queryData); err != nil {
+		log.Printf("[WARN] fetchItems returned an error, table: %s, error: %v", table.Name, err)
+		return err
+
+	}
+	logging.LogTime("Calling build Rows")
+
+	log.Printf("[TRACE] buildRowsAsync connectionCallId: %s", connectionCallId)
+
+	// asyncronously build rows
+	// channel used by streamRows when it receives an error to tell buildRowsAsync to stop
+	doneChan := make(chan bool)
+	queryData.buildRowsAsync(ctx, rowChan, doneChan)
+
+	log.Printf("[TRACE] streamRows connectionCallId: %s", connectionCallId)
+
+	logging.LogTime("Calling streamRows")
+
+	//  stream rows across GRPC
+	err = queryData.streamRows(ctx, rowChan, doneChan)
+	if err != nil {
+		return err
+	}
+
 	return nil
+
 }
 
 func (p *Plugin) buildExecuteContext(ctx context.Context, req *proto.ExecuteRequest, logger hclog.Logger) context.Context {
@@ -335,17 +503,12 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 	return ctx, span
 }
 
-func (p *Plugin) newQueryData(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer, queryContext *QueryContext, table *Table, matrixItem []map[string]interface{}) *QueryData {
-	p.concurrencyLock.Lock()
-	defer p.concurrencyLock.Unlock()
-
-	return newQueryData(queryContext, table, stream, p.Connection, matrixItem, p.ConnectionManager, req.CallId)
-}
-
 // initialiseTables does 2 things:
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
 // 2) call initialise on the table, plassing the plugin pointer which the table stores
-func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
+func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (tableMap map[string]*Table, err error) {
+	tableMap = p.TableMap
+
 	if p.TableMapFunc != nil {
 		// handle panic in factory function
 		defer func() {
@@ -354,24 +517,23 @@ func (p *Plugin) initialiseTables(ctx context.Context) (err error) {
 			}
 		}()
 
-		if tableMap, err := p.TableMapFunc(ctx, p); err != nil {
-			return err
-		} else {
-			p.TableMap = tableMap
+		tableMap, err = p.TableMapFunc(ctx, connection)
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	// update tables to have a reference to the plugin
-	for _, table := range p.TableMap {
+	for _, table := range tableMap {
 		table.initialise(p)
 	}
 
 	// now validate the plugin
 	// NOTE: must do this after calling TableMapFunc
 	if validationErrors := p.Validate(); validationErrors != "" {
-		return fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
+		return nil, fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
-	return nil
+	return tableMap, nil
 }
 
 func (p *Plugin) setupLogger() hclog.Logger {
@@ -398,9 +560,13 @@ func (p *Plugin) setuLimit() {
 
 // if query cache does not exist, create
 // if the query cache exists, update the schema
-func (p *Plugin) ensureCache() error {
+func (p *Plugin) ensureCache(maxCacheSizeMb int) error {
+	// build a connection schema map
+	connectionSchemaMap := p.buildConnectionSchemaMap()
 	if p.queryCache == nil {
-		queryCache, err := cache.NewQueryCache(p.Name, p.Connection.Name, p.Schema)
+		log.Printf("[TRACE] Plugin ensureCache creating cache, maxCacheStorageMb %d", maxCacheSizeMb)
+
+		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, maxCacheSizeMb)
 		if err != nil {
 			return err
 		}
@@ -408,25 +574,18 @@ func (p *Plugin) ensureCache() error {
 	} else {
 		// so there is already a cache - that means the config has been updated, not set for the first time
 
-		// update the schema on the query cache
-		p.queryCache.PluginSchema = p.Schema
+		// update the schema map on the query cache
+		p.queryCache.PluginSchemaMap = connectionSchemaMap
 	}
 
 	return nil
 }
 
-func (p *Plugin) buildSchema() (map[string]*proto.TableSchema, error) {
-	log.Printf("[TRACE] buildSchema")
-	defer log.Printf("[TRACE] buildSchema complete")
-
-	// the connection property must be set already
-	if p.Connection == nil {
-		return nil, fmt.Errorf("plugin.GetSchema called before setting connection config")
-	}
+func (p *Plugin) buildSchema(tableMap map[string]*Table) (map[string]*proto.TableSchema, error) {
 	schema := map[string]*proto.TableSchema{}
 
 	var tables []string
-	for tableName, table := range p.TableMap {
+	for tableName, table := range tableMap {
 		tableSchema, err := table.GetSchema()
 		if err != nil {
 			return nil, err
@@ -436,4 +595,15 @@ func (p *Plugin) buildSchema() (map[string]*proto.TableSchema, error) {
 	}
 
 	return schema, nil
+}
+
+func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
+	res := make(map[string]*grpc.PluginSchema, len(p.ConnectionMap))
+	for k, v := range p.ConnectionMap {
+		res[k] = &grpc.PluginSchema{
+			Schema: v.Schema,
+			Mode:   p.SchemaMode,
+		}
+	}
+	return res
 }

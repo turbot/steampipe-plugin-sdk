@@ -15,7 +15,7 @@ jobs:
         - name: Set up Go
           uses: actions/setup-go@v3
           with:
-            go-version: 1.18
+            go-version: 1.19
 
         - name: Run SDK Unit Tests
           run: |
@@ -31,7 +31,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.18
+          go-version: 1.19
 
       - name: Checkout Steampipe
         uses: actions/checkout@v3
@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
-          go get github.com/turbot/steampipe-plugin-sdk/v3@${{ github.event.pull_request.head.sha }}
+          go get github.com/turbot/steampipe-plugin-sdk/v4@${{ github.event.pull_request.head.sha }}
           go get
           go build -o /home/runner/steampipe
 

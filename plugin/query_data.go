@@ -4,21 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"log"
+	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/v3/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v3/telemetry"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
 )
 
-const itemBufferSize = 100
+// how may rows do we cache in the rowdata channel
+const rowDataBufferSize = 100
 
 // NOTE - any field added here must also be added to ShallowCopy
 
@@ -43,18 +46,25 @@ type QueryData struct {
 	// Matrix is an array of parameter maps (MatrixItems)
 	// the list/get calls with be executed for each element of this array
 	Matrix []map[string]interface{}
+
 	// object to handle caching of connection specific data
+	// deprecated
+	// use ConnectionCache
 	ConnectionManager *connection_manager.Manager
+	ConnectionCache   *connection_manager.ConnectionCache
 
 	// streaming funcs
-	StreamListItem func(ctx context.Context, item interface{})
-
-	// internal
-	callId string
+	StreamListItem func(context.Context, ...interface{})
 
 	// deprecated - plugins should no longer call StreamLeafListItem directly and should just call StreamListItem
 	// event for the child list of a parent child list call
-	StreamLeafListItem func(ctx context.Context, item interface{})
+	StreamLeafListItem func(context.Context, ...interface{})
+
+	// internal
+	// the callId for this connection
+	connectionCallId string
+
+	plugin *Plugin
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
 	hydrateCalls []*HydrateCall
 
@@ -62,78 +72,113 @@ type QueryData struct {
 	columns            []*QueryColumn
 	concurrencyManager *ConcurrencyManager
 	rowDataChan        chan *RowData
-
-	errorChan chan error
-	stream    proto.WrapperPlugin_ExecuteServer
+	errorChan          chan error
+	// channel to send results
+	outputChan chan *proto.ExecuteResponse
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
 	parentItem     interface{}
 	filteredMatrix []map[string]interface{}
+
+	// ttl for the execute call
+	cacheTtl int64
+
+	cacheEnabled bool
+	// if data is being cached, this will contain the id used to send rows to the cache
+	cacheResultKey string
+	// the names of all the columns which are actually being returned
+	cacheColumns []string
+	// buffer rows before sending to the cache in chunks
+	cacheRows []*proto.Row
+
+	// map of hydrate function name to columns it provides
+	// (this is in queryData not Table as it gets modified per query)
+	hydrateColumnMap map[string][]string
+	// tactical - free memory after streaming this many rows
+	freeMemInterval int64
 }
 
-func newQueryData(queryContext *QueryContext, table *Table, stream proto.WrapperPlugin_ExecuteServer, connection *Connection, matrix []map[string]interface{}, connectionManager *connection_manager.Manager, callId string) *QueryData {
+func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
+
+	// create a connection cache
+	connectionCache := plugin.newConnectionCache(connectionData.Connection.Name)
 	d := &QueryData{
-		ConnectionManager: connectionManager,
+		// set deprecated ConnectionManager
+		ConnectionManager: connection_manager.NewManager(connectionCache),
+		ConnectionCache:   connectionCache,
 		Table:             table,
 		QueryContext:      queryContext,
-		Connection:        connection,
-		Matrix:            matrix,
+		Connection:        connectionData.Connection,
 		KeyColumnQuals:    make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
-		callId:            callId,
+		plugin:            plugin,
+		connectionCallId:  connectionCallId,
+		cacheTtl:          executeData.CacheTtl,
+		cacheEnabled:      executeData.CacheEnabled,
+
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
-		rowDataChan: make(chan *RowData, itemBufferSize),
+		rowDataChan: make(chan *RowData, rowDataBufferSize),
 		errorChan:   make(chan error, 1),
-		stream:      stream,
+		outputChan:  outputChan,
 		listWg:      &wg,
+
+		freeMemInterval: GetFreeMemInterval(),
 	}
+
 	d.StreamListItem = d.streamListItem
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
 	d.StreamLeafListItem = d.streamLeafListItem
 	d.setFetchType(table)
-	// if we have key column quals for any matrix properties, filter the matrix
-	// to exclude items which do not satisfy the quals
-	// this populates the property filteredMatrix
-	d.filterMatrixItems()
 
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	ensureColumns(queryContext, table)
 
 	// build list of required hydrate calls, based on requested columns
-	d.hydrateCalls = table.requiredHydrateCalls(queryContext.Columns, d.FetchType)
+	d.populateRequiredHydrateCalls()
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
-
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
 
-	return d
+	return d, nil
+}
+
+func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
+	d.Matrix = matrix
+	// if we have key column quals for any matrix properties, filter the matrix
+	// to exclude items which do not satisfy the quals
+	// this populates the property filteredMatrix
+	d.filterMatrixItems()
 }
 
 // ShallowCopy creates a shallow copy of the QueryData
 // this is used to pass different quals to multiple list/get calls, when an in() clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
-
 	clone := &QueryData{
-		Table:              d.Table,
-		KeyColumnQuals:     make(map[string]*proto.QualValue),
-		Quals:              make(KeyColumnQualMap),
-		FetchType:          d.FetchType,
-		QueryContext:       d.QueryContext,
-		Connection:         d.Connection,
-		ConnectionManager:  d.ConnectionManager,
-		Matrix:             d.Matrix,
+		Table:             d.Table,
+		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		Quals:             make(KeyColumnQualMap),
+		FetchType:         d.FetchType,
+		QueryContext:      d.QueryContext,
+		Connection:        d.Connection,
+		ConnectionManager: d.ConnectionManager,
+		ConnectionCache:   d.ConnectionCache,
+		Matrix:            d.Matrix,
+		plugin:            d.plugin,
+		cacheTtl:          d.cacheTtl,
+		cacheEnabled:      d.cacheEnabled,
+
 		filteredMatrix:     d.filteredMatrix,
 		hydrateCalls:       d.hydrateCalls,
 		concurrencyManager: d.concurrencyManager,
 		rowDataChan:        d.rowDataChan,
 		errorChan:          d.errorChan,
-		stream:             d.stream,
+		outputChan:         d.outputChan,
 		listWg:             d.listWg,
 		columns:            d.columns,
 		QueryStatus:        d.QueryStatus,
@@ -169,7 +214,7 @@ func (d *QueryData) populateColumns() {
 // get the column returned by the given hydrate call
 func (d *QueryData) addColumnsForHydrate(hydrateName string) []*QueryColumn {
 	var cols []*QueryColumn
-	for _, columnName := range d.Table.hydrateColumnMap[hydrateName] {
+	for _, columnName := range d.hydrateColumnMap[hydrateName] {
 		// get the column from the table
 		column := d.Table.getColumn(columnName)
 		// NOTE: use this to instantiate a QueryColumn
@@ -263,11 +308,11 @@ func (d *QueryData) filterMatrixItems() {
 			log.Printf("[TRACE] col %s val %s", col, val)
 			// is there a quals for this matrix column?
 
-			if quals, ok := matrixQualMap[col]; ok {
-				log.Printf("[TRACE] quals found for matrix column: %v", quals)
+			if matrixQuals, ok := matrixQualMap[col]; ok {
+				log.Printf("[TRACE] quals found for matrix column: %v", matrixQuals)
 				// if there IS a single equals qual which DOES NOT match this matrix item, exclude the matrix item
-				if quals.SingleEqualsQual() {
-					includeMatrixItem = d.shouldIncludeMatrixItem(quals, val)
+				if matrixQuals.SingleEqualsQual() {
+					includeMatrixItem = d.shouldIncludeMatrixItem(matrixQuals, val)
 				}
 			} else {
 				log.Printf("[TRACE] quals found for matrix column: %s", col)
@@ -350,26 +395,31 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 }
 
 // stream an item returned from the list call
-// wrap in a rowData object
-func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
+func (d *QueryData) streamListItem(ctx context.Context, items ...interface{}) {
+	// loop over items
+	for _, item := range items {
+		// have we streamed enough already?
+		if d.QueryStatus.StreamingComplete {
+			return
+		}
+		// if this table has no parent hydrate function, just call streamLeafListItem directly
+		if d.Table.List.ParentHydrate != nil {
+			// so there is a parent-child hydrate - call the child hydrate, passing 'item' as the parent item
+			d.callChildListHydrate(ctx, item)
+		} else {
+			// otherwise call streamLeafListItem directly
+			d.streamLeafListItem(ctx, item)
+		}
+	}
+}
+
+// there is a parent-child list hydration - call the child list function passing 'item' as the parent item'
+func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interface{}) {
+	// do a deep nil check on item - if nil, just return to skip this item
+	if helpers.IsNil(parentItem) {
+		return
+	}
 	callingFunction := helpers.GetCallingFunction(1)
-
-	// do a deep nil check on item - if nil, just return
-	if helpers.IsNil(item) {
-		return
-	}
-
-	// if this table has no parent hydrate function, just call streamLeafListItem directly
-	parentListHydrate := d.Table.List.ParentHydrate
-	if parentListHydrate == nil {
-		d.streamLeafListItem(ctx, item)
-		return
-	}
-
-	parentHydrateName := helpers.GetFunctionName(parentListHydrate)
-	Logger(ctx).Trace("StreamListItem: called from parent hydrate function - streaming result to child hydrate function",
-		"parent hydrate", parentHydrateName,
-		"child hydrate", helpers.GetFunctionName(d.Table.List.Hydrate))
 	d.listWg.Add(1)
 
 	go func() {
@@ -378,7 +428,7 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 				err := helpers.ToError(r)
 				if !d.verifyCallerIsListCall(callingFunction) {
 					err = fmt.Errorf("'streamListItem' must only be called from a list call. Calling function name is '%s'", callingFunction)
-					log.Printf("[TRACE] 'streamListItem' failed with panic: %s. Calling function name is '%s'", err, callingFunction)
+					log.Printf("[WARN] 'streamListItem' failed with panic: %s. Calling function name is '%s'", err, callingFunction)
 				}
 				d.streamError(err)
 			}
@@ -388,109 +438,78 @@ func (d *QueryData) streamListItem(ctx context.Context, item interface{}) {
 		childQueryData := d.ShallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
-		childQueryData.parentItem = item
-		if _, err := d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: item}); err != nil {
+		childQueryData.parentItem = parentItem
+		// now call the parent list
+		_, err := d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: parentItem})
+		if err != nil {
 			d.streamError(err)
 		}
 	}()
 }
 
-func (d *QueryData) streamLeafListItem(ctx context.Context, item interface{}) {
-	// do a deep nil check on item - if nil, just return
-	if helpers.IsNil(item) {
-		return
-	}
-	// have we streamed enough already?
-	if d.QueryStatus.RowsRemaining(ctx) == 0 {
-		return
-	}
-	// increment the stream count
-	d.QueryStatus.rowsStreamed++
+func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}) {
+	// loop over items
+	for _, item := range items {
+		// have we streamed enough already?
+		if d.QueryStatus.StreamingComplete {
+			return
+		}
 
-	// create rowData, passing matrixItem from context
-	rd := newRowData(d, item)
-	rd.matrixItem = GetMatrixItem(ctx)
-	// set the parent item on the row data
-	rd.ParentItem = d.parentItem
-	// NOTE: add the item as the hydrate data for the list call
-	rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
-	d.rowDataChan <- rd
+		// if this is the first time we have received a zero rows remaining, stream an empty row and mark stream
+		if d.QueryStatus.RowsRemaining(ctx) == 0 {
+			log.Printf("[TRACE] streamListItem RowsRemaining zero, send nil row %s", d.Connection.Name)
+			d.QueryStatus.StreamingComplete = true
+			// if this is the first time we have received a zero rows remaining, stream an empty row
+			// to indicate downstream that we are done
+			d.rowDataChan <- nil
+			// we are done - give memory back to OS at once
+			debug.FreeOSMemory()
+			return
+		}
+
+		// tactical - if we have specified freeMemInterval, check whether we have reached it and need to free memory
+		// this is to reduce memory pressure dure to streaming high row counts
+		if d.shouldFreeMemory() {
+			debug.FreeOSMemory()
+		}
+
+		// do a deep nil check on item - if nil, just skipthis item
+		if helpers.IsNil(item) {
+			log.Printf("[TRACE] streamLeafListItem received nil item, skipping")
+			continue
+		}
+		// increment the stream count
+		d.QueryStatus.rowsStreamed++
+
+		// create rowData, passing matrixItem from context
+		rd := newRowData(d, item)
+
+		rd.matrixItem = GetMatrixItem(ctx)
+		// set the parent item on the row data
+		rd.ParentItem = d.parentItem
+		// NOTE: add the item as the hydrate data for the list call
+		rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
+
+		d.rowDataChan <- rd
+	}
+}
+
+// if a free memory interval has been set, check if we have reached it
+func (d *QueryData) shouldFreeMemory() bool {
+	return d.freeMemInterval != 0 && d.QueryStatus.rowsStreamed%d.freeMemInterval == 0
 }
 
 // called when all items have been fetched - close the item chan
 func (d *QueryData) fetchComplete(ctx context.Context) {
 	log.Printf("[TRACE] QueryData.fetchComplete")
 
-	// if the context was cancelled, stream the cancellation error
-	if ctx.Err() != nil {
-		log.Printf("[TRACE] context was cancelled - streaming context error")
-		d.errorChan <- ctx.Err()
-	}
-
 	// wait for any child fetches to complete before closing channel
 	d.listWg.Wait()
 	close(d.rowDataChan)
 }
 
-// read rows from rowChan and stream back across GRPC
-// (also return the rows so we can cache them when complete)
-func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row) ([]*proto.Row, error) {
-	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
-	defer span.End()
-
-	var rows []*proto.Row
-	defer func() {
-		// tell the concurrency manage we are done (it may log the concurrency stats)
-		d.concurrencyManager.Close()
-	}()
-	for {
-		// wait for either an item or an error
-		select {
-		case err := <-d.errorChan:
-			log.Printf("[ERROR] streamRows error chan select: %v\n", err)
-			// return what what we have sent
-			return nil, err
-		case row := <-rowChan:
-			// nil row means we are done streaming
-			if row == nil {
-				log.Println("[TRACE] row chan closed, stop streaming")
-				return rows, nil
-			}
-			if err := d.streamRow(row); err != nil {
-				log.Printf("[ERROR] Execute - streamRow returned an error %s\n", err)
-				return nil, err
-			}
-			rows = append(rows, row)
-		}
-	}
-}
-
-func (d *QueryData) streamRow(row *proto.Row) error {
-	log.Printf("[TRACE] streamRow hydrate calls: %d, rows fetched: %d, cached rows fetched: %d cache hit: %v",
-		d.QueryStatus.hydrateCalls, d.QueryStatus.rowsStreamed, d.QueryStatus.cachedRowsFetched, d.QueryStatus.cacheHit)
-	resp := &proto.ExecuteResponse{
-		Row: row,
-		Metadata: &proto.QueryMetadata{
-			HydrateCalls: d.QueryStatus.hydrateCalls,
-			// only 1 of these will be non zero
-			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
-			CacheHit:    d.QueryStatus.cacheHit,
-		},
-	}
-
-	return d.stream.Send(resp)
-}
-
-func (d *QueryData) streamError(err error) {
-	d.errorChan <- err
-}
-
 // iterate over rowDataChan, for each item build the row and stream over rowChan
-func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
-	const rowBufferSize = 10
-
-	// stream data for each item
-	var rowChan = make(chan *proto.Row, rowBufferSize)
+func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) {
 	// we need to use a wait group for rows we cannot close the row channel when the item channel is closed
 	// as getRow is executing asyncronously
 	var rowWg sync.WaitGroup
@@ -500,51 +519,151 @@ func (d *QueryData) buildRows(ctx context.Context) chan *proto.Row {
 		for {
 			// wait for either an rowData or an error
 			select {
-			case err := <-d.errorChan:
-				log.Printf("[ERROR] error chan select: %v\n", err)
-				// put it back in the channel and return
-				d.errorChan <- err
+			case <-doneChan:
+				log.Printf("[TRACE] buildRowsAsync done channel selected - quitting %s", d.Connection.Name)
 				return
 			case rowData := <-d.rowDataChan:
-				// is channel closed?
+				logging.LogTime("got rowData - calling getRow")
+				// is there any more data?
 				if rowData == nil {
-					log.Println("[TRACE] rowData chan select - channel CLOSED")
-					// now we know there will be no more items, start goroutine to close row chan when the wait group is complete
+					log.Printf("[TRACE] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
+					// now we know there will be no more items, close row chan when the wait group is complete
 					// this allows time for all hydrate goroutines to complete
-					go d.waitForRowsToComplete(&rowWg, rowChan)
+					d.waitForRowsToComplete(&rowWg, rowChan)
+					log.Printf("[TRACE] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
 					return
 				}
-				logging.LogTime("got rowData - calling getRow")
+
 				rowWg.Add(1)
-				go d.buildRow(ctx, rowData, rowChan, &rowWg)
+				d.buildRowAsync(ctx, rowData, rowChan, &rowWg)
+			}
+		}
+	}()
+}
+
+// read rows from rowChan and stream back across GRPC
+// (also return the rows so we can cache them when complete)
+func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) (err error) {
+	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
+	defer span.End()
+
+	log.Printf("[TRACE] QueryData streamRows (%s)", d.connectionCallId)
+
+	defer func() {
+		// tell the concurrency manage we are done (it may log the concurrency stats)
+		d.concurrencyManager.Close()
+		log.Printf("[TRACE] QueryData streamRows DONE (%s)", d.connectionCallId)
+
+		// if there is an error or cancellation, abort the pending set
+		// if the context is cancelled and the parent callId is in the list of completed executions,
+		// this means Postgres has called EndForeignScan as it has enough data, and the context has been cancelled
+		// call EndSet
+		if err == nil {
+			// use the context error instead
+			err = ctx.Err()
+		}
+		if err != nil {
+			if error_helpers.IsContextCancelledError(err) {
+				log.Printf("[TRACE] streamRows for %s - execution has been cancelled - calling queryCache.AbortSet", d.connectionCallId)
+			} else {
+				log.Printf("[WARN] streamRows for %s - execution has failed (%s) - calling queryCache.AbortSet", d.connectionCallId, err.Error())
+			}
+			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
+		} else {
+			// if we are caching call EndSet to write to the cache
+			if d.cacheEnabled {
+				cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
+				if cacheErr != nil {
+					// just log error, do not fail
+					log.Printf("[WARN] cache set failed: %v", cacheErr)
+				} else {
+					log.Printf("[TRACE] cache set succeeded")
+				}
 			}
 		}
 	}()
 
-	return rowChan
+	for {
+		// wait for either an item or an error
+		select {
+		case err := <-d.errorChan:
+			log.Printf("[TRACE] streamRows error chan select: %v", err)
+			log.Printf("[TRACE] aborting cache set operation")
+
+			// close done chan - this will cancel buildRowsAsync
+			close(doneChan)
+			// return what we have sent
+			return err
+		case row := <-rowChan:
+			//log.Printf("[WARN] got row")
+
+			// stream row (even if it is nil)
+			//d.streamRow(row)
+
+			// nil row means we are done streaming
+			if row == nil {
+				log.Printf("[TRACE] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
+				return nil
+			}
+			// if we are caching stream this row to the cache as well
+			if d.cacheEnabled {
+				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
+			}
+
+			// stream row
+			d.streamRow(row)
+		}
+	}
+
+}
+
+func (d *QueryData) streamRow(row *proto.Row) {
+	resp := &proto.ExecuteResponse{
+		Row: row,
+		Metadata: &proto.QueryMetadata{
+			HydrateCalls: d.QueryStatus.hydrateCalls,
+			// only 1 of these will be non zero
+			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
+			CacheHit:    d.QueryStatus.cachedRowsFetched > 0,
+		},
+		Connection: d.Connection.Name,
+	}
+	d.outputChan <- resp
+}
+
+func (d *QueryData) streamError(err error) {
+	log.Printf("[WARN] QueryData StreamError %v (%s)", err, d.connectionCallId)
+	d.errorChan <- err
 }
 
 // execute necessary hydrate calls to populate row data
-func (d *QueryData) buildRow(ctx context.Context, rowData *RowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
-	defer func() {
-		if r := recover(); r != nil {
-			d.streamError(helpers.ToError(r))
+func (d *QueryData) buildRowAsync(ctx context.Context, rowData *RowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				d.streamError(helpers.ToError(r))
+			}
+			wg.Done()
+		}()
+		if rowData == nil {
+			log.Printf("[TRACE] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
+			rowChan <- nil
+			return
 		}
-		wg.Done()
+
+		// delegate the work to a row object
+		row, err := rowData.getRow(ctx)
+		if err != nil {
+			log.Printf("[WARN] getRow failed with error %v", err)
+			d.streamError(err)
+		} else {
+			// NOTE: add the Steampipecontext data to the row
+			d.addContextData(row)
+
+			rowChan <- row
+		}
 	}()
-
-	// delegate the work to a row object
-	row, err := rowData.getRow(ctx)
-	if err != nil {
-		log.Printf("[WARN] getRow failed with error %v", err)
-		d.streamError(err)
-	} else {
-		// NOTE: add the Steampipecontext data to the row
-		d.addContextData(row)
-
-		rowChan <- row
-	}
 }
 
 func (d *QueryData) addContextData(row *proto.Row) {
@@ -553,9 +672,7 @@ func (d *QueryData) addContextData(row *proto.Row) {
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
-	log.Println("[TRACE] wait for rows")
 	rowWg.Wait()
 	logging.DisplayProfileData(10 * time.Millisecond)
-	log.Println("[TRACE] rowWg complete - CLOSING ROW CHANNEL")
 	close(rowChan)
 }

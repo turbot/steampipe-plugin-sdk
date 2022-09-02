@@ -2,8 +2,7 @@ package shared
 
 import (
 	"context"
-
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
 // GRPCClient is an implementation of
@@ -30,6 +29,14 @@ func (c *GRPCClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) 
 	return c.client.SetConnectionConfig(c.ctx, req)
 }
 
+func (c *GRPCClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error) {
+	return c.client.SetAllConnectionConfigs(c.ctx, req)
+}
+
+func (c *GRPCClient) UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error) {
+	return c.client.UpdateConnectionConfigs(c.ctx, req)
+}
+
 func (c *GRPCClient) GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return c.client.GetSupportedOperations(c.ctx, req)
 }
@@ -52,6 +59,14 @@ func (m *GRPCServer) Execute(req *proto.ExecuteRequest, server proto.WrapperPlug
 
 func (m *GRPCServer) SetConnectionConfig(_ context.Context, req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) {
 	return m.Impl.SetConnectionConfig(req)
+}
+
+func (m *GRPCServer) SetAllConnectionConfigs(_ context.Context, req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error) {
+	return m.Impl.SetAllConnectionConfigs(req)
+}
+
+func (m *GRPCServer) UpdateConnectionConfigs(_ context.Context, req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error) {
+	return m.Impl.UpdateConnectionConfigs(req)
 }
 
 func (m *GRPCServer) GetSupportedOperations(_ context.Context, req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {

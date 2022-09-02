@@ -5,11 +5,11 @@ import (
 	"log"
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
 )
 
 // KeyColumnQualMap is a map of KeyColumnQuals keyed by column name
@@ -92,11 +92,22 @@ func (m KeyColumnQualMap) GetUnsatisfiedKeyColumns(columns KeyColumnSlice) KeyCo
 }
 
 // ToQualMap converts the map into a simpler map of column to []Quals
-// this is needed to avoid the transform package needing to reference plugin
+// this is used in the TraansformData
+// (needed to avoid the transform package needing to reference plugin)
 func (m KeyColumnQualMap) ToQualMap() map[string]quals.QualSlice {
 	var res = make(map[string]quals.QualSlice)
 	for k, v := range m {
 		res[k] = v.Quals
+	}
+	return res
+}
+
+// ToQualMap converts the map into a  map of column to *proto.Quals
+// used for cache indexes
+func (m KeyColumnQualMap) ToProtoQualMap() map[string]*proto.Quals {
+	var res = make(map[string]*proto.Quals)
+	for k, v := range m {
+		res[k] = v.Quals.ToProto()
 	}
 	return res
 }

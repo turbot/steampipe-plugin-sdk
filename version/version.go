@@ -7,11 +7,11 @@ import (
 )
 
 // ProtocolVersion marks the protobuf interface version
-//// Update this if breaking changes are made to the protobuf spec (for example column types)
+// // Update this if breaking changes are made to the protobuf spec (for example column types)
 var ProtocolVersion int64 = 20220201
 
 // Version is the main version number that is being run at the moment.
-var version = "3.3.2"
+var version = "4.1.5"
 
 // A pre-release marker for the version. If this is "" (empty string)
 // then it means that it is a final release. Otherwise, this is a pre-release

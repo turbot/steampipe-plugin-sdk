@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"google.golang.org/grpc"
 )
 
@@ -25,6 +25,8 @@ type WrapperPluginServer interface {
 	GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
+	SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error)
+	UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
 }
 
@@ -32,6 +34,8 @@ type WrapperPluginClient interface {
 	GetSchema(request *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error)
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
+	SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error)
+	UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
 }
 

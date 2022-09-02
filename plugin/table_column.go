@@ -10,8 +10,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/go-kit/types"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v3/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
 )
 
 // get the column object with the given name
@@ -36,7 +36,7 @@ func (t *Table) getColumnType(columnName string) proto.ColumnType {
 func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *QueryColumn) (*proto.Column, error) {
 	hydrateItem, err := rowData.GetColumnData(column)
 	if err != nil {
-		log.Printf("[ERROR] table '%s' failed to get column data, callId %s: %v", t.Name, rowData.queryData.callId, err)
+		log.Printf("[ERROR] table '%s' failed to get column data, connectionCallId %s: %v", t.Name, rowData.queryData.connectionCallId, err)
 		return nil, err
 	}
 

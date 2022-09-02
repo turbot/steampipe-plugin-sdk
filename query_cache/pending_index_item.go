@@ -1,6 +1,7 @@
-package cache
+package query_cache
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -9,6 +10,7 @@ import (
 )
 
 // pendingIndexBucket contains index items for all pending cache results for a given table and qual set
+// (keyed by the root result key)
 type pendingIndexBucket struct {
 	Items map[string]*pendingIndexItem
 }
@@ -20,9 +22,8 @@ func newPendingIndexBucket() *pendingIndexBucket {
 // GetItemWhichSatisfiesColumnsAndLimit finds an index item which satisfies all columns
 // used to find an IndexItem to satisfy a cache Get request
 func (b *pendingIndexBucket) GetItemWhichSatisfiesColumnsAndLimit(columns []string, limit int64) *pendingIndexItem {
-	log.Printf("[TRACE] found pending index item to satisfy columns %v and limit %d", columns, limit)
+	log.Printf("[TRACE] find pending index item to satisfy columns %v and limit %d", columns, limit)
 	for _, item := range b.Items {
-
 		if item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) {
 			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d", strings.Join(columns, ","), limit)
 			return item
@@ -49,38 +50,49 @@ func (b *pendingIndexBucket) delete(pendingItem *pendingIndexItem) {
 	delete(b.Items, pendingItem.item.Key)
 }
 
+func (b *pendingIndexBucket) String() any {
+	var sb strings.Builder
+	for itemKey, item := range b.Items {
+		sb.WriteString(fmt.Sprintf("item: %p, count: %d, key:%s\n", item, item.count, itemKey))
+	}
+	return sb.String()
+}
+
 // pendingIndexItem stores the columns and cached index for a single pending query result
 // note - this index item it tied to a specific table and set of quals
 type pendingIndexItem struct {
 	item *IndexItem
-	lock *sync.WaitGroup
+	wg   *sync.WaitGroup
 	// used for logging purposes only (as we cannot access wait groups count)
 	count int
+	err   error
 }
 
-func (p *pendingIndexItem) Lock() {
-	log.Printf("[TRACE] pendingIndexItem Lock count before %d", p.count)
-	p.lock.Add(1)
-	p.count++
+func (i *pendingIndexItem) Lock() {
+	log.Printf("[TRACE] pendingIndexItem Lock count before %d", i.count)
+	i.wg.Add(1)
+	i.count++
 }
 
-func (p *pendingIndexItem) Unlock() {
-	log.Printf("[TRACE] pendingIndexItem Unlock count before %d", p.count)
-	p.lock.Done()
-	p.count--
+func (i *pendingIndexItem) Unlock(err error) {
+	i.err = err
+	log.Printf("[TRACE] pendingIndexItem Unlock count before %d key %s", i.count, i.item.Key)
+	i.wg.Done()
+	i.count--
 }
 
-func (p *pendingIndexItem) Wait() {
-	log.Printf("[TRACE] pendingIndexItem Wait")
+func (i *pendingIndexItem) Wait() error {
+	log.Printf("[TRACE] pendingIndexItem Wait %p, %s", i, i.item.Key)
 
-	p.lock.Wait()
-	log.Printf("[TRACE] pendingIndexItem Wait DONE")
+	i.wg.Wait()
+	log.Printf("[TRACE] pendingIndexItem Wait DONE %p, %s, err: %v", i, i.item.Key, i.err)
+	return i.err
 }
 
-func NewPendingIndexItem(columns []string, key string, limit int64) *pendingIndexItem {
+func NewPendingIndexItem(req *CacheRequest) *pendingIndexItem {
 	res := &pendingIndexItem{
-		item: NewIndexItem(columns, key, limit, nil),
-		lock: new(sync.WaitGroup),
+		item: NewIndexItem(req),
+		wg:   new(sync.WaitGroup),
 	}
 	// increment wait group - indicate this item is pending
 	res.Lock()
@@ -88,17 +100,17 @@ func NewPendingIndexItem(columns []string, key string, limit int64) *pendingInde
 }
 
 // SatisfiesColumns returns whether our index item satisfies the given columns
-func (i pendingIndexItem) SatisfiesColumns(columns []string) bool {
+func (i *pendingIndexItem) SatisfiesColumns(columns []string) bool {
 	return i.item.SatisfiesColumns(columns)
 }
 
 // SatisfiesLimit returns whether our index item satisfies the given limit
-func (i pendingIndexItem) SatisfiesLimit(limit int64) bool {
+func (i *pendingIndexItem) SatisfiesLimit(limit int64) bool {
 	return i.item.SatisfiesLimit(limit)
 }
 
 // SatisfiedByColumns returns whether we would be satisfied by the given columns
-func (i pendingIndexItem) SatisfiedByColumns(columns []string) bool {
+func (i *pendingIndexItem) SatisfiedByColumns(columns []string) bool {
 	// does columns contain all out index item columns?
 	for _, c := range i.item.Columns {
 		if !helpers.StringSliceContains(columns, c) {
@@ -110,7 +122,7 @@ func (i pendingIndexItem) SatisfiedByColumns(columns []string) bool {
 }
 
 // SatisfiedByLimit returns whether we would be satisfied by the given limt
-func (i pendingIndexItem) SatisfiedByLimit(limit int64) bool {
+func (i *pendingIndexItem) SatisfiedByLimit(limit int64) bool {
 	// if index item has no limit, we would only be satisfied by no limit
 	if i.item.Limit == -1 {
 		satisfied := limit == -1

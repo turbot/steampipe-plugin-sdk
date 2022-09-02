@@ -1,11 +1,81 @@
+## v4.1.5 [2022-08-31]
+_Bug fixes_
+* Fix `ConnectionCache.SetWithTTL`. ([#399](https://github.com/turbot/steampipe-plugin-sdk/issues/399))
+* When connection config changes, store updated connection config _before_ calling `ConnectionConfigChangedFunc`. ([#401](https://github.com/turbot/steampipe-plugin-sdk/issues/401))
+
+## v4.1.4 [2022-08-26]
+Remove warning logs
+
+## v4.1.3 [2022-08-26]
+_Bug fixes_
+* Fix timeout waiting for pending cached item - if pending item has error, all queries waiting for that pending item now return error rather than rerunning the query. ([#396](https://github.com/turbot/steampipe-plugin-sdk/issues/396))
+
+## v4.1.2 [2022-08-25]
+_Bug fixes_
+* Fix queries sometimes hanging when multiple scans are accessing the cache. ([#391](https://github.com/turbot/steampipe-plugin-sdk/issues/391))
+
+## v4.1.1 [2022-08-24]
+_Bug fixes_
+* Fix concurrent map access crash for Plugin.connectionCacheMap. ([#389](https://github.com/turbot/steampipe-plugin-sdk/issues/389))
+
+## v4.1.0 [2022-08-24]
+_What's new_
+* Add `Plugin` property`ConnectionConfigChangedFunc`. This is a callback function invoked when the connection config changes. The default implementation clears the connection cache and query cache for the changed connection. ([#387](https://github.com/turbot/steampipe-plugin-sdk/issues/387))
+
+## v4.0.2 [2022-08-22]
+_Bug fixes_
+* Fix `Get` calls stalling due to an attempt to write to an unbuffered channel. ([#382](https://github.com/turbot/steampipe-plugin-sdk/issues/382))
+
+## v4.0.1 [2022-08-11]
+_Bug fixes_
+* Fix UpdateConnectionConfigs not setting the connection config. ([#375](https://github.com/turbot/steampipe-plugin-sdk/issues/375))
+* Fix query results with zero rows not being cached, leading to timeouts and failure to load pending cache results. ([#372](https://github.com/turbot/steampipe-plugin-sdk/issues/372))
+* Fix duplicate results returned from cache. ([#371](https://github.com/turbot/steampipe-plugin-sdk/issues/371))
+* Remove max concurrent row semaphore. Max concurrent row limiting is disabled by default, and under certain circumstances has been seen to cause a NRE. Removed for now until more detailed benchmarking can be done to justify re-adding. ([#369](https://github.com/turbot/steampipe-plugin-sdk/issues/369))
+* Fix parent-child listing, which was broken in v4.0.x  ([#378](https://github.com/turbot/steampipe-plugin-sdk/issues/378))
+
+## v4.0.0 [2022-08-04]
+_What's new_
+* A single plugin instance now supports multiple connections, as opposed to an instance being created per connection. ([#365](https://github.com/turbot/steampipe-plugin-sdk/issues/365))
+* Memory usage has been substantially reduced, particularly when streaming high row counts. ([#366](https://github.com/turbot/steampipe-plugin-sdk/issues/366))
+* Allow control of maximum cache memory usage. ([#302](https://github.com/turbot/steampipe-plugin-sdk/issues/302))
+* `QueryData` functions `StreamListItem` and `StreamLeafListItem` are now variadic, and accept multiple items to passed in a single call, simplifying the streaming of a page of data. ([#341](https://github.com/turbot/steampipe-plugin-sdk/issues/341))
+
+_Breaking changes_
+* Go version updated to 1.19
+* `Plugin` property `TableMapFunc` has changed signature. This is the function which is called for plugins with dynamic schema to return their table schema. Note that the parameter `connection` has been added.
+  This may be used in place of the removed `Plugin.Connection` property.
+
+The new signature is:
+```
+func(ctx context.Context, connection *Connection) (map[string]*Table, error)
+```
+
+
+* `Plugin` properties `Connection`, and `Schema` have been removed, and new property `ConnectionMap` added.  
+  This is a map of `ConnectionData` objects, keyed by connection. This is needed as each plugin instance may support multiple connections.
+  `ConnectionData` looks as follows
+``` // ConnectionData is the data stored by the plugin which is connection dependent
+type ConnectionData struct {
+	// TableMap is a map of all the tables in the plugin, keyed by the table name
+	TableMap map[string]*Table
+	// connection this plugin is instantiated for
+	Connection *Connection
+	// schema - this may be connection specific for dynamic schemas
+	Schema map[string]*proto.TableSchema
+}
+```
+* `ConnectionManager` has been renamed to `ConnectionCache`. As the plugin can support multiple connections,
+  each connection has its own `ConnectionCache`,  which is a wrapper round an single underlying connection data cache.
+
+NOTE: the property `QueryData.ConnectionManager` has been retained for comptibility reasons - this will be deprecated in a future version
+
 ## v3.3.2  [2022-07-11]
 _What's new_
 * Add `MaxConcurrency` to `GetConfig` - for use when using the `Get` hydrate as a column hydrate function. ([#353](https://github.com/turbot/steampipe-plugin-sdk/issues/353))
 * Validate table Name property matches key in plugin's TableMap. ([#355](https://github.com/turbot/steampipe-plugin-sdk/issues/355))
 
-
-## v3.3.1  [2022-06-30]
-
+## v3.3.1  [2022-6-30]
 _Bug fixes_
 * Deprecated `ShouldIgnoreError` property is not being respected if defined in `plugin.DefaultGetConfig`. ([#347](https://github.com/turbot/steampipe-plugin-sdk/issues/347))
 * If cached item has limit, quals must match exactly to be considered a cache hit. ([#345](https://github.com/turbot/steampipe-plugin-sdk/issues/345))

@@ -7,36 +7,20 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v3/grpc/proto"
-	pluginshared "github.com/turbot/steampipe-plugin-sdk/v3/grpc/shared"
-	"github.com/turbot/steampipe-plugin-sdk/v3/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	pluginshared "github.com/turbot/steampipe-plugin-sdk/v4/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
 )
 
 // PluginClient is the client object used by clients of the plugin
 type PluginClient struct {
 	Name   string
 	Stub   pluginshared.WrapperPluginClient
-	Pid    int
 	client *plugin.Client
 }
 
-func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
+func NewPluginClient(client *plugin.Client, pluginName string) (*PluginClient, error) {
 	log.Printf("[TRACE] NewPluginClient for plugin %s", pluginName)
-	// create the plugin map
-	pluginMap := map[string]plugin.Plugin{
-		pluginName: &pluginshared.WrapperPlugin{},
-	}
-	// discard logging from the client (plugin logs will still flow through to the log file as the plugin manager set this up)
-	logger := logging.NewLogger(&hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard})
-
-	// create grpc client
-	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig:  pluginshared.Handshake,
-		Plugins:          pluginMap,
-		Reattach:         reattach,
-		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
-		Logger:           logger,
-	})
 
 	// connect via RPC
 	rpcClient, err := client.Client()
@@ -55,16 +39,60 @@ func NewPluginClient(reattach *plugin.ReattachConfig, pluginName string) (*Plugi
 		Name:   pluginName,
 		client: client,
 		Stub:   p,
-		Pid:    reattach.Pid,
 	}
 	return res, nil
-
 }
+
+func NewPluginClientFromReattach(reattach *plugin.ReattachConfig, pluginName string) (*PluginClient, error) {
+	log.Printf("[TRACE] NewPluginClientFromReattach for plugin %s", pluginName)
+	// create the plugin map
+	pluginMap := map[string]plugin.Plugin{
+		pluginName: &pluginshared.WrapperPlugin{},
+	}
+	// discard logging from the client (plugin logs will still flow through to the log file as the plugin manager set this up)
+	logger := logging.NewLogger(&hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard})
+
+	// create grpc client
+	client := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig:  pluginshared.Handshake,
+		Plugins:          pluginMap,
+		Reattach:         reattach,
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		Logger:           logger,
+	})
+	res, err := NewPluginClient(client, pluginName)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc, err error) {
+	return c.Stub.Execute(req)
+}
+
 func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) error {
 	_, err := c.Stub.SetConnectionConfig(req)
 	if err != nil {
 		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
-		return HandleGrpcError(err, req.ConnectionName, "SetConnectionConfig")
+		return HandleGrpcError(err, c.Name, "SetConnectionConfig")
+	}
+	return nil
+}
+func (c *PluginClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) error {
+	_, err := c.Stub.SetAllConnectionConfigs(req)
+	if err != nil {
+		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
+		return HandleGrpcError(err, c.Name, "SetAllConnectionConfigs")
+	}
+	return nil
+}
+
+func (c *PluginClient) UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) error {
+	_, err := c.Stub.UpdateConnectionConfigs(req)
+	if err != nil {
+		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
+		return HandleGrpcError(err, c.Name, "UpdateConnectionConfigs")
 	}
 	return nil
 }
@@ -72,24 +100,20 @@ func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest
 func (c *PluginClient) GetSupportedOperations() (*proto.GetSupportedOperationsResponse, error) {
 	resp, err := c.Stub.GetSupportedOperations(&proto.GetSupportedOperationsRequest{})
 	if err != nil {
-		return nil, err
+		return nil, HandleGrpcError(err, c.Name, "GetSupportedOperations")
 	}
 	return resp, nil
 }
 
-func (c *PluginClient) GetSchema() (*proto.Schema, error) {
-	resp, err := c.Stub.GetSchema(&proto.GetSchemaRequest{})
+func (c *PluginClient) GetSchema(connectionName string) (*proto.Schema, error) {
+	resp, err := c.Stub.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
 	if err != nil {
-		return nil, err
+		return nil, HandleGrpcError(err, c.Name, "GetSchema")
 	}
 	return resp.Schema, nil
 }
 
-func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlugin_ExecuteClient, ctx context.Context, cancel context.CancelFunc, err error) {
-	return c.Stub.Execute(req)
-}
-
-// Exited returned whether the underlying client has exited, i.e. th eplugin has terminated
+// Exited returned whether the underlying client has exited, i.e. the plugin has terminated
 func (c *PluginClient) Exited() bool {
 	return c.client.Exited()
 }

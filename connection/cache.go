@@ -1,46 +1,35 @@
 package connection
 
 import (
+	"context"
 	"time"
-
-	"github.com/dgraph-io/ristretto"
 )
 
-// simple cache implemented using ristretto cache library
+// deprecated
+// use ConnectionCache
 type Cache struct {
-	cache *ristretto.Cache
+	connectionCache *ConnectionCache
 }
 
-func NewCache(config *ristretto.Config) *Cache {
-	if config == nil {
-		config = &ristretto.Config{
-			NumCounters: 1e7,     // number of keys to track frequency of (10M).
-			MaxCost:     1 << 30, // maximum cost of cache (1GB).
-			BufferItems: 64,      // number of keys per Get buffer.
-		}
-	}
-	cache, err := ristretto.NewCache(config)
-	if err != nil {
-		panic(err)
-	}
-	return &Cache{cache}
+func NewCache(connectionCache *ConnectionCache) *Cache {
+
+	return &Cache{connectionCache}
 }
 
-func (cache *Cache) Set(key string, value interface{}) bool {
-	return cache.SetWithTTL(key, value, 1*time.Hour)
+func (c *Cache) Set(key string, value interface{}) bool {
+	err := c.connectionCache.Set(context.Background(), key, value)
+	return err != nil
 }
 
-func (cache *Cache) SetWithTTL(key string, value interface{}, ttl time.Duration) bool {
-	res := cache.cache.SetWithTTL(key, value, 1, ttl)
-	// wait for value to pass through buffers
-	time.Sleep(10 * time.Millisecond)
-	return res
+func (c *Cache) SetWithTTL(key string, value interface{}, ttl time.Duration) bool {
+	err := c.connectionCache.SetWithTTL(context.Background(), key, value, ttl)
+	return err != nil
 }
 
-func (cache *Cache) Get(key string) (interface{}, bool) {
-	return cache.cache.Get(key)
+func (c *Cache) Get(key string) (interface{}, bool) {
+	return c.connectionCache.Get(context.Background(), key)
 }
 
-func (cache *Cache) Delete(key string) {
-	cache.cache.Del(key)
+func (c *Cache) Delete(key string) {
+	c.connectionCache.Delete(context.Background(), key)
 }
