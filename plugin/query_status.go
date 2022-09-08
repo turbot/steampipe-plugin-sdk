@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"math"
 )
 
@@ -31,7 +30,7 @@ func newQueryStatus(limit *int64) *QueryStatus {
 //   - if there is a limit, it will return the number of rows required to reach this limit
 //   - if  the context has been cancelled, it will return zero
 func (s *QueryStatus) RowsRemaining(ctx context.Context) int64 {
-	if error_helpers.IsCancelled(ctx) {
+	if IsCancelled(ctx) {
 		return 0
 	}
 	rowsRemaining := s.rowsRequired - s.rowsStreamed

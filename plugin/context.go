@@ -2,9 +2,10 @@ package plugin
 
 import (
 	"context"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
 )
 
 // Logger extracts the logger from the context
@@ -19,4 +20,9 @@ func GetMatrixItem(ctx context.Context) map[string]interface{} {
 		return nil
 	}
 	return value.(map[string]interface{})
+}
+
+// IsCancelled is a helper function which returns whether the context has been cancelled
+func IsCancelled(ctx context.Context) bool {
+	return error_helpers.IsContextCancelledError(ctx.Err())
 }

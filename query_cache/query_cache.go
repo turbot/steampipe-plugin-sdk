@@ -385,7 +385,7 @@ func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, inde
 	streamRows := func(cacheResult *sdkproto.QueryResult) {
 		for _, r := range cacheResult.Rows {
 			// check for context cancellation
-			if error_helpers.IsCancelled(ctx) {
+			if error_helpers.IsContextCancelledError(ctx.Err()) {
 				log.Printf("[INFO] getCachedQueryResult context cancelled - returning")
 				return
 			}
