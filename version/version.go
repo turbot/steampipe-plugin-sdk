@@ -28,6 +28,7 @@ func init() {
 	if prerelease != "" {
 		versionString = fmt.Sprintf("%s-%s", version, prerelease)
 	}
+
 	semVer = goVersion.Must(goVersion.NewVersion(versionString))
 }
 
