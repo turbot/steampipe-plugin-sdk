@@ -5,8 +5,26 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
 )
 
-// Column is a struct representing a column defintion
-// it is not mutated and contains column data, in a format compatible with proto ColumnDefinition
+/* 
+Column is a struct representing a column definition.
+It is not mutated and contains column data in a format compatible with [proto.ColumnDefinition].
+
+Example from [hackernews]:
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14
+
+func itemCols() []*plugin.Column {
+	return []*plugin.Column{
+		{Name: "id", Type: proto.ColumnType_INT, Description: "The item's unique id."},
+		{Name: "title", Type: proto.ColumnType_STRING, Hydrate: getItem, Description: "The title of the story, poll or job. HTML."},
+	}
+}
+
+
+—
+
+
+*/
 type Column struct {
 	// column name
 	Name string
