@@ -5,18 +5,26 @@ import (
 	"sync"
 )
 
-// DefaultConcurrencyConfig contains plugin level config to define default hydrate concurrency
-// - this is used if no HydrateConfig is specified for a specific call
+/*
+DefaultConcurrencyConfig contains plugin level config to define default hydrate concurrency.
+
+This is used if no [HydrateConfig] is specified for a specific call.
+
+Sample code snippet available [here].
+
+[here]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L18-L21
+*/
 type DefaultConcurrencyConfig struct {
 	// max number of ALL hydrate calls in progress
 	TotalMaxConcurrency   int
+	// default concurrency for a single hydrate call
 	DefaultMaxConcurrency int
 }
 
 // ConcurrencyManager struct ensures that hydrate functions stay within concurrency limits
 type ConcurrencyManager struct {
 	mut sync.Mutex
-	// the maximun number of all hydrate calls which can run concurrently
+	// the maximum number of all hydrate calls which can run concurrently
 	maxConcurrency int
 	// the maximum concurrency for a single hydrate call
 	// (this may be overridden by the HydrateConfig for the call)
@@ -42,7 +50,7 @@ func newConcurrencyManager(t *Table) *ConcurrencyManager {
 		if config.DefaultMaxConcurrency != 0 {
 			maxPerCall = config.DefaultMaxConcurrency
 		} else if totalMax < maxPerCall {
-			// if the default call concurrency is greater than the toal max concurrency, clamp to total
+			// if the default call concurrency is greater than the total max concurrency, clamp to total
 			maxPerCall = totalMax
 		}
 	}
@@ -71,7 +79,7 @@ func (c *ConcurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 		maxCallConcurrency = c.defaultMaxConcurrencyPerCall
 	}
 
-	// how many concurrent executions of this function ar in progress right now?
+	// how many concurrent executions of this function are in progress right now?
 	currentExecutions := c.callMap[name]
 
 	// if we at the call limit return
@@ -106,7 +114,7 @@ func (c *ConcurrencyManager) Finished(name string) {
 	c.callsInProgress--
 }
 
-// Close executs when the query is complete and dumps out the concurrency stats
+// Close executes when the query is complete and dumps out the concurrency stats
 func (c *ConcurrencyManager) Close() {
 	c.DisplayConcurrencyStats()
 }
