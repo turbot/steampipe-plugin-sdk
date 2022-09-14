@@ -11,11 +11,34 @@ import (
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/schema"
+
 	"github.com/zclconf/go-cty/cty/gocty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
+/*
+ConnectionConfigSchema is a struct used to define the connection config schema
+
+# This must be defined by any plugin which uses custom connection config
+
+For example, see [hackernews plugin]
+
+[shared.GRPCClient]
+
+[error_helpers.QueryError]
+
+[hackernews plugin]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/plugin.go#L13
+*/
+type ConnectionConfigSchema struct {
+	Schema map[string]*schema.Attribute
+	// function which returns an instance of a connection config struct
+	NewInstance ConnectionConfigInstanceFunc
+}
+
+// ConnectionConfigInstanceFunc is a function which returns an instance of a connection config struct
+//
+// This must be
 type ConnectionConfigInstanceFunc func() interface{}
 
 type Connection struct {
@@ -23,13 +46,6 @@ type Connection struct {
 	// the connection config
 	// NOTE: we always pass and store connection config BY VALUE
 	Config interface{}
-}
-
-// ConnectionConfigSchema struct is used to define the connection config schema and store the config for each plugin connection
-type ConnectionConfigSchema struct {
-	Schema map[string]*schema.Attribute
-	// function which returns an instance of a connection config struct
-	NewInstance ConnectionConfigInstanceFunc
 }
 
 // Parse function parses the hcl string into a connection config struct.
