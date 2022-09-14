@@ -21,11 +21,11 @@ type ConnectionConfigInstanceFunc func() interface{}
 /* 
 Connection struct is used to define the connection(s) of a plugin mentioned in the "plugin.spc" file.
 
-In the plugin development process it is essential to check if the connection config has been defined or not to avoid making unnecessary API calls.
+To avoid making unnecessary API calls, ensure that the connection config is defined.
 
-Sample code snippet available [here].
+Example from [hackernews].
 
-[here]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/connection_config.go#L23
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/connection_config.go#L23
 */
 type Connection struct {
 	// the name of the connection
