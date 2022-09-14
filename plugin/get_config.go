@@ -8,9 +8,16 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// GetConfig is a struct used to define the configuration of the table 'Get' function.
-// This is the function used to retrieve a single row by id
-// The config defines the function, the columns which may be used as id (KeyColumns), and the error handling behaviour
+/*
+GetConfig is a struct used to define the configuration of the table 'Get' function.
+
+This is the function used to retrieve a single row by id. The config defines the function,
+the columns which may be used as id (KeyColumns), and the error handling behaviour.
+
+Sample usage available [here].
+
+[here]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L21-L24
+*/
 type GetConfig struct {
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
 	KeyColumns KeyColumnSlice
