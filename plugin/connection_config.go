@@ -1,32 +1,35 @@
 package plugin
 
 import (
-	"errors"
 	"fmt"
-	"log"
-	"strings"
-
-	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/schema"
-
 	"github.com/zclconf/go-cty/cty/gocty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"log"
 )
 
 /*
 ConnectionConfigSchema is a struct used to define the connection config schema
 
-# This must be defined by any plugin which uses custom connection config
+This must be defined by any plugin which uses custom connection config.
 
 For example, see [hackernews plugin]
 
-[shared.GRPCClient]
+	  ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
+				NewInstance: ConfigInstance,
+				Schema:      ConfigSchema,
+			},
 
-[error_helpers.QueryError]
+NewInstance is a function which returns a new instance of a custom config struct.
+This is used during config parsing.
+This allows plugins to define strongly typed config structs.
+
+Schema contains the schema for the config.
 
 [hackernews plugin]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/plugin.go#L13
 */
@@ -36,11 +39,22 @@ type ConnectionConfigSchema struct {
 	NewInstance ConnectionConfigInstanceFunc
 }
 
-// ConnectionConfigInstanceFunc is a function which returns an instance of a connection config struct
-//
-// This must be
+/*
+ConnectionConfigInstanceFunc is a function type which returns 'any'.
+
+It is used to implement [plugin.ConnectionConfigSchema.NewInstance].
+*/
 type ConnectionConfigInstanceFunc func() interface{}
 
+/*
+Connection is a struct which is used to store connection config.
+
+The connection config is parsed and stored as [plugin.Plugin.Connection].
+The connection may be retrieved the plugin by calling: [plugin.QueryData.Connection]
+`
+For example, see [hackernews plugin]
+[hackernews plugin]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/connection_config.go#L23
+*/
 type Connection struct {
 	Name string
 	// the connection config
@@ -48,13 +62,14 @@ type Connection struct {
 	Config interface{}
 }
 
-// Parse function parses the hcl string into a connection config struct.
+// parse function parses the hcl config string into a connection config struct.
+//
 // The schema and the  struct to parse into are provided by the plugin
-func (c *ConnectionConfigSchema) Parse(configString string) (config interface{}, err error) {
+func (c *ConnectionConfigSchema) parse(configString string) (config interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[WARN] ConnectionConfigSchema Parse caught a panic: %v\n", r)
-			err = status.Error(codes.Internal, fmt.Sprintf("ConnectionConfigSchema Parse failed with panic %v", r))
+			log.Printf("[WARN] ConnectionConfigSchema parse caught a panic: %v\n", r)
+			err = status.Error(codes.Internal, fmt.Sprintf("ConnectionConfigSchema parse failed with panic %v", r))
 		}
 	}()
 
@@ -71,11 +86,11 @@ func (c *ConnectionConfigSchema) Parse(configString string) (config interface{},
 
 	file, diags := parser.ParseHCL([]byte(configString), "/")
 	if diags.HasErrors() {
-		return nil, DiagsToError("Failed to parse connection config", diags)
+		return nil, error_helpers.DiagsToError("Failed to parse connection config", diags)
 	}
 	value, diags := hcldec.Decode(file.Body, spec, nil)
 	if diags.HasErrors() {
-		return nil, DiagsToError("Failed to decode connection config", diags)
+		return nil, error_helpers.DiagsToError("Failed to decode connection config", diags)
 	}
 
 	// decode into the provided struct
@@ -85,41 +100,4 @@ func (c *ConnectionConfigSchema) Parse(configString string) (config interface{},
 
 	// return the struct by value
 	return helpers.DereferencePointer(configStruct), nil
-}
-
-// DiagsToError converts hcl diags into an error
-func DiagsToError(prefix string, diags hcl.Diagnostics) error {
-	// convert the first diag into an error
-	if !diags.HasErrors() {
-		return nil
-	}
-	errorStrings := []string{fmt.Sprintf("%s", prefix)}
-	// store list of messages (without the range) and use for deduping (we may get the same message for multiple ranges)
-	errorMessages := []string{}
-	for _, diag := range diags {
-		if diag.Severity == hcl.DiagError {
-			errorString := fmt.Sprintf("%s", diag.Summary)
-			if diag.Detail != "" {
-				errorString += fmt.Sprintf(": %s", diag.Detail)
-			}
-
-			if !helpers.StringSliceContains(errorMessages, errorString) {
-				errorMessages = append(errorMessages, errorString)
-				// now add in the subject and add to the output array
-				if diag.Subject != nil && len(diag.Subject.Filename) > 0 {
-					errorString += fmt.Sprintf("\n(%s)", diag.Subject.String())
-				}
-				errorStrings = append(errorStrings, errorString)
-
-			}
-		}
-	}
-	if len(errorStrings) > 0 {
-		errorString := strings.Join(errorStrings, "\n")
-		if len(errorStrings) > 1 {
-			errorString += "\n"
-		}
-		return errors.New(errorString)
-	}
-	return diags.Errs()[0]
 }
