@@ -12,15 +12,24 @@ var cacheableHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
 var cacheableHydrateLock sync.Mutex
 
 /*
-WithCache is a function which wraps a hydrate call with caching that is saves the
-results in the connection cache.
+WithCache ensures the [HydrateFunc] results get saved in the [connection.ConnectionCache].
 
-This functions helps to improve plugin cache optimisation to avoid concurrent hydrate
-functions with same parameters.
+This will reduce the number of API calls if the HydrateFunc is used multiple times.
 
-Sample usage available [here].
+TODO: when should this be used?
 
-[here]: https://github.com/turbot/steampipe-plugin-snowflake/blob/6e243aad63b5706ee1a9dd8979df88eb097e38a8/snowflake/common_columns.go#L28
+This function must be chained after the HydrateFunc declaration.
+Example from [snowflake]:
+
+	{
+		Name:        "account",
+		Type:        proto.ColumnType_STRING,
+		Hydrate:     plugin.HydrateFunc(getCommonColumns).WithCache(),
+		Description: "The Snowflake account ID.",
+		Transform:   transform.FromCamel(),
+	}
+
+[snowflake]: https://github.com/turbot/steampipe-plugin-snowflake/blob/6e243aad63b5706ee1a9dd8979df88eb097e38a8/snowflake/common_columns.go#L28
 */
 func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 	// build a function to return the cache key
