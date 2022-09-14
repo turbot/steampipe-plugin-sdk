@@ -18,14 +18,30 @@ import (
 
 type ConnectionConfigInstanceFunc func() interface{}
 
+/* 
+Connection struct is used to define the connection(s) of a plugin mentioned in the "plugin.spc" file.
+
+In the plugin development process it is essential to check if the connection config has been defined or not to avoid making unnecessary API calls.
+
+Sample code snippet available [here].
+
+[here]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/connection_config.go#L23
+*/
 type Connection struct {
+	// the name of the connection
 	Name string
 	// the connection config
 	// NOTE: we always pass and store connection config BY VALUE
 	Config interface{}
 }
 
-// ConnectionConfigSchema struct is used to define the connection config schema and store the config for each plugin connection
+/*
+ConnectionConfigSchema struct is used to define the connection config schema and store the config for each plugin connection.
+
+Sample code snippet available [here].
+
+[here]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/plugin.go#L13
+*/
 type ConnectionConfigSchema struct {
 	Schema map[string]*schema.Attribute
 	// function which returns an instance of a connection config struct
@@ -33,7 +49,7 @@ type ConnectionConfigSchema struct {
 }
 
 // Parse function parses the hcl string into a connection config struct.
-// The schema and the  struct to parse into are provided by the plugin
+// The schema and the struct to parse into are provided by the plugin
 func (c *ConnectionConfigSchema) Parse(configString string) (config interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
