@@ -39,6 +39,7 @@ At the plugin level:
 			IgnoreConfig: &plugin.IgnoreConfig{
 				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound"}),
 			},
+			...
 		},
 
 Plugin examples:  
