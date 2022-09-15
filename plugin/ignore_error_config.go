@@ -8,6 +8,58 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
+/*
+IgnoreConfig defines errors to ignore.
+When that happens, an empty row is returned.
+
+If a [HydrateFunc] has specific errors that should not block query execution, set [plugin.GetConfig.IgnoreConfig], [plugin.ListConfig.IgnoreConfig] or [plugin.HydrateConfig.IgnoreConfig].
+
+For errors common to many HydrateFuncs, you can define a default IgnoreConfig by setting [plugin.DefaultGetConfig].
+
+# Usage
+
+Ignore errors from a HydrateFunc that has a GetConfig:
+
+		Get: &plugin.GetConfig{
+			IgnoreConfig: &plugin.IgnoreConfig{
+				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound", "Invalid object identifier"}),
+			},
+			...
+		},
+
+Ignore errors from a HydrateFunc that has a ListConfig:
+
+		List: &plugin.ListConfig{
+			IgnoreConfig: &plugin.IgnoreConfig{
+				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_UnsupportedQuery"}),
+			},
+			...
+		},
+
+Ignore errors from a HydrateFunc that has a HydrateConfig:
+
+		HydrateConfig: []plugin.HydrateConfig{
+			IgnoreConfig: &plugin.IgnoreConfig{
+				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_UnsupportedQuery"}),
+			},
+			...
+		},
+
+Ignore errors that may occur in many HydrateFuncs:
+		DefaultIgnoreConfig: &plugin.DefaultIgnoreConfig{
+			IgnoreConfig: &plugin.IgnoreConfig{
+				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound"}),
+			},
+			...
+		},
+
+Plugin examples:  
+	- [azuread]
+	- [aws]
+
+[azuread]: https://github.com/turbot/steampipe-plugin-azuread/blob/f4848195931ca4d97a67e930a493f91f63dfe86d/azuread/table_azuread_application.go#L25-L43
+[aws]: https://github.com/turbot/steampipe-plugin-aws/blob/a4c89ed0da07413a42b54dc6a5d625c9bdcec16d/aws/table_aws_ec2_transit_gateway_route_table.go#L23-L25
+*/
 type IgnoreConfig struct {
 	ShouldIgnoreErrorFunc ErrorPredicateWithContext
 	// deprecated, used ShouldIgnoreErrorFunc
