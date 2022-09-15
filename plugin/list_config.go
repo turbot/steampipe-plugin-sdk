@@ -1,5 +1,4 @@
 package plugin
-
 import (
 	"fmt"
 	"log"
@@ -8,13 +7,33 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// ListConfig is a struct used to define the configuration of the table 'List' function.
-// This is the function used to retrieve rows of sata
-// The config defines the function, the columns which may be used to optimise the fetch (KeyColumns),
-// and the error handling behaviour
+/*
+
+[ListConfig] defines the function that lists all rows of a table, the KeyColumns that may be used to optimize the fetch, and the error-handling behavior.
+
+[ListConfig]: https://steampipe.io/docs/develop/writing-plugins#list-config
+
+Example from [hackernews]:
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L14
+
+func tableHackernewsItem(ctx context.Context) *plugin.Table {
+	return &plugin.Table{
+		Name:        "hackernews_item",
+		Description: "This table includes the most recent items posted to Hacker News.",
+		List: &plugin.ListConfig{
+			Hydrate: itemList,
+		},
+		...
+	}
+}
+
+—
+
+*/
 type ListConfig struct {
 	KeyColumns KeyColumnSlice
-	// the list function, this should stream the list results back using the QueryData object, and return nil
+	// the list function, this should stream the list results back using the QueryData object and return nil
 	Hydrate HydrateFunc
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
 	ParentHydrate HydrateFunc
