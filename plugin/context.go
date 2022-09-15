@@ -24,8 +24,6 @@ func Logger(ctx context.Context) hclog.Logger {
 }
 
 /* 
-GetMatrixItem extracts the matrix item map with the given key from the context.
-
 Deprecated: Please use [plugin.Table.GetMatrixItemFunc] instead.
 */
 func GetMatrixItem(ctx context.Context) map[string]interface{} {
@@ -37,7 +35,7 @@ func GetMatrixItem(ctx context.Context) map[string]interface{} {
 }
 
 /* 
-A helper function which returns whether the context has been cancelled.
+A helper function that returns whether the context has been cancelled.
 
 # Usage
 
