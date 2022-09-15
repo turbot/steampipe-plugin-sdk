@@ -6,22 +6,65 @@ import (
 )
 
 /* 
-Column is a struct representing a column definition. It is not mutated and contains column data in a format compatible with [proto.ColumnDefinition].
+Column defines a column of a table. 
+
+A column may be populated by a List or Get call. It may alternatively define its own [HydrateFunc] that makes an additional API call for each row. 
+
+A column may transform the data it receives using one or more [transform functions].
+
+[transform functions]: https://steampipe.io/docs/develop/writing-plugins#transform-functions
 
 # Usage
+
+A column populated by a List or Get call:
 
 func itemCols() []*plugin.Column {
     return []*plugin.Column{
         {Name: "id", Type: proto.ColumnType_INT, Description: "The item's unique id."},
-        {Name: "title", Type: proto.ColumnType_STRING, Hydrate: getItem, Description: "The title of the story, poll or job. HTML."},
     }
 }
+
+A column populated by a HydrateFunc:
+
+		Columns: awsColumns([]*plugin.Column{
+			{
+				Name:        "permissions_boundary_arn",
+				Description: "The ARN of the policy used to set the permissions boundary for the user.",
+				Type:        proto.ColumnType_STRING,
+				Hydrate:     getAwsIamUserData,
+			},
+		}
+
+Columns that transform the data.
+
+		Columns: awsColumns([]*plugin.Column{
+			{
+				Name:        "mfa_enabled",
+				Description: "The MFA status of the user.",
+				Type:        proto.ColumnType_BOOL,
+				Hydrate:     getAwsIamUserMfaDevices,
+				Transform:   transform.From(handleEmptyUserMfaStatus),
+			},
+			{
+				Name:        "login_profile",
+				Description: "Contains the user name and password create date for a user.",
+				Type:        proto.ColumnType_JSON,
+				Hydrate:     getAwsIamUserLoginProfile,
+				Transform:   transform.FromValue(),
+			},
+			...
+		}
 
 Examples:
 
 	- [hackernews]
 	
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14
+
+	- [aws]
+	
+[aws]: https://github.com/turbot/steampipe-plugin-aws/blob/7d17ee78e56da592e0a4e82b90b557225d1a6c11/aws/table_aws_iam_user.go#L22
+
 
 
 */
