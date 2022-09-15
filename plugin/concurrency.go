@@ -10,9 +10,17 @@ DefaultConcurrencyConfig structure contains plugin level configuration to define
 
 This is used if no [HydrateConfig] is specified for a specific call.
 
-Sample code snippet available [here].
+# Usage
 
-[here]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L18-L21
+		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+			TotalMaxConcurrency:   500,
+			DefaultMaxConcurrency: 200,
+		}
+
+Plugin examples:
+  - [hackernews]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L18-L21
 */
 type DefaultConcurrencyConfig struct {
 	// max number of ALL hydrate calls in progress
