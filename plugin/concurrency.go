@@ -6,7 +6,7 @@ import (
 )
 
 /*
-DefaultConcurrencyConfig structure contains plugin level configuration to define default hydrate concurrency.
+DefaultConcurrencyConfig struct contains plugin level configuration to define default hydrate concurrency.
 
 This is used if no [HydrateConfig] is specified for a specific call.
 
