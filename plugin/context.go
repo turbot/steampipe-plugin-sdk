@@ -11,7 +11,7 @@ import (
 /* 
 Logger retrieves the [hclog.Logger] from the context.
 
-Usage:
+# Usage
 
 	plugin.Logger(ctx).Trace("Code execution starts here")
 	plugin.Logger(ctx).Error("hackernews_item.itemList", "query_error", err)
@@ -25,6 +25,8 @@ func Logger(ctx context.Context) hclog.Logger {
 
 /* 
 GetMatrixItem extracts the matrix item map with the given key from the context.
+
+Deprecated: Please use [plugin.Table.GetMatrixItemFunc] instead.
 */
 func GetMatrixItem(ctx context.Context) map[string]interface{} {
 	value := ctx.Value(context_key.MatrixItem)
@@ -37,7 +39,7 @@ func GetMatrixItem(ctx context.Context) map[string]interface{} {
 /* 
 A helper function which returns whether the context has been cancelled.
 
-Example from [heroku]:
+# Usage
 
 	for _, i := range items {
 		d.StreamListItem(ctx, i)
@@ -45,6 +47,9 @@ Example from [heroku]:
 			return nil, nil
 		}
 	}
+
+Plugin examples:
+  - [heroku]
 
 [heroku]: https://github.com/turbot/steampipe-plugin-heroku/blob/a811484d8e29d7478dd9d08adddf0f660563a8ea/heroku/table_heroku_key.go#L58
 */
