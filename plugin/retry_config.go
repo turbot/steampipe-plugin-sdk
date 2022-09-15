@@ -9,14 +9,15 @@ import (
 )
 
 /*
-RetryConfig defines a set of errors that you want Steampipe to ignore and return an empty row.
-It can be defined in the [GetConfig], [ListConfig] struct at the table level and also at the plugin level.
+RetryConfig can be defined as a part of [GetConfig], [ListConfig] struct at the table level, plugin level and also at the [HydrateConfig] level.
+
+It is useful in cases where a hydrate function might return an error in the first attempt but resolves itself in a future attempt, for instance API rate limit or throttling errors.
 
 Usage:
 		// At the table level
 		Get: &plugin.GetConfig{
-			IgnoreConfig: &plugin.IgnoreConfig{
-				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound", "Invalid object identifier"}),
+			RetryConfig: &plugin.RetryConfig{
+				ShouldRetryErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound", "Invalid object identifier"}),
 			},
 			...
 		},
