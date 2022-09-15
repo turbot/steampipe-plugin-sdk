@@ -19,7 +19,8 @@ This will reduce the number of API calls if the HydrateFunc is used multiple tim
 TODO: when should this be used?
 
 This function must be chained after the HydrateFunc declaration.
-Example from [snowflake]:
+
+# Usage
 
 	{
 		Name:        "account",
@@ -28,6 +29,9 @@ Example from [snowflake]:
 		Description: "The Snowflake account ID.",
 		Transform:   transform.FromCamel(),
 	}
+
+Plugin examples:
+  - [snowflake]
 
 [snowflake]: https://github.com/turbot/steampipe-plugin-snowflake/blob/6e243aad63b5706ee1a9dd8979df88eb097e38a8/snowflake/common_columns.go#L28
 */
