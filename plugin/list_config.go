@@ -13,9 +13,7 @@ import (
 
 [ListConfig]: https://steampipe.io/docs/develop/writing-plugins#list-config
 
-Example from [hackernews]:
-
-[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L14
+# Usage
 
 func tableHackernewsItem(ctx context.Context) *plugin.Table {
 	return &plugin.Table{
@@ -28,7 +26,12 @@ func tableHackernewsItem(ctx context.Context) *plugin.Table {
 	}
 }
 
-—
+
+Examples:
+	- [hackernews]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L14
+
 
 */
 type ListConfig struct {
