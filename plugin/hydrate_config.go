@@ -8,8 +8,24 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// HydrateConfig defines the hydrate function configurations, including the function name, maximum number of concurrent calls to be allowed, retry and ignore config, and dependencies.
-// The function in GetConfig cannot have a separate HydrateConfig. Instead, please define any configurations directly in GetConfig.
+/*
+HydrateConfig is used to configure Hydrate Functions to connect to an external system or service and gather data for the table.
+
+HydrateConfig defines the hydrate function configurations, including the function name, maximum number of concurrent calls to be allowed, retry and ignore config, and dependencies.
+The function in [GetConfig] cannot have a separate HydrateConfig. Instead, please define any configurations directly in GetConfig.
+
+Example from [oci]
+
+	HydrateConfig: []plugin.HydrateConfig{
+		{
+			Func:              getRetentionPeriod,
+			ShouldIgnoreError: isNotFoundError([]string{"404"}),
+		}
+
+—
+
+[oci]: https://github.com/turbot/steampipe-plugin-oci/blob/27ddf689f7606009cf26b2716e1634fc91d53585/oci/table_oci_identity_tenancy.go#L23-L27
+*/
 type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int
