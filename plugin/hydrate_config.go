@@ -15,9 +15,9 @@ HydrateConfig defines how to run a [HydrateFunc]:
 
   - which errors to retry: [plugin.HydrateConfig.RetryConfig]
 
-  - how many concurrent calls to allow
+  - how many concurrent calls to allow: [plugin.HydrateConfig.MaxConcurrency]
 
-  - which hydrate calls must complete before this HydrateFunc can start
+  - which hydrate calls must complete before this HydrateFunc can start: [plugin.HydrateConfig.Func]
 
 It's not valid to have a HydrateConfig for a HydrateFunc that is specified in a [GetConfig].
 
