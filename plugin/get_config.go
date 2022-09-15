@@ -11,13 +11,13 @@ import (
 /*
 A GetConfig defines how to get a single row of a table:
 
-  - keys which are used to uniquely identify row
+  - columns that uniquely identify a row: [plugin.GetConfig.KeyColumns]
 
   - which errors to ignore: [plugin.GetConfig.IgnoreConfig]
 
   - which errors to retry: [plugin.GetConfig.RetryConfig]
 
-  - how many concurrent [HydrateFunc] calls to allow
+  - how many concurrent [HydrateFunc] calls to allow: [plugin.GetConfig.MaxConcurrency]
 
 # Usage
 
@@ -36,11 +36,25 @@ A GetConfig with IgnoreConfig:
 		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
 	}
 
-A GetConfig with MaxConcurrency:
+A GetConfig with RetryConfig:
+
+	Get: &plugin.GetConfig{
+		KeyColumns: 	plugin.SingleColumn("id"),
+		Hydrate:    	getItem,
+		RetryConfig:    &plugin.RetryConfig{
+			ShouldRetryErrorFunc: shouldRetryError,
+		},
+	}
+
+A GetConfig with all fields specified:
 
 	Get: &plugin.GetConfig{
 		KeyColumns:     plugin.SingleColumn("id"),
 		Hydrate:        getItem,
+		RetryConfig:    &plugin.RetryConfig{
+			ShouldRetryErrorFunc: shouldRetryError,
+		},
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
 		MaxConcurrency: 50,
 	}
 
