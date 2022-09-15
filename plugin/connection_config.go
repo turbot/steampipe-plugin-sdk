@@ -5,7 +5,6 @@ import (
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/schema"
 	"github.com/zclconf/go-cty/cty/gocty"
 	"google.golang.org/grpc/codes"
@@ -98,11 +97,11 @@ func (c *ConnectionConfigSchema) parse(configString string) (config interface{},
 
 	file, diags := parser.ParseHCL([]byte(configString), "/")
 	if diags.HasErrors() {
-		return nil, error_helpers.DiagsToError("Failed to parse connection config", diags)
+		return nil, DiagsToError("Failed to parse connection config", diags)
 	}
 	value, diags := hcldec.Decode(file.Body, spec, nil)
 	if diags.HasErrors() {
-		return nil, error_helpers.DiagsToError("Failed to decode connection config", diags)
+		return nil, DiagsToError("Failed to decode connection config", diags)
 	}
 
 	// decode into the provided struct

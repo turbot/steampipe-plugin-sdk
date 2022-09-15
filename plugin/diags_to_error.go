@@ -1,4 +1,4 @@
-package error_helpers
+package plugin
 
 import (
 	"errors"
