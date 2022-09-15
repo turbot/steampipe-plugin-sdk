@@ -61,7 +61,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
 			}
 			// ask plugin for a struct to deserialise the config into
-			config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
+			config, err := p.ConnectionConfigSchema.parse(connectionConfigString)
 			if err != nil {
 				return err
 			}
@@ -155,7 +155,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", addedConnection.Connection, p.Name)
 			}
 			// ask plugin to parse the config
-			config, err := p.ConnectionConfigSchema.Parse(addedConnection.Config)
+			config, err := p.ConnectionConfigSchema.parse(addedConnection.Config)
 			if err != nil {
 				return err
 			}
@@ -206,7 +206,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 			return fmt.Errorf("connection config has been updated for connection '%s', but plugin '%s' does not define connection config schema", changedConnection.Connection, p.Name)
 		}
 		// ask plugin to parse the config
-		config, err := p.ConnectionConfigSchema.Parse(changedConnection.Config)
+		config, err := p.ConnectionConfigSchema.parse(changedConnection.Config)
 		if err != nil {
 			return err
 		}

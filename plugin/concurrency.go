@@ -36,8 +36,8 @@ type DefaultConcurrencyConfig struct {
 	DefaultMaxConcurrency int
 }
 
-// ConcurrencyManager struct ensures that hydrate functions stay within concurrency limits
-type ConcurrencyManager struct {
+// concurrencyManager struct ensures that hydrate functions stay within concurrency limits
+type concurrencyManager struct {
 	mut sync.Mutex
 	// the maximum number of all hydrate calls which can run concurrently
 	maxConcurrency int
@@ -53,7 +53,7 @@ type ConcurrencyManager struct {
 	maxCallMap         map[string]int
 }
 
-func newConcurrencyManager(t *Table) *ConcurrencyManager {
+func newConcurrencyManager(t *Table) *concurrencyManager {
 	// if plugin does not define max concurrency, use default
 	var totalMax int
 	// if hydrate calls do not define max concurrency, use default
@@ -69,7 +69,7 @@ func newConcurrencyManager(t *Table) *ConcurrencyManager {
 			maxPerCall = totalMax
 		}
 	}
-	return &ConcurrencyManager{
+	return &concurrencyManager{
 		maxConcurrency:               totalMax,
 		defaultMaxConcurrencyPerCall: maxPerCall,
 		callMap:                      make(map[string]int),
@@ -79,7 +79,7 @@ func newConcurrencyManager(t *Table) *ConcurrencyManager {
 
 // StartIfAllowed checks whether the named hydrate call is permitted to start
 // based on the number of running instances of that call, and the total calls in progress
-func (c *ConcurrencyManager) StartIfAllowed(name string, maxCallConcurrency int) (res bool) {
+func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int) (res bool) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
@@ -117,7 +117,7 @@ func (c *ConcurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 }
 
 // Finished decrements the counter for the named function
-func (c *ConcurrencyManager) Finished(name string) {
+func (c *concurrencyManager) Finished(name string) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] %v", r)
@@ -130,12 +130,12 @@ func (c *ConcurrencyManager) Finished(name string) {
 }
 
 // Close executes when the query is complete and dumps out the concurrency stats
-func (c *ConcurrencyManager) Close() {
+func (c *concurrencyManager) Close() {
 	c.DisplayConcurrencyStats()
 }
 
 // DisplayConcurrencyStats displays the summary of all the concurrent hydrate calls
-func (c *ConcurrencyManager) DisplayConcurrencyStats() {
+func (c *concurrencyManager) DisplayConcurrencyStats() {
 	if len(c.maxCallMap) == 0 {
 		return
 	}
