@@ -10,10 +10,15 @@ import (
 
 /*
 IgnoreConfig defines a set of errors that you want Steampipe to ignore and return an empty row.
+
+It is helpful to define the error codes in this struct instead of handling the error response separately at the plugin level.
+
 It can be defined in the [GetConfig], [ListConfig] struct at the table level and also at the plugin level.
 
-Usage:
-		// At the table level
+# Usage
+
+At the table level:
+
 		Get: &plugin.GetConfig{
 			IgnoreConfig: &plugin.IgnoreConfig{
 				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound", "Invalid object identifier"}),
@@ -28,16 +33,20 @@ Usage:
 			...
 		},
 
-		// At the plugin level
+At the plugin level:
+
 		DefaultGetConfig: &plugin.GetConfig{
 			IgnoreConfig: &plugin.IgnoreConfig{
 				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound"}),
 			},
 		},
 
-Example from [azuread].
+Plugin examples:  
+	- [azuread]
+	- [aws]
 
 [azuread]: https://github.com/turbot/steampipe-plugin-azuread/blob/f4848195931ca4d97a67e930a493f91f63dfe86d/azuread/table_azuread_application.go#L25-L43
+[aws]: https://github.com/turbot/steampipe-plugin-aws/blob/a4c89ed0da07413a42b54dc6a5d625c9bdcec16d/aws/table_aws_ec2_transit_gateway_route_table.go#L23-L25
 */
 type IgnoreConfig struct {
 	ShouldIgnoreErrorFunc ErrorPredicateWithContext
@@ -55,6 +64,7 @@ func (c *IgnoreConfig) String() interface{} {
 	}
 	return s.String()
 }
+// Checks if it works
 
 func (c *IgnoreConfig) Validate(table *Table) []string {
 	if c.ShouldIgnoreError != nil && c.ShouldIgnoreErrorFunc != nil {
