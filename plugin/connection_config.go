@@ -18,18 +18,36 @@ ConnectionConfigSchema is a struct used to define the connection config schema
 
 This must be defined by any plugin which uses custom connection config.
 
-Example from [hackernews]
+# Usage
 
-	ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
-				NewInstance: ConfigInstance,
-				Schema:      ConfigSchema,
-			},
+	p := &plugin.Plugin{
+		Name: "steampipe-plugin-hackernews",
+		ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
+			NewInstance: ConfigInstance,
+			Schema:      ConfigSchema,
+		},
+		...
+	}
+
+	var ConfigSchema = map[string]*schema.Attribute{
+		"max_items": {
+			Type: schema.TypeInt,
+		},
+	}
+
+	func ConfigInstance() interface{} {
+		return &hackernewsConfig{}
+	}
+
 
 NewInstance is a function which returns a new instance of a custom config struct.
 This is used during config parsing.
 This allows plugins to define strongly typed config structs.
 
 Schema contains the schema for the config.
+
+Plugin examples:
+  - [hackernews]
 
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/plugin.go#L13
 */
