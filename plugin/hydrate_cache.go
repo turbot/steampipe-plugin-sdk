@@ -12,13 +12,9 @@ var cacheableHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
 var cacheableHydrateLock sync.Mutex
 
 /*
-WithCache ensures the [HydrateFunc] results get saved in the [connection.ConnectionCache].
+WithCache ensures the [HydrateFunc] results are saved in the [connection.ConnectionCache].
 
-This will reduce the number of API calls if the HydrateFunc is used multiple times.
-
-TODO: when should this be used?
-
-This function must be chained after the HydrateFunc declaration.
+Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
 
 # Usage
 
