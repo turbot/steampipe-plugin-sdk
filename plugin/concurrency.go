@@ -129,7 +129,7 @@ func (c *concurrencyManager) Finished(name string) {
 	c.callsInProgress--
 }
 
-// Close executs when the query is complete and dumps out the concurrency stats
+// Close executes when the query is complete and dumps out the concurrency stats
 func (c *concurrencyManager) Close() {
 	c.DisplayConcurrencyStats()
 }
