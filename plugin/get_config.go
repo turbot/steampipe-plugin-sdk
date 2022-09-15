@@ -9,15 +9,39 @@ import (
 )
 
 /*
-GetConfig is a struct used to define the configuration of the table 'Get' function.
+A GetConfig defines how to get a single row of a table:
 
-This is used to retrieve a single row by id. The config defines the hydrate function which is called first when performing a 'get' call. Defines the key or keys which are used to uniquely identify rows which help us determine whether a query is a 'get' call, and also enable us to specify the error handling behaviour.
+  - keys which are used to uniquely identify row
+
+  - which errors to ignore: [plugin.GetConfig.IgnoreConfig]
+
+  - which errors to retry: [plugin.GetConfig.RetryConfig]
+
+  - how many concurrent [HydrateFunc] calls to allow
 
 # Usage
+
+A GetConfig with KeyColumns:
 
 	Get: &plugin.GetConfig{
 		KeyColumns: plugin.SingleColumn("id"),
 		Hydrate:    getItem,
+	}
+
+A GetConfig with IgnoreConfig:
+
+	Get: &plugin.GetConfig{
+		KeyColumns: 	plugin.SingleColumn("id"),
+		Hydrate:    	getItem,
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
+	}
+
+A GetConfig with MaxConcurrency:
+
+	Get: &plugin.GetConfig{
+		KeyColumns:     plugin.SingleColumn("id"),
+		Hydrate:        getItem,
+		MaxConcurrency: 50,
 	}
 
 Plugin examples:
