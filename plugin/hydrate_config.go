@@ -23,33 +23,33 @@ It's not valid to have a HydrateConfig for a HydrateFunc that is specified in a 
 
 # Usage
 
-A HydrateConfig with ShouldIgnoreError:
+A HydrateConfig with IgnoreConfig:
 
 	HydrateConfig: []plugin.HydrateConfig{
 		{
-		Func:              getRetentionPeriod,
-		ShouldIgnoreError: isNotFoundError([]string{"404"}),
+		Func:           getRetentionPeriod,
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
 		}
 
 A HydrateConfig with MaxConcurrency:
 
 	HydrateConfig: []plugin.HydrateConfig{
 		{
-		Func:              getRetentionPeriod,
-		MaxConcurrency:    50,
-		ShouldIgnoreError: isNotFoundError([]string{"404"}),
+		Func:           getRetentionPeriod,
+		MaxConcurrency: 50,
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
 		}
 
 A HydrateConfig with all fields specified:
 
 	HydrateConfig: []plugin.HydrateConfig{
 		{
-		Func:              getRetentionPeriod,
-		MaxConcurrency:    50,
-		ShouldIgnoreError: isNotFoundError([]string{"404"}),
-		RetryConfig: &plugin.RetryConfig{
-				ShouldRetryErrorFunc: shouldRetryError,
-			},
+		Func:           getRetentionPeriod,
+		MaxConcurrency: 50,
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
+		RetryConfig:    &plugin.RetryConfig{
+			ShouldRetryErrorFunc: shouldRetryError,
+		},
 		}
 
 Plugin examples:
