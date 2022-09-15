@@ -50,7 +50,7 @@ var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 By convention, the package name for your plugin should match the plugin's name,
 and the Go files for your plugin (except main.go) should reside in a folder with the same name.
 
-Example from [hackernews]:
+# Usage
 
 func Plugin(ctx context.Context) *plugin.Plugin {
 	p := &plugin.Plugin{
@@ -66,21 +66,20 @@ func Plugin(ctx context.Context) *plugin.Plugin {
 		},
 		TableMap: map[string]*plugin.Table{
 			"hackernews_ask_hn":  tableHackernewsAskHn(ctx),
-			"hackernews_best":    tableHackernewsBest(ctx),
 			"hackernews_item":    tableHackernewsItem(ctx),
-			"hackernews_job":     tableHackernewsJob(ctx),
 			"hackernews_new":     tableHackernewsNew(ctx),
 			"hackernews_show_hn": tableHackernewsShowHn(ctx),
-			"hackernews_top":     tableHackernewsTop(ctx),
 			"hackernews_user":    tableHackernewsUser(ctx),
 		},
 	}
 	return p
 }
 
-[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
+Examples:
 
-—
+	- [hackernews]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
 
 */
 type Plugin struct {
