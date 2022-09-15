@@ -13,14 +13,15 @@ GetConfig is a struct used to define the configuration of the table 'Get' functi
 
 This is used to retrieve a single row by id. The config defines the hydrate function which is called first when performing a 'get' call. Defines the key or keys which are used to uniquely identify rows which help us determine whether a query is a 'get' call, and also enable us to specify the error handling behaviour.
 
-Example from [hackernews].
+# Usage
 
 	Get: &plugin.GetConfig{
 		KeyColumns: plugin.SingleColumn("id"),
 		Hydrate:    getItem,
 	}
 
-—
+Plugin examples:
+  - [hackernews]
 
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L21-L24
 */
