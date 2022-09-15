@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/pluginshared"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	pluginshared "github.com/turbot/steampipe-plugin-sdk/v4/grpc/shared"
 	"github.com/turbot/steampipe-plugin-sdk/v4/version"
 )
 
