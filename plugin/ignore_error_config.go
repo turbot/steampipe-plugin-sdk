@@ -76,7 +76,6 @@ func (c *IgnoreConfig) String() interface{} {
 	}
 	return s.String()
 }
-// Checks if it works
 
 func (c *IgnoreConfig) Validate(table *Table) []string {
 	if c.ShouldIgnoreError != nil && c.ShouldIgnoreErrorFunc != nil {
