@@ -5,7 +5,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	shared "github.com/turbot/steampipe-plugin-sdk/v4/grpc/shared"
+	pluginshared "github.com/turbot/steampipe-plugin-sdk/v4/grpc/shared"
 	"github.com/turbot/steampipe-plugin-sdk/v4/version"
 )
 
@@ -134,12 +134,12 @@ func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsReques
 
 func (s PluginServer) Serve() {
 	pluginMap := map[string]plugin.Plugin{
-		s.pluginName: &shared.WrapperPlugin{Impl: s},
+		s.pluginName: &pluginshared.WrapperPlugin{Impl: s},
 	}
 	plugin.Serve(&plugin.ServeConfig{
 		Plugins:    pluginMap,
 		GRPCServer: plugin.DefaultGRPCServer,
 		// A non-nil value here enables gRPC serving for this plugin...
-		HandshakeConfig: shared.Handshake,
+		HandshakeConfig: pluginshared.Handshake,
 	})
 }
