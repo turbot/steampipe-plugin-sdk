@@ -9,17 +9,47 @@ import (
 )
 
 /*
-HydrateConfig is used to configure Hydrate Functions to connect to an external system or service and gather data for the table.
+HydrateConfig defines how to run a [HydrateFunc]:
 
-HydrateConfig defines the hydrate function configurations, including the function name, maximum number of concurrent calls to be allowed, retry and ignore config, and dependencies.
-The function in [GetConfig] cannot have a separate HydrateConfig. Instead, please define any configurations directly in GetConfig.
+  - which errors to ignore: [plugin.HydrateConfig.IgnoreConfig]
+
+  - which errors to retry: [plugin.HydrateConfig.RetryConfig]
+
+  - how many concurrent calls to allow
+
+  - which hydrate calls must complete before this HydrateFunc can start
+
+It's not valid to have a HydrateConfig for a HydrateFunc that is specified in a [GetConfig].
 
 # Usage
 
+A HydrateConfig with ShouldIgnoreError:
+
 	HydrateConfig: []plugin.HydrateConfig{
 		{
-			Func:              getRetentionPeriod,
-			ShouldIgnoreError: isNotFoundError([]string{"404"}),
+		Func:              getRetentionPeriod,
+		ShouldIgnoreError: isNotFoundError([]string{"404"}),
+		}
+
+A HydrateConfig with MaxConcurrency:
+
+	HydrateConfig: []plugin.HydrateConfig{
+		{
+		Func:              getRetentionPeriod,
+		MaxConcurrency:    50,
+		ShouldIgnoreError: isNotFoundError([]string{"404"}),
+		}
+
+A HydrateConfig with all fields specified:
+
+	HydrateConfig: []plugin.HydrateConfig{
+		{
+		Func:              getRetentionPeriod,
+		MaxConcurrency:    50,
+		ShouldIgnoreError: isNotFoundError([]string{"404"}),
+		RetryConfig: &plugin.RetryConfig{
+				ShouldRetryErrorFunc: shouldRetryError,
+			},
 		}
 
 Plugin examples:
