@@ -31,7 +31,6 @@ func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall
 // CanStart returns whether this hydrate call can execute
 // - check whether all dependency hydrate functions have been completed
 // - check whether the concurrency limits would be exceeded
-
 func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager *concurrencyManager) bool {
 	// check whether all hydrate functions we depend on have saved their results
 	for _, dep := range h.Depends {

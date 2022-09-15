@@ -18,9 +18,9 @@ ConnectionConfigSchema is a struct used to define the connection config schema
 
 This must be defined by any plugin which uses custom connection config.
 
-For example, see [hackernews plugin]
+Example from [hackernews]
 
-	  ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
+	ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
 				NewInstance: ConfigInstance,
 				Schema:      ConfigSchema,
 			},
@@ -31,7 +31,7 @@ This allows plugins to define strongly typed config structs.
 
 Schema contains the schema for the config.
 
-[hackernews plugin]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/plugin.go#L13
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/plugin.go#L13
 */
 type ConnectionConfigSchema struct {
 	Schema map[string]*schema.Attribute
@@ -52,8 +52,8 @@ Connection is a struct which is used to store connection config.
 The connection config is parsed and stored as [plugin.Plugin.Connection].
 The connection may be retrieved the plugin by calling: [plugin.QueryData.Connection]
 `
-For example, see [hackernews plugin]
-[hackernews plugin]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/connection_config.go#L23
+Example from [hackernews]
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/connection_config.go#L23
 */
 type Connection struct {
 	Name string
