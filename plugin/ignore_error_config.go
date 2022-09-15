@@ -9,15 +9,16 @@ import (
 )
 
 /*
-IgnoreConfig defines a set of errors that you want Steampipe to ignore and return an empty row.
+IgnoreConfig defines errors to ignore.
+When that happens, an empty row is returned.
 
-It is helpful to define the error codes in this struct instead of handling the error response separately at the plugin level.
+If a [HydrateFunc] has specific errors that should not block query execution, set [plugin.GetConfig.IgnoreConfig], [plugin.ListConfig.IgnoreConfig] or [plugin.HydrateConfig.IgnoreConfig].
 
-It can be defined in the [GetConfig], [ListConfig] struct at the table level and also at the plugin level.
+For errors common to many HydrateFuncs, you can define a default IgnoreConfig by setting [plugin.DefaultGetConfig].
 
 # Usage
 
-At the table level:
+Ignore errors from a HydrateFunc that has a GetConfig:
 
 		Get: &plugin.GetConfig{
 			IgnoreConfig: &plugin.IgnoreConfig{
@@ -26,6 +27,8 @@ At the table level:
 			...
 		},
 
+Ignore errors from a HydrateFunc that has a ListConfig:
+
 		List: &plugin.ListConfig{
 			IgnoreConfig: &plugin.IgnoreConfig{
 				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_UnsupportedQuery"}),
@@ -33,9 +36,17 @@ At the table level:
 			...
 		},
 
-At the plugin level:
+Ignore errors from a HydrateFunc that has a HydrateConfig:
 
-		DefaultGetConfig: &plugin.GetConfig{
+		HydrateConfig: []plugin.HydrateConfig{
+			IgnoreConfig: &plugin.IgnoreConfig{
+				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_UnsupportedQuery"}),
+			},
+			...
+		},
+
+Ignore errors that may occur in many HydrateFuncs:
+		DefaultIgnoreConfig: &plugin.DefaultIgnoreConfig{
 			IgnoreConfig: &plugin.IgnoreConfig{
 				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound"}),
 			},
