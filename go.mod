@@ -33,7 +33,6 @@ require (
 
 require (
 	github.com/allegro/bigcache/v3 v3.0.2
-	github.com/cloudfoundry/gosigar v1.3.4
 	github.com/eko/gocache/v3 v3.1.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
@@ -81,6 +80,7 @@ require (
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

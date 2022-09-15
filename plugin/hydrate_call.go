@@ -31,8 +31,7 @@ func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall
 // CanStart returns whether this hydrate call can execute
 // - check whether all dependency hydrate functions have been completed
 // - check whether the concurrency limits would be exceeded
-
-func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager *ConcurrencyManager) bool {
+func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager *concurrencyManager) bool {
 	// check whether all hydrate functions we depend on have saved their results
 	for _, dep := range h.Depends {
 		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep) {
@@ -48,7 +47,7 @@ func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager 
 }
 
 // Start starts a hydrate call
-func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, concurrencyManager *ConcurrencyManager) {
+func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, concurrencyManager *concurrencyManager) {
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 	// update the hydrate count
