@@ -1,4 +1,4 @@
-package pluginshared
+package shared
 
 import (
 	"context"

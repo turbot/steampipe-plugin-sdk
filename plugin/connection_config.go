@@ -14,9 +14,10 @@ import (
 )
 
 /*
-ConnectionConfigSchema is a struct used to define the connection config schema
+ConnectionConfigSchema is a struct that defines custom arguments in the plugin spc file
+that are passed to the plugin as [plugin.Connection.Config].
 
-This must be defined by any plugin which uses custom connection config.
+A plugin that uses custom connection config must set [plugin.Plugin.ConnectionConfigSchema].
 
 # Usage
 
@@ -38,13 +39,6 @@ This must be defined by any plugin which uses custom connection config.
 	func ConfigInstance() interface{} {
 		return &hackernewsConfig{}
 	}
-
-
-NewInstance is a function which returns a new instance of a custom config struct.
-This is used during config parsing.
-This allows plugins to define strongly typed config structs.
-
-Schema contains the schema for the config.
 
 Plugin examples:
   - [hackernews]

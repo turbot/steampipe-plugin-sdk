@@ -7,15 +7,15 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/pluginshared"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	shared "github.com/turbot/steampipe-plugin-sdk/v4/grpc/shared"
 	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
 )
 
 // PluginClient is the client object used by clients of the plugin
 type PluginClient struct {
 	Name   string
-	Stub   pluginshared.WrapperPluginClient
+	Stub   shared.WrapperPluginClient
 	client *plugin.Client
 }
 
@@ -34,7 +34,7 @@ func NewPluginClient(client *plugin.Client, pluginName string) (*PluginClient, e
 		return nil, err
 	}
 	// we should have a stub plugin now
-	p := raw.(pluginshared.WrapperPluginClient)
+	p := raw.(shared.WrapperPluginClient)
 	res := &PluginClient{
 		Name:   pluginName,
 		client: client,
@@ -47,14 +47,14 @@ func NewPluginClientFromReattach(reattach *plugin.ReattachConfig, pluginName str
 	log.Printf("[TRACE] NewPluginClientFromReattach for plugin %s", pluginName)
 	// create the plugin map
 	pluginMap := map[string]plugin.Plugin{
-		pluginName: &pluginshared.WrapperPlugin{},
+		pluginName: &shared.WrapperPlugin{},
 	}
 	// discard logging from the client (plugin logs will still flow through to the log file as the plugin manager set this up)
 	logger := logging.NewLogger(&hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard})
 
 	// create grpc client
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig:  pluginshared.Handshake,
+		HandshakeConfig:  shared.Handshake,
 		Plugins:          pluginMap,
 		Reattach:         reattach,
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
