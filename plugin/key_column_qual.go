@@ -17,9 +17,7 @@ Use it in a [table definition], by way of the [plugin.QueryData] object.
 
 The query writer must specify the qualifiers, in a WHERE or JOIN..ON clause, in order to limit the number of API calls that Steampipe makes to satisfy the query.
 
-Example from [hackernews]:
-
-[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_user.go#L40
+# Usage
 
 func listUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	var item User
@@ -35,7 +33,11 @@ func listUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (
 	...
 }
 
-—
+Examples:
+
+	- [hackernews]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_user.go#L40
 
 */
 type KeyColumnQuals struct {
