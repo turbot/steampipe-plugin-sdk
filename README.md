@@ -17,12 +17,6 @@
 
 The Steampipe Plugin SDK provides a simple abstraction layer to simplify writing Steampipe Plugins.
 
-## Get Started Writing Plugins
-
-Writing Steampipe plugins is fast, easy, and fun with the Steampipe Plugin SDK! Most of the heavy lifting is taken care of for you - just define your tables and columns, wire up a few API calls, and you can start to query your service with standard SQL!
-
-See the [Writing Plugins](https://steampipe.io/docs/develop/writing-plugins) guide to get started.
-
 ## Get involved
 
 ### Community
