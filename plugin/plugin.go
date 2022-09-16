@@ -49,9 +49,9 @@ var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 /*
 Plugin is the primary struct that defines a [plugin].
 
-The plugin name is defined using [plugin.Plugin.Name].
+Set plugin name using [plugin.Plugin.Name].
 
-The tables provided by the plugin are defined by either setting [plugin.Plugin.TableMap] or [plugin.Plugin.TableMapFunc]:
+The tables provided by the plugin are specified by setting either [plugin.Plugin.TableMap] or [plugin.Plugin.TableMapFunc]:
 
   - For most plugins, with a static set of tables, use the TableMap property
 
@@ -63,9 +63,11 @@ Various default behaviours can be defined:
 
   - a default [transform] which will be applied to all columns which do not specify a transform. ([plugin.Plugin.DefaultTransform]).
 
-  - the default [HydrateFunc] concurrency limits ([plugin.Plugin.DefaultConcurrency]).
+  - the default concurrency limits for a [HydrateFunc] ([plugin.Plugin.DefaultConcurrency]).
 
-  - the default error retry and ignore behaviour [plugin.Plugin.DefaultRetryConfig] [plugin.Plugin.IgnoreConfig]
+  - the default error retry behaviour ([plugin.Plugin.DefaultRetryConfig])
+
+  - the default error ignore behaviour ([plugin.Plugin.IgnoreConfig])
 
 Required columns can be specified by setting [plugin.Plugin.RequiredColumns]
 
