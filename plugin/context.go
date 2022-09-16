@@ -11,8 +11,7 @@ import (
 /* 
 Logger retrieves the [hclog.Logger] from the context.
 
-# Usage
-
+Usage:
 	plugin.Logger(ctx).Trace("Code execution starts here")
 	plugin.Logger(ctx).Error("hackernews_item.itemList", "query_error", err)
 	plugin.Logger(ctx).Warn("getDomain", "invalid_name", err, "query_response", resp)
@@ -37,7 +36,7 @@ func GetMatrixItem(ctx context.Context) map[string]interface{} {
 /* 
 A helper function that returns whether the context has been cancelled.
 
-# Usage
+To check if the context has been cancelled:
 
 	for _, i := range items {
 		d.StreamListItem(ctx, i)
