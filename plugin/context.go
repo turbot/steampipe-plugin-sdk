@@ -8,21 +8,21 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
 )
 
-/* 
+/*
 Logger retrieves the [hclog.Logger] from the context.
 
 Usage:
+
 	plugin.Logger(ctx).Trace("Code execution starts here")
 	plugin.Logger(ctx).Error("hackernews_item.itemList", "query_error", err)
 	plugin.Logger(ctx).Warn("getDomain", "invalid_name", err, "query_response", resp)
 	plugin.Logger(ctx).Info("listGreeting", "number", i)
-
 */
 func Logger(ctx context.Context) hclog.Logger {
 	return ctx.Value(context_key.Logger).(hclog.Logger)
 }
 
-/* 
+/*
 Deprecated: Please use [plugin.Table.GetMatrixItemFunc] instead.
 */
 func GetMatrixItem(ctx context.Context) map[string]interface{} {
@@ -34,10 +34,10 @@ func GetMatrixItem(ctx context.Context) map[string]interface{} {
 	return value.(map[string]interface{})
 }
 
-/* 
-A helper function that returns whether the context has been cancelled.
+/*
+IsCancelled returns whether the context has been cancelled.
 
-To check if the context has been cancelled:
+To use:
 
 	for _, i := range items {
 		d.StreamListItem(ctx, i)
