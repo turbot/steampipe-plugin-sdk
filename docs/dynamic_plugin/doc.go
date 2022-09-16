@@ -1,4 +1,6 @@
 /*
+package dynamic_plugin
+
 If [plugin.SchemaMode] is set to `dynamic`, every time
 Steampipe starts the plugin's schema will be checked for any changes since the
 last time it loaded, and re-import the schema if it detects any.
@@ -107,7 +109,6 @@ For more information on how the CSV plugin can be queried as a result of being
 a dynamic table, please see the [CSV plugin]
 
 [CSV plugin]: https://hub.steampipe.io/plugins/turbot/csv/tables/%7Bcsv_filename%7D
-
 */
 package dynamic_plugin
 
