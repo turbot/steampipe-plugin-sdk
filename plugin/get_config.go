@@ -124,10 +124,10 @@ func (c *GetConfig) Validate(table *Table) []string {
 		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a KeyColumn", table.Name))
 	}
 	if c.RetryConfig != nil {
-		validationErrors = append(validationErrors, c.RetryConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.RetryConfig.validate(table)...)
 	}
 	if c.IgnoreConfig != nil {
-		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
 	// ensure there is no explicit hydrate config for the get config
 	getHydrateName := helpers.GetFunctionName(table.Get.Hydrate)

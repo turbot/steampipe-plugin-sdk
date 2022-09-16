@@ -66,7 +66,7 @@ func (c *RetryConfig) String() interface{} {
 	return ""
 }
 
-func (c *RetryConfig) Validate(table *Table) []string {
+func (c *RetryConfig) validate(table *Table) []string {
 	if c.ShouldRetryError != nil && c.ShouldRetryErrorFunc != nil {
 		log.Printf("[TRACE] RetryConfig validate failed - both ShouldRetryError and ShouldRetryErrorFunc are defined")
 		var tablePrefix string
@@ -107,8 +107,8 @@ func (c *RetryConfig) GetListRetryConfig() *RetryConfig {
 	listRetryConfig := &RetryConfig{}
 	if c.ShouldRetryErrorFunc != nil {
 		listRetryConfig.ShouldRetryErrorFunc = func(ctx context.Context, d *QueryData, h *HydrateData, err error) bool {
-			if d.QueryStatus.rowsStreamed != 0 {
-				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.QueryStatus.rowsStreamed)
+			if d.queryStatus.rowsStreamed != 0 {
+				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.queryStatus.rowsStreamed)
 				return false
 			}
 			res := c.ShouldRetryErrorFunc(ctx, d, h, err)
@@ -116,8 +116,8 @@ func (c *RetryConfig) GetListRetryConfig() *RetryConfig {
 		}
 	} else if c.ShouldRetryError != nil {
 		listRetryConfig.ShouldRetryErrorFunc = func(ctx context.Context, d *QueryData, h *HydrateData, err error) bool {
-			if d.QueryStatus.rowsStreamed != 0 {
-				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.QueryStatus.rowsStreamed)
+			if d.queryStatus.rowsStreamed != 0 {
+				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.queryStatus.rowsStreamed)
 				return false
 			}
 			// call the legacy function

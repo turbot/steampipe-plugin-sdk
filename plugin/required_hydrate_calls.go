@@ -7,7 +7,7 @@ import (
 // helper class to build list of required hydrate calls
 type requiredHydrateCallBuilder struct {
 	fetchCallName        string
-	requiredHydrateCalls map[string]*HydrateCall
+	requiredHydrateCalls map[string]*hydrateCall
 	table                *Table
 }
 
@@ -15,7 +15,7 @@ func newRequiredHydrateCallBuilder(t *Table, fetchCallName string) *requiredHydr
 	return &requiredHydrateCallBuilder{
 		table:                t,
 		fetchCallName:        fetchCallName,
-		requiredHydrateCalls: make(map[string]*HydrateCall),
+		requiredHydrateCalls: make(map[string]*hydrateCall),
 	}
 }
 
@@ -40,8 +40,8 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
 	}
 }
 
-func (c requiredHydrateCallBuilder) Get() []*HydrateCall {
-	var res []*HydrateCall
+func (c requiredHydrateCallBuilder) Get() []*hydrateCall {
+	var res []*hydrateCall
 	for _, call := range c.requiredHydrateCalls {
 		res = append(res, call)
 	}
