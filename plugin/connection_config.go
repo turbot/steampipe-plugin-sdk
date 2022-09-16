@@ -62,8 +62,9 @@ Connection is a struct which is used to store connection config.
 
 The connection config is parsed and stored as [plugin.Plugin.Connection].
 The connection may be retrieved the plugin by calling: [plugin.QueryData.Connection]
-`
+
 Example from [hackernews]
+
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/connection_config.go#L23
 */
 type Connection struct {
