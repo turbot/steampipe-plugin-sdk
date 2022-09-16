@@ -9,36 +9,46 @@ import (
 )
 
 /*
-RetryConfig can be defined as a part of [GetConfig], [ListConfig] struct at the table level, plugin level and also at the [HydrateConfig] level.
+RetryConfig retries [HydrateFunc] errors.
 
-It is useful in cases where a hydrate function might return an error in the first attempt but resolves itself in a future attempt, for instance API rate limit or throttling errors.
+If a HydrateFunc returns an error in the first attempt but resolves itself in a future attempt, for instance API rate limit or throttling errors, set [plugin.GetConfig.RetryConfig], [plugin.ListConfig.RetryConfig] or [plugin.HydrateConfig.RetryConfig].
 
-Usage:
-		// At the table level
+For errors common to many HydrateFuncs, you can define a default RetryConfig by setting [plugin.DefaultGetConfig].
+
+Retry errors from a HydrateFunc that has a GetConfig:
+
 		Get: &plugin.GetConfig{
 			RetryConfig: &plugin.RetryConfig{
-				ShouldRetryErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound", "Invalid object identifier"}),
+				ShouldRetryError: shouldRetryError,
 			},
 			...
 		},
+
+Retry errors from a HydrateFunc that has a ListConfig:
 
 		List: &plugin.ListConfig{
-			IgnoreConfig: &plugin.IgnoreConfig{
-				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_UnsupportedQuery"}),
+			RetryConfig: &plugin.RetryConfig{
+				ShouldRetryError: shouldRetryError,
 			},
 			...
 		},
 
-		// At the plugin level
-		DefaultGetConfig: &plugin.GetConfig{
-			IgnoreConfig: &plugin.IgnoreConfig{
-				ShouldIgnoreErrorFunc: isIgnorableErrorPredicate([]string{"Request_ResourceNotFound"}),
+Retry errors from a HydrateFunc that has a HydrateConfig:
+
+		HydrateConfig: []plugin.HydrateConfig{
+			RetryConfig: &plugin.RetryConfig{
+				ShouldRetryError: shouldRetryError,
 			},
+			...
 		},
 
-Example from [azuread].
-
-[azuread]: https://github.com/turbot/steampipe-plugin-azuread/blob/f4848195931ca4d97a67e930a493f91f63dfe86d/azuread/table_azuread_application.go#L25-L43
+Retry errors that may occur in many HydrateFuncs:
+		DefaultIgnoreConfig: &plugin.DefaultIgnoreConfig{
+			RetryConfig: &plugin.RetryConfig{
+				ShouldRetryError: shouldRetryError,
+			},
+			...
+		},
 */
 type RetryConfig struct {
 	ShouldRetryErrorFunc ErrorPredicateWithContext
