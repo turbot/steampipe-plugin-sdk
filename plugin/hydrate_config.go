@@ -8,8 +8,55 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// HydrateConfig defines the hydrate function configurations, including the function name, maximum number of concurrent calls to be allowed, retry and ignore config, and dependencies.
-// The function in GetConfig cannot have a separate HydrateConfig. Instead, please define any configurations directly in GetConfig.
+/*
+HydrateConfig defines how to run a [HydrateFunc]:
+
+  - which errors to ignore: [plugin.HydrateConfig.IgnoreConfig]
+
+  - which errors to retry: [plugin.HydrateConfig.RetryConfig]
+
+  - how many concurrent calls to allow: [plugin.HydrateConfig.MaxConcurrency]
+
+  - which hydrate calls must complete before this HydrateFunc can start: [plugin.HydrateConfig.Func]
+
+It's not valid to have a HydrateConfig for a HydrateFunc that is specified in a [GetConfig].
+
+# Usage
+
+A HydrateConfig with IgnoreConfig:
+
+	HydrateConfig: []plugin.HydrateConfig{
+		{
+		Func:           getRetentionPeriod,
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
+		}
+
+A HydrateConfig with MaxConcurrency:
+
+	HydrateConfig: []plugin.HydrateConfig{
+		{
+		Func:           getRetentionPeriod,
+		MaxConcurrency: 50,
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
+		}
+
+A HydrateConfig with all fields specified:
+
+	HydrateConfig: []plugin.HydrateConfig{
+		{
+		Func:           getRetentionPeriod,
+		MaxConcurrency: 50,
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
+		RetryConfig:    &plugin.RetryConfig{
+			ShouldRetryErrorFunc: shouldRetryError,
+		},
+		}
+
+Plugin examples:
+  - [oci]
+
+[oci]: https://github.com/turbot/steampipe-plugin-oci/blob/27ddf689f7606009cf26b2716e1634fc91d53585/oci/table_oci_identity_tenancy.go#L23-L27
+*/
 type HydrateConfig struct {
 	Func           HydrateFunc
 	MaxConcurrency int

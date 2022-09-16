@@ -1,7 +1,8 @@
 package plugin
 
-// HydrateDependencies defines the hydrate function dependencies - other hydrate functions which must be run first
-// Deprecated: used HydrateConfig
+/*
+Deprecated: Use [HydrateConfig] instead.
+*/
 type HydrateDependencies struct {
 	Func    HydrateFunc
 	Depends []HydrateFunc

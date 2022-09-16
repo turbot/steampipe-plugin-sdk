@@ -2,12 +2,12 @@ package proto
 
 import "github.com/turbot/go-kit/helpers"
 
-func (c *ConnectionConfig) Equals(other *ConnectionConfig) bool {
-	res := c.Connection == other.Connection &&
-		c.Plugin == other.Plugin &&
-		c.PluginShortName == other.PluginShortName &&
-		c.Config == other.Config &&
-		c.childConnectionsEqual(other)
+func (x *ConnectionConfig) Equals(other *ConnectionConfig) bool {
+	res := x.Connection == other.Connection &&
+		x.Plugin == other.Plugin &&
+		x.PluginShortName == other.PluginShortName &&
+		x.Config == other.Config &&
+		x.childConnectionsEqual(other)
 	return res
 }
 

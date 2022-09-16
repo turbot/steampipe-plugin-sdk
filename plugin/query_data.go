@@ -70,7 +70,7 @@ type QueryData struct {
 
 	// all the columns that will be returned by this query
 	columns            []*QueryColumn
-	concurrencyManager *ConcurrencyManager
+	concurrencyManager *concurrencyManager
 	rowDataChan        chan *RowData
 	errorChan          chan error
 	// channel to send results

@@ -42,13 +42,46 @@ const (
 
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
-// Plugin is a struct used define the GRPC plugin.
-//
-// This includes the plugin schema (i.e. the tables provided by the plugin),
-// as well as config for the default error handling and concurrency behaviour.
-//
-// By convention, the package name for your plugin should be the same name as your plugin,
-// and go files for your plugin (except main.go) should reside in a folder with the same name.
+/*
+[Plugin] is the primary struct that defines a plugin. 
+
+[Plugin]: https://steampipe.io/docs/develop/writing-plugins#plugingo
+
+By convention, the package name for your plugin should match the plugin's name,
+and the Go files for your plugin (except main.go) should reside in a folder with the same name.
+
+# Usage
+
+func Plugin(ctx context.Context) *plugin.Plugin {
+	p := &plugin.Plugin{
+		Name: "steampipe-plugin-hackernews",
+		ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
+			NewInstance: ConfigInstance,
+			Schema:      ConfigSchema,
+		},
+		DefaultTransform: transform.FromJSONTag().NullIfZero(),
+		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+			TotalMaxConcurrency:   500,
+			DefaultMaxConcurrency: 200,
+		},
+		TableMap: map[string]*plugin.Table{
+			"hackernews_ask_hn":  tableHackernewsAskHn(ctx),
+			"hackernews_item":    tableHackernewsItem(ctx),
+			"hackernews_new":     tableHackernewsNew(ctx),
+			"hackernews_show_hn": tableHackernewsShowHn(ctx),
+			"hackernews_user":    tableHackernewsUser(ctx),
+		},
+	}
+	return p
+}
+
+Examples:
+
+	- [hackernews]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
+
+*/
 type Plugin struct {
 	Name   string
 	Logger hclog.Logger
