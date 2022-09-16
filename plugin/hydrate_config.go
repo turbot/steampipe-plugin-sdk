@@ -17,7 +17,7 @@ HydrateConfig defines how to run a [HydrateFunc]:
 
   - how many concurrent calls to allow: [plugin.HydrateConfig.MaxConcurrency]
 
-  - which hydrate calls must complete before this HydrateFunc can start: [plugin.HydrateConfig.Func]
+  - which hydrate calls must complete before this HydrateFunc can start: [plugin.HydrateConfig.Depends]
 
 It's not valid to have a HydrateConfig for a HydrateFunc that is specified in a [GetConfig].
 
