@@ -13,7 +13,7 @@ import (
 
 [ListConfig]: https://steampipe.io/docs/develop/writing-plugins#list-config
 
-# Usage
+To define a table's List function:
 
 func tableHackernewsItem(ctx context.Context) *plugin.Table {
 	return &plugin.Table{
