@@ -43,9 +43,7 @@ const (
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
 /*
-[Plugin] is the primary struct that [defines a plugin].
-
-[defines a plugin]: https://steampipe.io/docs/develop/writing-plugins#plugingo
+Plugin is the primary struct that [defines a plugin].
 
 The struct always includes a Name, a ConnectionConfigSchema, and a TableMap.
 
@@ -56,38 +54,38 @@ and the Go files for your plugin (except main.go) should reside in a folder with
 
 To define a plugin:
 
-func Plugin(ctx context.Context) *plugin.Plugin {
-	p := &plugin.Plugin{
-		Name: "steampipe-plugin-hackernews",
-		ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
-			NewInstance: ConfigInstance,
-			Schema:      ConfigSchema,
-		},
-		DefaultTransform: transform.FromJSONTag().NullIfZero(),
-		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
-			TotalMaxConcurrency:   500,
-			DefaultMaxConcurrency: 200,
-		},
-		TableMap: map[string]*plugin.Table{
-			"hackernews_ask_hn":  tableHackernewsAskHn(ctx),
-			"hackernews_item":    tableHackernewsItem(ctx),
-			"hackernews_new":     tableHackernewsNew(ctx),
-			"hackernews_show_hn": tableHackernewsShowHn(ctx),
-			"hackernews_user":    tableHackernewsUser(ctx),
-		},
+	func Plugin(ctx context.Context) *plugin.Plugin {
+		p := &plugin.Plugin{
+			Name: "steampipe-plugin-hackernews",
+			ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
+				NewInstance: ConfigInstance,
+				Schema:      ConfigSchema,
+			},
+			DefaultTransform: transform.FromJSONTag().NullIfZero(),
+			DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+				TotalMaxConcurrency:   500,
+				DefaultMaxConcurrency: 200,
+			},
+			TableMap: map[string]*plugin.Table{
+				"hackernews_ask_hn":  tableHackernewsAskHn(ctx),
+				"hackernews_item":    tableHackernewsItem(ctx),
+				"hackernews_new":     tableHackernewsNew(ctx),
+				"hackernews_show_hn": tableHackernewsShowHn(ctx),
+				"hackernews_user":    tableHackernewsUser(ctx),
+			},
+		}
+		return p
 	}
-	return p
-}
 
 Examples:
-	- [aws] 
-	- [github] 
-	- [hackernews]
+  - [aws]
+  - [github]
+  - [hackernews]
 
+[defines a plugin]: https://steampipe.io/docs/develop/writing-plugins#plugingo
 [aws]: https://github.com/turbot/steampipe-plugin-aws/blob/c5fbf38df19667f60877c860cf8ad39816ff658f/aws/plugin.go#L19
 [github]: https://github.com/turbot/steampipe-plugin-github/blob/a5ae211ee602be4adcea3a5c495cbe36aa87b957/github/plugin.go#L11
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
-
 */
 type Plugin struct {
 	Name   string
@@ -447,7 +445,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		streamRowFunc := func(row *proto.Row) {
 			// if row is not nil (indicating completion), increment cachedRowsFetched
 			if row != nil {
-				atomic.AddInt64(&queryData.QueryStatus.cachedRowsFetched, 1)
+				atomic.AddInt64(&queryData.queryStatus.cachedRowsFetched, 1)
 			}
 			queryData.streamRow(row)
 		}
