@@ -116,10 +116,10 @@ func (c *HydrateConfig) Validate(table *Table) []string {
 	}
 
 	if c.RetryConfig != nil {
-		validationErrors = append(validationErrors, c.RetryConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.RetryConfig.validate(table)...)
 	}
 	if c.IgnoreConfig != nil {
-		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
 	return validationErrors
 }

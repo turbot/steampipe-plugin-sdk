@@ -179,7 +179,7 @@ type requiredHydrateCallsTest struct {
 	table     *Table
 	columns   []string
 	fetchType fetchType
-	expected  []*HydrateCall
+	expected  []*hydrateCall
 }
 
 var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
@@ -201,7 +201,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
-		expected:  []*HydrateCall{},
+		expected:  []*hydrateCall{},
 	},
 	"list - 1 hydrate": {
 		table: &Table{
@@ -217,7 +217,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
-		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1"}},
+		expected:  []*hydrateCall{{Func: hydrate1, Name: "hydrate1"}},
 	},
 	"list - 1 hydrate, depends [HydrateDependencies]": {
 		table: &Table{
@@ -233,7 +233,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
-		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2"}},
+		expected:  []*hydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2"}},
 	},
 	"get - 2 hydrate, depends [HydrateDependencies]": {
 		table: &Table{
@@ -250,7 +250,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1", "c2"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}, {Func: hydrate2, Name: "hydrate2"}},
+		expected:  []*hydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}, {Func: hydrate2, Name: "hydrate2"}},
 	},
 	"get - 2 depends [HydrateDependencies]": {
 		table: &Table{
@@ -270,7 +270,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}},
+		expected:  []*hydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}},
 	},
 	"get - unreferenced depends [HydrateDependencies]": {
 		table: &Table{
@@ -290,7 +290,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c3"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate3, Name: "hydrate3"}},
+		expected:  []*hydrateCall{{Func: hydrate3, Name: "hydrate3"}},
 	},
 
 	"list - 1 hydrate, depends": {
@@ -307,7 +307,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
-		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2"}},
+		expected:  []*hydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2"}},
 	},
 	"get - 2 hydrate, depends": {
 		table: &Table{
@@ -324,7 +324,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1", "c2"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}, {Func: hydrate2, Name: "hydrate2"}},
+		expected:  []*hydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}, {Func: hydrate2, Name: "hydrate2"}},
 	},
 	"get - 2 depends": {
 		table: &Table{
@@ -344,7 +344,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c1"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}},
+		expected:  []*hydrateCall{{Func: hydrate1, Name: "hydrate1", Depends: []string{"hydrate2"}}, {Func: hydrate2, Name: "hydrate2", Depends: []string{"hydrate3"}}, {Func: hydrate3, Name: "hydrate3"}},
 	},
 	"get - unreferenced depends": {
 		table: &Table{
@@ -364,13 +364,13 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		},
 		columns:   []string{"c3"},
 		fetchType: fetchTypeGet,
-		expected:  []*HydrateCall{{Func: hydrate3, Name: "hydrate3"}},
+		expected:  []*hydrateCall{{Func: hydrate3, Name: "hydrate3"}},
 	},
 }
 
 func TestRequiredHydrateCalls(t *testing.T) {
 	plugin := &Plugin{}
-	plugin.Initialise()
+	plugin.initialise()
 	for name, test := range testCasesRequiredHydrateCalls {
 		test.table.initialise(plugin)
 
@@ -411,12 +411,12 @@ func newTestQueryData(plugin *Plugin, queryContext *QueryContext, table *Table, 
 
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
-	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
+	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
 
 	return d, nil
 }
 
-func hydrateArrayToString(calls []*HydrateCall) string {
+func hydrateArrayToString(calls []*hydrateCall) string {
 	var strs []string
 	for _, c := range calls {
 		strs = append(strs, hydrateCallToString(c))
@@ -425,7 +425,7 @@ func hydrateArrayToString(calls []*HydrateCall) string {
 	return strings.Join(strs, "\n")
 }
 
-func hydrateCallToString(call *HydrateCall) string {
+func hydrateCallToString(call *hydrateCall) string {
 	str := fmt.Sprintf("Func: %s", call.Name)
 	if len(call.Depends) > 0 {
 		str += "\n  Depends:"
@@ -793,7 +793,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 
 func TestGetHydrateConfig(t *testing.T) {
 	for name, test := range testCasesGetHydrateConfig {
-		test.table.Plugin.Initialise()
+		test.table.Plugin.initialise()
 		test.table.initialise(test.table.Plugin)
 
 		result := test.table.hydrateConfigMap[test.funcName]

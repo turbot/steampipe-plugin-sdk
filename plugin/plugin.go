@@ -43,60 +43,58 @@ const (
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
 /*
-Plugin is the primary struct that [defines a plugin].
+Plugin is the primary struct that defines a [plugin].
 
-The struct always includes a Name, a ConnectionConfigSchema, and a TableMap.
+The plugin name is defined using [plugin.Plugin.Name].
 
-It may override one or more Defaults.
+The tables provided by the plugin are defined by either setting [plugin.Plugin.TableMap] or [plugin.Plugin.TableMapFunc]:
 
-By convention, the package name for your plugin should match the plugin's name,
-and the Go files for your plugin (except main.go) should reside in a folder with the same name.
+  - For most plugins, with a static set of tables, use the TableMap property
 
-To define a plugin:
+  - For dynamic plugins [plugin.Flow_of_execution], use [plugin.Plugin.TableMapFunc]. Also, [plugin.Plugin.SchemaMode] must be set to “dynamic“ .
 
-	func Plugin(ctx context.Context) *plugin.Plugin {
-		p := &plugin.Plugin{
-			Name: "steampipe-plugin-hackernews",
-			ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
-				NewInstance: ConfigInstance,
-				Schema:      ConfigSchema,
-			},
-			DefaultTransform: transform.FromJSONTag().NullIfZero(),
-			DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
-				TotalMaxConcurrency:   500,
-				DefaultMaxConcurrency: 200,
-			},
-			TableMap: map[string]*plugin.Table{
-				"hackernews_ask_hn":  tableHackernewsAskHn(ctx),
-				"hackernews_item":    tableHackernewsItem(ctx),
-				"hackernews_new":     tableHackernewsNew(ctx),
-				"hackernews_show_hn": tableHackernewsShowHn(ctx),
-				"hackernews_user":    tableHackernewsUser(ctx),
-			},
-		}
-		return p
-	}
+[plugin.Flow_of_execution]
 
-Examples:
+[plugin#Flow_of_execution]
+
+[plugin#hdr-Flow_of_execution]
+
+[plugin.hdr-Flow_of_execution]
+
+[plugin/hdr-Flow_of_execution]
+
+[plugin/Flow_of_execution]
+
+If the plugin uses custom connection config, it must define a [plugin.ConnectionConfigSchema],
+
+Various default behaviours can be defined:
+
+  - a default [transform] which will be applied to all columns which do not specify a transform. ([plugin.Plugin.DefaultTransform]).
+
+  - the default [HydrateFunc] concurrency limits ([plugin.Plugin.DefaultConcurrency]).
+
+  - the default error retry and ignore behaviour [plugin.Plugin.DefaultRetryConfig] [plugin.Plugin.IgnoreConfig]
+
+Required columns can be specified by setting [plugin.Plugin.RequiredColumns]
+
+Plugin examples:
   - [aws]
   - [github]
   - [hackernews]
 
-[defines a plugin]: https://steampipe.io/docs/develop/writing-plugins#plugingo
 [aws]: https://github.com/turbot/steampipe-plugin-aws/blob/c5fbf38df19667f60877c860cf8ad39816ff658f/aws/plugin.go#L19
 [github]: https://github.com/turbot/steampipe-plugin-github/blob/a5ae211ee602be4adcea3a5c495cbe36aa87b957/github/plugin.go#L11
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
+
+[dynamic plugins]: https://steampipe.io/docs/develop/writing-plugins?#dynamic-tables
 */
 type Plugin struct {
 	Name   string
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	// NOTE: it must be NULL for plugins with dynamic schema
-	TableMap map[string]*Table
-	// TableMapFunc is a callback function which can be used to populate the table map
-	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
-	// (connection config is not available at plugin creation time)
-	TableMapFunc        func(ctx context.Context, connection *Connection) (map[string]*Table, error)
+	TableMap            map[string]*Table
+	TableMapFunc        TableMapFunc
 	DefaultTransform    *transform.ColumnTransforms
 	DefaultConcurrency  *DefaultConcurrencyConfig
 	DefaultRetryConfig  *RetryConfig
@@ -127,14 +125,14 @@ type Plugin struct {
 	connectionCacheMapLock sync.Mutex
 }
 
-// Initialise creates the 'connection manager' (which provides caching), sets up the logger
+// initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
-func (p *Plugin) Initialise() {
+func (p *Plugin) initialise() {
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connection_manager.ConnectionCache)
 
 	p.Logger = p.setupLogger()
-	log.Printf("[INFO] Initialise plugin '%s', using sdk version %s", p.Name, version.String())
+	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 
 	// default the schema mode to static
 	if p.SchemaMode == "" {

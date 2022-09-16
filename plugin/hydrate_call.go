@@ -7,8 +7,8 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// HydrateCall struct encapsulates a hydrate call, its config and dependencies
-type HydrateCall struct {
+// hydrateCall struct encapsulates a hydrate call, its config and dependencies
+type hydrateCall struct {
 	Func HydrateFunc
 	// the dependencies expressed using function name
 	Depends []string
@@ -16,8 +16,8 @@ type HydrateCall struct {
 	Name    string
 }
 
-func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall {
-	res := &HydrateCall{
+func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *hydrateCall {
+	res := &hydrateCall{
 		Name:   helpers.GetFunctionName(hydrateFunc),
 		Func:   hydrateFunc,
 		Config: config,
@@ -31,7 +31,7 @@ func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *HydrateCall
 // CanStart returns whether this hydrate call can execute
 // - check whether all dependency hydrate functions have been completed
 // - check whether the concurrency limits would be exceeded
-func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager *concurrencyManager) bool {
+func (h hydrateCall) canStart(rowData *RowData, name string, concurrencyManager *concurrencyManager) bool {
 	// check whether all hydrate functions we depend on have saved their results
 	for _, dep := range h.Depends {
 		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep) {
@@ -47,11 +47,11 @@ func (h HydrateCall) CanStart(rowData *RowData, name string, concurrencyManager 
 }
 
 // Start starts a hydrate call
-func (h *HydrateCall) Start(ctx context.Context, r *RowData, d *QueryData, concurrencyManager *concurrencyManager) {
+func (h *hydrateCall) start(ctx context.Context, r *RowData, d *QueryData, concurrencyManager *concurrencyManager) {
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 	// update the hydrate count
-	atomic.AddInt64(&d.QueryStatus.hydrateCalls, 1)
+	atomic.AddInt64(&d.queryStatus.hydrateCalls, 1)
 
 	// call callHydrate async, ignoring return values
 	go func() {

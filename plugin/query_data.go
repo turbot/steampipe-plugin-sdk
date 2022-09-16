@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
@@ -40,7 +40,7 @@ type QueryData struct {
 	// query context data passed from postgres - this includes the requested columns and the quals
 	QueryContext *QueryContext
 	// the status of the in-progress query
-	QueryStatus *QueryStatus
+	queryStatus *QueryStatus
 	// connection details - the connection name and any config declared in the connection config file
 	Connection *Connection
 	// Matrix is an array of parameter maps (MatrixItems)
@@ -66,7 +66,7 @@ type QueryData struct {
 
 	plugin *Plugin
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
-	hydrateCalls []*HydrateCall
+	hydrateCalls []*hydrateCall
 
 	// all the columns that will be returned by this query
 	columns            []*QueryColumn
@@ -145,7 +145,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	d.concurrencyManager = newConcurrencyManager(table)
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
-	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
+	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
 
 	return d, nil
 }
@@ -183,7 +183,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		outputChan:         d.outputChan,
 		listWg:             d.listWg,
 		columns:            d.columns,
-		QueryStatus:        d.QueryStatus,
+		queryStatus:        d.queryStatus,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -405,7 +405,7 @@ func (d *QueryData) streamListItem(ctx context.Context, items ...interface{}) {
 	// loop over items
 	for _, item := range items {
 		// have we streamed enough already?
-		if d.QueryStatus.StreamingComplete {
+		if d.queryStatus.StreamingComplete {
 			return
 		}
 		// if this table has no parent hydrate function, just call streamLeafListItem directly
@@ -457,14 +457,14 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 	// loop over items
 	for _, item := range items {
 		// have we streamed enough already?
-		if d.QueryStatus.StreamingComplete {
+		if d.queryStatus.StreamingComplete {
 			return
 		}
 
 		// if this is the first time we have received a zero rows remaining, stream an empty row and mark stream
-		if d.QueryStatus.RowsRemaining(ctx) == 0 {
+		if d.queryStatus.RowsRemaining(ctx) == 0 {
 			log.Printf("[TRACE] streamListItem RowsRemaining zero, send nil row %s", d.Connection.Name)
-			d.QueryStatus.StreamingComplete = true
+			d.queryStatus.StreamingComplete = true
 			// if this is the first time we have received a zero rows remaining, stream an empty row
 			// to indicate downstream that we are done
 			d.rowDataChan <- nil
@@ -485,7 +485,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 			continue
 		}
 		// increment the stream count
-		d.QueryStatus.rowsStreamed++
+		d.queryStatus.rowsStreamed++
 
 		// create rowData, passing matrixItem from context
 		rd := newRowData(d, item)
@@ -502,7 +502,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 
 // if a free memory interval has been set, check if we have reached it
 func (d *QueryData) shouldFreeMemory() bool {
-	return d.freeMemInterval != 0 && d.QueryStatus.rowsStreamed%d.freeMemInterval == 0
+	return d.freeMemInterval != 0 && d.queryStatus.rowsStreamed%d.freeMemInterval == 0
 }
 
 // called when all items have been fetched - close the item chan
@@ -628,10 +628,10 @@ func (d *QueryData) streamRow(row *proto.Row) {
 	resp := &proto.ExecuteResponse{
 		Row: row,
 		Metadata: &proto.QueryMetadata{
-			HydrateCalls: d.QueryStatus.hydrateCalls,
+			HydrateCalls: d.queryStatus.hydrateCalls,
 			// only 1 of these will be non zero
-			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
-			CacheHit:    d.QueryStatus.cachedRowsFetched > 0,
+			RowsFetched: d.queryStatus.rowsStreamed + d.queryStatus.cachedRowsFetched,
+			CacheHit:    d.queryStatus.cachedRowsFetched > 0,
 		},
 		Connection: d.Connection.Name,
 	}
