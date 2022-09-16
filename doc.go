@@ -3,7 +3,7 @@
 Plugin is the top-level package of the [Steampipe] plugin SDK. It provides data structures and functions that enable a plugin to read data from an API and stream it into Postgres tables by way of Steampipe's [foreign data wrapper] (FDW).
 
 [Steampipe]: https://github.com/turbot/steampipe
-[foreign data wrapper]: https://github.com/turbot/steampipe-postgres-fdw
+
 
 # Flow of execution
 
@@ -71,6 +71,7 @@ Use [HydrateFunc] to call an API and return data.
 # ListConfig
 
 Use [plugin.ListConfig] to define a List call.
+
 
 # GetConfig
 
