@@ -1,6 +1,4 @@
 /*
-package dynamic_plugin
-
 If [plugin.SchemaMode] is set to `dynamic`, every time
 Steampipe starts the plugin's schema will be checked for any changes since the
 last time it loaded, and re-import the schema if it detects any.

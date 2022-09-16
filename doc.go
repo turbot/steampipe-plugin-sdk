@@ -138,3 +138,13 @@ Steampipe uses https://github.com/hashicorp/go-hclog hclog, which uses standard 
 
 */
 package main
+
+import (
+	"github.com/turbot/steampipe-plugin-sdk/v4/docs/dynamic_plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
+)
+
+var forceImportDynamicPlugin dynamic_plugin.ForceImport
+var forceImportPlugin plugin.ForceImport
+var forceImportTransform transform.ForceImport
