@@ -43,14 +43,18 @@ const (
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
 /*
-[Plugin] is the primary struct that defines a plugin. 
+[Plugin] is the primary struct that [defines a plugin].
 
-[Plugin]: https://steampipe.io/docs/develop/writing-plugins#plugingo
+[defines a plugin]: https://steampipe.io/docs/develop/writing-plugins#plugingo
+
+The struct always includes a Name, a ConnectionConfigSchema, and a TableMap.
+
+It may override one or more Defaults.
 
 By convention, the package name for your plugin should match the plugin's name,
 and the Go files for your plugin (except main.go) should reside in a folder with the same name.
 
-# Usage
+To define a plugin:
 
 func Plugin(ctx context.Context) *plugin.Plugin {
 	p := &plugin.Plugin{
@@ -76,9 +80,12 @@ func Plugin(ctx context.Context) *plugin.Plugin {
 }
 
 Examples:
-
+	- [aws] 
+	- [github] 
 	- [hackernews]
 
+[aws]: https://github.com/turbot/steampipe-plugin-aws/blob/c5fbf38df19667f60877c860cf8ad39816ff658f/aws/plugin.go#L19
+[github]: https://github.com/turbot/steampipe-plugin-github/blob/a5ae211ee602be4adcea3a5c495cbe36aa87b957/github/plugin.go#L11
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
 
 */
