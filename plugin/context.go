@@ -27,6 +27,7 @@ Deprecated: Please use [plugin.Table.GetMatrixItemFunc] instead.
 */
 func GetMatrixItem(ctx context.Context) map[string]interface{} {
 	value := ctx.Value(context_key.MatrixItem)
+
 	if value == nil {
 		return nil
 	}
