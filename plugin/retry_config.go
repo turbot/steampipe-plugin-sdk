@@ -8,6 +8,48 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
+/*
+RetryConfig retries [HydrateFunc] errors.
+
+If a HydrateFunc returns an error in the first attempt but resolves itself in a future attempt, for instance API rate limit or throttling errors, set [plugin.GetConfig.RetryConfig], [plugin.ListConfig.RetryConfig] or [plugin.HydrateConfig.RetryConfig].
+
+For errors common to many HydrateFuncs, you can define a default RetryConfig by setting [plugin.DefaultGetConfig].
+
+Retry errors from a HydrateFunc that has a GetConfig:
+
+		Get: &plugin.GetConfig{
+			RetryConfig: &plugin.RetryConfig{
+				ShouldRetryError: shouldRetryError,
+			},
+			...
+		},
+
+Retry errors from a HydrateFunc that has a ListConfig:
+
+		List: &plugin.ListConfig{
+			RetryConfig: &plugin.RetryConfig{
+				ShouldRetryError: shouldRetryError,
+			},
+			...
+		},
+
+Retry errors from a HydrateFunc that has a HydrateConfig:
+
+		HydrateConfig: []plugin.HydrateConfig{
+			RetryConfig: &plugin.RetryConfig{
+				ShouldRetryError: shouldRetryError,
+			},
+			...
+		},
+
+Retry errors that may occur in many HydrateFuncs:
+		DefaultIgnoreConfig: &plugin.DefaultIgnoreConfig{
+			RetryConfig: &plugin.RetryConfig{
+				ShouldRetryError: shouldRetryError,
+			},
+			...
+		},
+*/
 type RetryConfig struct {
 	ShouldRetryErrorFunc ErrorPredicateWithContext
 	// deprecated use ShouldRetryErrorFunc
@@ -42,7 +84,7 @@ func (c *RetryConfig) DefaultTo(other *RetryConfig) {
 	if other == nil {
 		return
 	}
-	// if either ShouldIgnoreError or ShouldIgnoreErrorFunc are set, do not default to other
+	// if either ShouldIgnoreError or ShouldRetryErrorFunc are set, do not default to other
 	if c.ShouldRetryError != nil || c.ShouldRetryErrorFunc != nil {
 		log.Printf("[TRACE] RetryConfig DefaultTo: config defines a should retry function so not defaulting to base")
 		return
