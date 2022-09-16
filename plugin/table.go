@@ -7,14 +7,29 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
 )
 
+/*
+TableCacheOptions provides a mechanism to disable caching for a specific table.
+
+It is useful in cases where the table returns a huge volume of data cheaply.
+
+Use TableCacheOptions to override the .cache off property of the CLI.
+*/
 type TableCacheOptions struct {
 	Enabled bool
 }
 
-// Table is a struct representing a plugin table.
-// It defines the table columns, the function used to list table results (List)
-// as well as (optionally) the function used to retrieve a single result by key (Get)
-// and additional the functions required to fetch specific columns (HydrateConfig).
+/*
+Table defines the properties of a plugin table:
+
+	- which columns to include: [Column]
+	- function used to list table results: [ListConfig]
+	- function used to retrieve a single result by key: [GetConfig]
+	- additional functions required to fetch specific column data: [HydrateConfig]
+	- function which retrieves some or all row data for a single row item: [HydrateFunc]
+	- function used to retrieve data for multiple matrix items: [MatrixItemMapFunc]
+	- ignore errors: [IgnoreConfig]
+	- retry errors: [RetryConfig]
+*/
 type Table struct {
 	Name string
 	// table description
