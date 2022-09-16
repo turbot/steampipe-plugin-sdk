@@ -11,12 +11,17 @@ import (
 /*
 Logger retrieves the [hclog.Logger] from the context.
 
-Usage:
-
+Log at trace level:
 	plugin.Logger(ctx).Trace("Code execution starts here")
+
+Log at error level with single data:
 	plugin.Logger(ctx).Error("hackernews_item.itemList", "query_error", err)
-	plugin.Logger(ctx).Warn("getDomain", "invalid_name", err, "query_response", resp)
+
+Log at info level with single data:
 	plugin.Logger(ctx).Info("listGreeting", "number", i)
+
+Log at warn level with multiple data:
+	plugin.Logger(ctx).Warn("getDomain", "invalid_name", err, "query_response", resp)
 */
 func Logger(ctx context.Context) hclog.Logger {
 	return ctx.Value(context_key.Logger).(hclog.Logger)
