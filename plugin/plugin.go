@@ -19,6 +19,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v4/docs/dynamic_plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
@@ -33,6 +34,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 )
+
+var forceImportDynamicPlugin dynamic_plugin.ForceImport
 
 const (
 	SchemaModeStatic  = "static"
@@ -52,19 +55,7 @@ The tables provided by the plugin are defined by either setting [plugin.Plugin.T
 
   - For most plugins, with a static set of tables, use the TableMap property
 
-  - For dynamic plugins [plugin.Flow_of_execution], use [plugin.Plugin.TableMapFunc]. Also, [plugin.Plugin.SchemaMode] must be set to “dynamic“ .
-
-[plugin.Flow_of_execution]
-
-[plugin#Flow_of_execution]
-
-[plugin#hdr-Flow_of_execution]
-
-[plugin.hdr-Flow_of_execution]
-
-[plugin/hdr-Flow_of_execution]
-
-[plugin/Flow_of_execution]
+  - For a [dynamic_plugin], use [plugin.Plugin.TableMapFunc]. Also, [plugin.Plugin.SchemaMode] must be set to “dynamic“ .
 
 If the plugin uses custom connection config, it must define a [plugin.ConnectionConfigSchema],
 
