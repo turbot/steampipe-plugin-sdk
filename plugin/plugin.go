@@ -52,7 +52,7 @@ The tables provided by the plugin are specified by setting either [plugin.Plugin
 
   - For most plugins, with a static set of tables, use the TableMap property
 
-  - For a [dynamic_plugin], use [plugin.Plugin.TableMapFunc]. Also, [plugin.Plugin.SchemaMode] must be set to “dynamic“ .
+  - For a plugin with [dynamic_tables], use [plugin.Plugin.TableMapFunc]. Also, [plugin.Plugin.SchemaMode] must be set to “dynamic“ .
 
 If the plugin uses custom connection config, it must define a [plugin.ConnectionConfigSchema],
 
