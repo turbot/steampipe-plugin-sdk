@@ -1,4 +1,5 @@
 package plugin
+
 import (
 	"fmt"
 	"log"
@@ -8,31 +9,26 @@ import (
 )
 
 /*
-
 [ListConfig] defines the function that lists all rows of a table, the KeyColumns that may be used to optimize the fetch, and the error-handling behavior.
-
-[ListConfig]: https://steampipe.io/docs/develop/writing-plugins#list-config
 
 To define a table's List function:
 
-func tableHackernewsItem(ctx context.Context) *plugin.Table {
-	return &plugin.Table{
-		Name:        "hackernews_item",
-		Description: "This table includes the most recent items posted to Hacker News.",
-		List: &plugin.ListConfig{
-			Hydrate: itemList,
-		},
-		...
+	func tableHackernewsItem(ctx context.Context) *plugin.Table {
+		return &plugin.Table{
+			Name:        "hackernews_item",
+			Description: "This table includes the most recent items posted to Hacker News.",
+			List: &plugin.ListConfig{
+				Hydrate: itemList,
+			},
+			...
+		}
 	}
-}
-
 
 Examples:
-	- [hackernews]
+  - [hackernews]
 
+[ListConfig]: https://steampipe.io/docs/develop/writing-plugins#list-config
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L14
-
-
 */
 type ListConfig struct {
 	KeyColumns KeyColumnSlice
@@ -76,10 +72,10 @@ func (c *ListConfig) Validate(table *Table) []string {
 		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' ListConfig does not specify a hydrate function", table.Name))
 	}
 	if c.RetryConfig != nil {
-		validationErrors = append(validationErrors, c.RetryConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.RetryConfig.validate(table)...)
 	}
 	if c.IgnoreConfig != nil {
-		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
 
 	// ensure there is no explicit hydrate config for the list config

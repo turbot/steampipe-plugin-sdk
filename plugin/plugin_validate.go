@@ -26,10 +26,10 @@ func (p *Plugin) Validate() string {
 	}
 
 	log.Printf("[TRACE] validate DefaultRetryConfig")
-	validationErrors = append(validationErrors, p.DefaultRetryConfig.Validate(nil)...)
+	validationErrors = append(validationErrors, p.DefaultRetryConfig.validate(nil)...)
 
 	log.Printf("[TRACE] validate DefaultIgnoreConfig")
-	validationErrors = append(validationErrors, p.DefaultIgnoreConfig.Validate(nil)...)
+	validationErrors = append(validationErrors, p.DefaultIgnoreConfig.validate(nil)...)
 
 	log.Printf("[TRACE] validate table names")
 	validationErrors = append(validationErrors, p.validateTableNames()...)

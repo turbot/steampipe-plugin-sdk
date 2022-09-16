@@ -28,9 +28,9 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	// the map entries are strings - ensure they correspond to actual functions
 	validationErrors = append(validationErrors, t.validateHydrateDependencies()...)
 
-	validationErrors = append(validationErrors, t.DefaultRetryConfig.Validate(t)...)
+	validationErrors = append(validationErrors, t.DefaultRetryConfig.validate(t)...)
 
-	validationErrors = append(validationErrors, t.DefaultIgnoreConfig.Validate(t)...)
+	validationErrors = append(validationErrors, t.DefaultIgnoreConfig.validate(t)...)
 
 	for _, h := range t.hydrateConfigMap {
 		validationErrors = append(validationErrors, h.Validate(t)...)

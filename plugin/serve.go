@@ -2,13 +2,13 @@ package plugin
 
 import (
 	"context"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
@@ -34,7 +34,7 @@ func Serve(opts *ServeOpts) {
 	p := opts.PluginFunc(ctx)
 
 	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
-	p.Initialise()
+	p.initialise()
 
 	shutdown, _ := telemetry.Init(p.Name)
 	defer func() {

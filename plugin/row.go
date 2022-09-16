@@ -91,9 +91,9 @@ func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 			}
 
 			// so call needs to start - can it?
-			if call.CanStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
+			if call.canStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
 				// execute the hydrate call asynchronously
-				call.Start(rowDataCtx, r, rowQueryData, r.queryData.concurrencyManager)
+				call.start(rowDataCtx, r, rowQueryData, r.queryData.concurrencyManager)
 				callsStarted[hydrateFuncName] = true
 			} else {
 				allStarted = false
