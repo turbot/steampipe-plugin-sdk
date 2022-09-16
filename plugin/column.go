@@ -14,9 +14,7 @@ A column may transform the data it receives using one or more [transform functio
 
 [transform functions]: https://steampipe.io/docs/develop/writing-plugins#transform-functions
 
-# Usage
-
-A column populated by a List or Get call:
+To define a column populated by a List or Get call:
 
 func itemCols() []*plugin.Column {
     return []*plugin.Column{
@@ -24,7 +22,7 @@ func itemCols() []*plugin.Column {
     }
 }
 
-A column populated by a HydrateFunc:
+To define a column populated by a HydrateFunc:
 
 		Columns: awsColumns([]*plugin.Column{
 			{
@@ -35,7 +33,7 @@ A column populated by a HydrateFunc:
 			},
 		}
 
-Columns that transform the data.
+To define columns that transform the data:
 
 		Columns: awsColumns([]*plugin.Column{
 			{
