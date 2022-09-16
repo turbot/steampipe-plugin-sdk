@@ -17,38 +17,39 @@ For errors common to many HydrateFuncs, you can define a default RetryConfig by 
 
 Retry errors from a HydrateFunc that has a GetConfig:
 
-		Get: &plugin.GetConfig{
-			RetryConfig: &plugin.RetryConfig{
-				ShouldRetryError: shouldRetryError,
-			},
-			...
+	Get: &plugin.GetConfig{
+		RetryConfig: &plugin.RetryConfig{
+			ShouldRetryError: shouldRetryError,
 		},
+		...
+	},
 
 Retry errors from a HydrateFunc that has a ListConfig:
 
-		List: &plugin.ListConfig{
-			RetryConfig: &plugin.RetryConfig{
-				ShouldRetryError: shouldRetryError,
-			},
-			...
+	List: &plugin.ListConfig{
+		RetryConfig: &plugin.RetryConfig{
+			ShouldRetryError: shouldRetryError,
 		},
+		...
+	},
 
 Retry errors from a HydrateFunc that has a HydrateConfig:
 
-		HydrateConfig: []plugin.HydrateConfig{
-			RetryConfig: &plugin.RetryConfig{
-				ShouldRetryError: shouldRetryError,
-			},
-			...
+	HydrateConfig: []plugin.HydrateConfig{
+		RetryConfig: &plugin.RetryConfig{
+			ShouldRetryError: shouldRetryError,
 		},
+		...
+	},
 
 Retry errors that may occur in many HydrateFuncs:
-		DefaultIgnoreConfig: &plugin.DefaultIgnoreConfig{
-			RetryConfig: &plugin.RetryConfig{
-				ShouldRetryError: shouldRetryError,
-			},
-			...
+
+	DefaultIgnoreConfig: &plugin.DefaultIgnoreConfig{
+		RetryConfig: &plugin.RetryConfig{
+			ShouldRetryError: shouldRetryError,
 		},
+		...
+	},
 */
 type RetryConfig struct {
 	ShouldRetryErrorFunc ErrorPredicateWithContext
