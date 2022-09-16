@@ -30,22 +30,15 @@ const rowDataBufferSize = 100
 QueryData contains all the possible information about a query:
 
   - the table ([Table]).
-
   - the key column qualifiers ([KeyColumnQualMap]).
-
   - is it a list or a get call?
-
   - context data passed from postgres ([QueryContext]).
-
   - status of the in-progress query ([QueryStatus]).
-
   - the steampipe connection ([Connection]).
-
   - connection caching to specify caching of data ([connection.ConnectionCache]) TODO: this link doesn't work.
-
   - the function which is used to stream data.
 
-# Usage
+Usage:
 
 	func getItem(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 		...
