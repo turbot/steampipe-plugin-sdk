@@ -4,8 +4,11 @@ package plugin
 
 import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v4/docs/dynamic_tables"
 )
 
+// ForceImport is a mechanism to ensure godoc can reference all required packages
 type ForceImport string
 
 var forceImportConnection connection.ForceImport
+var forceImportDynamicPlugin dynamic_tables.ForceImport

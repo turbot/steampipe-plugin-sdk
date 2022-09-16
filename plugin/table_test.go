@@ -402,7 +402,7 @@ func newTestQueryData(plugin *Plugin, queryContext *QueryContext, table *Table, 
 	d.setFetchType(table)
 
 	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
-	ensureColumns(queryContext, table)
+	queryContext.ensureColumns(table)
 
 	// build list of required hydrate calls, based on requested columns
 	d.populateRequiredHydrateCalls()

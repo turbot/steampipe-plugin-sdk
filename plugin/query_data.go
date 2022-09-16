@@ -14,7 +14,6 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
@@ -25,25 +24,17 @@ import (
 // how may rows do we cache in the rowdata channel
 const rowDataBufferSize = 100
 
-// NOTE - any field added here must also be added to ShallowCopy
-
 /*
-QueryData contains all the possible information about a query:
+QueryData is passed to all [HydrateFunc] calls. It contains all required information about the executing query:
 
   - the table ([Table]).
-  - the key column qualifiers ([KeyColumnQualMap]).
+  - a map of all equals key column quals ([KeyColumnEqualsQualMap]).
+  - a map of all key column quals ([KeyColumnQualMap]).
   - is it a list or a get call?
   - context data passed from postgres ([QueryContext]).
-  - status of the in-progress query ([QueryStatus]).
   - the steampipe connection ([Connection]).
-  - connection caching to specify caching of data ([connection.ConnectionCache]) TODO: this link doesn't work.
-  - the function which is used to stream data.
-
-Usage:
-
-	func getItem(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-		...
-	}
+  - a cache which can be used to store connection specific data ([connection.ConnectionCache]).
+  - the function which is used to stream rows of data ([connection.StreamListItem]).
 
 Plugin examples:
   - [hackernews]
@@ -53,6 +44,8 @@ Plugin examples:
 [pagerduty]: https://github.com/turbot/steampipe-plugin-pagerduty/blob/5c04d5d6636b039277285e0c3f6c07069510e267/pagerduty/table_pagerduty_user.go#L146
 */
 type QueryData struct {
+	// NOTE - any field added here must also be added to ShallowCopy
+
 	// The table this query is associated with
 	Table *Table
 	// if this is a get call this will be populated with the quals as a map of column name to quals
@@ -66,8 +59,6 @@ type QueryData struct {
 	FetchType fetchType
 	// query context data passed from postgres - this includes the requested columns and the quals
 	QueryContext *QueryContext
-	// the status of the in-progress query
-	queryStatus *QueryStatus
 	// connection details - the connection name and any config declared in the connection config file
 	Connection *Connection
 	// Matrix is an array of parameter maps (MatrixItems)
@@ -88,10 +79,11 @@ type QueryData struct {
 	StreamLeafListItem func(context.Context, ...interface{})
 
 	// internal
+	// the status of the in-progress query
+	queryStatus *queryStatus
 	// the callId for this connection
 	connectionCallId string
-
-	plugin *Plugin
+	plugin           *Plugin
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
 	hydrateCalls []*hydrateCall
 
@@ -162,8 +154,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	d.StreamLeafListItem = d.streamLeafListItem
 	d.setFetchType(table)
 
-	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
-	ensureColumns(queryContext, table)
+	queryContext.ensureColumns(table)
 
 	// build list of required hydrate calls, based on requested columns
 	d.populateRequiredHydrateCalls()
@@ -175,14 +166,6 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
 
 	return d, nil
-}
-
-func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
-	d.Matrix = matrix
-	// if we have key column quals for any matrix properties, filter the matrix
-	// to exclude items which do not satisfy the quals
-	// this populates the property filteredMatrix
-	d.filterMatrixItems()
 }
 
 // ShallowCopy creates a shallow copy of the QueryData
@@ -226,6 +209,27 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	clone.StreamListItem = clone.streamListItem
 	clone.StreamLeafListItem = clone.streamLeafListItem
 	return clone
+}
+
+// RowsRemaining returns how many rows are required to complete the query
+//   - if no limit has been parsed from the query, this will return math.MaxInt32
+//     (meaning an unknown number of rows remain)
+//   - if there is a limit, it will return the number of rows required to reach this limit
+//   - if  the context has been cancelled, it will return zero
+func (d *QueryData) RowsRemaining(ctx context.Context) int64 {
+	if IsCancelled(ctx) {
+		return 0
+	}
+	rowsRemaining := d.queryStatus.rowsRequired - d.queryStatus.rowsStreamed
+	return rowsRemaining
+}
+
+func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
+	d.Matrix = matrix
+	// if we have key column quals for any matrix properties, filter the matrix
+	// to exclude items which do not satisfy the quals
+	// this populates the property filteredMatrix
+	d.filterMatrixItems()
 }
 
 // build list of all columns returned by the fetch call and required hydrate calls
@@ -386,27 +390,6 @@ func (d *QueryData) shouldIncludeMatrixItem(quals *KeyColumnQuals, matrixVal int
 func (d *QueryData) logQualMaps() {
 	log.Printf("[TRACE] Equals key column quals:\n%s", d.KeyColumnQuals)
 	log.Printf("[TRACE] All key column quals:\n%s", d.Quals)
-}
-
-// for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
-func ensureColumns(queryContext *QueryContext, table *Table) {
-	if len(queryContext.Columns) != 0 {
-		return
-	}
-
-	var col string
-	for _, c := range table.Columns {
-		if c.Hydrate == nil {
-			col = c.Name
-			break
-		}
-	}
-	if col == "" {
-		// all columns have hydrate - just return the first column
-		col = table.Columns[0].Name
-	}
-	// set queryContext.Columns to be this single column
-	queryContext.Columns = []string{col}
 }
 
 func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {

@@ -1,9 +1,10 @@
 /*
+# Dynamic Tables
 If [plugin.SchemaMode] is set to `dynamic`, every time
 Steampipe starts the plugin's schema will be checked for any changes since the
 last time it loaded, and re-import the schema if it detects any.
 
-Dynamic tables are useful when you are building a plugin whose schema is not
+Plugins with dynamic tables are useful when you are building a plugin whose schema is not
 known at compile time; instead, its schema will be generated at runtime. For
 instance, a plugin with dynamic tables is useful if you want to load CSV files
 as tables from one or more directories. Each of these CSV files may have
@@ -108,6 +109,7 @@ a dynamic table, please see the [CSV plugin]
 
 [CSV plugin]: https://hub.steampipe.io/plugins/turbot/csv/tables/%7Bcsv_filename%7D
 */
-package dynamic_plugin
+package dynamic_tables
 
+// ForceImport is a mechanism to ensure godoc can reference all required packages
 type ForceImport string

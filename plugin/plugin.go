@@ -18,8 +18,7 @@ import (
 	"github.com/eko/gocache/v3/store"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v4/docs/dynamic_plugin"
+	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
@@ -34,8 +33,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 )
-
-var forceImportDynamicPlugin dynamic_plugin.ForceImport
 
 const (
 	SchemaModeStatic  = "static"
@@ -115,7 +112,7 @@ type Plugin struct {
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
 	connectionCacheStore *cache.Cache[any]
 	// map of the connection caches, keyed by connection name
-	connectionCacheMap     map[string]*connection_manager.ConnectionCache
+	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
 }
 
@@ -123,7 +120,7 @@ type Plugin struct {
 // and sets the file limit.
 func (p *Plugin) initialise() {
 	p.ConnectionMap = make(map[string]*ConnectionData)
-	p.connectionCacheMap = make(map[string]*connection_manager.ConnectionCache)
+	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
 
 	p.Logger = p.setupLogger()
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
@@ -186,8 +183,8 @@ func (p *Plugin) createConnectionCacheStore() error {
 	return nil
 }
 
-func (p *Plugin) newConnectionCache(connectionName string) *connection_manager.ConnectionCache {
-	connectionCache := connection_manager.NewConnectionCache(connectionName, p.connectionCacheStore)
+func (p *Plugin) newConnectionCache(connectionName string) *connectionmanager.ConnectionCache {
+	connectionCache := connectionmanager.NewConnectionCache(connectionName, p.connectionCacheStore)
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
 	// add to map of connection caches
@@ -437,7 +434,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		streamRowFunc := func(row *proto.Row) {
 			// if row is not nil (indicating completion), increment cachedRowsFetched
 			if row != nil {
-				atomic.AddInt64(&queryData.QueryStatus.cachedRowsFetched, 1)
+				atomic.AddInt64(&queryData.queryStatus.cachedRowsFetched, 1)
 			}
 			queryData.streamRow(row)
 		}
