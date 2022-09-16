@@ -4,6 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"runtime/debug"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
@@ -23,14 +32,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
-	"log"
-	"os"
-	"runtime/debug"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (
@@ -445,7 +446,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		streamRowFunc := func(row *proto.Row) {
 			// if row is not nil (indicating completion), increment cachedRowsFetched
 			if row != nil {
-				atomic.AddInt64(&queryData.queryStatus.cachedRowsFetched, 1)
+				atomic.AddInt64(&queryData.QueryStatus.cachedRowsFetched, 1)
 			}
 			queryData.streamRow(row)
 		}
