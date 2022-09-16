@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"log"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
@@ -25,6 +26,38 @@ const rowDataBufferSize = 100
 
 // NOTE - any field added here must also be added to ShallowCopy
 
+/*
+QueryData contains all the possible information about a query:
+
+  - the table ([Table]).
+
+  - the key column qualifiers ([KeyColumnQualMap]).
+
+  - is it a list or a get call?
+
+  - context data passed from postgres ([QueryContext]).
+
+  - status of the in-progress query ([QueryStatus]).
+
+  - the steampipe connection ([Connection]).
+
+  - connection caching to specify caching of data ([connection.ConnectionCache]) TODO: this link doesn't work.
+
+  - the function which is used to stream data.
+
+# Usage
+
+	func getItem(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+		...
+	}
+
+Plugin examples:
+  - [hackernews]
+  - [pagerduty]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L52
+[pagerduty]: https://github.com/turbot/steampipe-plugin-pagerduty/blob/5c04d5d6636b039277285e0c3f6c07069510e267/pagerduty/table_pagerduty_user.go#L146
+*/
 type QueryData struct {
 	// The table this query is associated with
 	Table *Table
