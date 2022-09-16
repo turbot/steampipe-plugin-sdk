@@ -23,6 +23,12 @@ type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, e
 // deprecated
 type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}
 
+/*
+MatrixItemMapFunc provides a mechanism to query multiple matrix items instead of passing them individually in every [HydrateFunc].
+
+It is cumbersome to define different set of regions every time a hydrate function is invoked. MatrixItemMapFunc helps you to define a set of regions which can execute the API calls parallely and then unify the results into different rows.
+In certain cloud providers, region data needs to be passed into the [HydrateFunc] for execution. If we define
+*/
 type MatrixItemMapFunc func(context.Context, *QueryData) []map[string]interface{}
 
 type ErrorPredicate func(error) bool
