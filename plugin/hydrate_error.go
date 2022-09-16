@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attemptes before throwing error
+// RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attempts before throwing error
 func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "RetryHydrate (%s)", d.Table.Name)
 	span.SetAttributes(

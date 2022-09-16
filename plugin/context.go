@@ -16,6 +16,7 @@ func Logger(ctx context.Context) hclog.Logger {
 // GetMatrixItem extracts the matrix item map with the given key from the context
 func GetMatrixItem(ctx context.Context) map[string]interface{} {
 	value := ctx.Value(context_key.MatrixItem)
+
 	if value == nil {
 		return nil
 	}
