@@ -1,12 +1,7 @@
 package plugin
 
 import (
-	"errors"
 	"fmt"
-	"log"
-	"strings"
-
-	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/turbot/go-kit/helpers"
@@ -14,10 +9,63 @@ import (
 	"github.com/zclconf/go-cty/cty/gocty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"log"
 )
 
+/*
+ConnectionConfigSchema is a struct that defines custom arguments in the plugin spc file
+that are passed to the plugin as [plugin.Connection.Config].
+
+A plugin that uses custom connection config must set [plugin.Plugin.ConnectionConfigSchema].
+
+Usage:
+
+	p := &plugin.Plugin{
+		Name: "steampipe-plugin-hackernews",
+		ConnectionConfigSchema: &plugin.ConnectionConfigSchema{
+			NewInstance: ConfigInstance,
+			Schema:      ConfigSchema,
+		},
+		...
+	}
+
+	var ConfigSchema = map[string]*schema.Attribute{
+		"max_items": {
+			Type: schema.TypeInt,
+		},
+	}
+
+	func ConfigInstance() interface{} {
+		return &hackernewsConfig{}
+	}
+
+Plugin examples:
+  - [hackernews]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/plugin.go#L13
+*/
+type ConnectionConfigSchema struct {
+	Schema map[string]*schema.Attribute
+	// function which returns an instance of a connection config struct
+	NewInstance ConnectionConfigInstanceFunc
+}
+
+/*
+ConnectionConfigInstanceFunc is a function type which returns 'any'.
+
+It is used to implement [plugin.ConnectionConfigSchema.NewInstance].
+*/
 type ConnectionConfigInstanceFunc func() interface{}
 
+/*
+Connection is a struct which is used to store connection config.
+
+The connection config is parsed and stored as [plugin.Plugin.Connection].
+The connection may be retrieved the plugin by calling: [plugin.QueryData.Connection]
+`
+Example from [hackernews]
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/connection_config.go#L23
+*/
 type Connection struct {
 	Name string
 	// the connection config
@@ -25,20 +73,14 @@ type Connection struct {
 	Config interface{}
 }
 
-// ConnectionConfigSchema struct is used to define the connection config schema and store the config for each plugin connection
-type ConnectionConfigSchema struct {
-	Schema map[string]*schema.Attribute
-	// function which returns an instance of a connection config struct
-	NewInstance ConnectionConfigInstanceFunc
-}
-
-// Parse function parses the hcl string into a connection config struct.
+// parse function parses the hcl config string into a connection config struct.
+//
 // The schema and the  struct to parse into are provided by the plugin
-func (c *ConnectionConfigSchema) Parse(configString string) (config interface{}, err error) {
+func (c *ConnectionConfigSchema) parse(configString string) (config interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[WARN] ConnectionConfigSchema Parse caught a panic: %v\n", r)
-			err = status.Error(codes.Internal, fmt.Sprintf("ConnectionConfigSchema Parse failed with panic %v", r))
+			log.Printf("[WARN] ConnectionConfigSchema parse caught a panic: %v\n", r)
+			err = status.Error(codes.Internal, fmt.Sprintf("ConnectionConfigSchema parse failed with panic %v", r))
 		}
 	}()
 
@@ -69,41 +111,4 @@ func (c *ConnectionConfigSchema) Parse(configString string) (config interface{},
 
 	// return the struct by value
 	return helpers.DereferencePointer(configStruct), nil
-}
-
-// DiagsToError converts hcl diags into an error
-func DiagsToError(prefix string, diags hcl.Diagnostics) error {
-	// convert the first diag into an error
-	if !diags.HasErrors() {
-		return nil
-	}
-	errorStrings := []string{fmt.Sprintf("%s", prefix)}
-	// store list of messages (without the range) and use for deduping (we may get the same message for multiple ranges)
-	errorMessages := []string{}
-	for _, diag := range diags {
-		if diag.Severity == hcl.DiagError {
-			errorString := fmt.Sprintf("%s", diag.Summary)
-			if diag.Detail != "" {
-				errorString += fmt.Sprintf(": %s", diag.Detail)
-			}
-
-			if !helpers.StringSliceContains(errorMessages, errorString) {
-				errorMessages = append(errorMessages, errorString)
-				// now add in the subject and add to the output array
-				if diag.Subject != nil && len(diag.Subject.Filename) > 0 {
-					errorString += fmt.Sprintf("\n(%s)", diag.Subject.String())
-				}
-				errorStrings = append(errorStrings, errorString)
-
-			}
-		}
-	}
-	if len(errorStrings) > 0 {
-		errorString := strings.Join(errorStrings, "\n")
-		if len(errorStrings) > 1 {
-			errorString += "\n"
-		}
-		return errors.New(errorString)
-	}
-	return diags.Errs()[0]
 }

@@ -6,7 +6,7 @@ import (
 )
 
 // GRPCClient is an implementation of
-//WrapperPluginClient service that talks over RPC.
+// WrapperPluginClient service that talks over RPC.
 type GRPCClient struct {
 	// Proto client use to make the grpc service calls.
 	client proto.WrapperPluginClient

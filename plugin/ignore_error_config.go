@@ -16,8 +16,6 @@ If a [HydrateFunc] has specific errors that should not block query execution, se
 
 For errors common to many HydrateFuncs, you can define a default IgnoreConfig by setting [plugin.DefaultGetConfig].
 
-# Usage
-
 Ignore errors from a HydrateFunc that has a GetConfig:
 
 		Get: &plugin.GetConfig{

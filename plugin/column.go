@@ -83,7 +83,7 @@ type Column struct {
 }
 
 // QueryColumn is struct storing column name and resolved hydrate name
-// this is used in the query data when the hydrate funciton has been resolved
+// this is used in the query data when the hydrate function has been resolved
 type QueryColumn struct {
 	*Column
 	// the name of the hydrate function which will be used to populate this column
