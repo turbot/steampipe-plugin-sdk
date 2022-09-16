@@ -8,16 +8,16 @@ import (
 /*
 DefaultConcurrencyConfig sets the default maximum number of concurrent [HydrateFunc] calls.
 
-# Usage
-
 Limit total concurrent hydrate calls:
 		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
 			TotalMaxConcurrency:   500,
 		}
+
 Limit concurrent hydrate calls to any single HydrateFunc which does not have a [HydrateConfig]:
 		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
 			DefaultMaxConcurrency: 100,
 		}
+		
 Do both:
 		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
 			TotalMaxConcurrency:   500,

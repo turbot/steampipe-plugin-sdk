@@ -1,6 +1,7 @@
+// Package context_key provides keys used to retrieve items from the context
 package context_key
 
-//https://medium.com/@matryer/context-keys-in-go-5312346a868d
+// https://medium.com/@matryer/context-keys-in-go-5312346a868d
 type contextKey string
 
 func (c contextKey) String() string {

@@ -18,7 +18,7 @@ that are passed to the plugin as [plugin.Connection.Config].
 
 A plugin that uses custom connection config must set [plugin.Plugin.ConnectionConfigSchema].
 
-# Usage
+Usage:
 
 	p := &plugin.Plugin{
 		Name: "steampipe-plugin-hackernews",

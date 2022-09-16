@@ -7,7 +7,7 @@ import (
 )
 
 /* 
-A struct that represents all [qualifiers] for a column. 
+KeyColumnQuals defines all [qualifiers] for a column. 
 
 [qualifiers]: https://steampipe.io/docs/develop/writing-plugins#qualifiers
 
@@ -16,8 +16,6 @@ Use it in a [table definition], by way of the [plugin.QueryData] object.
 [table definition]: https://steampipe.io/docs/develop/writing-plugins#table-definition
 
 The query writer must specify the qualifiers, in a WHERE or JOIN..ON clause, in order to limit the number of API calls that Steampipe makes to satisfy the query.
-
-# Usage
 
 func listUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	var item User
