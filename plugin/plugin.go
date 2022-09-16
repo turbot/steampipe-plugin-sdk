@@ -47,7 +47,7 @@ const (
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
 /*
-Plugin is the primary struct that defines a [plugin].
+Plugin is the primary struct that defines a Steampipe GRPC plugin.
 
 Set plugin name using [plugin.Plugin.Name].
 
