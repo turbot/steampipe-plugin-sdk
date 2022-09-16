@@ -10,7 +10,7 @@ Plugin is the top-level package of the [Steampipe] plugin SDK. It provides data 
 	- Postgres parses the query and sends the parsed request to the FDW.
 	- The FDW determines which tables and columns are required.
 	- The FDW calls the appropriate [HydrateFunc] in the plugin; these functions fetch data from the APIs.
-    - Each table defines two special hydrate functions, `List` and `Get`.  The `List` or `Get` will always be called before any other hydrate function in the table, as the other functions typically depend on the result of the Get or List call.
+    - Each table defines two special hydrate functions, `List` and `Get`, defined by [plugin.ListConfig] and [plugin.GetConfig].  The `List` or `Get` will always be called before any other hydrate function in the table, as the other functions typically depend on the result of the Get or List call. 
 	- The [transform] functions are called for each column. These extract and/or reformat data returned by the hydrate functions.
 	- The plugin returns the transformed data to the FDW.
 	- Steampipe FDW returns the results to the database.
@@ -141,9 +141,22 @@ Examples:
 
 [Steampipe connection]: https://steampipe.io/docs/managing/connections
 
+# Column definition
+
+[plugin.Column]
+
 # Hydrate functions
 
 A [HydrateFunc] calls an API and returns data.
+
+# List Config
+
+[plugin.ListConfig]
+
+# Get Config
+
+[plugin.GetConfig]
+
 
 # Hydrate dependencies
 
@@ -176,7 +189,7 @@ Here, hydrate function `hydrate2` is dependent on `hydrate1`. This means `hydrat
 	.....
 	}
 
- Note that:
+Note that:
  - Multiple dependencies are supported.
  - Circular dependencies will be detected and cause a validation failure.
  - The `Get` and `List` hydrate functions ***CANNOT*** have dependencies.
@@ -185,7 +198,7 @@ Here, hydrate function `hydrate2` is dependent on `hydrate1`. This means `hydrat
 
 These extract and/or reformat data returned by the hydrate functions. See [transform].
 
-# Dynamic Tables
+# Dynamic tables
 
 If [plugin.SchemaMode] is set to `dynamic`, every time
 Steampipe starts the plugin's schema will be checked for any changes since the
@@ -269,7 +282,12 @@ The `tableCSV` function mentioned in the example above looks for all CSV files i
 		}
 		cols := []*plugin.Column{}
 		for idx, i := range header {
-			cols = append(cols, &plugin.Column{Name: i, Type: proto.ColumnType_STRING, Transform: transform.FromField(i), Description: fmt.Sprintf("Field %d.", idx)})
+			cols = append(cols, &plugin.Column{
+				Name: i, 
+				Type: proto.ColumnType_STRING, 
+				Transform: transform.FromField(i), 
+				Description: fmt.Sprintf("Field %d.", idx)
+			})
 		}
 
 		return &plugin.Table{
@@ -290,14 +308,6 @@ into table names.
 For more information on how the CSV plugin can be queried as a result of being
 a dynamic table, please see https://hub.steampipe.io/plugins/turbot/csv/tables/%7Bcsv_filename%7D
 
-# List Config
-
-# Get Config
-
-# Column Definition
-
-# Column Data Types
-
 # Logging
 
 A logger is passed to the plugin via the context.  You can use the logger to write messages to the log at standard log levels:
@@ -310,24 +320,6 @@ The plugin logs do not currently get written to the console, but are written to 
 Steampipe uses https://github.com/hashicorp/go-hclog hclog, which uses standard log levels (`TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`). By default, the log level is `WARN`.  You set it using the `STEAMPIPE_LOG_LEVEL` environment variable:
 
 	export STEAMPIPE_LOG_LEVEL=TRACE
-
-
-# Installing and Testing Your Plugin
-
-A plugin binary can be installed manually, and this is often convenient when developing the plugin. Steampipe will attempt to load any plugin that is referred to in a `connection` configuration:
-- The plugin binary file must have a `.plugin` extension
-- The plugin binary must reside in a subdirectory of the `~/.steampipe/plugins/` directory and must be the ONLY `.plugin` file in that subdirectory
-- The `connection` must specify the path (relative to `~/.steampipe/plugins/`) to the plugin in the `plugin` argument
-
-For example, consider a `myplugin` plugin that you have developed.  To install it:
-- Create a subdirectory `.steampipe/plugins/local/myplugin`
-- Name your plugin binary `myplugin.plugin`, and copy it to `.steampipe/plugins/local/myplugin/myplugin.plugin`
-- Create a `~/.steampipe/config/myplugin.spc` config file containing a connection definition that points to your plugin:
-
-    connection "myplugin" {
-        plugin    = "local/myplugin"
-    }
-- Your connection will be loaded the next time Steampipe runs.  If Steampipe is running service mode, you must restart it to load the connection.
 
 */
 package plugin
