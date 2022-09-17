@@ -28,12 +28,19 @@ const rowDataBufferSize = 100
 QueryData is passed to all [HydrateFunc] calls. It contains all required information about the executing query:
 
   - the table ([Table]).
+
   - a map of all equals key column quals ([KeyColumnEqualsQualMap]).
+
   - a map of all key column quals ([KeyColumnQualMap]). See [key_columns].
+
   - is it a list or a get call?
+
   - context data passed from postgres ([QueryContext]).
+
   - the steampipe connection ([Connection]).
+
   - a cache which can be used to store connection specific data ([connection.ConnectionCache]).
+
   - the function which is used to stream rows of data ([connection.StreamListItem]).
 
 Plugin examples:

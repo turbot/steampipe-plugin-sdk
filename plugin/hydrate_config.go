@@ -12,8 +12,11 @@ import (
 HydrateConfig defines how to run a [HydrateFunc]:
 
   - which errors to ignore: [plugin.HydrateConfig.IgnoreConfig]
+
   - which errors to retry: [plugin.HydrateConfig.RetryConfig]
+
   - how many concurrent calls to allow: [plugin.HydrateConfig.MaxConcurrency]
+
   - which hydrate calls must complete before this HydrateFunc can start: [plugin.HydrateConfig.Depends]
 
 It's not valid to have a HydrateConfig for a HydrateFunc that is specified in a [GetConfig].
@@ -46,7 +49,7 @@ A HydrateConfig with all fields specified:
 			ShouldRetryErrorFunc: shouldRetryError,
 		}
 
-Steampipe parallelizes hydrate functions as much as possible. Sometimes, however, one hydrate function requires the output from another. 
+Steampipe parallelizes hydrate functions as much as possible. Sometimes, however, one hydrate function requires the output from another.
 
 	return &plugin.Table{
 			Name: "hydrate_columns_dependency",
@@ -78,7 +81,7 @@ Here, hydrate function hydrate2 is dependent on hydrate1. This means hydrate2 wi
 Note that:
   - Multiple dependencies are supported.
   - Circular dependencies will be detected and cause a validation failure.
-  - The Get and List hydrate functions ***CANNOT*** have dependencies.		
+  - The Get and List hydrate functions ***CANNOT*** have dependencies.
 
 Examples:
   - [aws]
