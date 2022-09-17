@@ -11,11 +11,10 @@ import (
 /*
 A GetConfig defines how to get a single row of a table:
 
-  - columns that uniquely identify a row: [plugin.GetConfig.KeyColumns]
-  - which errors to ignore: [plugin.GetConfig.IgnoreConfig]
-  - which errors to retry: [plugin.GetConfig.RetryConfig]
-  - how many concurrent [HydrateFunc] calls to allow: [plugin.GetConfig.MaxConcurrency]
-
+  - the [key_columns] that uniquely identify a row
+  - the [error_handling] behaviour.
+	- how many concurrent [HydrateFunc] calls to allow, [when the get call is used as a column hydrate func]: [plugin.GetConfig.MaxConcurrency]
+	
 A GetConfig with KeyColumns:
 
 	Get: &plugin.GetConfig{
@@ -57,6 +56,7 @@ Plugin examples:
   - [hackernews]
 
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L21-L24
+[when the get call is used as a column hydrate func]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14-L35
 */
 type GetConfig struct {
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call

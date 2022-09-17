@@ -6,6 +6,9 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
+/*
+KeyColumnSlice is an array of [KeyColumns]
+*/
 type KeyColumnSlice []*KeyColumn
 
 func (k KeyColumnSlice) String() string {
