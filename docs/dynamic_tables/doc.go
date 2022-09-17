@@ -105,7 +105,7 @@ and create any discovered CSVs as tables. The CSV filenames are turned directly
 into table names.
 
 For more information on how the CSV plugin can be queried as a result of being
-a dynamic table, please see the [CSV plugin]
+a dynamic table, please see the [CSV plugin].
 
 [CSV plugin]: https://hub.steampipe.io/plugins/turbot/csv/tables/%7Bcsv_filename%7D
 */
