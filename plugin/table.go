@@ -23,7 +23,7 @@ Table defines the properties of a plugin table:
 
   - which columns are returned: [plugin.Table.Columns]
   - how to fetch all rows in the table: [plugin.Table.List]
-  - how to fetch a single row by key: [plugin.TableGet]
+  - how to fetch a single row by key: [plugin.Table.Get]
   - additional configuration for a column hydrate function: [plugin.Table.HydrateConfig]
   - function used to retrieve data for multiple matrix items: [plugin.Table.GetMatrixItemFunc]
   - the table default [error_handling] behaviour.
