@@ -9,7 +9,10 @@ import (
 )
 
 /*
-[ListConfig] defines the function that lists all rows of a table, the KeyColumns that may be used to optimize the fetch, and the error-handling behavior.
+[ListConfig] defines how to return all rows in the table:
+  - the [HydrateFunc] to use.
+  - the [key_columns] that may be used to optimize the fetch.
+  - the [error_handling] behaviour.
 
 To define a table's List function:
 
@@ -27,7 +30,6 @@ To define a table's List function:
 Examples:
   - [hackernews]
 
-[ListConfig]: https://steampipe.io/docs/develop/writing-plugins#list-config
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L14
 */
 type ListConfig struct {
