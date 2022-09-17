@@ -11,7 +11,7 @@ KeyColumnQuals defines all [qualifiers] for a column.
 
 Use it in a [table definition], by way of the [plugin.QueryData] object.
 
-The query writer must specify the qualifiers, in a WHERE or JOIN..ON clause, in order to limit the number of API calls that Steampipe makes to satisfy the query.
+The query writer must specify the qualifiers, in a WHERE or a JOIN clause, in order to limit the number of API calls that Steampipe makes to satisfy the query.
 
 	func listUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 		var item User
