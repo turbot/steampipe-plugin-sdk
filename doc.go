@@ -46,12 +46,12 @@ Use [plugin.Table] to define a table.
 # Add a List Call
 
 This is a function of type [plugin.HydrateFunc] which calls your API to return all rows in the table.
-To add, set the property [plugin.Plugin.ListConfig]
+To add, set the property [plugin.ListConfig]
 
 # Add a Get Call
 
 If the API supports returning a single item keyed by id, implement a Get call
-To add, set [plugin.Plugin.GetConfig]
+To add, set [plugin.GetConfig]
 
 # Add Column Definitions
 
@@ -131,7 +131,7 @@ Use a plugin [dynamic_tables] when you cannot know a table's schema in advance, 
   - A user runs a query.
   - Postgres parses the query and sends the parsed request to the FDW.
   - The FDW determines which tables and columns are required.
-  - The FDW calls one or more [HydrateFunc] to fetch API data.
+  - The FDW calls one or more [plugin.HydrateFunc] to fetch API data.
   - Each table defines special hydrate functions: List and optionally Get. These will always be called before any other hydrate function in the table, as the other functions typically depend on the List or Get.
   - One or more [transform] functions are called for each column. These extract and/or reformat data returned by the hydrate functions.
   - The plugin returns the transformed data to the FDW.
