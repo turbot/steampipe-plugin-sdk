@@ -34,7 +34,7 @@ func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabl
 	return q
 }
 
-// GetLimit converts limit from *int64 to an int64 (where -1 means no limit)
+// GetLimit converts [plugin.QueryContext.Limit] from a *int64 to an int64 (where -1 means no limit)
 func (q *QueryContext) GetLimit() int64 {
 	var limit int64 = -1
 	if q.Limit != nil {

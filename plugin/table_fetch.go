@@ -165,7 +165,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 	// NOTE: ensure QueryData.rowDataChan can buffer sufficient items
 	// (we normally expect it would be sufficient)
 	if len(qualValueList.Values) > rowDataBufferSize {
-		queryData.rowDataChan = make(chan *RowData, len(qualValueList.Values))
+		queryData.rowDataChan = make(chan *rowData, len(qualValueList.Values))
 	}
 
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
@@ -233,7 +233,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	// if there is no error and the getItem is nil, we assume the item does not exist
 	if !helpers.IsNil(getItem) {
 		// set the rowData Item to the result of the Get hydrate call - this will be passed through to all other hydrate calls
-		rd.Item = getItem
+		rd.item = getItem
 		// NOTE: explicitly set the get hydrate results on rowData
 		rd.set(hydrateKey, getItem)
 		// set the rowsStreamed to 1
@@ -247,7 +247,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 
 // getForEach executes the provided get call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
+func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *rowData) (interface{}, error) {
 
 	log.Printf("[TRACE] getForEach, matrixItem list: %v\n", queryData.filteredMatrix)
 

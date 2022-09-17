@@ -17,12 +17,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// RowData contains the row data
-type RowData struct {
+// rowData contains the row data
+type rowData struct {
 	// the output of the get/list call which is passed to all other hydrate calls
-	Item interface{}
+	item interface{}
 	// if there was a parent-child list call, store the parent list item
-	ParentItem     interface{}
+	parentItem     interface{}
 	matrixItem     map[string]interface{}
 	hydrateResults map[string]interface{}
 	hydrateErrors  map[string]error
@@ -39,12 +39,12 @@ type RowData struct {
 type emptyHydrateResults struct{}
 
 // newRowData creates an empty rowData object
-func newRowData(d *QueryData, item interface{}) *RowData {
+func newRowData(d *QueryData, item interface{}) *rowData {
 	// create buffered error channel for any errors occurring hydrate functions (+2 is for the get and list hydrate calls)
 	errorChan := make(chan error, len(d.hydrateCalls)+2)
 
-	return &RowData{
-		Item:           item,
+	return &rowData{
+		item:           item,
 		matrixItem:     make(map[string]interface{}),
 		hydrateResults: make(map[string]interface{}),
 		hydrateErrors:  make(map[string]error),
@@ -55,8 +55,8 @@ func newRowData(d *QueryData, item interface{}) *RowData {
 	}
 }
 
-func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
-	// NOTE: the RowData (may) have matrixItem set
+func (r *rowData) getRow(ctx context.Context) (*proto.Row, error) {
+	// NOTE: the rowData (may) have matrixItem set
 	// (this is a data structure containing fetch specific data, e.g. region)
 	// store this in the context for use by the transform functions
 	rowDataCtx := context.WithValue(ctx, context_key.MatrixItem, r.matrixItem)
@@ -76,7 +76,7 @@ func (r *RowData) getRow(ctx context.Context) (*proto.Row, error) {
 }
 
 // keep looping round hydrate functions until they are all started
-func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData *QueryData) error {
+func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData *QueryData) error {
 
 	// make a map of started hydrate calls for this row - this is used to determine which calls have not started yet
 	var callsStarted = map[string]bool{}
@@ -117,7 +117,7 @@ func (r *RowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 }
 
 // wait for all hydrate calls to complete
-func (r *RowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*proto.Row, error) {
+func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*proto.Row, error) {
 	var row *proto.Row
 
 	// start a go routine which signals via the wait chan when all calls are complete
@@ -148,7 +148,7 @@ func (r *RowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 }
 
 // generate the column values for all requested columns
-func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
+func (r *rowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 	row := &proto.Row{Columns: make(map[string]*proto.Column)}
 
 	// queryData.columns contains all columns returned by the hydrate calls which have been executed
@@ -164,7 +164,7 @@ func (r *RowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 }
 
 // invoke a hydrate function, and set results on the rowData object. Stream errors on the rowData error channel
-func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, hydrateConfig *HydrateConfig) {
+func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, hydrateConfig *HydrateConfig) {
 	// handle panics in the row hydrate function
 	defer func() {
 		if p := recover(); p != nil {
@@ -192,8 +192,8 @@ func (r *RowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 }
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
-func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
-	ctx, span := telemetry.StartSpan(ctx, r.table.Plugin.Name, "RowData.callHydrateWithRetries (%s)", r.table.Name)
+func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
+	ctx, span := telemetry.StartSpan(ctx, r.table.Plugin.Name, "rowData.callHydrateWithRetries (%s)", r.table.Name)
 
 	span.SetAttributes(
 		attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
@@ -207,7 +207,7 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 		span.End()
 	}()
 
-	h := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
+	h := &HydrateData{Item: r.item, ParentItem: r.parentItem, HydrateResults: r.hydrateResults}
 	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
 	var hydrateWithIgnoreError = WrapHydrate(hydrateFunc, ignoreConfig)
 	hydrateResult, err = hydrateWithIgnoreError(ctx, d, h)
@@ -216,7 +216,7 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 
 		if shouldRetryError(ctx, d, h, err, retryConfig) {
 			log.Printf("[TRACE] retrying hydrate")
-			hydrateData := &HydrateData{Item: r.Item, ParentItem: r.ParentItem, HydrateResults: r.hydrateResults}
+			hydrateData := &HydrateData{Item: r.item, ParentItem: r.parentItem, HydrateResults: r.hydrateResults}
 			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrateFunc, retryConfig)
 			log.Printf("[TRACE] back from retry")
 		}
@@ -225,7 +225,7 @@ func (r *RowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 	return hydrateResult, err
 }
 
-func (r *RowData) set(key string, item interface{}) error {
+func (r *rowData) set(key string, item interface{}) error {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 	if _, ok := r.hydrateResults[key]; ok {
@@ -236,7 +236,7 @@ func (r *RowData) set(key string, item interface{}) error {
 	return nil
 }
 
-func (r *RowData) setError(key string, err error) {
+func (r *rowData) setError(key string, err error) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 	if _, ok := r.hydrateErrors[key]; ok {
@@ -247,7 +247,7 @@ func (r *RowData) setError(key string, err error) {
 }
 
 // get the name of the hydrate function which have completed
-func (r *RowData) getHydrateKeys() []string {
+func (r *rowData) getHydrateKeys() []string {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 	var keys []string
@@ -258,7 +258,7 @@ func (r *RowData) getHydrateKeys() []string {
 }
 
 // GetColumnData returns the root item, and, if this column has a hydrate function registered, the associated hydrate data
-func (r *RowData) GetColumnData(column *QueryColumn) (interface{}, error) {
+func (r *rowData) GetColumnData(column *QueryColumn) (interface{}, error) {
 	if column.hydrateName == "" {
 		return nil, fmt.Errorf("column %s has no resolved hydrate function name", column.Name)
 	}

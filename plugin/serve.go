@@ -27,6 +27,23 @@ type NewPluginOptions struct {
 type PluginFunc func(context.Context) *Plugin
 type CreatePlugin func(context.Context, string) (*Plugin, error)
 
+/*
+	Serve creates and starts the GRPC server which serves the plugin,
+
+passing callback functions to implement each of the plugin interface functions:
+
+  - SetConnectionConfig
+
+  - SetAllConnectionConfigs
+
+  - UpdateConnectionConfigs
+
+  - GetSchema
+
+  - Execute
+
+    It is called from the main function of the plugin.
+*/
 func Serve(opts *ServeOpts) {
 	ctx := context.WithValue(context.Background(), context_key.Logger, logging.NewLogger(&hclog.LoggerOptions{DisableTime: true}))
 
