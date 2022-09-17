@@ -1,6 +1,7 @@
 /*
 # Dynamic Tables
-If [plugin.SchemaMode] is set to `dynamic`, every time
+
+If [plugin.SchemaMode] is set to dynamic, every time
 Steampipe starts the plugin's schema will be checked for any changes since the
 last time it loaded, and re-import the schema if it detects any.
 
@@ -11,7 +12,7 @@ as tables from one or more directories. Each of these CSV files may have
 different column structures, resulting in a different structure for each table.
 
 In order to create a dynamic table, [plugin.TableMapFunc]
-should call a function that returns `map[string]*plugin.Table`.
+should call a function that returns map[string]*plugin.Table.
 
 	func Plugin(ctx context.Context) *plugin.Plugin {
 		p := &plugin.Plugin{
@@ -46,7 +47,7 @@ should call a function that returns `map[string]*plugin.Table`.
 		return tables, nil
 	}
 
-The `tableCSV` function mentioned in the example above looks for all CSV files in the configured paths, and for each one, builds a `*plugin.Table` type:
+The tableCSV function mentioned in the example above looks for all CSV files in the configured paths, and for each one, builds a *plugin.Table type:
 
 	func tableCSV(ctx context.Context, p *plugin.Plugin) *plugin.Table {
 
@@ -100,7 +101,7 @@ The `tableCSV` function mentioned in the example above looks for all CSV files i
 	}
 
 The end result is that, when using the CSV plugin, whenever Steampipe starts it will
-check for any new, deleted, and modified CSV files in the configured `paths`
+check for any new, deleted, and modified CSV files in the configured paths
 and create any discovered CSVs as tables. The CSV filenames are turned directly
 into table names.
 

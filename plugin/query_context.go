@@ -5,12 +5,15 @@ import (
 )
 
 /*
-QueryContext contains key query properties:
-  - the columns requested.
-  - all quals specified (not just key column quals).
-  - the limit.
-  - is caching enabled.
-  - cache TTl.
+QueryContext contains important query properties:
+
+  - The columns requested.
+
+  - All quals specified (not just key column quals).
+
+  - The limit.
+
+  - Cache properties.
 */
 type QueryContext struct {
 	Columns      []string
@@ -20,7 +23,7 @@ type QueryContext struct {
 	CacheTTL     int64
 }
 
-// NewQueryContext maps from a proto.QueryContext to a plugin.QueryContext.
+// NewQueryContext maps from a [proto.QueryContext] to a [plugin.QueryContext].
 func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabled bool, cacheTTL int64) *QueryContext {
 	q := &QueryContext{
 		Columns:      p.Columns,
@@ -34,7 +37,7 @@ func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabl
 	return q
 }
 
-// GetLimit converts [plugin.QueryContext.Limit] from a *int64 to an int64 (where -1 means no limit)
+// GetLimit converts [plugin.QueryContext.Limit] from a *int64 to an int64 (where -1 means no limit).
 func (q *QueryContext) GetLimit() int64 {
 	var limit int64 = -1
 	if q.Limit != nil {
