@@ -11,11 +11,11 @@ import (
 /*
 [ListConfig] defines how to return all rows in the table:
 
-  - the [HydrateFunc] to use.
+  - The [HydrateFunc] to use.
 
-  - the [key_columns] that may be used to optimize the fetch.
+  - The [key_columns] that may be used to optimize the fetch.
 
-  - the [error_handling] behaviour.
+  - The [error_handling] behaviour.
 
 To define a table's List function:
 

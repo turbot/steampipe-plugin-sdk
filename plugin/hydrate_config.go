@@ -11,13 +11,13 @@ import (
 /*
 HydrateConfig defines how to run a [HydrateFunc]:
 
-  - which errors to ignore: [plugin.HydrateConfig.IgnoreConfig]
+  - Which errors to ignore: [plugin.HydrateConfig.IgnoreConfig].
 
-  - which errors to retry: [plugin.HydrateConfig.RetryConfig]
+  - Which errors to retry: [plugin.HydrateConfig.RetryConfig].
 
-  - how many concurrent calls to allow: [plugin.HydrateConfig.MaxConcurrency]
+  - How many concurrent calls to allow: [plugin.HydrateConfig.MaxConcurrency].
 
-  - which hydrate calls must complete before this HydrateFunc can start: [plugin.HydrateConfig.Depends]
+  - Which hydrate calls must complete before this HydrateFunc can start: [plugin.HydrateConfig.Depends].
 
 It's not valid to have a HydrateConfig for a HydrateFunc that is specified in a [GetConfig].
 
