@@ -21,7 +21,7 @@ type TableCacheOptions struct {
 /*
 Table defines the properties of a plugin table:
 
-	- which columns to include: [Column]
+	- which columns are returned: [Column]
 	- function used to list table results: [ListConfig]
 	- function used to retrieve a single result by key: [GetConfig]
 	- additional functions required to fetch specific column data: [HydrateConfig]

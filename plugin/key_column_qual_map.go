@@ -12,7 +12,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
 )
 
-// KeyColumnQualMap is a map of KeyColumnQuals keyed by column name
+// KeyColumnQualMap is a map of [KeyColumnQuals] keyed by column name
 type KeyColumnQualMap map[string]*KeyColumnQuals
 
 // ToEqualsQualValueMap converts a KeyColumnQualMap to a column-qual value map, including only the
