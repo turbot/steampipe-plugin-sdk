@@ -39,8 +39,19 @@ Plugin examples:
 */
 type MatrixItemMapFunc func(context.Context, *QueryData) []map[string]interface{}
 
+//ErrorPredicate is a function type which accepts error as an input and returns a boolean value.
 type ErrorPredicate func(error) bool
 
+/*
+ErrorPredicateWithContext is a function type which accepts context, query data and hydrate data and error as an input and returns a boolean value.
+
+Plugin examples:
+  - [aws]
+  - [azure]
+
+[aws]: https://github.com/turbot/steampipe-plugin-aws/blob/010ec0762c273b4549b4369fe05d61ec1ce24a9b/aws/errors.go#L14
+[azure]: https://github.com/turbot/steampipe-plugin-azure/blob/85d6f373f85726a9f045f907509d9fd82ace9e41/azure/errors.go#L11
+*/
 type ErrorPredicateWithContext func(context.Context, *QueryData, *HydrateData, error) bool
 
 // TableMapFunc is callback function which can be used to populate [plugin.Plugin.TableMap]

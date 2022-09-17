@@ -54,17 +54,11 @@ To define columns that transform the data:
 		}
 
 Examples:
-
 	- [hackernews]
-	
-[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14
-
 	- [aws]
 	
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14	
 [aws]: https://github.com/turbot/steampipe-plugin-aws/blob/7d17ee78e56da592e0a4e82b90b557225d1a6c11/aws/table_aws_iam_user.go#L22
-
-
-
 */
 type Column struct {
 	// column name
@@ -74,7 +68,7 @@ type Column struct {
 	// column description
 	Description string
 	// explicitly specify the function which populates this data
-	// - this is only needed if any of the default hydrate functions wil NOT return this column
+	// - this is only needed if any of the default hydrate functions will NOT return this column
 	Hydrate HydrateFunc
 	// the default column value
 	Default interface{}
