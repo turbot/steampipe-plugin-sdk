@@ -170,8 +170,8 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	return d, nil
 }
 
-// ShallowCopy creates a shallow copy of the QueryData
-// this is used to pass different quals to multiple list/get calls, when an in() clause is specified
+// ShallowCopy creates a shallow copy of the QueryData, i.e. most pointer properties are copied
+// this is used to pass different quals to multiple list/get calls, when an 'in' clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
 	clone := &QueryData{
 		Table:             d.Table,
@@ -259,8 +259,8 @@ func (d *QueryData) addColumnsForHydrate(hydrateName string) []*QueryColumn {
 	return cols
 }
 
-// KeyColumnQualString looks for the specified key column quals and if it exists, return the value as a string
-func (d *QueryData) KeyColumnQualString(key string) string {
+// EqualsQualString looks for the specified key column quals and if it exists, return the value as a string
+func (d *QueryData) EqualsQualString(key string) string {
 	qualValue, ok := d.EqualsQuals[key]
 	if !ok {
 		return ""
