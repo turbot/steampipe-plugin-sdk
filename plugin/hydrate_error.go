@@ -47,7 +47,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	return hydrateResult, err
 }
 
-// WrapHydrate is a higher order function which returns a HydrateFunc which handles Ignorable errors
+// WrapHydrate is a higher order function which returns a [HydrateFunc] that handles Ignorable errors.
 func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFunc {
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "hydrateWithIgnoreError (%s)", d.Table.Name)
