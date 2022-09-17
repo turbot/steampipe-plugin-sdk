@@ -13,26 +13,31 @@
   </a>
 </p>
 
-## Write Plugins with the Steampipe Plugin SDK
+This SDK makes it easy to write Steampipe [plugins](https://hub.steampipe.io/plugins).
 
-The Steampipe Plugin SDK provides a simple abstraction layer to simplify writing Steampipe Plugins.
 
-## Get involved
+Join our [Slack community](https://steampipe.io/community/join) to ask questions, voice ideas, and share your projects. 
 
-### Community
+<details>
+<summary>Resources for contributors</summary>
 
-The Steampipe community can be found on [GitHub Discussions](https://github.com/turbot/steampipe/discussions), where you can ask questions, voice ideas, and share your projects.
+- [Overview](https://steampipe.io/docs/develop/overview)
+- [Writing your first table](https://steampipe.io/docs/develop/writing-your-first-table)
+- [Writing plugins](https://steampipe.io/docs/develop/writing-plugins)
+- [Coding standards](https://steampipe.io/docs/develop/coding-standards)
+- [Table and column standards](https://steampipe.io/docs/develop/standards)
+- [Table documentation standards](https://steampipe.io/docs/develop/table-docs-standards)
+- [Plugin release checklist](https://steampipe.io/docs/develop/plugin-release-checklist)
+</details>
 
-Our [Code of Conduct](https://github.com/turbot/steampipe/blob/main/CODE_OF_CONDUCT.md) applies to all Steampipe community channels.
+<p>
 
-### Contributing
-
-Please see [CONTRIBUTING.md](https://github.com/turbot/steampipe/blob/main/CONTRIBUTING.md).
-
-#### Darwin
-
+<details>
+<summary>Compiling this SDK</summary>
 To compile the SDK repo, you must install protoc.
-```
+<pre>
 brew install protoc
 brew install protoc-gen-go-grpc
-```
+</pre>
+</details>
+
