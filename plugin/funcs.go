@@ -20,14 +20,22 @@ by making an additional API call. However the SDK does all this for you.
 */
 type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
 
-// deprecated
+/*
+Deprecated
+*/
 type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}
 
 /*
-MatrixItemMapFunc provides a mechanism to query multiple matrix items instead of passing them individually in every [HydrateFunc].
+MatrixItemMapFunc is a callback function which may be implemented by the plugin to provide a map of [matrix_items] to execute the query with.
 
-It is cumbersome to define different set of regions every time a hydrate function is invoked. MatrixItemMapFunc helps you to define a set of regions which can execute the API calls parallely and then unify the results into different rows.
-In certain cloud providers, region data needs to be passed into the [HydrateFunc] for execution. If we define
+[matrix_items] are a powerful way of executing the same query multiple times in parallel for a set of parameters.
+
+Plugin examples:
+
+  - Declaration of [MatrixItemMapFunc] and its [implementation].
+
+[MatrixItemMapFunc]: https://github.com/turbot/steampipe-plugin-aws/blob/c5fbf38df19667f60877c860cf8ad39816ff658f/aws/table_aws_acm_certificate.go#L36
+[implementation]: https://github.com/turbot/steampipe-plugin-aws/blob/c5fbf38df19667f60877c860cf8ad39816ff658f/aws/multi_region.go#L63
 */
 type MatrixItemMapFunc func(context.Context, *QueryData) []map[string]interface{}
 
