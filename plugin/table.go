@@ -21,7 +21,7 @@ type TableCacheOptions struct {
 /*
 Table defines the properties of a plugin table:
 
-  - The columns are returned: [plugin.Table.Columns].
+  - The columns that are returned: [plugin.Table.Columns].
 
   - How to fetch all rows in the table: [plugin.Table.List].
 

@@ -1,7 +1,7 @@
 /*
-# Dynamic Tables
+Dynamic Tables
 
-If [plugin.SchemaMode] is set to dynamic, then each time Steampipe loads a plugin it checks for schema changes since the 
+If [plugin.SchemaMode] is set to dynamic, then each time Steampipe loads a plugin it checks for schema changes since the
 last load. If it detects changes, Steampipe reloads the plugin.
 
 Dynamic tables are useful when you are building a plugin whose schema is not

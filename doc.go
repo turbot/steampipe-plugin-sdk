@@ -1,6 +1,4 @@
 /*
-	Package steampipe_plugin_sdk makes it easy to write Steampipe plugins.
-
 # Define the plugin
 
 A plugin is defined by [plugin.Plugin].
