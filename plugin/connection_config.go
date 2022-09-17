@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/turbot/go-kit/helpers"
@@ -9,7 +11,6 @@ import (
 	"github.com/zclconf/go-cty/cty/gocty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log"
 )
 
 /*
@@ -61,9 +62,11 @@ type ConnectionConfigInstanceFunc func() interface{}
 Connection is a struct which is used to store connection config.
 
 The connection config is parsed and stored as [plugin.Plugin.Connection].
-The connection may be retrieved the plugin by calling: [plugin.QueryData.Connection]
-`
-Example from [hackernews]
+The connection may be retrieved by the plugin by calling: [plugin.QueryData.Connection]
+
+Plugin examples:
+  - [hackernews]
+
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/connection_config.go#L23
 */
 type Connection struct {
