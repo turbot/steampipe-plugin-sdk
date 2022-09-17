@@ -62,6 +62,7 @@ type ConnectionConfigInstanceFunc func() interface{}
 Connection is a struct which is used to store connection config.
 
 The connection config is parsed and stored as [plugin.Plugin.Connection].
+
 The connection may be retrieved by the plugin by calling: [plugin.QueryData.Connection]
 
 Plugin examples:

@@ -4,7 +4,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
-// ConnectionData is the data stored by the plugin which is connection dependent
+// ConnectionData is the data stored by the plugin which is connection dependent.
 type ConnectionData struct {
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	TableMap map[string]*Table
