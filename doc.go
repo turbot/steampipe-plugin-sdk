@@ -3,9 +3,9 @@
 
 # Define the plugin
 
-Create the file <plugin-name>/plugin.go.
+A plugin is defined by [plugin.Plugin].
 
-Implement a [plugin.PluginFunc] that creates a [plugin.Plugin] and returns a pointer to it.
+Create the file <plugin-name>/plugin.go, then implement a [plugin.PluginFunc] that creates a [plugin.Plugin] and returns a pointer to it.
 
 Note: The Go files for your plugin (except main.go) should reside in the <plugin-name> folder.
 
