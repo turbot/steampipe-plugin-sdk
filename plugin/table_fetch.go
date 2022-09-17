@@ -76,7 +76,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
 
-	log.Printf("[TRACE] executeGetCall, table: %s, queryData.KeyColumnQuals: %v", t.Name, queryData.KeyColumnQuals)
+	log.Printf("[TRACE] executeGetCall, table: %s, queryData.KeyColumnQuals: %v", t.Name, queryData.EqualsQuals)
 
 	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.Get.KeyColumns)
 	// verify we have the necessary quals
@@ -130,7 +130,7 @@ func (t *Table) getListQualValueForGetCall(queryData *QueryData) (string, *proto
 	log.Printf("[TRACE] getListQualValueForGetCall %d key column quals: %s ", len(k), k)
 
 	// get map of all the key columns quals which have a list value
-	listValueMap := queryData.KeyColumnQuals.GetListQualValues()
+	listValueMap := queryData.EqualsQuals.GetListQualValues()
 	if len(listValueMap) == 0 {
 		return "", nil
 	}
@@ -172,7 +172,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 	for _, qv := range qualValueList.Values {
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
-		queryDataCopy.KeyColumnQuals[keyColumnName] = qv
+		queryDataCopy.EqualsQuals[keyColumnName] = qv
 		queryDataCopy.Quals[keyColumnName] =
 			&KeyColumnQuals{Name: keyColumnName, Quals: quals.QualSlice{{Column: keyColumnName, Operator: "=", Value: qv}}}
 
@@ -450,7 +450,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		// make a shallow copy of the query data and modify the value of the key column qual to be the value list item
 		queryDataCopy := queryData.ShallowCopy()
 		// update qual maps to replace list value with list element
-		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		queryDataCopy.EqualsQuals[keyColumn] = qv
 		queryDataCopy.Quals[keyColumn] = &KeyColumnQuals{
 			Name: keyColumn, Quals: quals.QualSlice{{Column: keyColumn, Operator: "=", Value: qv}}}
 

@@ -392,10 +392,10 @@ func newTestQueryData(plugin *Plugin, queryContext *QueryContext, table *Table, 
 		Table:        table,
 		QueryContext: queryContext,
 		//Connection:        connectionData.Connection,
-		KeyColumnQuals: make(map[string]*proto.QualValue),
-		Quals:          make(KeyColumnQualMap),
-		FetchType:      fetchType,
-		plugin:         plugin,
+		EqualsQuals: make(map[string]*proto.QualValue),
+		Quals:       make(KeyColumnQualMap),
+		FetchType:   fetchType,
+		plugin:      plugin,
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
 	}

@@ -29,7 +29,7 @@ QueryData is passed to all [HydrateFunc] calls. It contains all required informa
 
   - the table ([Table]).
   - a map of all equals key column quals ([KeyColumnEqualsQualMap]).
-  - a map of all key column quals ([KeyColumnQualMap]).
+  - a map of all key column quals ([KeyColumnQualMap]). See [key_columns].
   - is it a list or a get call?
   - context data passed from postgres ([QueryContext]).
   - the steampipe connection ([Connection]).
@@ -48,13 +48,15 @@ type QueryData struct {
 
 	// The table this query is associated with
 	Table *Table
-	// if this is a get call this will be populated with the quals as a map of column name to quals
+
+	// a map of key columns which have a _single equals qual_
+	// this is intended for use by Get calls only
+	// key: column name, value: QualValue
 	//  (this will also be populated for a list call if list key columns are specified -
 	//  however this usage is deprecated and provided for legacy reasons only)
-	KeyColumnQuals KeyColumnEqualsQualMap
-	// a map of all key column quals which were specified in the query
+	EqualsQuals KeyColumnEqualsQualMap
+	// a map of all KeyColumnQuals which were specified in the query. ([key_columns]
 	Quals KeyColumnQualMap
-	// columns which have a single equals qual
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
 	// query context data passed from postgres - this includes the requested columns and the quals
@@ -132,7 +134,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 		Table:             table,
 		QueryContext:      queryContext,
 		Connection:        connectionData.Connection,
-		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		EqualsQuals:       make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
 		plugin:            plugin,
 		connectionCallId:  connectionCallId,
@@ -173,7 +175,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 func (d *QueryData) ShallowCopy() *QueryData {
 	clone := &QueryData{
 		Table:             d.Table,
-		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		EqualsQuals:       make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
 		FetchType:         d.FetchType,
 		QueryContext:      d.QueryContext,
@@ -198,8 +200,8 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 	// NOTE: we create a deep copy of the keyColumnQuals
 	// - this is so they can be updated in the copied QueryData without mutating the original
-	for k, v := range d.KeyColumnQuals {
-		clone.KeyColumnQuals[k] = v
+	for k, v := range d.EqualsQuals {
+		clone.EqualsQuals[k] = v
 	}
 	for k, v := range d.Quals {
 		clone.Quals[k] = v
@@ -259,7 +261,7 @@ func (d *QueryData) addColumnsForHydrate(hydrateName string) []*QueryColumn {
 
 // KeyColumnQualString looks for the specified key column quals and if it exists, return the value as a string
 func (d *QueryData) KeyColumnQualString(key string) string {
-	qualValue, ok := d.KeyColumnQuals[key]
+	qualValue, ok := d.EqualsQuals[key]
 	if !ok {
 		return ""
 	}
@@ -271,7 +273,7 @@ func (d *QueryData) updateQualsWithMatrixItem(matrixItem map[string]interface{})
 	for col, value := range matrixItem {
 		qualValue := proto.NewQualValue(value)
 		// replace any existing entry for both Quals and KeyColumnQuals
-		d.KeyColumnQuals[col] = qualValue
+		d.EqualsQuals[col] = qualValue
 		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Value: qualValue}}}
 	}
 }
@@ -290,7 +292,7 @@ func (d *QueryData) setFetchType(table *Table) {
 		if unsatisfiedColumns := qualMap.GetUnsatisfiedKeyColumns(table.Get.KeyColumns); len(unsatisfiedColumns) == 0 {
 			// so this IS a get call - all quals are satisfied
 			log.Printf("[TRACE] Set fetchType to fetchTypeGet")
-			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
+			d.EqualsQuals = qualMap.ToEqualsQualValueMap()
 			d.Quals = qualMap
 			d.logQualMaps()
 			return
@@ -307,7 +309,7 @@ func (d *QueryData) setFetchType(table *Table) {
 			// assign to the map of all key column quals
 			d.Quals = qualMap
 			// convert to a map of equals quals to populate legacy `KeyColumnQuals` map
-			d.KeyColumnQuals = d.Quals.ToEqualsQualValueMap()
+			d.EqualsQuals = d.Quals.ToEqualsQualValueMap()
 		}
 		d.logQualMaps()
 	}
@@ -388,7 +390,7 @@ func (d *QueryData) shouldIncludeMatrixItem(quals *KeyColumnQuals, matrixVal int
 }
 
 func (d *QueryData) logQualMaps() {
-	log.Printf("[TRACE] Equals key column quals:\n%s", d.KeyColumnQuals)
+	log.Printf("[TRACE] Equals key column quals:\n%s", d.EqualsQuals)
 	log.Printf("[TRACE] All key column quals:\n%s", d.Quals)
 }
 
