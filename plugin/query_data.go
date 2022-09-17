@@ -9,16 +9,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )
 
 // how may rows do we cache in the rowdata channel

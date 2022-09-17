@@ -18,17 +18,17 @@ import (
 	"github.com/eko/gocache/v3/store"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
-	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/os_specific"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
-	"github.com/turbot/steampipe-plugin-sdk/v4/query_cache"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
-	"github.com/turbot/steampipe-plugin-sdk/v4/version"
+	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/os_specific"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v5/version"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
@@ -62,7 +62,7 @@ Various default behaviours can be defined:
 
   - the default concurrency limits for a [HydrateFunc] ([plugin.Plugin.DefaultConcurrency]).
 
-	- the plugin default [error_handling] behaviour.
+  - the plugin default [error_handling] behaviour.
 
 Required columns can be specified by setting [plugin.Plugin.RequiredColumns]
 

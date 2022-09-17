@@ -13,9 +13,6 @@ Examples:
   - [aws plugin.go]
   - [zendesk plugin.go]
 
-[aws plugin.go]: https://github.com/turbot/steampipe-plugin-aws/blob/main/aws/plugin.go
-[zendesk plugin.go]: https://github.com/turbot/steampipe-plugin-zendesk/blob/main/zendesk/plugin.go  
-
 # Create the plugin entry point
 
 Create main.go in your plugin's root directory. Add a main function which is the entry point for your plugin.
@@ -26,7 +23,7 @@ This function must call [plugin.Serve] to instantiate your plugin's gRPC server,
 
 	import (
 		"github.com/turbot/steampipe-plugin-aws/aws"
-		"github.com/turbot/steampipe-plugin-sdk/v4/plugin"
+		"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	)
 
 	func main() {
@@ -38,9 +35,6 @@ Examples:
   - [aws main.go]
   - [zendesk main.go]
 
-[aws main.go]: https://github.com/turbot/steampipe-plugin-aws/blob/main/main.go
-[zendesk main.go]: https://github.com/turbot/steampipe-plugin-zendesk/blob/main/main.go
-
 # Define your first table
 
 By convention, each table lives in a separate file named table_<table name>.go.  Each table has a single table definition function that returns a pointer to a [plugin.Table].
@@ -49,40 +43,37 @@ The table definition includes the name and description of the table, a set of co
 
 Every table MUST define a List and/or Get function.
 
-func tableZendeskTicket() *plugin.Table {
-	return &plugin.Table{
-		Name:        "zendesk_ticket",
-		Description: "Tickets enable your customers to communicate with agents in Zendesk Support.",
-		List: &plugin.ListConfig{
-			Hydrate: listTicket,
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getTicket,
-		},
-		Columns: []*plugin.Column{
-			{
-				Name: "allow_attachments", 
-				Type: proto.ColumnType_BOOL, 
-				Description: "Permission for agents to add add attachments to a comment. Defaults to true"
+	func tableZendeskTicket() *plugin.Table {
+		return &plugin.Table{
+			Name:        "zendesk_ticket",
+			Description: "Tickets enable your customers to communicate with agents in Zendesk Support.",
+			List: &plugin.ListConfig{
+				Hydrate: listTicket,
 			},
-			...
-			{
-				Name: "via_source_to", 
-				Type: proto.ColumnType_JSON, 
-				Transform: transform.FromField("Via.Source.From"), 
-				Description: "Target that received the ticket"
+			Get: &plugin.GetConfig{
+				KeyColumns: plugin.SingleColumn("id"),
+				Hydrate:    getTicket,
 			},
-		},
+			Columns: []*plugin.Column{
+				{
+					Name: "allow_attachments",
+					Type: proto.ColumnType_BOOL,
+					Description: "Permission for agents to add add attachments to a comment. Defaults to true"
+				},
+				...
+				{
+					Name: "via_source_to",
+					Type: proto.ColumnType_JSON,
+					Transform: transform.FromField("Via.Source.From"),
+					Description: "Target that received the ticket"
+				},
+			},
+		}
 	}
-}
 
 Examples:
   - [aws table_aws_ec2_instance.go]
   - [zendesk table_zendesk_ticket.go]
-
-[aws table_aws_ec2_instance.go]: https://github.com/turbot/steampipe-plugin-aws/blob/main/aws/table_aws_ec2_instance.go
-[zendesk table_zendesk_ticket.go]: https://github.com/turbot/steampipe-plugin-zendesk/blob/main/zendesk/table_zendesk_ticket.go
 
 # Define a List function
 
@@ -110,7 +101,7 @@ To define it, set the property [plugin.Plugin.GetConfig].
 
 Use [plugin.Column] to define columns.
 
-# Add hydrate functions 
+# Add hydrate functions
 
 A column may be populated by a List or Get call. If a column requires data not provide by List or Get, it may define a [plugin.HydrateFunc] that makes an additional API call for each row.
 
@@ -122,9 +113,9 @@ Use [transform] functions to extract and/or reformat data returned by a hydrate 
 
 # Logging
 
-A [plugin.Logger] is passed to the plugin via its [context.Context]. Messages are written to ~/.steampipe/logs, e.g. ~/.steampipe/logs/plugin-2022-01-01.log. 
+A [plugin.Logger] is passed to the plugin via its [context.Context]. Messages are written to ~/.steampipe/logs, e.g. ~/.steampipe/logs/plugin-2022-01-01.log.
 
-Steampipe uses [go-hclog] which supports standard log levels: TRACE, DEBUG, INFO, WARN, ERROR. The default is WARN. 
+Steampipe uses [go-hclog] which supports standard log levels: TRACE, DEBUG, INFO, WARN, ERROR. The default is WARN.
 
 	logger := plugin.Logger(ctx)
 	logger.Info("Log message and a variable", myVariable)
@@ -132,8 +123,6 @@ Steampipe uses [go-hclog] which supports standard log levels: TRACE, DEBUG, INFO
 Use the STEAMPIPE_LOG_LEVEL environment variable to set the level.
 
 	export STEAMPIPE_LOG_LEVEL=TRACE
-
-[go-hclog]: https://github.com/hashicorp/go-hclog
 
 # Define hydrate dependencies (advanced)
 
@@ -143,35 +132,40 @@ Steampipe parallelizes hydrate functions as much as possible. Sometimes, however
 
 Use [dynamic_tables] when you cannot know a table's schema in advance, e.g. the [CSV plugin].
 
-[CSV plugin]: https://hub.steampipe.io/plugins/turbot/csv/tables/%7Bcsv_filename%7D
-
 # Flow of execution
 
   - A user runs a query.
 
   - Postgres parses the query and sends the parsed request to the Steampipe [foreign data wrapper] (FDW).
-  
+
   - The FDW determines which tables and columns are required.
 
   - The FDW calls one or more [HydrateFunc] to fetch API data.
 
   - Each table defines special hydrate functions: List and optionally Get. These will always be called before any other hydrate function in the table, as the other functions typically depend on the List or Get.
-  
+
   - One or more [transform] functions are called for each column. These extract and/or reformat data returned by the hydrate functions.
-  
+
   - The plugin returns the transformed data to the FDW.
 
   - Steampipe FDW returns the results to the database.
 
+[aws plugin.go]: https://github.com/turbot/steampipe-plugin-aws/blob/main/aws/plugin.go
+[zendesk plugin.go]: https://github.com/turbot/steampipe-plugin-zendesk/blob/main/zendesk/plugin.go
+[aws main.go]: https://github.com/turbot/steampipe-plugin-aws/blob/main/main.go
+[zendesk main.go]: https://github.com/turbot/steampipe-plugin-zendesk/blob/main/main.go
+[aws table_aws_ec2_instance.go]: https://github.com/turbot/steampipe-plugin-aws/blob/main/aws/table_aws_ec2_instance.go
+[zendesk table_zendesk_ticket.go]: https://github.com/turbot/steampipe-plugin-zendesk/blob/main/zendesk/table_zendesk_ticket.go
+[go-hclog]: https://github.com/hashicorp/go-hclog
+[CSV plugin]: https://hub.steampipe.io/plugins/turbot/csv/tables/%7Bcsv_filename%7D
 [foreign data wrapper]: https://github.com/turbot/steampipe-postgres-fdw
-
 */
 package steampipe_plugin_sdk
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v4/docs/dynamic_tables"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v5/docs/dynamic_tables"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
 var forceImportDynamicPlugin dynamic_tables.ForceImport

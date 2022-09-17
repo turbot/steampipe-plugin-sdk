@@ -7,7 +7,7 @@ import (
 
 	"github.com/turbot/go-kit/helpers"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/schema"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
 )
 
 // Validate validates the connection config

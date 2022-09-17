@@ -3,7 +3,7 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/schema"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
 
 	"reflect"
 	"testing"
