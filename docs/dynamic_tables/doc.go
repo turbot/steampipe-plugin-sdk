@@ -1,18 +1,16 @@
 /*
 # Dynamic Tables
 
-If [plugin.SchemaMode] is set to dynamic, every time
-Steampipe starts the plugin's schema will be checked for any changes since the
-last time it loaded, and re-import the schema if it detects any.
+If [plugin.SchemaMode] is set to dynamic, then each time Steampipe loads a plugin it checks for schema changes since the 
+last load. If it detects changes, Steampipe reloads the plugin.
 
-Plugins with dynamic tables are useful when you are building a plugin whose schema is not
-known at compile time; instead, its schema will be generated at runtime. For
-instance, a plugin with dynamic tables is useful if you want to load CSV files
-as tables from one or more directories. Each of these CSV files may have
-different column structures, resulting in a different structure for each table.
+Dynamic tables are useful when you are building a plugin whose schema is not
+known at compile time; instead it must be generated at runtime. The [CSV plugin], for
+example, can load CSV files from one or more directories. Each file may have
+a different set of columns.
 
 In order to create a dynamic table, [plugin.TableMapFunc]
-should call a function that returns map[string]*plugin.Table.
+should call a function that returns map[string]*[plugin.Table].
 
 	func Plugin(ctx context.Context) *plugin.Plugin {
 		p := &plugin.Plugin{
@@ -47,7 +45,7 @@ should call a function that returns map[string]*plugin.Table.
 		return tables, nil
 	}
 
-The tableCSV function mentioned in the example above looks for all CSV files in the configured paths, and for each one, builds a *plugin.Table type:
+The tableCSV function mentioned above looks for all CSV files in the configured paths, and for each one, builds a *[plugin.Table]:
 
 	func tableCSV(ctx context.Context, p *plugin.Plugin) *plugin.Table {
 
@@ -101,7 +99,7 @@ The tableCSV function mentioned in the example above looks for all CSV files in 
 	}
 
 The end result is that, when using the CSV plugin, whenever Steampipe starts it will
-check for any new, deleted, and modified CSV files in the configured paths
+check for any new, deleted, and modified CSV files in the configured `paths`
 and create any discovered CSVs as tables. The CSV filenames are turned directly
 into table names.
 
