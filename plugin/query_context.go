@@ -5,7 +5,12 @@ import (
 )
 
 /*
-QueryContext is the context data passed from postgres.
+QueryContext contains key query properties:
+  - the columns requested.
+  - all quals specified (not just key column quals).
+  - the limit.
+  - is caching enabled.
+  - cache TTl.
 */
 type QueryContext struct {
 	Columns      []string
