@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
-	sdkproto "github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )
 
 const pendingQueryTimeout = 20 * time.Second

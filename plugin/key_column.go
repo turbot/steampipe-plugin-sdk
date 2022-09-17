@@ -6,9 +6,9 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v4/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 )
 
 const (
@@ -22,11 +22,11 @@ const (
 //
 // At least one key column must be defined for a Get call. They are optional for List calls.
 //
-// Operators
+// # Operators
 //
 // This property specifies the accepted operators (from a possible set: "=", "<>", "<", "<=", ">", ">=")
 //
-// Require
+// # Require
 //
 // This property determines whether the column is required or optional. Possible values:
 //
@@ -42,7 +42,7 @@ const (
 //
 // Any one of the given columns must be provided.
 //
-// CacheMatch
+// # CacheMatch
 //
 // This property determines the logic used by the query results cache to determine whether a cached value
 // matches a given query. Possible values:
@@ -70,7 +70,6 @@ const (
 // which is incorrect as the data returned if a filter qual is passed would include a non null filter column
 //
 // The solution is to set CacheMatch="exact"
-//
 type KeyColumn struct {
 	Name       string
 	Operators  []string

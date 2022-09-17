@@ -2,7 +2,7 @@ package query_cache
 
 import (
 	"fmt"
-	sdkproto "github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"sync"
 	"time"
 )
