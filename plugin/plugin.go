@@ -50,21 +50,21 @@ Set plugin name using [plugin.Plugin.Name].
 
 The tables provided by the plugin are specified by setting either [plugin.Plugin.TableMap] or [plugin.Plugin.TableMapFunc]:
 
-  - For most plugins, with a static set of tables, use the TableMap property
+  - For most plugins, with a static set of tables, use [plugin.Plugin.TableMap].
 
-  - For a plugin with [dynamic_tables], use [plugin.Plugin.TableMapFunc]. Also, [plugin.Plugin.SchemaMode] must be set to “dynamic“ .
+  - For a plugin with [dynamic_tables], use [plugin.Plugin.TableMapFunc]. Also, [plugin.Plugin.SchemaMode] must be set to dynamic.
 
-If the plugin uses custom connection config, it must define a [plugin.ConnectionConfigSchema],
+If the plugin uses custom connection config, it must define a [plugin.ConnectionConfigSchema].
 
 Various default behaviours can be defined:
 
-  - a default [transform] which will be applied to all columns which do not specify a transform. ([plugin.Plugin.DefaultTransform]).
+  - A default [transform] which will be applied to all columns which do not specify a transform. ([plugin.Plugin.DefaultTransform]).
 
-  - the default concurrency limits for a [HydrateFunc] ([plugin.Plugin.DefaultConcurrency]).
+  - The default concurrency limits for a [HydrateFunc] ([plugin.Plugin.DefaultConcurrency]).
 
-  - the plugin default [error_handling] behaviour.
+  - The plugin default [error_handling] behaviour.
 
-Required columns can be specified by setting [plugin.Plugin.RequiredColumns]
+Required columns can be specified by setting [plugin.Plugin.RequiredColumns].
 
 Plugin examples:
   - [aws]
@@ -74,8 +74,6 @@ Plugin examples:
 [aws]: https://github.com/turbot/steampipe-plugin-aws/blob/c5fbf38df19667f60877c860cf8ad39816ff658f/aws/plugin.go#L19
 [github]: https://github.com/turbot/steampipe-plugin-github/blob/a5ae211ee602be4adcea3a5c495cbe36aa87b957/github/plugin.go#L11
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
-
-[dynamic plugins]: https://steampipe.io/docs/develop/writing-plugins?#dynamic-tables
 */
 type Plugin struct {
 	Name   string
@@ -190,9 +188,12 @@ func (p *Plugin) newConnectionCache(connectionName string) *connectionmanager.Co
 	return connectionCache
 }
 
-// GetSchema is the handler function for the GetSchema grpc function
-// return the plugin schema.
-// Note: the connection config must be set before calling this function.
+/*
+GetSchema returns the [grpc.PluginSchema].
+Note: the connection config must be set before calling this function.
+
+GetSchema is the handler function for the GetSchema grpc function
+*/
 func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 	var connectionData *ConnectionData
 	if connectionName == "" {
@@ -217,8 +218,9 @@ func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 	return schema, nil
 }
 
-// Execute is the handler function for the Execute grpc function
-// execute a query and streams the results using the given GRPC stream.
+// Execute starts a query and streams the results using the given GRPC stream.
+//
+// This is the handler function for the Execute GRPC function.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
@@ -309,7 +311,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	return helpers.CombineErrors(errors...)
 }
 
-// ClearConnectionCache clears the connection cache for the given connection
+// ClearConnectionCache clears the connection cache for the given connection.
 func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
@@ -324,7 +326,7 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 	connectionCache.Clear(ctx)
 }
 
-// ClearQueryCache clears the query cache for the given connection
+// ClearQueryCache clears the query cache for the given connection.
 func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 	p.queryCache.ClearForConnection(ctx, connectionName)
 }

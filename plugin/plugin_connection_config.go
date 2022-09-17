@@ -11,9 +11,9 @@ import (
 )
 
 /*
-SetConnectionConfig sets the connection config for the given connection
+SetConnectionConfig sets the connection config for the given connection.
 
-This is the implementation of the SetConnectionConfig plugin interface function
+This is the handler function for the SetConnectionConfig GRPC function.
 */
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	log.Printf("[TRACE] SetConnectionConfig %s", connectionName)
@@ -26,9 +26,9 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 }
 
 /*
-SetAllConnectionConfigs sets the connection config for a list of connections
+SetAllConnectionConfigs sets the connection config for a list of connections.
 
-This is the implementation of the SetAllConnectionConfigs plugin interface function
+This is the handler function for the SetAllConnectionConfigs GRPC function.
 */
 func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (err error) {
 	defer func() {
@@ -134,12 +134,12 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 }
 
 /*
-UpdateConnectionConfigs handles added, changed and deleted connections
-  - added connections are inserted into [plugin.Plugin.ConnectionMap]
-  - deleted connections are removed from ConnectionMap
-  - for updated connections,  ConnectionMap is updated and [plugin.Plugin.ConnectionConfigChangedFunc] is called
+UpdateConnectionConfigs handles added, changed and deleted connections:
+  - Added connections are inserted into [plugin.Plugin.ConnectionMap].
+  - Deleted connections are removed from ConnectionMap.
+  - For updated connections, ConnectionMap is updated and [plugin.Plugin.ConnectionConfigChangedFunc] is called.
 
-This is the implementation of the UpdateConnectionConfigs plugin interface function
+This is the handler function for the UpdateConnectionConfigs GRPC function.
 */
 func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) error {
 	p.logChanges(added, deleted, changed)
