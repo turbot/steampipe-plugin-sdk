@@ -15,7 +15,6 @@
 
 This SDK makes it easy to write Steampipe [plugins](https://hub.steampipe.io/plugins).
 
-
 Join our [Slack community](https://steampipe.io/community/join) to ask questions, voice ideas, and share your projects. 
 
 <details>
