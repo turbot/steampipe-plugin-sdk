@@ -4,6 +4,9 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 )
 
+/*
+QueryContext is the context data passed from postgres.
+*/
 type QueryContext struct {
 	Columns      []string
 	UnsafeQuals  map[string]*proto.Quals
