@@ -33,7 +33,7 @@ func (t *Table) getColumnType(columnName string) proto.ColumnType {
 }
 
 // take the raw value returned by the get/list/hydrate call, apply transforms and convert to protobuf value
-func (t *Table) getColumnValue(ctx context.Context, rowData *RowData, column *QueryColumn) (*proto.Column, error) {
+func (t *Table) getColumnValue(ctx context.Context, rowData *rowData, column *QueryColumn) (*proto.Column, error) {
 	hydrateItem, err := rowData.GetColumnData(column)
 	if err != nil {
 		log.Printf("[ERROR] table '%s' failed to get column data, connectionCallId %s: %v", t.Name, rowData.queryData.connectionCallId, err)

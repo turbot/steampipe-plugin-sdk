@@ -92,7 +92,7 @@ type QueryData struct {
 	// all the columns that will be returned by this query
 	columns            []*QueryColumn
 	concurrencyManager *concurrencyManager
-	rowDataChan        chan *RowData
+	rowDataChan        chan *rowData
 	errorChan          chan error
 	// channel to send results
 	outputChan chan *proto.ExecuteResponse
@@ -143,7 +143,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
-		rowDataChan: make(chan *RowData, rowDataBufferSize),
+		rowDataChan: make(chan *rowData, rowDataBufferSize),
 		errorChan:   make(chan error, 1),
 		outputChan:  outputChan,
 		listWg:      &wg,
@@ -226,6 +226,15 @@ func (d *QueryData) RowsRemaining(ctx context.Context) int64 {
 	return rowsRemaining
 }
 
+// EqualsQualString looks for the specified key column quals and if it exists, return the value as a string
+func (d *QueryData) EqualsQualString(key string) string {
+	qualValue, ok := d.EqualsQuals[key]
+	if !ok {
+		return ""
+	}
+	return typehelpers.ToString(grpc.GetQualValue(qualValue).(string))
+}
+
 func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
 	d.Matrix = matrix
 	// if we have key column quals for any matrix properties, filter the matrix
@@ -257,15 +266,6 @@ func (d *QueryData) addColumnsForHydrate(hydrateName string) []*QueryColumn {
 		cols = append(cols, NewQueryColumn(column, hydrateName))
 	}
 	return cols
-}
-
-// EqualsQualString looks for the specified key column quals and if it exists, return the value as a string
-func (d *QueryData) EqualsQualString(key string) string {
-	qualValue, ok := d.EqualsQuals[key]
-	if !ok {
-		return ""
-	}
-	return typehelpers.ToString(grpc.GetQualValue(qualValue).(string))
 }
 
 // add matrix item into KeyColumnQuals and Quals
@@ -504,7 +504,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 
 		rd.matrixItem = GetMatrixItem(ctx)
 		// set the parent item on the row data
-		rd.ParentItem = d.parentItem
+		rd.parentItem = d.parentItem
 		// NOTE: add the item as the hydrate data for the list call
 		rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
 
@@ -656,7 +656,7 @@ func (d *QueryData) streamError(err error) {
 }
 
 // execute necessary hydrate calls to populate row data
-func (d *QueryData) buildRowAsync(ctx context.Context, rowData *RowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
+func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {

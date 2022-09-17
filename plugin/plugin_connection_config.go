@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+/*SetConnectionConfig sets the connection config for the given connection
+
+This is the implementation of the SetConnectionConfig plugin interface function
+*/
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	log.Printf("[TRACE] SetConnectionConfig %s", connectionName)
 	return p.SetAllConnectionConfigs([]*proto.ConnectionConfig{
@@ -20,6 +24,10 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	}, 0)
 }
 
+/*SetAllConnectionConfigs sets the connection config for a list of connections
+
+This is the implementation of the SetAllConnectionConfigs plugin interface function
+*/
 func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -123,6 +131,13 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	return nil
 }
 
+/*UpdateConnectionConfigs handles added, changed and deleted connections
+	- added connections are inserted into [plugin.Plugin.ConnectionMap]
+	- deleted connections are removed from ConnectionMap
+	- for updated connections,  ConnectionMap is updated and [plugin.Plugin.ConnectionConfigChangedFunc] is called
+
+This is the implementation of the UpdateConnectionConfigs plugin interface function
+*/
 func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) error {
 	p.logChanges(added, deleted, changed)
 

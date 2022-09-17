@@ -8,7 +8,7 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-func (p *Plugin) Validate() string {
+func (p *Plugin) validate() string {
 	// TODO KAI for dynamic schema we must validate all table maps in ConnectionMap
 
 	log.Printf("[TRACE] validate plugin %s, required columns %v", p.Name, p.RequiredColumns)

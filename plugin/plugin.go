@@ -554,7 +554,7 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 
 	// now validate the plugin
 	// NOTE: must do this after calling TableMapFunc
-	if validationErrors := p.Validate(); validationErrors != "" {
+	if validationErrors := p.validate(); validationErrors != "" {
 		return nil, fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
 	return tableMap, nil
