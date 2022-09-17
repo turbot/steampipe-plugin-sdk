@@ -21,14 +21,12 @@ type TableCacheOptions struct {
 /*
 Table defines the properties of a plugin table:
 
-  - which columns are returned: [Column]
-  - function used to list table results: [ListConfig]
-  - function used to retrieve a single result by key: [GetConfig]
-  - additional functions required to fetch specific column data: [HydrateConfig]
-  - function which retrieves some or all row data for a single row item: [HydrateFunc]
-  - function used to retrieve data for multiple [matrix_items]: [MatrixItemMapFunc]
-  - ignore errors: [IgnoreConfig]
-  - retry errors: [RetryConfig]
+	- which columns are returned: [plugin.Table.Columns]
+	- how to fetch all rows in the table: [plugin.Table.List]
+	- how to fetch a single row by key: [plugin.TableGet]
+	- additional configuration for a column hydrate function: [plugin.Table.HydrateConfig]
+	- function used to retrieve data for multiple matrix items: [plugin.Table.GetMatrixItemFunc]
+	- the table default [error_handling] behaviour.
 */
 type Table struct {
 	Name string

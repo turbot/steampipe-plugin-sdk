@@ -62,9 +62,7 @@ Various default behaviours can be defined:
 
   - the default concurrency limits for a [HydrateFunc] ([plugin.Plugin.DefaultConcurrency]).
 
-  - the default error retry behaviour ([plugin.Plugin.DefaultRetryConfig])
-
-  - the default error ignore behaviour ([plugin.Plugin.IgnoreConfig])
+	- the plugin default [error_handling] behaviour.
 
 Required columns can be specified by setting [plugin.Plugin.RequiredColumns]
 
