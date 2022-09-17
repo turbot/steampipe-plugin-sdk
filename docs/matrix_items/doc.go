@@ -1,5 +1,5 @@
 /*
-# Matrix Items
+Matrix Items
 
 Matrix items are a powerful way of executing the same query multiple times in parallel for a set of parameters, for example regions.
 
