@@ -10,7 +10,8 @@ import (
 	"strings"
 )
 
-/*SetConnectionConfig sets the connection config for the given connection
+/*
+SetConnectionConfig sets the connection config for the given connection
 
 This is the implementation of the SetConnectionConfig plugin interface function
 */
@@ -24,7 +25,8 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	}, 0)
 }
 
-/*SetAllConnectionConfigs sets the connection config for a list of connections
+/*
+SetAllConnectionConfigs sets the connection config for a list of connections
 
 This is the implementation of the SetAllConnectionConfigs plugin interface function
 */
@@ -131,10 +133,11 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	return nil
 }
 
-/*UpdateConnectionConfigs handles added, changed and deleted connections
-	- added connections are inserted into [plugin.Plugin.ConnectionMap]
-	- deleted connections are removed from ConnectionMap
-	- for updated connections,  ConnectionMap is updated and [plugin.Plugin.ConnectionConfigChangedFunc] is called
+/*
+UpdateConnectionConfigs handles added, changed and deleted connections
+  - added connections are inserted into [plugin.Plugin.ConnectionMap]
+  - deleted connections are removed from ConnectionMap
+  - for updated connections,  ConnectionMap is updated and [plugin.Plugin.ConnectionConfigChangedFunc] is called
 
 This is the implementation of the UpdateConnectionConfigs plugin interface function
 */
