@@ -12,9 +12,11 @@ import (
 A GetConfig defines how to get a single row of a table:
 
   - the [key_columns] that uniquely identify a row.
+
   - the [error_handling] behaviour.
-	- how many concurrent [HydrateFunc] calls to allow, [when the get call is used as a column hydrate func]: [plugin.GetConfig.MaxConcurrency]
-	
+
+  - how many concurrent [HydrateFunc] calls to allow, [when the get call is used as a column hydrate func]: [plugin.GetConfig.MaxConcurrency]
+
 A GetConfig with KeyColumns:
 
 	Get: &plugin.GetConfig{
