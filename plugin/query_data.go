@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"path"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -127,13 +128,16 @@ type QueryData struct {
 	hydrateColumnMap map[string][]string
 	// tactical - free memory after streaming this many rows
 	freeMemInterval int64
+
+	// temp dir for the connection
+	tempDir string
 }
 
-func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
+func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
 
 	// create a connection cache
-	connectionCache := plugin.newConnectionCache(connectionData.Connection.Name)
+	connectionCache := p.newConnectionCache(connectionData.Connection.Name)
 	d := &QueryData{
 		// set deprecated ConnectionManager
 		ConnectionManager: connection_manager.NewManager(connectionCache),
@@ -143,7 +147,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 		Connection:        connectionData.Connection,
 		EqualsQuals:       make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
-		plugin:            plugin,
+		plugin:            p,
 		connectionCallId:  connectionCallId,
 		cacheTtl:          executeData.CacheTtl,
 		cacheEnabled:      executeData.CacheEnabled,
@@ -156,6 +160,10 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 		listWg:      &wg,
 
 		freeMemInterval: GetFreeMemInterval(),
+
+		// temporary dir for this connection
+		// this will only created if GetSourceFiles is used
+		tempDir: path.Join(p.tempDir, connectionData.Connection.Name),
 	}
 
 	d.StreamListItem = d.streamListItem
