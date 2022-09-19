@@ -19,3 +19,8 @@ func (q *QueryData) GetSourceFiles(source string) ([]string, error) {
 	}
 	return filehelpers.ListFiles(resolvedSourcePath, opts)
 }
+
+// Get the current timestamp
+func timestamp() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}

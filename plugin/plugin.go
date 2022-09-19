@@ -182,7 +182,6 @@ func (p *Plugin) initialise() {
 }
 
 func (p *Plugin) shutdown() {
-
 	// iterate through the connections in the plugin and
 	// stop the file watchers for each
 	for _, connectionData := range p.ConnectionMap {
