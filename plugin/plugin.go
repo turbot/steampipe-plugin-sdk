@@ -18,6 +18,7 @@ import (
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/go-kit/filewatcher"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
@@ -115,6 +116,37 @@ type Plugin struct {
 	// temporary dir for this plugin
 	// this will only created if GetSourceFiles is used
 	tempDir string
+	// ConnectionConfigChangedFunc is a callback function which is called from UpdateConnectionConfigs
+	// when any connection configs have changed
+}
+
+func (p *Plugin) ConfigureFileWatcher(ctx context.Context, connectionName string, opts *filewatcher.WatcherOptions) error {
+
+	// First find the existing file Watcher for the connection
+	// If there is one stop it
+	// Create new file watcher
+	// and write new file watcher to the connection data
+
+	connectionData := p.ConnectionMap[connectionName]
+
+	if connectionData == nil {
+		log.Printf("[ERROR] Connection data not avialble for connection %s", connectionName)
+		return fmt.Errorf("[ERROR] Connection data not avialble for connection %s", connectionName)
+	}
+
+	if existingWatcher := connectionData.Watcher; existingWatcher != nil {
+		existingWatcher.Close()
+	}
+
+	watcher, err := filewatcher.NewWatcher(opts)
+	if err != nil {
+		return err
+	}
+
+	watcher.Start()
+	connectionData.Watcher = watcher
+
+	return nil
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger

@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"github.com/turbot/go-kit/filewatcher"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
@@ -12,4 +13,6 @@ type ConnectionData struct {
 	Connection *Connection
 	// schema - this may be connection specific for dynamic schemas
 	Schema map[string]*proto.TableSchema
+	// FileWatcher - this is connection specific to watch for the changes in files
+	Watcher *filewatcher.FileWatcher
 }
