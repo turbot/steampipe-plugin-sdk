@@ -460,7 +460,7 @@ func TestValidate(t *testing.T) {
 		test.plugin.initialise()
 		test.plugin.initialiseTables(context.Background(), nil)
 
-		validationErrors := test.plugin.Validate()
+		validationErrors := test.plugin.validate()
 
 		if test.expected != validationErrors {
 			t.Errorf("Test: '%s'' FAILED. \nExpected: '%s' \nGot: '%s'  ", name, test.expected, validationErrors)
