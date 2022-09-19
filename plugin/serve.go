@@ -2,16 +2,16 @@ package plugin
 
 import (
 	"context"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )
 
 // ServeOpts are the configurations to serve a plugin.
@@ -27,6 +27,23 @@ type NewPluginOptions struct {
 type PluginFunc func(context.Context) *Plugin
 type CreatePlugin func(context.Context, string) (*Plugin, error)
 
+/*
+	Serve creates and starts the GRPC server which serves the plugin,
+
+passing callback functions to implement each of the plugin interface functions:
+
+  - SetConnectionConfig
+
+  - SetAllConnectionConfigs
+
+  - UpdateConnectionConfigs
+
+  - GetSchema
+
+  - Execute
+
+    It is called from the main function of the plugin.
+*/
 func Serve(opts *ServeOpts) {
 	ctx := context.WithValue(context.Background(), context_key.Logger, logging.NewLogger(&hclog.LoggerOptions{DisableTime: true}))
 
@@ -34,7 +51,7 @@ func Serve(opts *ServeOpts) {
 	p := opts.PluginFunc(ctx)
 
 	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
-	p.Initialise()
+	p.initialise()
 
 	shutdown, _ := telemetry.Init(p.Name)
 	defer func() {

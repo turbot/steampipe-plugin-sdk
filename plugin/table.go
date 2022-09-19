@@ -4,17 +4,35 @@ import (
 	"log"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
+/*
+TableCacheOptions provides a mechanism to disable caching for a specific table.
+
+It is useful in cases where the table returns a huge volume of data cheaply.
+
+Use TableCacheOptions to override the .cache off property of the CLI.
+*/
 type TableCacheOptions struct {
 	Enabled bool
 }
 
-// Table is a struct representing a plugin table.
-// It defines the table columns, the function used to list table results (List)
-// as well as (optionally) the function used to retrieve a single result by key (Get)
-// and additional the functions required to fetch specific columns (HydrateConfig).
+/*
+Table defines the properties of a plugin table:
+
+  - The columns that are returned: [plugin.Table.Columns].
+
+  - How to fetch all rows in the table: [plugin.Table.List].
+
+  - How to fetch a single row by key: [plugin.Table.Get].
+
+  - Additional configuration for a column hydrate function: [plugin.Table.HydrateConfig].
+
+  - Function used to retrieve data for multiple matrix items: [plugin.Table.GetMatrixItemFunc].
+
+  - The table default [error_handling] behaviour.
+*/
 type Table struct {
 	Name string
 	// table description

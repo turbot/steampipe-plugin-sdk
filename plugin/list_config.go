@@ -8,13 +8,36 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// ListConfig is a struct used to define the configuration of the table 'List' function.
-// This is the function used to retrieve rows of sata
-// The config defines the function, the columns which may be used to optimise the fetch (KeyColumns),
-// and the error handling behaviour
+/*
+[ListConfig] defines how to return all rows in the table:
+
+  - The [HydrateFunc] to use.
+
+  - The [key_columns] that may be used to optimize the fetch.
+
+  - The [error_handling] behaviour.
+
+To define a table's List function:
+
+	func tableHackernewsItem(ctx context.Context) *plugin.Table {
+		return &plugin.Table{
+			Name:        "hackernews_item",
+			Description: "This table includes the most recent items posted to Hacker News.",
+			List: &plugin.ListConfig{
+				Hydrate: itemList,
+			},
+			...
+		}
+	}
+
+Examples:
+  - [hackernews]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L14
+*/
 type ListConfig struct {
 	KeyColumns KeyColumnSlice
-	// the list function, this should stream the list results back using the QueryData object, and return nil
+	// the list function, this should stream the list results back using the QueryData object and return nil
 	Hydrate HydrateFunc
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
 	ParentHydrate HydrateFunc
@@ -54,10 +77,10 @@ func (c *ListConfig) Validate(table *Table) []string {
 		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' ListConfig does not specify a hydrate function", table.Name))
 	}
 	if c.RetryConfig != nil {
-		validationErrors = append(validationErrors, c.RetryConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.RetryConfig.validate(table)...)
 	}
 	if c.IgnoreConfig != nil {
-		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
 
 	// ensure there is no explicit hydrate config for the list config

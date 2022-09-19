@@ -11,8 +11,26 @@ import (
 var cacheableHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
 var cacheableHydrateLock sync.Mutex
 
-// WithCache is a chainable function which wraps a hydrate call with caching and checks for
-// pending execution of the same function
+/*
+WithCache ensures the [HydrateFunc] results are saved in the [connection.ConnectionCache].
+
+Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
+
+# Usage
+
+	{
+		Name:        "account",
+		Type:        proto.ColumnType_STRING,
+		Hydrate:     plugin.HydrateFunc(getCommonColumns).WithCache(),
+		Description: "The Snowflake account ID.",
+		Transform:   transform.FromCamel(),
+	}
+
+Plugin examples:
+  - [snowflake]
+
+[snowflake]: https://github.com/turbot/steampipe-plugin-snowflake/blob/6e243aad63b5706ee1a9dd8979df88eb097e38a8/snowflake/common_columns.go#L28
+*/
 func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 	// build a function to return the cache key
 	getCacheKey := hydrate.getCacheKeyFunction(args)

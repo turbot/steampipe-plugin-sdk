@@ -3,13 +3,19 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
 	"log"
 	"strings"
+
+	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 )
 
+/*
+SetConnectionConfig sets the connection config for the given connection.
+
+This is the handler function for the SetConnectionConfig GRPC function.
+*/
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	log.Printf("[TRACE] SetConnectionConfig %s", connectionName)
 	return p.SetAllConnectionConfigs([]*proto.ConnectionConfig{
@@ -20,6 +26,11 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	}, 0)
 }
 
+/*
+SetAllConnectionConfigs sets the connection config for a list of connections.
+
+This is the handler function for the SetAllConnectionConfigs GRPC function.
+*/
 func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -123,6 +134,17 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	return nil
 }
 
+/*
+UpdateConnectionConfigs handles added, changed and deleted connections:
+
+  - Added connections are inserted into [plugin.Plugin.ConnectionMap].
+
+  - Deleted connections are removed from ConnectionMap.
+
+  - For updated connections, ConnectionMap is updated and [plugin.Plugin.ConnectionConfigChangedFunc] is called.
+
+This is the handler function for the UpdateConnectionConfigs GRPC function.
+*/
 func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) error {
 	p.logChanges(added, deleted, changed)
 

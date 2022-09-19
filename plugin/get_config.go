@@ -8,9 +8,58 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-// GetConfig is a struct used to define the configuration of the table 'Get' function.
-// This is the function used to retrieve a single row by id
-// The config defines the function, the columns which may be used as id (KeyColumns), and the error handling behaviour
+/*
+A GetConfig defines how to get a single row of a table:
+
+  - The [key_columns] that uniquely identify a row.
+
+  - The [error_handling] behaviour.
+
+  - How many concurrent [HydrateFunc] calls to allow, [when the get call is used as a column hydrate func]: [plugin.GetConfig.MaxConcurrency].
+
+A GetConfig with KeyColumns:
+
+	Get: &plugin.GetConfig{
+		KeyColumns: plugin.SingleColumn("id"),
+		Hydrate:    getItem,
+	}
+
+A GetConfig with IgnoreConfig:
+
+	Get: &plugin.GetConfig{
+		KeyColumns: 	plugin.SingleColumn("id"),
+		Hydrate:    	getItem,
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
+	}
+
+A GetConfig with RetryConfig:
+
+	Get: &plugin.GetConfig{
+		KeyColumns: 	plugin.SingleColumn("id"),
+		Hydrate:    	getItem,
+		RetryConfig:    &plugin.RetryConfig{
+			ShouldRetryErrorFunc: shouldRetryError,
+		},
+	}
+
+A GetConfig with all fields specified:
+
+	Get: &plugin.GetConfig{
+		KeyColumns:     plugin.SingleColumn("id"),
+		Hydrate:        getItem,
+		RetryConfig:    &plugin.RetryConfig{
+			ShouldRetryErrorFunc: shouldRetryError,
+		},
+		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
+		MaxConcurrency: 50,
+	}
+
+Plugin examples:
+  - [hackernews]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L21-L24
+[when the get call is used as a column hydrate func]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14-L35
+*/
 type GetConfig struct {
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
 	KeyColumns KeyColumnSlice
@@ -77,10 +126,10 @@ func (c *GetConfig) Validate(table *Table) []string {
 		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig does not specify a KeyColumn", table.Name))
 	}
 	if c.RetryConfig != nil {
-		validationErrors = append(validationErrors, c.RetryConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.RetryConfig.validate(table)...)
 	}
 	if c.IgnoreConfig != nil {
-		validationErrors = append(validationErrors, c.IgnoreConfig.Validate(table)...)
+		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
 	// ensure there is no explicit hydrate config for the get config
 	getHydrateName := helpers.GetFunctionName(table.Get.Hydrate)

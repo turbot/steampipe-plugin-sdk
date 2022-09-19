@@ -8,7 +8,7 @@ import (
 
 	"github.com/sethvargo/go-retry"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -47,7 +47,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	return hydrateResult, err
 }
 
-// WrapHydrate is a higher order function which returns a HydrateFunc which handles Ignorable errors
+// WrapHydrate is a higher order function which returns a [HydrateFunc] that handles Ignorable errors.
 func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFunc {
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "hydrateWithIgnoreError (%s)", d.Table.Name)

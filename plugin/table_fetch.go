@@ -9,12 +9,12 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -25,28 +25,6 @@ const (
 	fetchTypeList fetchType = "list"
 	fetchTypeGet            = "get"
 )
-
-/*
-multiregion fetch
-Each plugin table can optionally define a function `GetMatrixItem`.
-
-This returns a list of maps, each of which contains the parameters required
-to do get/list for a given region (or whatever partitioning is relevant to the plugin)
-
-The plugin would typically get this information from the connection config
-
-If a matrix is returned by the plugin, we execute Get/List calls for each matrix item (e.g. each region)
-
-NOTE: if the quals include the matrix property (or properties),w e check whether each matrix
-item meets the quals and if not, do not execute for that item
-
-For example, for the query
-	select vpc_id, region from aws_vpc where region = 'us-east-1'
-we would only execute a List function for the matrix item { region: "us-east-1" },
-even if other were defined in the connection config
-
-When executing for each matrix item, the matrix item is put into the context, available for use by the get/list call
-*/
 
 // call either 'get' or 'list'.
 func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
@@ -76,7 +54,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
 
-	log.Printf("[TRACE] executeGetCall, table: %s, queryData.KeyColumnQuals: %v", t.Name, queryData.KeyColumnQuals)
+	log.Printf("[TRACE] executeGetCall, table: %s, queryData.KeyColumnQuals: %v", t.Name, queryData.EqualsQuals)
 
 	unsatisfiedColumns := queryData.Quals.GetUnsatisfiedKeyColumns(t.Get.KeyColumns)
 	// verify we have the necessary quals
@@ -130,7 +108,7 @@ func (t *Table) getListQualValueForGetCall(queryData *QueryData) (string, *proto
 	log.Printf("[TRACE] getListQualValueForGetCall %d key column quals: %s ", len(k), k)
 
 	// get map of all the key columns quals which have a list value
-	listValueMap := queryData.KeyColumnQuals.GetListQualValues()
+	listValueMap := queryData.EqualsQuals.GetListQualValues()
 	if len(listValueMap) == 0 {
 		return "", nil
 	}
@@ -165,14 +143,14 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 	// NOTE: ensure QueryData.rowDataChan can buffer sufficient items
 	// (we normally expect it would be sufficient)
 	if len(qualValueList.Values) > rowDataBufferSize {
-		queryData.rowDataChan = make(chan *RowData, len(qualValueList.Values))
+		queryData.rowDataChan = make(chan *rowData, len(qualValueList.Values))
 	}
 
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
 		// make a shallow copy of the query data and modify the quals
 		queryDataCopy := queryData.ShallowCopy()
-		queryDataCopy.KeyColumnQuals[keyColumnName] = qv
+		queryDataCopy.EqualsQuals[keyColumnName] = qv
 		queryDataCopy.Quals[keyColumnName] =
 			&KeyColumnQuals{Name: keyColumnName, Quals: quals.QualSlice{{Column: keyColumnName, Operator: "=", Value: qv}}}
 
@@ -233,11 +211,11 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	// if there is no error and the getItem is nil, we assume the item does not exist
 	if !helpers.IsNil(getItem) {
 		// set the rowData Item to the result of the Get hydrate call - this will be passed through to all other hydrate calls
-		rd.Item = getItem
+		rd.item = getItem
 		// NOTE: explicitly set the get hydrate results on rowData
 		rd.set(hydrateKey, getItem)
 		// set the rowsStreamed to 1
-		queryData.QueryStatus.rowsStreamed = 1
+		queryData.queryStatus.rowsStreamed = 1
 
 		queryData.rowDataChan <- rd
 	}
@@ -247,7 +225,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 
 // getForEach executes the provided get call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *RowData) (interface{}, error) {
+func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *rowData) (interface{}, error) {
 
 	log.Printf("[TRACE] getForEach, matrixItem list: %v\n", queryData.filteredMatrix)
 
@@ -450,7 +428,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 		// make a shallow copy of the query data and modify the value of the key column qual to be the value list item
 		queryDataCopy := queryData.ShallowCopy()
 		// update qual maps to replace list value with list element
-		queryDataCopy.KeyColumnQuals[keyColumn] = qv
+		queryDataCopy.EqualsQuals[keyColumn] = qv
 		queryDataCopy.Quals[keyColumn] = &KeyColumnQuals{
 			Name: keyColumn, Quals: quals.QualSlice{{Column: keyColumn, Operator: "=", Value: qv}}}
 
