@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -105,6 +107,10 @@ type Plugin struct {
 	// map of the connection caches, keyed by connection name
 	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
+
+	// temporary dir for this plugin
+	// this will only created if GetSourceFiles is used
+	tempDir string
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -153,6 +159,18 @@ func (p *Plugin) initialise() {
 
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
+	}
+
+	// set temporary dir for this plugin
+	// this will only created if GetSourceFiles is used
+	p.tempDir = path.Join(os.TempDir(), p.Name)
+}
+
+func (p *Plugin) shutdown() {
+	// Destroy the temp directory
+	err := os.RemoveAll(p.tempDir)
+	if err != nil {
+		log.Printf("[WARN] failed to delete the temp directory: %s", err.Error())
 	}
 }
 

@@ -53,12 +53,13 @@ func Serve(opts *ServeOpts) {
 	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
 	p.initialise()
 
-	shutdown, _ := telemetry.Init(p.Name)
+	shutdownTelemetry, _ := telemetry.Init(p.Name)
 	defer func() {
 		log.Println("[TRACE] FLUSHING instrumentation")
 		//instrument.FlushTraces()
 		log.Println("[TRACE] Shutdown instrumentation")
-		shutdown()
+		shutdownTelemetry()
+		p.shutdown()
 	}()
 	if _, found := os.LookupEnv("STEAMPIPE_PPROF"); found {
 		log.Printf("[INFO] PROFILING!!!!")
