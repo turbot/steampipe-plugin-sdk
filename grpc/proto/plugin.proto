@@ -4,12 +4,26 @@ package proto;
 option go_package = ".;proto";
 
 service WrapperPlugin {
+  rpc EstablishMessageStream(EstablishMessageStreamRequest) returns (stream PluginMessage);
   rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
   rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
   rpc SetConnectionConfig(SetConnectionConfigRequest) returns (SetConnectionConfigResponse);
   rpc SetAllConnectionConfigs(SetAllConnectionConfigsRequest) returns (SetConnectionConfigResponse);
   rpc UpdateConnectionConfigs(UpdateConnectionConfigsRequest) returns (UpdateConnectionConfigsResponse);
   rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
+}
+
+message EstablishMessageStreamRequest{
+}
+
+message PluginMessage{
+  PluginMessageType messageType = 1;
+  string connection = 2;
+}
+
+enum PluginMessageType {
+  NO_STREAM_REQUIRED = 0;
+  SCHEMA_UPDATED = 1;
 }
 
 message Operator {

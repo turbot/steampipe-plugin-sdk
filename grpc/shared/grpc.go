@@ -72,3 +72,7 @@ func (m *GRPCServer) UpdateConnectionConfigs(_ context.Context, req *proto.Updat
 func (m *GRPCServer) GetSupportedOperations(_ context.Context, req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return m.Impl.GetSupportedOperations(req)
 }
+
+func (m *GRPCServer) EstablishMessageStream(_ *proto.EstablishMessageStreamRequest, server proto.WrapperPlugin_EstablishMessageStreamServer) error {
+	return m.Impl.EstablishMessageStream(server)
+}

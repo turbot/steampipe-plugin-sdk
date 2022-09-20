@@ -79,6 +79,7 @@ func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest
 	}
 	return nil
 }
+
 func (c *PluginClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) error {
 	_, err := c.Stub.SetAllConnectionConfigs(req)
 	if err != nil {
@@ -111,6 +112,10 @@ func (c *PluginClient) GetSchema(connectionName string) (*proto.Schema, error) {
 		return nil, HandleGrpcError(err, c.Name, "GetSchema")
 	}
 	return resp.Schema, nil
+}
+
+func (c *PluginClient) EstablishMessageStream() (proto.WrapperPlugin_EstablishMessageStreamClient, error) {
+	return c.Stub.EstablishMessageStream()
 }
 
 // Exited returned whether the underlying client has exited, i.e. the plugin has terminated

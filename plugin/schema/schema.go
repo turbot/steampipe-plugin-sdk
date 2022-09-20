@@ -19,7 +19,7 @@ type Attribute struct {
 	// Elem represents the element type. THis may only be set for only set for TypeList.
 	Elem *Attribute
 
-	// is this atribute required
+	// is this attribute required
 	Required bool
 }
 
