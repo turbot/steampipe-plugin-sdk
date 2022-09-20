@@ -18,6 +18,7 @@ type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) error
 type UpdateConnectionConfigsFunc func([]*proto.ConnectionConfig, []*proto.ConnectionConfig, []*proto.ConnectionConfig) error
+type EstablishMessageStreamFunc func(stream proto.WrapperPlugin_EstablishMessageStreamServer) error
 
 // PluginServer is the server for a single plugin
 type PluginServer struct {
@@ -28,6 +29,7 @@ type PluginServer struct {
 	setAllConnectionConfigsFunc SetAllConnectionConfigsFunc
 	updateConnectionConfigsFunc UpdateConnectionConfigsFunc
 	getSchemaFunc               GetSchemaFunc
+	establishMessageStreamFunc  EstablishMessageStreamFunc
 }
 
 func NewPluginServer(pluginName string,
@@ -35,7 +37,9 @@ func NewPluginServer(pluginName string,
 	setAllConnectionConfigsFunc SetAllConnectionConfigsFunc,
 	updateConnectionConfigsFunc UpdateConnectionConfigsFunc,
 	getSchemaFunc GetSchemaFunc,
-	executeFunc ExecuteFunc) *PluginServer {
+	executeFunc ExecuteFunc,
+	establishMessageStreamFunc EstablishMessageStreamFunc,
+) *PluginServer {
 
 	return &PluginServer{
 		pluginName:                  pluginName,
@@ -44,6 +48,7 @@ func NewPluginServer(pluginName string,
 		setAllConnectionConfigsFunc: setAllConnectionConfigsFunc,
 		updateConnectionConfigsFunc: updateConnectionConfigsFunc,
 		getSchemaFunc:               getSchemaFunc,
+		establishMessageStreamFunc:  establishMessageStreamFunc,
 	}
 }
 
@@ -130,6 +135,10 @@ func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsReques
 		QueryCache:          true,
 		MultipleConnections: true,
 	}, nil
+}
+
+func (s PluginServer) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
+	return s.establishMessageStreamFunc(stream)
 }
 
 func (s PluginServer) Serve() {
