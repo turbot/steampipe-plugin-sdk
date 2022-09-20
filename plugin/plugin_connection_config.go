@@ -112,7 +112,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			Schema:     schema,
 		}
 		log.Printf("[WARN] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
-		// set watch paths
+		// after adding the connection data, set watch paths
 		p.updateConnectionWatchPaths(c)
 	}
 
@@ -206,13 +206,14 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		}
 
 		log.Printf("[WARN] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
-		p.updateConnectionWatchPaths(c)
 
 		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
 			TableMap:   tableMap,
 			Connection: c,
 			Schema:     schema,
 		}
+		// after adding the connection data, update the watch paths
+		p.updateConnectionWatchPaths(c)
 	}
 
 	// update the query cache schema map
@@ -247,6 +248,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		p.ConnectionMap[changedConnection.Connection] = connectionData
 
 		log.Printf("[WARN] UpdateConnectionConfigs update connection %s in map, setting watch paths", changedConnection.Connection)
+		// after updating the connection data, update the file watcher paths
 		p.updateConnectionWatchPaths(updatedConnection)
 
 		// call the ConnectionConfigChanged callback function
@@ -275,13 +277,20 @@ func (p *Plugin) extractWatchPaths(config interface{}) []string {
 	valType := val.Type()
 	var watchedProperties []string
 	for i := 0; i < val.Type().NumField(); i++ {
-		if watchTag := valType.Field(i).Tag.Get("watch"); watchTag != "" {
-			// get property value
-			if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
-				if arrayVal, ok := value.([]string); ok {
-					watchedProperties = append(watchedProperties, arrayVal...)
-				} else if stringVal, ok := value.(string); ok {
-					watchedProperties = append(watchedProperties, stringVal)
+		// does this property have a steampipe tag
+		field := valType.Field(i)
+		steampipeTag := field.Tag.Get("steampipe")
+		if steampipeTag != "" {
+			steampipeTagLabels := strings.Split(steampipeTag, ",")
+			// does the tag have a 'watch' label?
+			if helpers.StringSliceContains(steampipeTagLabels, "watch") {
+				// get property value
+				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
+					if arrayVal, ok := value.([]string); ok {
+						watchedProperties = append(watchedProperties, arrayVal...)
+					} else if stringVal, ok := value.(string); ok {
+						watchedProperties = append(watchedProperties, stringVal)
+					}
 				}
 			}
 		}
