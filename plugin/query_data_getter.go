@@ -4,14 +4,23 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-getter"
 )
 
-func (q *QueryData) GetSourceFiles(source string) (string, error) {
+func (q *QueryData) GetSourceFiles(source string) (string, string, error) {
 	if source == "" {
-		return "", fmt.Errorf("source cannot be empty")
+		return "", "", fmt.Errorf("source cannot be empty")
+	}
+
+	var globPattern string
+
+	lastIndex := strings.LastIndex(source, "//")
+	if source[lastIndex-1:lastIndex] != ":" {
+		globPattern = source[lastIndex+2:]
+		source = source[:lastIndex]
 	}
 
 	var dest string
@@ -30,10 +39,10 @@ func (q *QueryData) GetSourceFiles(source string) (string, error) {
 
 	err := getter.Get(dest, source)
 	if err != nil {
-		return "", fmt.Errorf("failed to get directory specified by the source %s: %s", source, err.Error())
+		return "", "", fmt.Errorf("failed to get directory specified by the source %s: %s", source, err.Error())
 	}
 
-	return dest, nil
+	return dest, globPattern, nil
 }
 
 // Get the current timestamp
