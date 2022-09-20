@@ -14,5 +14,19 @@ type ConnectionData struct {
 	// schema - this may be connection specific for dynamic schemas
 	Schema map[string]*proto.TableSchema
 	// FileWatcher - this is connection specific to watch for the changes in files
-	Watcher *filewatcher.FileWatcher
+	Watcher    *filewatcher.FileWatcher
+	WatchPaths []string
+}
+
+func (d ConnectionData) setWatchPaths(watchPaths []string) {
+	// close any existing watcher
+	if d.Watcher != nil {
+		d.Watcher.Close()
+	}
+	// set watch paths
+	d.WatchPaths = watchPaths
+
+	// create watcher config
+
+	// start watcher
 }

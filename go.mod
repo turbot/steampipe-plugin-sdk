@@ -2,8 +2,6 @@ module github.com/turbot/steampipe-plugin-sdk/v5
 
 go 1.19
 
-replace github.com/turbot/go-kit => github.com/turbot/go-kit v0.2.2-0.20220919041727-75252cee33c2
-
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.0
@@ -18,7 +16,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
-	github.com/turbot/go-kit v0.4.0
+	github.com/turbot/go-kit v0.2.2-0.20220920035719-9dab72f47520
 	github.com/zclconf/go-cty v1.10.0
 	go.opentelemetry.io/otel v1.10.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.30.0

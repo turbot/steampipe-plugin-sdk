@@ -447,8 +447,8 @@ github.com/stretchr/testify v1.7.2/go.mod h1:R6va5+xMeoiuVRoj+gSkQ7d3FALtqAAGI1F
 github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
 github.com/tkrajina/go-reflector v0.5.4 h1:dS9aJEa/eYNQU/fwsb5CSiATOxcNyA/gG/A7a582D5s=
 github.com/tkrajina/go-reflector v0.5.4/go.mod h1:9PyLgEOzc78ey/JmQQHbW8cQJ1oucLlNQsg8yFvkVk8=
-github.com/turbot/go-kit v0.2.2-0.20220919041727-75252cee33c2 h1:/AK4R5yBDcCqKlGI9An+Hd5tqPmvsF5dskAaLu6HUAE=
-github.com/turbot/go-kit v0.2.2-0.20220919041727-75252cee33c2/go.mod h1:wbYT3zaI9Jb6+V99IgnW9Yx69995WDeoiLxVVZPh3/Y=
+github.com/turbot/go-kit v0.2.2-0.20220920035719-9dab72f47520 h1:bGDyobucgTLEcNFt4hAWvtfcAikdpbhhrYNa9XfSKlY=
+github.com/turbot/go-kit v0.2.2-0.20220920035719-9dab72f47520/go.mod h1:wbYT3zaI9Jb6+V99IgnW9Yx69995WDeoiLxVVZPh3/Y=
 github.com/ulikunitz/xz v0.5.8 h1:ERv8V6GKqVi23rgu5cj9pVfVzJbOqAY2Ntl88O6c2nQ=
 github.com/ulikunitz/xz v0.5.8/go.mod h1:nbz6k7qbPmH4IRqmfOplQw/tblSgqTqBwxkY0oWt/14=
 github.com/vmihailenco/msgpack v3.3.3+incompatible/go.mod h1:fy3FlTQTDXWkZ7Bh6AcGMlsjHatGryHQYUTf1ShIgkk=

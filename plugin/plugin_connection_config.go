@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"strings"
+	"time"
 
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -32,6 +34,7 @@ SetAllConnectionConfigs sets the connection config for a list of connections.
 This is the handler function for the SetAllConnectionConfigs GRPC function.
 */
 func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (err error) {
+	time.Sleep(10 * time.Second)
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
@@ -76,6 +79,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			if err != nil {
 				return err
 			}
+
 			c.Config = config
 		}
 
@@ -110,6 +114,9 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			Connection: c,
 			Schema:     schema,
 		}
+		log.Printf("[WARN] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
+		// set watch paths
+		p.updateConnectionWatchPaths(c)
 	}
 
 	for _, aggregatorConfig := range aggregators {
@@ -181,6 +188,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 			if err != nil {
 				return err
 			}
+
 			c.Config = config
 		}
 
@@ -199,6 +207,9 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 				return err
 			}
 		}
+
+		log.Printf("[WARN] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
+		p.updateConnectionWatchPaths(c)
 
 		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
 			TableMap:   tableMap,
@@ -238,12 +249,44 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		connectionData.Connection = updatedConnection
 		p.ConnectionMap[changedConnection.Connection] = connectionData
 
+		log.Printf("[WARN] UpdateConnectionConfigs update connection %s in map, setting watch paths", changedConnection.Connection)
+		p.updateConnectionWatchPaths(updatedConnection)
+
 		// call the ConnectionConfigChanged callback function
 		p.ConnectionConfigChangedFunc(ctx, p, existingConnection, updatedConnection)
 
 	}
 
 	return nil
+}
+
+func (p *Plugin) updateConnectionWatchPaths(c *Connection) {
+	if watchPaths := p.extractWatchPaths(c.Config); len(watchPaths) > 0 {
+		log.Printf("[WARN] updateConnectionWatchPaths for connection %s, watch paths: %v", c.Name, watchPaths)
+		connectionData := p.ConnectionMap[c.Name]
+		connectionData.setWatchPaths(watchPaths)
+	}
+}
+
+// reflect on a config struct and extract any watch paths, using the `watch` tag
+func (p *Plugin) extractWatchPaths(config interface{}) []string {
+	time.Sleep(20 * time.Second)
+	val := reflect.ValueOf(config)
+	valType := val.Type()
+	var watchedProperties []string
+	for i := 0; i < val.Type().NumField(); i++ {
+		if watchTag := valType.Field(i).Tag.Get("watch"); watchTag != "" {
+			// get property value
+			if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
+				if arrayVal, ok := value.([]string); ok {
+					watchedProperties = append(watchedProperties, arrayVal...)
+				} else if stringVal, ok := value.(string); ok {
+					watchedProperties = append(watchedProperties, stringVal)
+				}
+			}
+		}
+	}
+	return watchedProperties
 }
 
 func (p *Plugin) logChanges(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) {
