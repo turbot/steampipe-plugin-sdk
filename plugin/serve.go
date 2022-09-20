@@ -67,6 +67,7 @@ func Serve(opts *ServeOpts) {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	}
+	// TODO add context into all of these handlers
 
 	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.UpdateConnectionConfigs, p.GetSchema, p.Execute, p.EstablishMessageStream).Serve()
 }
