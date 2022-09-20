@@ -250,6 +250,18 @@ func (p *Plugin) ensureConnectionCache(connectionName string) *connectionmanager
 	return connectionCache
 }
 
+
+/*
+EstablishMessageStream establishes a streaming message connection between the plugin and the plugin manager
+This is used if the plugin has a dynamic schema and uses file watching
+
+This is the handler function for the EstablishMessageStream grpc function
+*/
+func (p *Plugin) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
+	// if we want the stream we need to hold this open
+	return nil
+}
+
 /*
 EstablishMessageStream establishes a streaming message connection between the plugin and the plugin manager
 This is used if the plugin has a dynamic schema and uses file watching
