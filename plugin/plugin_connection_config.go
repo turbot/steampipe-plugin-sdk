@@ -3,6 +3,9 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"log"
 	"reflect"
 	"strings"
@@ -35,7 +38,6 @@ SetAllConnectionConfigs sets the connection config for a list of connections.
 This is the handler function for the SetAllConnectionConfigs GRPC function.
 */
 func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (err error) {
-	time.Sleep(10 * time.Second)
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
