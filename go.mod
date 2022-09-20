@@ -31,6 +31,8 @@ require (
 	google.golang.org/protobuf v1.28.0
 )
 
+// require github.com/turbot/go-kit v0.2.2-0.20220920035719-9dab72f47520
+
 require (
 	github.com/allegro/bigcache/v3 v3.0.2
 	github.com/eko/gocache/v3 v3.1.1

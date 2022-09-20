@@ -1,51 +1,21 @@
 package plugin
 
 import (
-	"fmt"
-	"os"
-	"path"
-	"strings"
-	"time"
+	"log"
 
-	"github.com/hashicorp/go-getter"
+	filehelpers "github.com/turbot/go-kit/files"
 )
 
-func (q *QueryData) GetSourceFiles(source string) (string, string, error) {
-	if source == "" {
-		return "", "", fmt.Errorf("source cannot be empty")
-	}
-
-	var globPattern string
-
-	lastIndex := strings.LastIndex(source, "//")
-	if source[lastIndex-1:lastIndex] != ":" {
-		globPattern = source[lastIndex+2:]
-		source = source[:lastIndex]
-	}
-
-	var dest string
-	for {
-		dest = path.Join(q.tempDir, timestamp())
-		_, err := os.Stat(dest)
-		if err == nil {
-			break
-		}
-
-		// Return true if not a duplicate directory
-		if os.IsNotExist(err) {
-			break
-		}
-	}
-
-	err := getter.Get(dest, source)
+func (q *QueryData) GetSourceFiles(source string) ([]string, error) {
+	resolvedSourcePath, glob, err := ResolveSourcePath(source, q.tempDir)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get directory specified by the source %s: %s", source, err.Error())
+		return nil, err
 	}
+	log.Printf("[WARN] Source: %s, Glob: %s", resolvedSourcePath, glob)
 
-	return dest, globPattern, nil
-}
-
-// Get the current timestamp
-func timestamp() string {
-	return time.Now().UTC().Format(time.RFC3339)
+	opts := &filehelpers.ListOptions{
+		Flags:   filehelpers.AllRecursive,
+		Include: []string{glob},
+	}
+	return filehelpers.ListFiles(resolvedSourcePath, opts)
 }
