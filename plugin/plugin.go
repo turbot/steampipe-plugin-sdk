@@ -181,7 +181,16 @@ func (p *Plugin) initialise() {
 }
 
 func (p *Plugin) shutdown() {
-	// Destroy the temp directory
+
+	// iterate through the connections in the plugin and
+	// stop the file watchers for each
+	for _, connectionData := range p.ConnectionMap {
+		if watcher := connectionData.Watcher; watcher != nil {
+			watcher.Close()
+		}
+	}
+
+	// destroy the temp directory
 	err := os.RemoveAll(p.tempDir)
 	if err != nil {
 		log.Printf("[WARN] failed to delete the temp directory: %s", err.Error())
