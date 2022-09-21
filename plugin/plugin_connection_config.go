@@ -3,12 +3,14 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"log"
 	"reflect"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 )
 
 /*
@@ -112,8 +114,12 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			Schema:     schema,
 		}
 		log.Printf("[WARN] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
-		// after adding the connection data, set watch paths
-		p.updateConnectionWatchPaths(c)
+
+		// set watch paths
+		err = p.updateConnectionWatchPaths(c)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, aggregatorConfig := range aggregators {
@@ -207,6 +213,11 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 		log.Printf("[WARN] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
+		err := p.updateConnectionWatchPaths(c)
+		if err != nil {
+			return err
+		}
+
 		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
 			TableMap:   tableMap,
 			Connection: c,
@@ -248,8 +259,11 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		p.ConnectionMap[changedConnection.Connection] = connectionData
 
 		log.Printf("[WARN] UpdateConnectionConfigs update connection %s in map, setting watch paths", changedConnection.Connection)
-		// after updating the connection data, update the file watcher paths
-		p.updateConnectionWatchPaths(updatedConnection)
+
+		err = p.updateConnectionWatchPaths(updatedConnection)
+		if err != nil {
+			return err
+		}
 
 		// call the ConnectionConfigChanged callback function
 		p.ConnectionConfigChangedFunc(ctx, p, existingConnection, updatedConnection)
@@ -259,12 +273,16 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	return nil
 }
 
-func (p *Plugin) updateConnectionWatchPaths(c *Connection) {
+func (p *Plugin) updateConnectionWatchPaths(c *Connection) error {
 	if watchPaths := p.extractWatchPaths(c.Config); len(watchPaths) > 0 {
 		log.Printf("[WARN] updateConnectionWatchPaths for connection %s, watch paths: %v", c.Name, watchPaths)
 		connectionData := p.ConnectionMap[c.Name]
-		connectionData.setWatchPaths(watchPaths)
+		err := connectionData.updateWatchPaths(watchPaths, p)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // reflect on a config struct and extract any watch paths, using the `watch` tag
@@ -322,4 +340,12 @@ func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Con
 	p.ClearConnectionCache(ctx, new.Name)
 	p.ClearQueryCache(ctx, new.Name)
 	return nil
+}
+
+// this is the default WatchedFilesChangedFunc callback function - it clears both the query cache and
+// connection cache for the given connection
+func defaultWatchedFilesChangedFunc(ctx context.Context, p *Plugin, conn *Connection, events []fsnotify.Event) {
+	// clear the connection and query cache for this connection
+	p.ClearConnectionCache(ctx, conn.Name)
+	p.ClearQueryCache(ctx, conn.Name)
 }

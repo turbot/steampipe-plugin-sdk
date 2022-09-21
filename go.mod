@@ -2,6 +2,8 @@ module github.com/turbot/steampipe-plugin-sdk/v5
 
 go 1.19
 
+replace github.com/turbot/go-kit => github.com/turbot/go-kit v0.2.2-0.20220920082524-237779ddf07c
+
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.0
@@ -36,6 +38,7 @@ require (
 require (
 	github.com/allegro/bigcache/v3 v3.0.2
 	github.com/eko/gocache/v3 v3.1.1
+	github.com/fsnotify/fsnotify v1.5.4
 	github.com/hashicorp/go-getter v1.6.2
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
@@ -57,7 +60,6 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
