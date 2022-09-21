@@ -22,8 +22,7 @@ message PluginMessage{
 }
 
 enum PluginMessageType {
-  NO_STREAM_REQUIRED = 0;
-  SCHEMA_UPDATED = 1;
+  SCHEMA_UPDATED = 0;
 }
 
 message Operator {
@@ -132,6 +131,7 @@ message GetSupportedOperationsRequest{}
 message GetSupportedOperationsResponse{
   bool query_cache = 1;
   bool multiple_connections = 2;
+  bool message_stream = 3;
 }
 
 message SetConnectionConfigRequest{
