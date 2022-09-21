@@ -222,9 +222,10 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 		log.Printf("[TRACE] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
+		// update the watch paths if there is a change in the watched files
 		err := p.updateConnectionWatchPaths(c)
 		if err != nil {
-			return err
+			log.Printf("[WARN] UpdateConnectionConfigs unable to update the watched paths for connection %s", c.Name)
 		}
 
 		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
