@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/go-getter"
@@ -17,37 +15,28 @@ func ResolveSourcePath(source, tmpDir string) (sourceDir string, globPattern str
 		return "", "", fmt.Errorf("source cannot be empty")
 	}
 
-	lastIndex := strings.LastIndex(source, "//")
+	sanitizedSource, _ := filehelpers.Tildefy(source)
 
-	if lastIndex != -1 && source[lastIndex-1:lastIndex] != ":" {
-		globPattern = source[lastIndex+2:]
-		source = source[:lastIndex]
+	sourceDir, globPattern, err = filehelpers.PathToRootAndGlob(sanitizedSource)
+	if err != nil {
+		return "", "", err
 	}
 
-	// TODO :: Use separate function ResolveLocalPath
-
-	// resolve ~ and get the absolute filepath
-	sanitizedSource, err := filehelpers.Tildefy(source)
-	if err == nil {
-		// check whether the source is a file
-		if filehelpers.FileExists(sanitizedSource) {
-			// if so, there should be no glob
-			if globPattern != "" {
-				return "", "", fmt.Errorf("glob is not expected if the source is a filename")
-			}
-			dir := filepath.Dir(sanitizedSource)
-
-			// use the filename as glob
-			return dir, sanitizedSource, nil
-		}
-
-		// check whether the source is a directory
-		if filehelpers.DirectoryExists(sanitizedSource) {
-			return sanitizedSource, globPattern, nil
-		}
+	if sourceDir != "" {
+		return sourceDir, globPattern, nil
 	}
-	//
 
+	// create temporary directory to store the go-getter data
+	dest := createTempDirForGet(tmpDir)
+	err = getter.Get(dest, source)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get directory specified by the source %s: %s", source, err.Error())
+	}
+
+	return dest, globPattern, nil
+}
+
+func createTempDirForGet(tmpDir string) string {
 	var dest string
 	for {
 		dest = path.Join(tmpDir, timestamp())
@@ -62,12 +51,7 @@ func ResolveSourcePath(source, tmpDir string) (sourceDir string, globPattern str
 		}
 	}
 
-	err = getter.Get(dest, source)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get directory specified by the source %s: %s", source, err.Error())
-	}
-
-	return dest, globPattern, nil
+	return dest
 }
 
 // Get the current timestamp
