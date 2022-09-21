@@ -2,7 +2,7 @@ module github.com/turbot/steampipe-plugin-sdk/v5
 
 go 1.19
 
-replace github.com/turbot/go-kit => github.com/turbot/go-kit v0.2.2-0.20220921093342-22eefbb3baf7
+replace github.com/turbot/go-kit => github.com/turbot/go-kit v0.2.2-0.20220921113738-985d9059a5a6
 
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
