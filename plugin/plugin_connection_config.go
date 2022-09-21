@@ -3,6 +3,11 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"log"
+	"reflect"
+	"strings"
+
+	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
@@ -216,6 +221,11 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		}
 
 		log.Printf("[TRACE] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
+
+		err := p.updateConnectionWatchPaths(c)
+		if err != nil {
+			return err
+		}
 
 		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
 			TableMap:   tableMap,

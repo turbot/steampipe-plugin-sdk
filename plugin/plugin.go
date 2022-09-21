@@ -18,7 +18,6 @@ import (
 	"github.com/eko/gocache/v3/store"
 	"github.com/fsnotify/fsnotify"
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/go-kit/filewatcher"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
@@ -128,24 +127,8 @@ func (p *Plugin) ConfigureFileWatcher(ctx context.Context, connectionName string
 
 	connectionData := p.ConnectionMap[connectionName]
 
-	if connectionData == nil {
-		log.Printf("[ERROR] Connection data not avialble for connection %s", connectionName)
-		return fmt.Errorf("[ERROR] Connection data not avialble for connection %s", connectionName)
-	}
-
-	if existingWatcher := connectionData.Watcher; existingWatcher != nil {
-		existingWatcher.Close()
-	}
-
-	watcher, err := filewatcher.NewWatcher(opts)
-	if err != nil {
-		return err
-	}
-
-	watcher.Start()
-	connectionData.Watcher = watcher
-
-	return nil
+	// WatchedFileChangedFunc is a callback function which is called when any watched source file(s) gets changed
+	WatchedFileChangedFunc func(ctx context.Context, p *Plugin, connection *Connection, events []fsnotify.Event)
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -249,7 +232,6 @@ func (p *Plugin) ensureConnectionCache(connectionName string) *connectionmanager
 	p.connectionCacheMap[connectionName] = connectionCache
 	return connectionCache
 }
-
 
 /*
 EstablishMessageStream establishes a streaming message connection between the plugin and the plugin manager
