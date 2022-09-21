@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"path"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -163,7 +162,7 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 
 		// temporary dir for this connection
 		// this will only created if GetSourceFiles is used
-		tempDir: path.Join(p.tempDir, connectionData.Connection.Name),
+		tempDir: connectionData.GetConnectionTempDir(p.tempDir),
 	}
 
 	d.StreamListItem = d.streamListItem
