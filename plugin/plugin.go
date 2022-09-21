@@ -165,7 +165,9 @@ func (p *Plugin) initialise() {
 		p.ConnectionConfigChangedFunc = defaultConnectionConfigChangedFunc
 	}
 
+	// create the default WatchedFileChangedFunc if needed
 	if p.WatchedFileChangedFunc == nil {
+		log.Printf("[TRACE] intialising defaultWatchedFilesChangedFunc")
 		p.WatchedFileChangedFunc = defaultWatchedFilesChangedFunc
 	}
 
