@@ -16,8 +16,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
-	// 26-move-file-watcher-from-githubturbotsteampipe-to-githubturbotgo-kit
-	github.com/turbot/go-kit v0.2.2-0.20220921051424-86aea369af01
+	github.com/turbot/go-kit v0.5.0-rc.0
 	github.com/zclconf/go-cty v1.10.0
 	go.opentelemetry.io/otel v1.10.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.30.0
