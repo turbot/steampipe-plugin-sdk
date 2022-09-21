@@ -31,6 +31,7 @@ func (d *ConnectionData) GetConnectionTempDir(pluginTempDir string) string {
 func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error {
 	// close any existing watcher
 	if d.Watcher != nil {
+		log.Printf("[WARN] ConnectionData updateWatchPaths - If existing watcher exists close the watcher")
 		d.Watcher.Close()
 	}
 
@@ -43,6 +44,7 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 
 	// Iterate through watch paths to resolve and
 	// add resolved paths to file watcher options
+	log.Printf("[WARN] ConnectionData updateWatchPaths - create watcher options from the watchPaths %v", watchPaths)
 	for _, path := range watchPaths {
 		dest, globPattern, err := ResolveSourcePath(path, connTempDir)
 		if err != nil {
@@ -56,19 +58,24 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 
 	// Add the callback function for the filewatchers to watcher options
 	opts.OnChange = func(events []fsnotify.Event) {
+		// Log for testing
+		log.Printf("[WARN] ConnectionData updateWatchPaths - callback function called")
 		p.WatchedFileChangedFunc(context.Background(), p, d.Connection, events)
 	}
 
 	// Get the new file watcher from file options
 	newWatcher, err := filewatcher.NewWatcher(&opts)
+	log.Printf("[WARN] ConnectionData updateWatchPaths - create the new file watcher")
 	if err != nil {
 		return err
 	}
 
 	// Start new watcher
+	log.Printf("[WARN] ConnectionData updateWatchPaths - start the new file watcher")
 	newWatcher.Start()
 
 	// Assign new watcher to the connection
 	d.Watcher = newWatcher
+	log.Printf("[WARN] ConnectionData updateWatchPaths - attach the new file watcher to connection data")
 	return nil
 }
