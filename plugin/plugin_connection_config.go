@@ -339,6 +339,7 @@ func (p *Plugin) logChanges(added []*proto.ConnectionConfig, deleted []*proto.Co
 // this is the default ConnectionConfigChanged callback function
 // it clears both the query cache and connection cache for the given connection
 func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Connection, new *Connection) error {
+	log.Printf("[WARN] defaultConnectionConfigChangedFunc connection config changed for connection: %s, reset connection and query cache", new.Name)
 	p.ClearConnectionCache(ctx, new.Name)
 	p.ClearQueryCache(ctx, new.Name)
 	return nil
@@ -347,6 +348,7 @@ func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Con
 // this is the default WatchedFilesChangedFunc callback function
 // it clears both the query cache and connection cache for the given connection
 func defaultWatchedFilesChangedFunc(ctx context.Context, p *Plugin, conn *Connection, events []fsnotify.Event) {
+	log.Printf("[WARN] defaultWatchedFilesChangedFunc filewatchers changed for connection %s, reset connection and query cache", conn.Name)
 	p.ClearConnectionCache(ctx, conn.Name)
 	p.ClearQueryCache(ctx, conn.Name)
 }
