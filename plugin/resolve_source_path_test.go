@@ -14,32 +14,44 @@ type sourceTest struct {
 
 var sourcePaths = []sourceTest{
 	{
-		"top level tf files",
-		"/Users/subhajit/Desktop/terraform//*.tf",
+		"matches top level tf files",
+		"/Users/subhajit/Desktop/terraform/*.tf",
 		"/Users/subhajit/Desktop/terraform",
 		"*.tf",
 	},
 	{
 		"recursive tf files",
-		"/Users/subhajit/Desktop/terraform//**/*.tf",
+		"/Users/subhajit/Desktop/terraform/**/*.tf",
 		"/Users/subhajit/Desktop/terraform",
 		"**/*.tf",
 	},
 	{
-		"home dir only, tf files",
-		"~//*.tf",
+		"home dir (~) tf files",
+		"~/*.tf",
 		"/Users/subhajit",
 		"*.tf",
 	},
 	{
-		"home dir only, tf files",
+		"home dir (~) specific tf file",
+		"~/Desktop/terraform/example.tf",
 		"/Users/subhajit/Desktop/terraform/example.tf",
-		"/Users/subhajit/Desktop/terraform",
-		"/Users/subhajit/Desktop/terraform/example.tf",
+		"",
+	},
+	{
+		"CWD (.) no file pattern",
+		".",
+		"/Users/subhajit/turbot-prod/steampipeio/sdks/steampipe-plugin-sdk/plugin",
+		"",
+	},
+	{
+		"CWD (.) tf files",
+		"./*.tf",
+		"/Users/subhajit/turbot-prod/steampipeio/sdks/steampipe-plugin-sdk/plugin",
+		"*.tf",
 	},
 }
 
-func TestIsGlob(t *testing.T) {
+func TestResolveSourcePath(t *testing.T) {
 	for _, test := range sourcePaths {
 		source, glob, _ := ResolveSourcePath(test.Input, "")
 		if !reflect.DeepEqual(source, test.Source) {
