@@ -1,9 +1,14 @@
 package plugin
 
 import (
+	"os"
+	"path"
 	"reflect"
 	"testing"
 )
+
+var fileTestCurrentDir, _ = os.Getwd()
+var fileTestHomeDir, _ = os.UserHomeDir()
 
 type sourceTest struct {
 	Name   string
@@ -28,25 +33,25 @@ var sourcePaths = []sourceTest{
 	{
 		"home dir (~) tf files",
 		"~/*.tf",
-		"/Users/subhajit",
+		path.Join(fileTestHomeDir),
 		"*.tf",
 	},
 	{
 		"home dir (~) specific tf file",
 		"~/Desktop/terraform/example.tf",
-		"/Users/subhajit/Desktop/terraform/example.tf",
+		path.Join(fileTestHomeDir, "/Desktop/terraform/example.tf"),
 		"",
 	},
 	{
 		"CWD (.) no file pattern",
 		".",
-		"/Users/subhajit/turbot-prod/steampipeio/sdks/steampipe-plugin-sdk/plugin",
+		fileTestCurrentDir,
 		"",
 	},
 	{
 		"CWD (.) tf files",
 		"./*.tf",
-		"/Users/subhajit/turbot-prod/steampipeio/sdks/steampipe-plugin-sdk/plugin",
+		fileTestCurrentDir,
 		"*.tf",
 	},
 }
