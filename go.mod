@@ -16,7 +16,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
-	github.com/turbot/go-kit v0.5.0-rc.0
+	github.com/turbot/go-kit v0.5.0-rc.1
 	github.com/zclconf/go-cty v1.10.0
 	go.opentelemetry.io/otel v1.10.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.30.0
@@ -30,8 +30,6 @@ require (
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
 )
-
-// require github.com/turbot/go-kit v0.2.2-0.20220920035719-9dab72f47520
 
 require (
 	github.com/allegro/bigcache/v3 v3.0.2
