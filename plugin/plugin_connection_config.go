@@ -113,12 +113,12 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			Connection: c,
 			Schema:     schema,
 		}
-		log.Printf("[WARN] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
+		log.Printf("[TRACE] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
-		// set watch paths
+		// update the watch paths if there is a change in the watched files
 		err = p.updateConnectionWatchPaths(c)
 		if err != nil {
-			return err
+			log.Printf("[WARN] SetAllConnectionConfigs unable to update the watched paths for connection %s", c.Name)
 		}
 	}
 
@@ -213,9 +213,10 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 		log.Printf("[WARN] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
+		// update the watch paths if there is a change in the watched files
 		err := p.updateConnectionWatchPaths(c)
 		if err != nil {
-			return err
+			log.Printf("[WARN] UpdateConnectionConfigs unable to update the watched paths for connection %s", c.Name)
 		}
 
 		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
@@ -223,8 +224,12 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 			Connection: c,
 			Schema:     schema,
 		}
-		// after adding the connection data, update the watch paths
-		p.updateConnectionWatchPaths(c)
+
+		// after adding the connection data, update the watch paths in
+		err = p.updateConnectionWatchPaths(c)
+		if err != nil {
+			log.Printf("[WARN] UpdateConnectionConfigs unable to update the watched paths for connection %s", c.Name)
+		}
 	}
 
 	// update the query cache schema map
@@ -258,16 +263,14 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		connectionData.Connection = updatedConnection
 		p.ConnectionMap[changedConnection.Connection] = connectionData
 
-		log.Printf("[WARN] UpdateConnectionConfigs update connection %s in map, setting watch paths", changedConnection.Connection)
-
+		log.Printf("[TRACE] UpdateConnectionConfigs update connection %s in map, setting watch paths", changedConnection.Connection)
 		err = p.updateConnectionWatchPaths(updatedConnection)
 		if err != nil {
-			return err
+			log.Printf("[WARN] UpdateConnectionConfigs unable to update the watched paths for connection %s", updatedConnection.Name)
 		}
 
 		// call the ConnectionConfigChanged callback function
 		p.ConnectionConfigChangedFunc(ctx, p, existingConnection, updatedConnection)
-
 	}
 
 	return nil
@@ -333,19 +336,17 @@ func (p *Plugin) logChanges(added []*proto.ConnectionConfig, deleted []*proto.Co
 	log.Printf("[TRACE] UpdateConnectionConfigs added: %s, deleted: %s, changed: %s", strings.Join(addedNames, ","), strings.Join(deletedNames, ","), strings.Join(changedNames, ","))
 }
 
-// this is the default ConnectionConfigChanged callback function - it clears both the query cache and connection cache
-// for the given connection
+// this is the default ConnectionConfigChanged callback function
+// it clears both the query cache and connection cache for the given connection
 func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Connection, new *Connection) error {
-	// clear the connection and query cache for this connection
 	p.ClearConnectionCache(ctx, new.Name)
 	p.ClearQueryCache(ctx, new.Name)
 	return nil
 }
 
-// this is the default WatchedFilesChangedFunc callback function - it clears both the query cache and
-// connection cache for the given connection
+// this is the default WatchedFilesChangedFunc callback function
+// it clears both the query cache and connection cache for the given connection
 func defaultWatchedFilesChangedFunc(ctx context.Context, p *Plugin, conn *Connection, events []fsnotify.Event) {
-	// clear the connection and query cache for this connection
 	p.ClearConnectionCache(ctx, conn.Name)
 	p.ClearQueryCache(ctx, conn.Name)
 }
