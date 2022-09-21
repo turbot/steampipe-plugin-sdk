@@ -3,7 +3,7 @@ package plugin
 import (
 	"context"
 	"log"
-	"path/filepath"
+	"path"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/filewatcher"
@@ -24,8 +24,9 @@ type ConnectionData struct {
 	WatchPaths []string
 }
 
+// GetConnectionTempDir appends the connection name to the plugin temporary directory path
 func (d *ConnectionData) GetConnectionTempDir(pluginTempDir string) string {
-	return filepath.Dir(pluginTempDir)
+	return path.Join(pluginTempDir, d.Connection.Name)
 }
 
 func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error {
