@@ -15,6 +15,10 @@ type GRPCClient struct {
 	ctx context.Context
 }
 
+func (c *GRPCClient) EstablishMessageStream() (proto.WrapperPlugin_EstablishMessageStreamClient, error) {
+	return c.client.EstablishMessageStream(c.ctx, &proto.EstablishMessageStreamRequest{})
+}
+
 func (c *GRPCClient) GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error) {
 	return c.client.GetSchema(c.ctx, req)
 }
