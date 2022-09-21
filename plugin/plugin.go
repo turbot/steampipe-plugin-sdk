@@ -129,6 +129,7 @@ func (p *Plugin) ConfigureFileWatcher(ctx context.Context, connectionName string
 
 	// WatchedFileChangedFunc is a callback function which is called when any watched source file(s) gets changed
 	WatchedFileChangedFunc func(ctx context.Context, p *Plugin, connection *Connection, events []fsnotify.Event)
+	messageStream          proto.WrapperPlugin_EstablishMessageStreamServer
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -240,7 +241,16 @@ This is used if the plugin has a dynamic schema and uses file watching
 This is the handler function for the EstablishMessageStream grpc function
 */
 func (p *Plugin) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
-	// if we want the stream we need to hold this open
+	// if the plugin does not have a dynamic schema, we do not need the message stream
+	if p.SchemaMode != SchemaModeDynamic {
+		log.Printf("[TRACE] EstablishMessageStream - polugin %s has static schema so no message stream, required", p.Name)
+		return nil
+	}
+
+	p.messageStream = stream
+	// hold stream open
+	for {
+	}
 	return nil
 }
 
