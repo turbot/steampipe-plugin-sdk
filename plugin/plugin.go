@@ -17,8 +17,8 @@ import (
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
+	"github.com/fsnotify/fsnotify"
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/go-kit/filewatcher"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
@@ -116,37 +116,9 @@ type Plugin struct {
 	// temporary dir for this plugin
 	// this will only created if GetSourceFiles is used
 	tempDir string
-	// ConnectionConfigChangedFunc is a callback function which is called from UpdateConnectionConfigs
-	// when any connection configs have changed
-}
 
-func (p *Plugin) ConfigureFileWatcher(ctx context.Context, connectionName string, opts *filewatcher.WatcherOptions) error {
-
-	// First find the existing file Watcher for the connection
-	// If there is one stop it
-	// Create new file watcher
-	// and write new file watcher to the connection data
-
-	connectionData := p.ConnectionMap[connectionName]
-
-	if connectionData == nil {
-		log.Printf("[ERROR] Connection data not avialble for connection %s", connectionName)
-		return fmt.Errorf("[ERROR] Connection data not avialble for connection %s", connectionName)
-	}
-
-	if existingWatcher := connectionData.Watcher; existingWatcher != nil {
-		existingWatcher.Close()
-	}
-
-	watcher, err := filewatcher.NewWatcher(opts)
-	if err != nil {
-		return err
-	}
-
-	watcher.Start()
-	connectionData.Watcher = watcher
-
-	return nil
+	// WatchedFileChangedFunc is a callback function which is called when any watched source file(s) gets changed
+	WatchedFileChangedFunc func(ctx context.Context, p *Plugin, connection *Connection, events []fsnotify.Event)
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -193,6 +165,10 @@ func (p *Plugin) initialise() {
 		p.ConnectionConfigChangedFunc = defaultConnectionConfigChangedFunc
 	}
 
+	if p.WatchedFileChangedFunc == nil {
+		p.WatchedFileChangedFunc = defaultWatchedFilesChangedFunc
+	}
+
 	// set file limit
 	// TODO REMOVE WITH GO 1.19
 	p.setuLimit()
@@ -236,7 +212,6 @@ func (p *Plugin) newConnectionCache(connectionName string) *connectionmanager.Co
 	p.connectionCacheMap[connectionName] = connectionCache
 	return connectionCache
 }
-
 
 /*
 EstablishMessageStream establishes a streaming message connection between the plugin and the plugin manager
