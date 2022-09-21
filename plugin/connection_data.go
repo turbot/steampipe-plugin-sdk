@@ -64,11 +64,14 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 	}
 	// Add the callback function for the filewatchers to watcher options
 	opts.OnChange = func(events []fsnotify.Event) {
+		// Log for testing
+		log.Printf("[WARN] ConnectionData updateWatchPaths - callback function called")
 		p.WatchedFileChangedFunc(context.Background(), p, d.Connection, events)
 	}
 
 	// Get the new file watcher from file options
 	newWatcher, err := filewatcher.NewWatcher(&opts)
+	log.Printf("[WARN] ConnectionData updateWatchPaths - create the new file watcher")
 	if err != nil {
 		log.Printf("[WARN] ConnectionData.updateWatchPaths -failed to create a new file watcher: %s", err.Error())
 		return err
@@ -76,9 +79,11 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 	log.Printf("[TRACE] ConnectionData.updateWatchPaths - created the new file watcher")
 
 	// Start new watcher
+	log.Printf("[WARN] ConnectionData updateWatchPaths - start the new file watcher")
 	newWatcher.Start()
 
 	// Assign new watcher to the connection
 	d.Watcher = newWatcher
+	log.Printf("[WARN] ConnectionData updateWatchPaths - attach the new file watcher to connection data")
 	return nil
 }
