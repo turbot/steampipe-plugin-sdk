@@ -56,9 +56,7 @@ func ResolveSourcePath(sourcePath, tmpDir string) (sourceDir string, globPattern
 		splitDest := strings.Split(dest, "/")
 		dest = strings.Join(splitDest[:len(splitDest)-1], "/")
 	}
-	if globPattern != "" {
-		globPattern = path.Join(dest, globPattern)
-	}
+
 	return dest, globPattern, nil
 }
 
