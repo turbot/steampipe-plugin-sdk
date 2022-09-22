@@ -134,6 +134,7 @@ func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsReques
 	return &proto.GetSupportedOperationsResponse{
 		QueryCache:          true,
 		MultipleConnections: true,
+		MessageStream:       true,
 	}, nil
 }
 
