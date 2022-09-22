@@ -241,13 +241,17 @@ This is used if the plugin has a dynamic schema and uses file watching
 This is the handler function for the EstablishMessageStream grpc function
 */
 func (p *Plugin) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
+	log.Printf("[WARN] plugin.EstablishMessageStream plugin %p, stream %p", p, stream)
 	// if the plugin does not have a dynamic schema, we do not need the message stream
 	if p.SchemaMode != SchemaModeDynamic {
-		log.Printf("[TRACE] EstablishMessageStream - polugin %s has static schema so no message stream, required", p.Name)
+		log.Printf("[WARN] EstablishMessageStream - plugin %s has static schema so no message stream, required", p.Name)
 		return nil
 	}
 
 	p.messageStream = stream
+
+	log.Printf("[WARN] plugin.EstablishMessageStream set on plugin: plugin.messageStream %p", p.messageStream)
+
 	// hold stream open
 	for {
 	}
