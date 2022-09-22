@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"os"
-	"path"
 	"testing"
 )
 
@@ -17,41 +16,47 @@ type sourceTest struct {
 }
 
 var sourcePaths = []sourceTest{
+	// {
+	// 	"matches top level tf files",
+	// 	"/Users/subhajit/Desktop/terraform/*.tf",
+	// 	"/Users/subhajit/Desktop/terraform",
+	// 	"/Users/subhajit/Desktop/terraform/*.tf",
+	// },
+	// {
+	// 	"recursive tf files",
+	// 	"/Users/subhajit/Desktop/terraform/**/*.tf",
+	// 	"/Users/subhajit/Desktop/terraform",
+	// 	"/Users/subhajit/Desktop/terraform/**/*.tf",
+	// },
+	// {
+	// 	"home dir (~) tf files",
+	// 	"~/*.tf",
+	// 	fileTestHomeDir,
+	// 	path.Join(fileTestHomeDir, "*.tf"),
+	// },
+	// {
+	// 	"home dir (~) specific tf file",
+	// 	"~/Desktop/terraform/example.tf",
+	// 	path.Join(fileTestHomeDir, "/Desktop/terraform"),
+	// 	path.Join(fileTestHomeDir, "/Desktop/terraform/example.tf"),
+	// },
+	// {
+	// 	"CWD (.) no file pattern",
+	// 	".",
+	// 	fileTestCurrentDir,
+	// 	fileTestCurrentDir,
+	// },
+	// {
+	// 	"CWD (.) tf files",
+	// 	"./*.tf",
+	// 	fileTestCurrentDir,
+	// 	path.Join(fileTestCurrentDir, "*.tf"),
+	// },
 	{
-		"matches top level tf files",
-		"/Users/subhajit/Desktop/terraform/*.tf",
-		"/Users/subhajit/Desktop/terraform",
-		"/Users/subhajit/Desktop/terraform/*.tf",
-	},
-	{
-		"recursive tf files",
-		"/Users/subhajit/Desktop/terraform/**/*.tf",
-		"/Users/subhajit/Desktop/terraform",
-		"/Users/subhajit/Desktop/terraform/**/*.tf",
-	},
-	{
-		"home dir (~) tf files",
-		"~/*.tf",
-		fileTestHomeDir,
-		path.Join(fileTestHomeDir, "*.tf"),
-	},
-	{
-		"home dir (~) specific tf file",
-		"~/Desktop/terraform/example.tf",
-		path.Join(fileTestHomeDir, "/Desktop/terraform"),
-		path.Join(fileTestHomeDir, "/Desktop/terraform/example.tf"),
-	},
-	{
-		"CWD (.) no file pattern",
-		".",
-		fileTestCurrentDir,
-		fileTestCurrentDir,
-	},
-	{
-		"CWD (.) tf files",
-		"./*.tf",
-		fileTestCurrentDir,
-		path.Join(fileTestCurrentDir, "*.tf"),
+		"github URL",
+		"github.com/turbot/steampipe-plugin-alicloud//alicloud-test/tests/alicloud_account/*.tf",
+		"github.com/turbot/steampipe-plugin-alicloud",
+		"alicloud-test/tests/alicloud_account/*.tf",
 	},
 }
 

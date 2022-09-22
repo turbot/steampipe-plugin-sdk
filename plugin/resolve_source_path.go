@@ -43,9 +43,7 @@ func ResolveSourcePath(sourcePath, tmpDir string) (sourceDir string, globPattern
 	if globPattern != "" {
 		globPattern = path.Join(dest, globPattern)
 	}
-	if globPattern != "" {
-		globPattern = path.Join(dest, globPattern)
-	}
+
 	return dest, globPattern, nil
 }
 
