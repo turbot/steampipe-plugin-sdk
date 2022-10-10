@@ -1,4 +1,4 @@
-module github.com/turbot/steampipe-plugin-sdk/v4
+module github.com/turbot/steampipe-plugin-sdk/v5
 
 go 1.19
 
@@ -8,7 +8,7 @@ require (
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.5.2
-	github.com/hashicorp/go-hclog v1.2.0
+	github.com/hashicorp/go-hclog v1.2.2
 	github.com/hashicorp/go-plugin v1.4.4
 	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/hcl/v2 v2.12.0
@@ -18,7 +18,7 @@ require (
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
 	github.com/turbot/go-kit v0.4.0
 	github.com/zclconf/go-cty v1.10.0
-	go.opentelemetry.io/otel v1.7.0
+	go.opentelemetry.io/otel v1.10.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.30.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.30.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.7.0
@@ -26,14 +26,13 @@ require (
 	go.opentelemetry.io/otel/metric v0.30.0
 	go.opentelemetry.io/otel/sdk v1.7.0
 	go.opentelemetry.io/otel/sdk/metric v0.30.0
-	go.opentelemetry.io/otel/trace v1.7.0
+	go.opentelemetry.io/otel/trace v1.10.0
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
 )
 
 require (
 	github.com/allegro/bigcache/v3 v3.0.2
-	github.com/cloudfoundry/gosigar v1.3.4
 	github.com/eko/gocache/v3 v3.1.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
@@ -81,6 +80,7 @@ require (
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

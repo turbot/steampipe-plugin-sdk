@@ -3,14 +3,15 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
 const ContextColumnName = "_ctx"
 
-// GetSchema returns the table schema
+// GetSchema returns the [proto.TableSchema], which defines the columns returned by the table.
+//
 // Note: an additional '_ctx' column is added to all table schemas. This contains Steampipe specific data.
-// (currently this is populated with the connection name)
+// (Currently this is populated with the connection name.)
 func (t Table) GetSchema() (*proto.TableSchema, error) {
 	schema := &proto.TableSchema{
 		Columns:     make([]*proto.ColumnDefinition, len(t.Columns)+1),

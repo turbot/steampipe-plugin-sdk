@@ -3,13 +3,19 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
 	"log"
 	"strings"
+
+	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 )
 
+/*
+SetConnectionConfig sets the connection config for the given connection.
+
+This is the handler function for the SetConnectionConfig GRPC function.
+*/
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	log.Printf("[TRACE] SetConnectionConfig %s", connectionName)
 	return p.SetAllConnectionConfigs([]*proto.ConnectionConfig{
@@ -20,6 +26,11 @@ func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString stri
 	}, 0)
 }
 
+/*
+SetAllConnectionConfigs sets the connection config for a list of connections.
+
+This is the handler function for the SetAllConnectionConfigs GRPC function.
+*/
 func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -61,7 +72,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
 			}
 			// ask plugin for a struct to deserialise the config into
-			config, err := p.ConnectionConfigSchema.Parse(connectionConfigString)
+			config, err := p.ConnectionConfigSchema.parse(connectionConfigString)
 			if err != nil {
 				return err
 			}
@@ -123,6 +134,17 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	return nil
 }
 
+/*
+UpdateConnectionConfigs handles added, changed and deleted connections:
+
+  - Added connections are inserted into [plugin.Plugin.ConnectionMap].
+
+  - Deleted connections are removed from ConnectionMap.
+
+  - For updated connections, ConnectionMap is updated and [plugin.Plugin.ConnectionConfigChangedFunc] is called.
+
+This is the handler function for the UpdateConnectionConfigs GRPC function.
+*/
 func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) error {
 	p.logChanges(added, deleted, changed)
 
@@ -155,7 +177,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", addedConnection.Connection, p.Name)
 			}
 			// ask plugin to parse the config
-			config, err := p.ConnectionConfigSchema.Parse(addedConnection.Config)
+			config, err := p.ConnectionConfigSchema.parse(addedConnection.Config)
 			if err != nil {
 				return err
 			}
@@ -206,7 +228,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 			return fmt.Errorf("connection config has been updated for connection '%s', but plugin '%s' does not define connection config schema", changedConnection.Connection, p.Name)
 		}
 		// ask plugin to parse the config
-		config, err := p.ConnectionConfigSchema.Parse(changedConnection.Config)
+		config, err := p.ConnectionConfigSchema.parse(changedConnection.Config)
 		if err != nil {
 			return err
 		}

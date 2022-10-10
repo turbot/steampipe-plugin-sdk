@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
-// KeyColumnEqualsQualMap is a map of column name to qual value, used to represent a map of any equals quals
+// KeyColumnEqualsQualMap is a map of column name to qual value.
+// It is used to represent a set of columns which have a single 'equals' qual.
 type KeyColumnEqualsQualMap map[string]*proto.QualValue
 
 func (m KeyColumnEqualsQualMap) String() string {

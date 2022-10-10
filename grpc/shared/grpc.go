@@ -2,11 +2,11 @@ package shared
 
 import (
 	"context"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
 // GRPCClient is an implementation of
-//WrapperPluginClient service that talks over RPC.
+// WrapperPluginClient service that talks over RPC.
 type GRPCClient struct {
 	// Proto client use to make the grpc service calls.
 	client proto.WrapperPluginClient

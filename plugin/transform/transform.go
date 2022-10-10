@@ -53,6 +53,11 @@ func From(transformFunc TransformFunc) *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: transformFunc}}}
 }
 
+// FromP generates a value by calling 'transformFunc' passing param
+func FromP(transformFunc TransformFunc, param interface{}) *ColumnTransforms {
+	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: transformFunc, Param: param}}}
+}
+
 // FromJSONTag generates a value by finding a struct property with the json tag matching the column name
 func FromJSONTag() *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldValueTag, Param: "json"}}}
@@ -61,11 +66,6 @@ func FromJSONTag() *ColumnTransforms {
 // FromTag generates a value by finding a struct property with the tag 'tagName' matching the column name
 func FromTag(tagName string) *ColumnTransforms {
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldValueTag, Param: tagName}}}
-}
-
-// FromP generates a value by calling 'transformFunc' passing param
-func FromP(transformFunc TransformFunc, param interface{}) *ColumnTransforms {
-	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: transformFunc, Param: param}}}
 }
 
 //  TRANSFORM functions

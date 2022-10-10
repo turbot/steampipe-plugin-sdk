@@ -3,7 +3,7 @@ package plugin
 import (
 	"fmt"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/schema"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
 
 	"reflect"
 	"testing"
@@ -433,7 +433,7 @@ var testCasesParseConfig = map[string]parseConfigTest{
 func TestParseConnectionConfig(t *testing.T) {
 	for name, test := range testCasesParseConfig {
 
-		config, err := test.connectionConfigSchema.Parse(test.source)
+		config, err := test.connectionConfigSchema.parse(test.source)
 
 		if err != nil {
 			if test.expected != "ERROR" {

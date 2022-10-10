@@ -13,32 +13,30 @@
   </a>
 </p>
 
-## Write Plugins with the Steampipe Plugin SDK
+This SDK makes it easy to write Steampipe [plugins](https://hub.steampipe.io/plugins).
 
-The Steampipe Plugin SDK provides a simple abstraction layer to simplify writing Steampipe Plugins.
+Join our [Slack community](https://steampipe.io/community/join) to ask questions, voice ideas, and share your projects. 
 
-## Get Started Writing Plugins
+<details>
+<summary>Resources for contributors</summary>
 
-Writing Steampipe plugins is fast, easy, and fun with the Steampipe Plugin SDK! Most of the heavy lifting is taken care of for you - just define your tables and columns, wire up a few API calls, and you can start to query your service with standard SQL!
+- [Overview](https://steampipe.io/docs/develop/overview)
+- [Writing your first table](https://steampipe.io/docs/develop/writing-your-first-table)
+- [Writing plugins](https://steampipe.io/docs/develop/writing-plugins)
+- [Coding standards](https://steampipe.io/docs/develop/coding-standards)
+- [Table and column standards](https://steampipe.io/docs/develop/standards)
+- [Table documentation standards](https://steampipe.io/docs/develop/table-docs-standards)
+- [Plugin release checklist](https://steampipe.io/docs/develop/plugin-release-checklist)
+</details>
 
-See the [Writing Plugins](https://steampipe.io/docs/develop/writing-plugins) guide to get started.
+<p>
 
-## Get involved
-
-### Community
-
-The Steampipe community can be found on [GitHub Discussions](https://github.com/turbot/steampipe/discussions), where you can ask questions, voice ideas, and share your projects.
-
-Our [Code of Conduct](https://github.com/turbot/steampipe/blob/main/CODE_OF_CONDUCT.md) applies to all Steampipe community channels.
-
-### Contributing
-
-Please see [CONTRIBUTING.md](https://github.com/turbot/steampipe/blob/main/CONTRIBUTING.md).
-
-#### Darwin
-
+<details>
+<summary>Compiling this SDK</summary>
 To compile the SDK repo, you must install protoc.
-```
+<pre>
 brew install protoc
 brew install protoc-gen-go-grpc
-```
+</pre>
+</details>
+

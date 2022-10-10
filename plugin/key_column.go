@@ -6,9 +6,9 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v4/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 )
 
 const (
@@ -22,11 +22,11 @@ const (
 //
 // At least one key column must be defined for a Get call. They are optional for List calls.
 //
-// Operators
+// # Operators
 //
 // This property specifies the accepted operators (from a possible set: "=", "<>", "<", "<=", ">", ">=")
 //
-// Require
+// # Require
 //
 // This property determines whether the column is required or optional. Possible values:
 //
@@ -42,7 +42,7 @@ const (
 //
 // Any one of the given columns must be provided.
 //
-// CacheMatch
+// # CacheMatch
 //
 // This property determines the logic used by the query results cache to determine whether a cached value
 // matches a given query. Possible values:
@@ -53,7 +53,7 @@ const (
 // query is a subset of the quals for the cached item.
 //
 // For example, is the cached qual is "val < 100", and the query qual is "val < 50",
-// this would be considered a qual subset so would lead to a cache match
+// this would be considered a qual subset so would lead to a cache match.
 //
 // "exact"
 //
@@ -67,10 +67,14 @@ const (
 // This breaks the subset logic as if there is a cached data with no qual for the filter column,
 // this cached data would contain null values for the filter column.
 // This data would be considered a superset of the data returned from a query which provides a filter qual,
-// which is incorrect as the data returned if a filter qual is passed would include a non null filter column
+// which is incorrect as the data returned if a filter qual is passed would include a non null filter column.
 //
-// The solution is to set CacheMatch="exact"
+// The solution is to set CacheMatch="exact".
 //
+// Plugin examples:
+//  - [salesforce]
+//
+// [salesforce]: https://github.com/turbot/steampipe-plugin-salesforce/blob/bd563985a57c6a5dc526d5e4c701f37e017270cd/salesforce/utils.go#L297-L319
 type KeyColumn struct {
 	Name       string
 	Operators  []string

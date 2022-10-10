@@ -1,3 +1,11 @@
+## v4.1.7 [2022-09-08]
+_Bug fixes_
+* Move `IsCancelled` back to `plugin` package.
+
+## v4.1.6 [2022-09-02]
+_Bug fixes_
+* Fix issue where multi-region queries with a `region` where-clause do not have the region in the cache key, causing incorrect cache hits. ([#402](https://github.com/turbot/steampipe-plugin-sdk/issues/402))
+
 ## v4.1.5 [2022-08-31]
 _Bug fixes_
 * Fix `ConnectionCache.SetWithTTL`. ([#399](https://github.com/turbot/steampipe-plugin-sdk/issues/399))

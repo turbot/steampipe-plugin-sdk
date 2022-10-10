@@ -4,43 +4,70 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
 	"log"
 	"runtime/debug"
 	"sync"
 	"time"
 
+	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
+
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )
 
 // how may rows do we cache in the rowdata channel
 const rowDataBufferSize = 100
 
-// NOTE - any field added here must also be added to ShallowCopy
+/*
+QueryData is passed to all [HydrateFunc] calls. It contains all required information about the executing query:
 
+  - The table ([Table]).
+
+  - A map of all equals key column quals ([KeyColumnEqualsQualMap]).
+
+  - A map of all key column quals ([KeyColumnQualMap]). See [key_columns].
+
+  - Is it a list or a get call?
+
+  - Context data passed from postgres ([QueryContext]).
+
+  - The steampipe connection ([Connection]).
+
+  - A cache which can be used to store connection specific data ([connection.ConnectionCache]).
+
+  - The function which is used to stream rows of data ([connection.StreamListItem]).
+
+Plugin examples:
+  - [hackernews]
+  - [pagerduty]
+
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L52
+[pagerduty]: https://github.com/turbot/steampipe-plugin-pagerduty/blob/5c04d5d6636b039277285e0c3f6c07069510e267/pagerduty/table_pagerduty_user.go#L146
+*/
 type QueryData struct {
+	// NOTE - any field added here must also be added to ShallowCopy
+
 	// The table this query is associated with
 	Table *Table
-	// if this is a get call this will be populated with the quals as a map of column name to quals
+
+	// a map of key columns which have a _single equals qual_
+	// this is intended for use by Get calls only
+	// key: column name, value: QualValue
 	//  (this will also be populated for a list call if list key columns are specified -
 	//  however this usage is deprecated and provided for legacy reasons only)
-	KeyColumnQuals KeyColumnEqualsQualMap
-	// a map of all key column quals which were specified in the query
+	EqualsQuals KeyColumnEqualsQualMap
+	// a map of all KeyColumnQuals which were specified in the query. ([key_columns]
 	Quals KeyColumnQualMap
-	// columns which have a single equals qual
 	// is this a 'get' or a 'list' call
 	FetchType fetchType
 	// query context data passed from postgres - this includes the requested columns and the quals
 	QueryContext *QueryContext
-	// the status of the in-progress query
-	QueryStatus *QueryStatus
 	// connection details - the connection name and any config declared in the connection config file
 	Connection *Connection
 	// Matrix is an array of parameter maps (MatrixItems)
@@ -61,17 +88,18 @@ type QueryData struct {
 	StreamLeafListItem func(context.Context, ...interface{})
 
 	// internal
+	// the status of the in-progress query
+	queryStatus *queryStatus
 	// the callId for this connection
 	connectionCallId string
-
-	plugin *Plugin
+	plugin           *Plugin
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
-	hydrateCalls []*HydrateCall
+	hydrateCalls []*hydrateCall
 
 	// all the columns that will be returned by this query
 	columns            []*QueryColumn
-	concurrencyManager *ConcurrencyManager
-	rowDataChan        chan *RowData
+	concurrencyManager *concurrencyManager
+	rowDataChan        chan *rowData
 	errorChan          chan error
 	// channel to send results
 	outputChan chan *proto.ExecuteResponse
@@ -80,6 +108,8 @@ type QueryData struct {
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
 	parentItem     interface{}
 	filteredMatrix []map[string]interface{}
+	// column quals which were used to filter the matrix
+	filteredMatrixColumns []string
 
 	// ttl for the execute call
 	cacheTtl int64
@@ -111,7 +141,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 		Table:             table,
 		QueryContext:      queryContext,
 		Connection:        connectionData.Connection,
-		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		EqualsQuals:       make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
 		plugin:            plugin,
 		connectionCallId:  connectionCallId,
@@ -120,7 +150,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
-		rowDataChan: make(chan *RowData, rowDataBufferSize),
+		rowDataChan: make(chan *rowData, rowDataBufferSize),
 		errorChan:   make(chan error, 1),
 		outputChan:  outputChan,
 		listWg:      &wg,
@@ -133,8 +163,7 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	d.StreamLeafListItem = d.streamLeafListItem
 	d.setFetchType(table)
 
-	// NOTE: for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
-	ensureColumns(queryContext, table)
+	queryContext.ensureColumns(table)
 
 	// build list of required hydrate calls, based on requested columns
 	d.populateRequiredHydrateCalls()
@@ -143,25 +172,17 @@ func newQueryData(connectionCallId string, plugin *Plugin, queryContext *QueryCo
 	d.concurrencyManager = newConcurrencyManager(table)
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
-	d.QueryStatus = newQueryStatus(d.QueryContext.Limit)
+	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
 
 	return d, nil
 }
 
-func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
-	d.Matrix = matrix
-	// if we have key column quals for any matrix properties, filter the matrix
-	// to exclude items which do not satisfy the quals
-	// this populates the property filteredMatrix
-	d.filterMatrixItems()
-}
-
-// ShallowCopy creates a shallow copy of the QueryData
-// this is used to pass different quals to multiple list/get calls, when an in() clause is specified
+// ShallowCopy creates a shallow copy of the QueryData, i.e. most pointer properties are copied
+// this is used to pass different quals to multiple list/get calls, when an 'in' clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
 	clone := &QueryData{
 		Table:             d.Table,
-		KeyColumnQuals:    make(map[string]*proto.QualValue),
+		EqualsQuals:       make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
 		FetchType:         d.FetchType,
 		QueryContext:      d.QueryContext,
@@ -181,13 +202,13 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		outputChan:         d.outputChan,
 		listWg:             d.listWg,
 		columns:            d.columns,
-		QueryStatus:        d.QueryStatus,
+		queryStatus:        d.queryStatus,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
 	// - this is so they can be updated in the copied QueryData without mutating the original
-	for k, v := range d.KeyColumnQuals {
-		clone.KeyColumnQuals[k] = v
+	for k, v := range d.EqualsQuals {
+		clone.EqualsQuals[k] = v
 	}
 	for k, v := range d.Quals {
 		clone.Quals[k] = v
@@ -197,6 +218,36 @@ func (d *QueryData) ShallowCopy() *QueryData {
 	clone.StreamListItem = clone.streamListItem
 	clone.StreamLeafListItem = clone.streamLeafListItem
 	return clone
+}
+
+// RowsRemaining returns how many rows are required to complete the query
+//   - if no limit has been parsed from the query, this will return math.MaxInt32
+//     (meaning an unknown number of rows remain)
+//   - if there is a limit, it will return the number of rows required to reach this limit
+//   - if  the context has been cancelled, it will return zero
+func (d *QueryData) RowsRemaining(ctx context.Context) int64 {
+	if IsCancelled(ctx) {
+		return 0
+	}
+	rowsRemaining := d.queryStatus.rowsRequired - d.queryStatus.rowsStreamed
+	return rowsRemaining
+}
+
+// EqualsQualString looks for the specified key column quals and if it exists, return the value as a string
+func (d *QueryData) EqualsQualString(key string) string {
+	qualValue, ok := d.EqualsQuals[key]
+	if !ok {
+		return ""
+	}
+	return typehelpers.ToString(grpc.GetQualValue(qualValue).(string))
+}
+
+func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
+	d.Matrix = matrix
+	// if we have key column quals for any matrix properties, filter the matrix
+	// to exclude items which do not satisfy the quals
+	// this populates the property filteredMatrix
+	d.filterMatrixItems()
 }
 
 // build list of all columns returned by the fetch call and required hydrate calls
@@ -224,21 +275,12 @@ func (d *QueryData) addColumnsForHydrate(hydrateName string) []*QueryColumn {
 	return cols
 }
 
-// KeyColumnQualString looks for the specified key column quals and if it exists, return the value as a string
-func (d *QueryData) KeyColumnQualString(key string) string {
-	qualValue, ok := d.KeyColumnQuals[key]
-	if !ok {
-		return ""
-	}
-	return typehelpers.ToString(grpc.GetQualValue(qualValue).(string))
-}
-
 // add matrix item into KeyColumnQuals and Quals
 func (d *QueryData) updateQualsWithMatrixItem(matrixItem map[string]interface{}) {
 	for col, value := range matrixItem {
 		qualValue := proto.NewQualValue(value)
 		// replace any existing entry for both Quals and KeyColumnQuals
-		d.KeyColumnQuals[col] = qualValue
+		d.EqualsQuals[col] = qualValue
 		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Value: qualValue}}}
 	}
 }
@@ -257,7 +299,7 @@ func (d *QueryData) setFetchType(table *Table) {
 		if unsatisfiedColumns := qualMap.GetUnsatisfiedKeyColumns(table.Get.KeyColumns); len(unsatisfiedColumns) == 0 {
 			// so this IS a get call - all quals are satisfied
 			log.Printf("[TRACE] Set fetchType to fetchTypeGet")
-			d.KeyColumnQuals = qualMap.ToEqualsQualValueMap()
+			d.EqualsQuals = qualMap.ToEqualsQualValueMap()
 			d.Quals = qualMap
 			d.logQualMaps()
 			return
@@ -274,7 +316,7 @@ func (d *QueryData) setFetchType(table *Table) {
 			// assign to the map of all key column quals
 			d.Quals = qualMap
 			// convert to a map of equals quals to populate legacy `KeyColumnQuals` map
-			d.KeyColumnQuals = d.Quals.ToEqualsQualValueMap()
+			d.EqualsQuals = d.Quals.ToEqualsQualValueMap()
 		}
 		d.logQualMaps()
 	}
@@ -313,6 +355,10 @@ func (d *QueryData) filterMatrixItems() {
 				// if there IS a single equals qual which DOES NOT match this matrix item, exclude the matrix item
 				if matrixQuals.SingleEqualsQual() {
 					includeMatrixItem = d.shouldIncludeMatrixItem(matrixQuals, val)
+					// store this column - we will need this when building a cache key
+					if !includeMatrixItem {
+						d.filteredMatrixColumns = append(d.filteredMatrixColumns, col)
+					}
 				}
 			} else {
 				log.Printf("[TRACE] quals found for matrix column: %s", col)
@@ -351,29 +397,8 @@ func (d *QueryData) shouldIncludeMatrixItem(quals *KeyColumnQuals, matrixVal int
 }
 
 func (d *QueryData) logQualMaps() {
-	log.Printf("[TRACE] Equals key column quals:\n%s", d.KeyColumnQuals)
+	log.Printf("[TRACE] Equals key column quals:\n%s", d.EqualsQuals)
 	log.Printf("[TRACE] All key column quals:\n%s", d.Quals)
-}
-
-// for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
-func ensureColumns(queryContext *QueryContext, table *Table) {
-	if len(queryContext.Columns) != 0 {
-		return
-	}
-
-	var col string
-	for _, c := range table.Columns {
-		if c.Hydrate == nil {
-			col = c.Name
-			break
-		}
-	}
-	if col == "" {
-		// all columns have hydrate - just return the first column
-		col = table.Columns[0].Name
-	}
-	// set queryContext.Columns to be this single column
-	queryContext.Columns = []string{col}
 }
 
 func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
@@ -399,7 +424,7 @@ func (d *QueryData) streamListItem(ctx context.Context, items ...interface{}) {
 	// loop over items
 	for _, item := range items {
 		// have we streamed enough already?
-		if d.QueryStatus.StreamingComplete {
+		if d.queryStatus.StreamingComplete {
 			return
 		}
 		// if this table has no parent hydrate function, just call streamLeafListItem directly
@@ -451,14 +476,14 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 	// loop over items
 	for _, item := range items {
 		// have we streamed enough already?
-		if d.QueryStatus.StreamingComplete {
+		if d.queryStatus.StreamingComplete {
 			return
 		}
 
 		// if this is the first time we have received a zero rows remaining, stream an empty row and mark stream
-		if d.QueryStatus.RowsRemaining(ctx) == 0 {
+		if d.queryStatus.RowsRemaining(ctx) == 0 {
 			log.Printf("[TRACE] streamListItem RowsRemaining zero, send nil row %s", d.Connection.Name)
-			d.QueryStatus.StreamingComplete = true
+			d.queryStatus.StreamingComplete = true
 			// if this is the first time we have received a zero rows remaining, stream an empty row
 			// to indicate downstream that we are done
 			d.rowDataChan <- nil
@@ -479,14 +504,14 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 			continue
 		}
 		// increment the stream count
-		d.QueryStatus.rowsStreamed++
+		d.queryStatus.rowsStreamed++
 
 		// create rowData, passing matrixItem from context
 		rd := newRowData(d, item)
 
 		rd.matrixItem = GetMatrixItem(ctx)
 		// set the parent item on the row data
-		rd.ParentItem = d.parentItem
+		rd.parentItem = d.parentItem
 		// NOTE: add the item as the hydrate data for the list call
 		rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
 
@@ -496,7 +521,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 
 // if a free memory interval has been set, check if we have reached it
 func (d *QueryData) shouldFreeMemory() bool {
-	return d.freeMemInterval != 0 && d.QueryStatus.rowsStreamed%d.freeMemInterval == 0
+	return d.freeMemInterval != 0 && d.queryStatus.rowsStreamed%d.freeMemInterval == 0
 }
 
 // called when all items have been fetched - close the item chan
@@ -622,10 +647,10 @@ func (d *QueryData) streamRow(row *proto.Row) {
 	resp := &proto.ExecuteResponse{
 		Row: row,
 		Metadata: &proto.QueryMetadata{
-			HydrateCalls: d.QueryStatus.hydrateCalls,
+			HydrateCalls: d.queryStatus.hydrateCalls,
 			// only 1 of these will be non zero
-			RowsFetched: d.QueryStatus.rowsStreamed + d.QueryStatus.cachedRowsFetched,
-			CacheHit:    d.QueryStatus.cachedRowsFetched > 0,
+			RowsFetched: d.queryStatus.rowsStreamed + d.queryStatus.cachedRowsFetched,
+			CacheHit:    d.queryStatus.cachedRowsFetched > 0,
 		},
 		Connection: d.Connection.Name,
 	}
@@ -638,7 +663,7 @@ func (d *QueryData) streamError(err error) {
 }
 
 // execute necessary hydrate calls to populate row data
-func (d *QueryData) buildRowAsync(ctx context.Context, rowData *RowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
+func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -675,4 +700,18 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 	rowWg.Wait()
 	logging.DisplayProfileData(10 * time.Millisecond)
 	close(rowChan)
+}
+
+// build a map of all quals to include in the cache key
+// this will include all key column quals, and also any quals which were used to filter the matrix items
+func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
+	res := d.Quals.ToProtoQualMap()
+	// now add in any additional (non-keycolumn) quals which were used to folter the matrix
+	for _, col := range d.filteredMatrixColumns {
+		if _, ok := res[col]; !ok {
+			log.Printf("[TRACE] getCacheQualMap - adding non-key column qual %s as it was used to filter the matrix items", col)
+			res[col] = d.QueryContext.UnsafeQuals[col]
+		}
+	}
+	return res
 }

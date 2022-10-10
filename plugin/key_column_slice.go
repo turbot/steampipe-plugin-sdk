@@ -3,16 +3,17 @@ package plugin
 import (
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
+// KeyColumnSlice is an array of [KeyColumn]
 type KeyColumnSlice []*KeyColumn
 
 func (k KeyColumnSlice) String() string {
 	return strings.Join(k.StringSlice(), "\n")
 }
 
-// StringSlice converts a KeyColumnSlice to a slice of strings
+// StringSlice converts a [KeyColumnSlice] to a slice of strings
 func (k KeyColumnSlice) StringSlice() []string {
 	strs := make([]string, len(k))
 	for i, c := range k {
@@ -21,7 +22,7 @@ func (k KeyColumnSlice) StringSlice() []string {
 	return strs
 }
 
-// ToProtobuf converts the KeyColumnSlice to a slice of protobuf KeyColumns
+// ToProtobuf converts the [KeyColumnSlice] to a slice of [proto.KeyColumn]
 func (k KeyColumnSlice) ToProtobuf() []*proto.KeyColumn {
 	var res = make([]*proto.KeyColumn, len(k))
 	for i, col := range k {

@@ -4,25 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/dgraph-io/ristretto"
-	"github.com/eko/gocache/v3/cache"
-	"github.com/eko/gocache/v3/store"
-	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/go-kit/helpers"
-	connection_manager "github.com/turbot/steampipe-plugin-sdk/v4/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v4/error_helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/os_specific"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
-	"github.com/turbot/steampipe-plugin-sdk/v4/query_cache"
-	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
-	"github.com/turbot/steampipe-plugin-sdk/v4/version"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/sync/semaphore"
 	"log"
 	"os"
 	"runtime/debug"
@@ -31,6 +12,26 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/dgraph-io/ristretto"
+	"github.com/eko/gocache/v3/cache"
+	"github.com/eko/gocache/v3/store"
+	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/go-kit/helpers"
+	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/os_specific"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v5/version"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -42,23 +43,45 @@ const (
 
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
 
-// Plugin is a struct used define the GRPC plugin.
-//
-// This includes the plugin schema (i.e. the tables provided by the plugin),
-// as well as config for the default error handling and concurrency behaviour.
-//
-// By convention, the package name for your plugin should be the same name as your plugin,
-// and go files for your plugin (except main.go) should reside in a folder with the same name.
+/*
+Plugin is the primary struct that defines a Steampipe GRPC plugin.
+
+Set plugin name using [plugin.Plugin.Name].
+
+The tables provided by the plugin are specified by setting either [plugin.Plugin.TableMap] or [plugin.Plugin.TableMapFunc]:
+
+  - For most plugins, with a static set of tables, use [plugin.Plugin.TableMap].
+
+  - For a plugin with [dynamic_tables], use [plugin.Plugin.TableMapFunc]. Also, [plugin.Plugin.SchemaMode] must be set to dynamic.
+
+If the plugin uses custom connection config, it must define a [plugin.ConnectionConfigSchema].
+
+Various default behaviours can be defined:
+
+  - A default [transform] which will be applied to all columns which do not specify a transform. ([plugin.Plugin.DefaultTransform]).
+
+  - The default concurrency limits for a [HydrateFunc] ([plugin.Plugin.DefaultConcurrency]).
+
+  - The plugin default [error_handling] behaviour.
+
+Required columns can be specified by setting [plugin.Plugin.RequiredColumns].
+
+Plugin examples:
+  - [aws]
+  - [github]
+  - [hackernews]
+
+[aws]: https://github.com/turbot/steampipe-plugin-aws/blob/c5fbf38df19667f60877c860cf8ad39816ff658f/aws/plugin.go#L19
+[github]: https://github.com/turbot/steampipe-plugin-github/blob/a5ae211ee602be4adcea3a5c495cbe36aa87b957/github/plugin.go#L11
+[hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
+*/
 type Plugin struct {
 	Name   string
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	// NOTE: it must be NULL for plugins with dynamic schema
-	TableMap map[string]*Table
-	// TableMapFunc is a callback function which can be used to populate the table map
-	// this con optionally be provided by the plugin, and allows the connection config to be used in the table creation
-	// (connection config is not available at plugin creation time)
-	TableMapFunc        func(ctx context.Context, connection *Connection) (map[string]*Table, error)
+	TableMap            map[string]*Table
+	TableMapFunc        TableMapFunc
 	DefaultTransform    *transform.ColumnTransforms
 	DefaultConcurrency  *DefaultConcurrencyConfig
 	DefaultRetryConfig  *RetryConfig
@@ -85,18 +108,18 @@ type Plugin struct {
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
 	connectionCacheStore *cache.Cache[any]
 	// map of the connection caches, keyed by connection name
-	connectionCacheMap     map[string]*connection_manager.ConnectionCache
+	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
 }
 
-// Initialise creates the 'connection manager' (which provides caching), sets up the logger
+// initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
-func (p *Plugin) Initialise() {
+func (p *Plugin) initialise() {
 	p.ConnectionMap = make(map[string]*ConnectionData)
-	p.connectionCacheMap = make(map[string]*connection_manager.ConnectionCache)
+	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
 
 	p.Logger = p.setupLogger()
-	log.Printf("[INFO] Initialise plugin '%s', using sdk version %s", p.Name, version.String())
+	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 
 	// default the schema mode to static
 	if p.SchemaMode == "" {
@@ -156,8 +179,8 @@ func (p *Plugin) createConnectionCacheStore() error {
 	return nil
 }
 
-func (p *Plugin) newConnectionCache(connectionName string) *connection_manager.ConnectionCache {
-	connectionCache := connection_manager.NewConnectionCache(connectionName, p.connectionCacheStore)
+func (p *Plugin) newConnectionCache(connectionName string) *connectionmanager.ConnectionCache {
+	connectionCache := connectionmanager.NewConnectionCache(connectionName, p.connectionCacheStore)
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
 	// add to map of connection caches
@@ -165,9 +188,12 @@ func (p *Plugin) newConnectionCache(connectionName string) *connection_manager.C
 	return connectionCache
 }
 
-// GetSchema is the handler function for the GetSchema grpc function
-// return the plugin schema.
-// Note: the connection config must be set before calling this function.
+/*
+GetSchema returns the [grpc.PluginSchema].
+Note: the connection config must be set before calling this function.
+
+GetSchema is the handler function for the GetSchema grpc function
+*/
 func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 	var connectionData *ConnectionData
 	if connectionName == "" {
@@ -192,8 +218,9 @@ func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 	return schema, nil
 }
 
-// Execute is the handler function for the Execute grpc function
-// execute a query and streams the results using the given GRPC stream.
+// Execute starts a query and streams the results using the given GRPC stream.
+//
+// This is the handler function for the Execute GRPC function.
 func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
@@ -284,7 +311,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	return helpers.CombineErrors(errors...)
 }
 
-// ClearConnectionCache clears the connection cache for the given connection
+// ClearConnectionCache clears the connection cache for the given connection.
 func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
@@ -299,7 +326,7 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 	connectionCache.Clear(ctx)
 }
 
-// ClearQueryCache clears the query cache for the given connection
+// ClearQueryCache clears the query cache for the given connection.
 func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 	p.queryCache.ClearForConnection(ctx, connectionName)
 }
@@ -367,14 +394,13 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		executeSpan.End()
 	}()
 
-	log.Printf("[TRACE] GetMatrixItem")
-
-	// get the matrix item
 	queryData, err := newQueryData(connectionCallId, p, queryContext, table, connectionData, executeData, outputChan)
 	if err != nil {
 		return err
 	}
 
+	// get the matrix item
+	log.Printf("[TRACE] GetMatrixItem")
 	var matrixItem []map[string]interface{}
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, connectionData.Connection)
@@ -389,7 +415,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	limit := queryContext.GetLimit()
 
 	// convert qual map to type used by cache
-	cacheQualMap := queryData.Quals.ToProtoQualMap()
+	cacheQualMap := queryData.getCacheQualMap()
 	// build cache request
 	cacheRequest := &query_cache.CacheRequest{
 		Table:          table.Name,
@@ -408,7 +434,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		streamRowFunc := func(row *proto.Row) {
 			// if row is not nil (indicating completion), increment cachedRowsFetched
 			if row != nil {
-				atomic.AddInt64(&queryData.QueryStatus.cachedRowsFetched, 1)
+				atomic.AddInt64(&queryData.queryStatus.cachedRowsFetched, 1)
 			}
 			queryData.streamRow(row)
 		}
@@ -530,7 +556,7 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 
 	// now validate the plugin
 	// NOTE: must do this after calling TableMapFunc
-	if validationErrors := p.Validate(); validationErrors != "" {
+	if validationErrors := p.validate(); validationErrors != "" {
 		return nil, fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
 	}
 	return tableMap, nil

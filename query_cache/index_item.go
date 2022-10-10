@@ -1,13 +1,13 @@
 package query_cache
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
 // IndexItem stores the columns and cached index for a single cached query result
@@ -67,12 +67,13 @@ func (i IndexItem) SatisfiesLimit(limit int64) bool {
 // SatisfiesQuals
 // does this index item satisfy the check quals
 // all data returned by check quals is returned by index quals
-//   i.e. check quals must be a 'subset' of index quals
-//   eg
-//      our quals [], check quals [id="1"] 				-> SATISFIED
-//      our quals [id="1"], check quals [id="1"] 		-> SATISFIED
-//      our quals [id="1"], check quals [id="1", foo=2] -> SATISFIED
-//      our quals [id="1", foo=2], check quals [id="1"] -> NOT SATISFIED
+//
+//	i.e. check quals must be a 'subset' of index quals
+//	eg
+//	   our quals [], check quals [id="1"] 				-> SATISFIED
+//	   our quals [id="1"], check quals [id="1"] 		-> SATISFIED
+//	   our quals [id="1"], check quals [id="1", foo=2] -> SATISFIED
+//	   our quals [id="1", foo=2], check quals [id="1"] -> NOT SATISFIED
 //
 // NOTE: some columns cannot use this subset logic. Generally this applies to columns which represent a filter which
 // is executed server side to filter the data returned.
