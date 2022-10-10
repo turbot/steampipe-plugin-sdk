@@ -82,6 +82,7 @@ func (c *RetryConfig) String() interface{} {
 func (c *RetryConfig) validate(table *Table) []string {
 	var res []string
 	validBackoffAlgorithm := []string{"Constant", "Exponential", "Fibonacci"}
+
 	if c.ShouldRetryError != nil && c.ShouldRetryErrorFunc != nil {
 		log.Printf("[TRACE] RetryConfig validate failed - both ShouldRetryError and ShouldRetryErrorFunc are defined")
 		var tablePrefix string

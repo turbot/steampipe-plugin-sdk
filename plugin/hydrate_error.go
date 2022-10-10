@@ -59,14 +59,21 @@ func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 	backoffAlgorithm := "Fibonacci"
 	retryInterval := time.Duration(100) // in ms
 
+	var cappedDuration, maxDuration int64
+
 	// Check from config
 	if retryConfig != nil {
 		if retryConfig.BackoffAlgorithm != "" {
 			backoffAlgorithm = retryConfig.BackoffAlgorithm
 		}
-
 		if retryConfig.RetryInterval != 0 {
 			retryInterval = time.Duration(retryConfig.RetryInterval)
+		}
+		if retryConfig.CappedDuration != 0 {
+			cappedDuration = retryConfig.CappedDuration
+		}
+		if retryConfig.MaxDuration != 0 {
+			maxDuration = retryConfig.MaxDuration
 		}
 	}
 
@@ -75,31 +82,21 @@ func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 	switch backoffAlgorithm {
 	case "Fibonacci":
 		backoff, err = retry.NewFibonacci(retryInterval * time.Millisecond)
-		if err != nil {
-			return nil, err
-		}
 	case "Exponential":
 		backoff, err = retry.NewExponential(retryInterval * time.Millisecond)
-		if err != nil {
-			return nil, err
-		}
 	case "Constant":
 		backoff, err = retry.NewConstant(retryInterval * time.Millisecond)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	if retryConfig != nil {
-		if retryConfig.CappedDuration != 0 {
-			backoff = retry.WithCappedDuration(time.Duration(retryConfig.CappedDuration)*time.Millisecond, backoff)
-			return backoff, nil
-		}
-
-		if retryConfig.MaxDuration != 0 {
-			backoff = retry.WithMaxDuration(time.Duration(retryConfig.MaxDuration)*time.Second, backoff)
-			return backoff, nil
-		}
+	// Apply additional caps or limit
+	if cappedDuration != 0 {
+		backoff = retry.WithCappedDuration(time.Duration(cappedDuration)*time.Millisecond, backoff)
+	}
+	if maxDuration != 0 {
+		backoff = retry.WithMaxDuration(time.Duration(maxDuration)*time.Second, backoff)
 	}
 
 	return backoff, nil
