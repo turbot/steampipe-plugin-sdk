@@ -70,7 +70,7 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 	// Get the new file watcher from file options
 	newWatcher, err := filewatcher.NewWatcher(&opts)
 	if err != nil {
-		log.Printf("[WARN] ConnectionData.updateWatchPaths -failed to create a new file watcher: %s", err.Error())
+		log.Printf("[WARN] ConnectionData.updateWatchPaths - failed to create a new file watcher: %s", err.Error())
 		return err
 	}
 	log.Printf("[TRACE] ConnectionData.updateWatchPaths - created the new file watcher")
