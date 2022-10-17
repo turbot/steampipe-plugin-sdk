@@ -127,7 +127,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		// update the watch paths for the connection file watcher
 		err = p.updateConnectionWatchPaths(c)
 		if err != nil {
-			log.Printf("[WARN] SetAllConnectionConfigs unable to update the watched paths for connection %s", c.Name)
+			log.Printf("[WARN] SetAllConnectionConfigs failed to update the watched paths for connection %s: %s", c.Name, err.Error())
 		}
 	}
 
@@ -237,7 +237,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		// update the watch paths for the connection file watcher, if used
 		err := p.updateConnectionWatchPaths(c)
 		if err != nil {
-			log.Printf("[WARN] UpdateConnectionConfigs unable to update the watched paths for connection %s", c.Name)
+			log.Printf("[WARN] UpdateConnectionConfigs failed to update the watched paths for connection %s: %s", c.Name, err.Error())
 		}
 	}
 
@@ -276,7 +276,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		log.Printf("[TRACE] UpdateConnectionConfigs update connection %s in map, setting watch paths", changedConnection.Connection)
 		err = p.updateConnectionWatchPaths(updatedConnection)
 		if err != nil {
-			log.Printf("[WARN] UpdateConnectionConfigs unable to update the watched paths for connection %s", updatedConnection.Name)
+			log.Printf("[WARN] UpdateConnectionConfigs failed to update the watched paths for connection %s: %s", updatedConnection.Name, err.Error())
 		}
 
 		// call the ConnectionConfigChanged callback function
