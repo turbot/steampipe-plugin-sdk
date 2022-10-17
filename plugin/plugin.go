@@ -543,7 +543,11 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 			}
 		}()
 
-		tableMap, err = p.TableMapFunc(ctx, connection)
+		tableMapData := &TableMapData{
+			Connection:     connection,
+			ConectionCache: p.connectionCacheMap[connection.Name],
+		}
+		tableMap, err = p.TableMapFunc(ctx, tableMapData)
 		if err != nil {
 			return nil, err
 		}

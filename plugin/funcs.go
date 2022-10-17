@@ -1,6 +1,9 @@
 package plugin
 
-import "context"
+import (
+	"context"
+	"github.com/turbot/steampipe-plugin-sdk/v5/connection"
+)
 
 /*
 HydrateFunc is a function that gathers data to build table rows.
@@ -39,7 +42,7 @@ Plugin examples:
 */
 type MatrixItemMapFunc func(context.Context, *QueryData) []map[string]interface{}
 
-//ErrorPredicate is a function type which accepts error as an input and returns a boolean value.
+// ErrorPredicate is a function type which accepts error as an input and returns a boolean value.
 type ErrorPredicate func(error) bool
 
 /*
@@ -66,4 +69,9 @@ Plugin examples:
 
 [csv]: https://github.com/turbot/steampipe-plugin-csv/blob/fa8c9809f4ebbfa2738e9ecd136da8b89a87f6eb/csv/plugin.go#L25
 */
-type TableMapFunc func(ctx context.Context, connection *Connection) (map[string]*Table, error)
+type TableMapFunc func(ctx context.Context, d *TableMapData) (map[string]*Table, error)
+
+type TableMapData struct {
+	Connection     *Connection
+	ConectionCache *connection.ConnectionCache
+}
