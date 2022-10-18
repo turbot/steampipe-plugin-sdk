@@ -135,8 +135,8 @@ type QueryData struct {
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
 
-	// create a connection cache
-	connectionCache := p.newConnectionCache(connectionData.Connection.Name)
+	// get or create a connection cache as necessary
+	connectionCache := p.ensureConnectionCache(connectionData.Connection.Name)
 	d := &QueryData{
 		// set deprecated ConnectionManager
 		ConnectionManager: connection_manager.NewManager(connectionCache),

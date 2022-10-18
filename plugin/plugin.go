@@ -214,7 +214,7 @@ func (p *Plugin) createConnectionCacheStore() error {
 	return nil
 }
 
-func (p *Plugin) newConnectionCache(connectionName string) *connectionmanager.ConnectionCache {
+func (p *Plugin) ensureConnectionCache(connectionName string) *connectionmanager.ConnectionCache {
 	connectionCache := connectionmanager.NewConnectionCache(connectionName, p.connectionCacheStore)
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
@@ -619,7 +619,7 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 
 		tableMapData := &TableMapData{
 			Connection:     connection,
-			ConectionCache: p.connectionCacheMap[connection.Name],
+			ConectionCache: p.ensureConnectionCache(connection.Name),
 		}
 		tableMap, err = p.TableMapFunc(ctx, tableMapData)
 		if err != nil {
