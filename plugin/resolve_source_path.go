@@ -38,9 +38,10 @@ func ResolveSourcePath(sourcePath, tmpDir string) (sourceDir string, globPattern
 	// if the source path is a S3 URL, and the path refers to a top-level file, for example:
 	// s3::https://bucket.s3.amazonaws.com/foo
 	// send the path directly to go-getter, and use the destination path as glob pattern for file searching
+	// and also remove the query parameters (parts after ?) from destination path
 	if sourcePath == globPattern {
 		filename := strings.Split(sourcePath, "/")
-		dest = path.Join(dest, filename[len(filename)-1])
+		dest = path.Join(dest, strings.Split(filename[len(filename)-1], "?")[0])
 		globPattern = dest
 	}
 
