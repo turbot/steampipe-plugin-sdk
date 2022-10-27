@@ -230,6 +230,26 @@ var testCasesIsSubset = map[string]isSubsetTest{
 		&Qual{Operator: &Qual_StringValue{">="}, FieldName: "f1", Value: getTimestampValue(now)},
 		true,
 	},
+	"first value is nil": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: nil},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
+		false,
+	},
+	"second value is nil": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: nil},
+		false,
+	},
+	"first value.value is nil": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: nil}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
+		false,
+	},
+	"second value.value is nil": {
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
+		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: nil}},
+		false,
+	},
 	"both = same string different field": {
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f1", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},
 		&Qual{Operator: &Qual_StringValue{"="}, FieldName: "f2", Value: &QualValue{Value: &QualValue_StringValue{StringValue: "a"}}},

@@ -19,8 +19,12 @@ func (x *Qual) IsASubsetOf(other *Qual) bool {
 		log.Printf("[TRACE] IsASubsetOf other operator is not a string - returning false")
 		return false
 	}
-	if x.Value == nil {
+	if x.Value == nil || x.Value.Value == nil {
 		log.Printf("[TRACE] IsASubsetOf Value nil - returning false")
+		return false
+	}
+	if other.Value == nil || other.Value.Value == nil {
+		log.Printf("[TRACE] IsASubsetOf other value nil - returning false")
 		return false
 	}
 	// check the fields are the same
