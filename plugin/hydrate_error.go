@@ -57,7 +57,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 	// Default set to Fibonacci
 	backoffAlgorithm := "Fibonacci"
-	retryInterval := time.Duration(100) // in ms
+	retryInterval := 100 * time.Millisecond
 
 	var cappedDuration, maxDuration int64
 
