@@ -86,6 +86,30 @@ var sourcePaths = []sourceTest{
 		"",
 		"**/*.tf",
 	},
+	{
+		"matches all tf files in a specific bitbucket URL",
+		"bitbucket.org/benturrell/terraform-arcgis-portal//modules/shared//*.tf",
+		"",
+		"*.tf",
+	},
+	{
+		"matches all tf files in a specific bitbucket URL using git protocol",
+		"git::bitbucket.org/benturrell/terraform-arcgis-portal//modules/shared//*.tf",
+		"",
+		"*.tf",
+	},
+	{
+		"matches all tf files in a specific gitlab URL",
+		"gitlab.com/subhajit7/example-files//terraform-examples//*.tf",
+		"",
+		"*.tf",
+	},
+	{
+		"matches all tf files in a specific gitlab URL using git protocol",
+		"git::gitlab.com/subhajit7/example-files//terraform-examples//*.tf",
+		"",
+		"*.tf",
+	},
 }
 
 func TestResolveSourcePath(t *testing.T) {

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -29,10 +30,35 @@ func ResolveSourcePath(sourcePath, tmpDir string) (sourceDir string, globPattern
 	// create temporary directory to store the go-getter data
 	dest := createTempDirForGet(tmpDir)
 
+	// parse source path to extract the raw query string
+	u, err := url.Parse(sourcePath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to parse the source %s: %s", sourcePath, err.Error())
+	}
+
+	// if a S3 URL, build the URL path properly
+	// URL with prefixes s3::, or git:: are not normal URL. For example:
+	// s3::bucket.s3.amazonaws.com/test//*.tf?aws_profile=check&region=us-east-1
+	// hence host and path comes empty while parsing the URL
+	sourcePath = u.Path
+	if u.Scheme != "" { // i.e. https, http
+		if u.Host != "" && u.Path != "" {
+			sourcePath = fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Path)
+		} else { // i.e. s3::, git::
+			sourcePath = fmt.Sprintf("%s:%s", u.Scheme, u.Opaque)
+		}
+	}
+
+	// extract the glob pattern from the source path
 	lastIndex := strings.LastIndex(sourcePath, "//")
 	if lastIndex != -1 && sourcePath[lastIndex-1:lastIndex] != ":" {
 		globPattern = sourcePath[lastIndex+2:]
 		sourcePath = sourcePath[:lastIndex]
+	}
+
+	// if any query string passed in the URL, append those with the source path
+	if u.RawQuery != "" {
+		sourcePath = fmt.Sprintf("%s?%s", sourcePath, u.RawQuery)
 	}
 
 	// if the source path is a S3 URL, and the path refers to a top-level file, for example:
