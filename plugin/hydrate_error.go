@@ -29,12 +29,19 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 		span.End()
 	}()
 
-	backoff, err := retry.NewFibonacci(100 * time.Millisecond)
+	// Defaults
+	maxAttempts := uint64(10) // default set to 10
+	if retryConfig.MaxAttempts != 0 {
+		maxAttempts = uint64(retryConfig.MaxAttempts)
+	}
+
+	// Create the backoff based on the given mode
+	backoff, err := getBackoff(retryConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	err = retry.Do(ctx, retry.WithMaxRetries(10, backoff), func(ctx context.Context) error {
+	err = retry.Do(ctx, retry.WithMaxRetries(maxAttempts, backoff), func(ctx context.Context) error {
 		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
 		if err != nil {
 			if shouldRetryError(ctx, d, hydrateData, err, retryConfig) {
@@ -45,6 +52,54 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	})
 
 	return hydrateResult, err
+}
+
+func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
+	// Default set to Fibonacci
+	backoffAlgorithm := "Fibonacci"
+	retryInterval := 100 * time.Millisecond
+
+	var cappedDuration, maxDuration int64
+
+	// Check from config
+	if retryConfig != nil {
+		if retryConfig.BackoffAlgorithm != "" {
+			backoffAlgorithm = retryConfig.BackoffAlgorithm
+		}
+		if retryConfig.RetryInterval != 0 {
+			retryInterval = time.Duration(retryConfig.RetryInterval)
+		}
+		if retryConfig.CappedDuration != 0 {
+			cappedDuration = retryConfig.CappedDuration
+		}
+		if retryConfig.MaxDuration != 0 {
+			maxDuration = retryConfig.MaxDuration
+		}
+	}
+
+	var backoff retry.Backoff
+	var err error
+	switch backoffAlgorithm {
+	case "Fibonacci":
+		backoff, err = retry.NewFibonacci(retryInterval * time.Millisecond)
+	case "Exponential":
+		backoff, err = retry.NewExponential(retryInterval * time.Millisecond)
+	case "Constant":
+		backoff, err = retry.NewConstant(retryInterval * time.Millisecond)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply additional caps or limit
+	if cappedDuration != 0 {
+		backoff = retry.WithCappedDuration(time.Duration(cappedDuration)*time.Millisecond, backoff)
+	}
+	if maxDuration != 0 {
+		backoff = retry.WithMaxDuration(time.Duration(maxDuration)*time.Second, backoff)
+	}
+
+	return backoff, nil
 }
 
 // WrapHydrate is a higher order function which returns a [HydrateFunc] that handles Ignorable errors.
