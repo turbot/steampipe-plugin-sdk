@@ -15,7 +15,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v4/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v4/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/os_specific"
 	"github.com/turbot/steampipe-plugin-sdk/v4/plugin/transform"
 	"github.com/turbot/steampipe-plugin-sdk/v4/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v4/telemetry"
@@ -24,9 +23,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/semaphore"
 	"log"
-	"os"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -36,8 +33,6 @@ import (
 const (
 	SchemaModeStatic  = "static"
 	SchemaModeDynamic = "dynamic"
-	uLimitEnvVar      = "STEAMPIPE_ULIMIT"
-	uLimitDefault     = 2560
 )
 
 var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
@@ -132,10 +127,6 @@ func (p *Plugin) Initialise() {
 	if p.ConnectionConfigChangedFunc == nil {
 		p.ConnectionConfigChangedFunc = defaultConnectionConfigChangedFunc
 	}
-
-	// set file limit
-	// TODO REMOVE WITH GO 1.19
-	p.setuLimit()
 
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
@@ -542,19 +533,6 @@ func (p *Plugin) setupLogger() hclog.Logger {
 	log.SetPrefix("")
 	log.SetFlags(0)
 	return logger
-}
-
-func (p *Plugin) setuLimit() {
-	var ulimit uint64 = uLimitDefault
-	if ulimitString, ok := os.LookupEnv(uLimitEnvVar); ok {
-		if ulimitEnv, err := strconv.ParseUint(ulimitString, 10, 64); err == nil {
-			ulimit = ulimitEnv
-		}
-	}
-	err := os_specific.SetRlimit(ulimit, p.Logger)
-	if err != nil {
-		p.Logger.Error("Error Setting Ulimit", "error", err)
-	}
 }
 
 // if query cache does not exist, create
