@@ -1,5 +1,9 @@
-## v4.1.7 [2022-09-08]
+## v4.1.8 [2022-09-08]
 _Bug fixes_
+* Remove explicit setting of open-files limit, now that Go 1.19 does it automatically. ([#444](https://github.com/turbot/steampipe-plugin-sdk/issues/444))
+
+## v4.1.7 [2022-11-08]
+ _Bug fixes_
 * Move `IsCancelled` back to `plugin` package.
 
 ## v4.1.6 [2022-09-02]
