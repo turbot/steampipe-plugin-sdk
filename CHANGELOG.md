@@ -1,6 +1,6 @@
 ## v4.1.8 [2022-09-08]
 _Bug fixes_
-* Remove explicit setting of open-files limit, now that Go 1.19 does it automatically. ([#444](https://github.com/turbot/steampipe-plugin-sdk/issues/444))
+* Remove explicit setting of the open-files limit, which was using a default which was too small. Instead, make use of the fact that Go 1.19 now sets the soft file limit to the hard limit automatically. ([#444](https://github.com/turbot/steampipe-plugin-sdk/issues/444))
 
 ## v4.1.7 [2022-11-08]
  _Bug fixes_
