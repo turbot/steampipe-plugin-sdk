@@ -41,8 +41,8 @@ func ResolveSourcePath(sourcePath, tmpDir string) (sourceDir string, globPattern
 	// s3::bucket.s3.amazonaws.com/test//*.tf?aws_profile=check&region=us-east-1
 	// hence host and path comes empty while parsing the URL
 	sourcePath = u.Path
-	if u.Scheme != "" { // i.e. https, http
-		if u.Host != "" && u.Path != "" {
+	if u.Scheme != "" {
+		if u.Host != "" && u.Path != "" { // i.e. https, http
 			sourcePath = fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Path)
 		} else { // i.e. s3::, git::
 			sourcePath = fmt.Sprintf("%s:%s", u.Scheme, u.Opaque)
@@ -56,19 +56,34 @@ func ResolveSourcePath(sourcePath, tmpDir string) (sourceDir string, globPattern
 		sourcePath = sourcePath[:lastIndex]
 	}
 
+	// // if the source path for S3 has a '/' at the end, go-getter downloads all the contents stored inside that bucket.
+	// // For example:
+	// // s3::https://bucket.s3.us-east-1.amazonaws.com/
+	// if strings.HasSuffix(sourcePath, ".amazonaws.com") {
+	// 	sourcePath = fmt.Sprintf("%s/", sourcePath)
+	// }
+
 	// if any query string passed in the URL, append those with the source path
 	if u.RawQuery != "" {
 		sourcePath = fmt.Sprintf("%s?%s", sourcePath, u.RawQuery)
 	}
 
 	// if the source path is a S3 URL, and the path refers to a top-level file, for example:
-	// s3::https://bucket.s3.amazonaws.com/foo
+	// s3::https://bucket.s3.amazonaws.com/foo.ext
 	// send the path directly to go-getter, and use the destination path as glob pattern for file searching
 	// and also remove the query parameters (parts after ?) from destination path
 	if sourcePath == globPattern {
 		filename := strings.Split(sourcePath, "/")
 		dest = path.Join(dest, strings.Split(filename[len(filename)-1], "?")[0])
 		globPattern = dest
+	} else {
+		// s3::https://my-bucket.s3.us-east-1.amazonaws.com/test_folder//*.ext?aws_profile=test_profile
+		if strings.Contains(sourcePath, "amazonaws.com/") {
+			sourceSplit := strings.Split(sourcePath, "amazonaws.com/")
+			if len(sourceSplit) > 1 {
+				dest = path.Join(dest, strings.Split(sourceSplit[1], "?")[0])
+			}
+		}
 	}
 
 	err = getter.Get(dest, sourcePath)
@@ -78,10 +93,6 @@ func ResolveSourcePath(sourcePath, tmpDir string) (sourceDir string, globPattern
 
 	if globPattern != "" && dest != globPattern {
 		globPattern = path.Join(dest, globPattern)
-	} else {
-		// update the destination to point the folder where the file stored
-		splitDest := strings.Split(dest, "/")
-		dest = strings.Join(splitDest[:len(splitDest)-1], "/")
 	}
 
 	return dest, globPattern, nil
