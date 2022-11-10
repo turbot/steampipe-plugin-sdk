@@ -1,11 +1,9 @@
 package plugin
 
 import (
+	filehelpers "github.com/turbot/go-kit/files"
 	"log"
 	"path"
-	"strings"
-
-	filehelpers "github.com/turbot/go-kit/files"
 )
 
 // GetSourceFiles accept an array of source path strings, resolves these into a list of local file paths/globs,
@@ -33,13 +31,8 @@ func (q *QueryData) GetSourceFiles(source string) ([]string, error) {
 
 	// by default, all top-level files in dest should be returned
 	opts := &filehelpers.ListOptions{
-		Flags:   filehelpers.AllFlat,
+		Flags:   filehelpers.AllRecursive,
 		Include: []string{glob},
-	}
-
-	// if glob contains '**', then it should match all files recursively
-	if strings.Contains(glob, "**/*") {
-		opts.Flags = filehelpers.AllRecursive
 	}
 
 	return filehelpers.ListFiles(resolvedSourcePath, opts)
