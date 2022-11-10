@@ -22,7 +22,6 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 		Input:             "/Users/subhajit/Desktop/terraform/*.tf",
 		ExpectedFilePaths: []string{"terraform/aws.tf", "terraform/example.tf", "terraform/test.tf"},
 	},
-	// TODO :: Seems like ** not working
 	"recursive tf files": {
 		"/Users/subhajit/Desktop/terraform/**/*.tf",
 		[]string{"terraform/aws.tf", "terraform/example.tf", "terraform/test.tf"},
@@ -54,7 +53,7 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 		ExpectedFilePaths: []string{"variables.tf"},
 	},
 	"matches all tf files recursively in a specific github URL": {
-		Input:             "git::https://github.com/turbot/steampipe-plugin-alicloud.git//alicloud-test/tests//**/*.tf",
+		Input:             "s3::https://my-bucket.s3.us-east-1.amazonaws.com/test_folder?aws_profile=test_profile",
 		ExpectedFilePaths: []string{"alicloud_account/variables.tf", "alicloud_action_trail/variables.tf", "alicloud_cas_certificate/variables.tf", "alicloud_cms_monitor_host/variables.tf", "alicloud_cs_kubernetes_cluster/variables.tf", "alicloud_cs_kubernetes_cluster_node/variables.tf", "alicloud_ecs_auto_provisioning_group/variables.tf", "alicloud_ecs_key_pair/variables.tf", "alicloud_ecs_launch_template/variables.tf", "alicloud_ecs_network_interface/variables.tf", "alicloud_ecs_region/variables.tf", "alicloud_ecs_zone/variables.tf", "alicloud_kms_key/variables.tf", "alicloud_kms_secret/variables.tf", "alicloud_oss_bucket/variables.tf", "alicloud_ram_policy/variables.tf", "alicloud_ram_user/variables.tf", "alicloud_rds_instance/variables.tf", "alicloud_vpc_dhcp_options_set/variables.tf", "alicloud_vpc_nat_gateway/variables.tf", "alicloud_vpc_network_acl/variables.tf", "alicloud_vpc_route_entry/variables.tf", "alicloud_vpc_route_table/variables.tf", "alicloud_vpc_vpn_customer_gateway/variables.tf", "alicloud_vpc_vpn_gateway/variables.tf"},
 	},
 	"matches all tf files in a specific bitbucket URL": {
@@ -93,6 +92,7 @@ func TestGetSourceFiles(t *testing.T) {
 
 	for name, test := range getSourceFilesTestCases {
 		filePaths, _ := q.GetSourceFiles(test.Input)
+
 		for i, filePath := range filePaths {
 			// remove the <tmpdir>/<timestamp>/ prefix for the filepath
 			splitPath := strings.Split(filePath, string(os.PathSeparator))

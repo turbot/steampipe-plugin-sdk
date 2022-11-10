@@ -7,6 +7,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/filewatcher"
+	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
@@ -48,7 +49,7 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 	// add resolved paths to file watcher options
 	log.Printf("[TRACE] ConnectionData.updateWatchPaths - create watcher options from the watchPaths %v", watchPaths)
 	for _, path := range watchPaths {
-		dest, globPattern, err := ResolveSourcePath(path, connTempDir)
+		dest, globPattern, err := getter.GetFiles(path, connTempDir)
 		if err != nil {
 			log.Printf("[WARN] ConnectionData updateWatchPaths - error resolving source path %s: %s", path, err.Error())
 			continue
