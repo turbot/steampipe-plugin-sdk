@@ -89,11 +89,14 @@ func TestGetSourceFiles(t *testing.T) {
 
 	q := &QueryData{tempDir: tmpDir}
 
+	prefixDividerCount := 4
+
 	for name, test := range getSourceFilesTestCases {
 		filePaths, _ := q.GetSourceFiles(test.Input)
 		for i, filePath := range filePaths {
-			splitPath := strings.Split(filePath, "/")
-			filePaths[i] = path.Join(splitPath[4:]...)
+			// remove the <tmpdir>/<timestamp>/ prefix for the filepath
+			splitPath := strings.Split(filePath, string(os.PathSeparator))
+			filePaths[i] = path.Join(splitPath[prefixDividerCount:]...)
 		}
 
 		if !reflect.DeepEqual(test.ExpectedFilePaths, filePaths) {
