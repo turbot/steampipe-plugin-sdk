@@ -48,7 +48,7 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 
 	// IF THIS IS AN S3 FILENAME
 	// special case S3 code
-	if remoteSourcePath == sourcePath {
+	if globPattern == "" {
 		parts := strings.Split(remoteSourcePath, string(os.PathSeparator))
 		filename := parts[len(parts)-1]
 		dest = path.Join(dest, filename)

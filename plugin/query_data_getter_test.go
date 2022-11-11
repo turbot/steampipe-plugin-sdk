@@ -117,6 +117,10 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 		Input:             "cloudformation-templates-ap-southeast-1.s3-ap-southeast-1.amazonaws.com///*.json?aws_profile=default",
 		ExpectedFilePaths: []string{"Managed_EC2_Batch_Environment.json", "Managed_EC2_and_Spot_Batch_Environment.json", "cc1-cluster.json", "cc2-cluster.json"},
 	},
+	"s3 url with query params - specific file - no glob": {
+		Input:             "demo-integrated-2022.s3-ap-southeast-1.amazonaws.com/ghost/Dockerfile?aws_profile=default",
+		ExpectedFilePaths: []string{"Dockerfile"},
+	},
 	"s3 url with query params - **/*.json": {
 		Input:             "cloudformation-templates-ap-southeast-1.s3-ap-southeast-1.amazonaws.com///**/*.json?aws_profile=default",
 		ExpectedFilePaths: []string{"Managed_EC2_Batch_Environment.json", "Managed_EC2_and_Spot_Batch_Environment.json", "cc1-cluster.json", "cc2-cluster.json"},
