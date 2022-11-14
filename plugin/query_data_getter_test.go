@@ -125,6 +125,14 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 		Input:             "cloudformation-templates-ap-southeast-1.s3-ap-southeast-1.amazonaws.com///**/*.json?aws_profile=default",
 		ExpectedFilePaths: []string{"Managed_EC2_Batch_Environment.json", "Managed_EC2_and_Spot_Batch_Environment.json", "cc1-cluster.json", "cc2-cluster.json"},
 	},
+	"virtual-host style without http protocol prefix - *.json": {
+		Input:             "s3.amazonaws.com/cloudformation-templates-ap-southeast-1///*.json?aws_profile=pikachu",
+		ExpectedFilePaths: []string{"cloudformation-templates-ap-southeast-1/Managed_EC2_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/Managed_EC2_and_Spot_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/cc1-cluster.json", "cloudformation-templates-ap-southeast-1/cc2-cluster.json"},
+	},
+	"virtual-host style without http protocol prefix - **/*.json": {
+		Input:             "s3.amazonaws.com/cloudformation-templates-ap-southeast-1///**/*.json?aws_profile=pikachu",
+		ExpectedFilePaths: []string{"cloudformation-templates-ap-southeast-1/Managed_EC2_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/Managed_EC2_and_Spot_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/cc1-cluster.json", "cloudformation-templates-ap-southeast-1/cc2-cluster.json"},
+	},
 }
 
 func TestGetSourceFiles(t *testing.T) {
