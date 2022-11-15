@@ -14,7 +14,7 @@ func (d *QueryData) GetSourceFiles(source string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[WARN] Source: %s, Glob: %s", resolvedSourcePath, glob)
+	log.Printf("[TRACE] GetSourceFiles source: %s, glob: %s", resolvedSourcePath, glob)
 
 	// if resolvedSourcePath and glob is same, it indicates that no glob patterns are defined in source
 	// determine whether the target is a file or folder
@@ -35,9 +35,4 @@ func (d *QueryData) GetSourceFiles(source string) ([]string, error) {
 	}
 
 	return filehelpers.ListFiles(resolvedSourcePath, opts)
-}
-
-// Get the current timestamp
-func timestamp() string {
-	return time.Now().UTC().Format(time.RFC3339)
 }

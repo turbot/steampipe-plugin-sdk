@@ -2,8 +2,6 @@ module github.com/turbot/steampipe-plugin-sdk/v5
 
 go 1.19
 
-replace github.com/turbot/go-kit => github.com/turbot/go-kit v0.2.2-0.20220921113738-985d9059a5a6
-
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.0
@@ -18,8 +16,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sethvargo/go-retry v0.1.0
 	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
-	github.com/turbot/go-kit v0.2.2-0.20220920035719-9dab72f47520
-	github.com/turbot/go-kit v0.5.0-rc.1
+	github.com/turbot/go-kit v0.5.0-rc.4
 	github.com/zclconf/go-cty v1.12.1
 	go.opentelemetry.io/otel v1.10.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.30.0
@@ -95,15 +92,14 @@ require (
 	go.opencensus.io v0.22.4 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.7.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
-	golang.org/x/exp v0.0.0-20220518171630-0b5c67f07fdf // indirect
+	golang.org/x/exp v0.0.0-20221109205753-fc8884afc316 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
-	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
+	golang.org/x/mod v0.6.0 // indirect
+	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
-	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/tools v0.1.10 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/tools v0.2.0 // indirect
 	google.golang.org/api v0.30.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect

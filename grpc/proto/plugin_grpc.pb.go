@@ -29,7 +29,6 @@ type WrapperPluginClient interface {
 	SetAllConnectionConfigs(ctx context.Context, in *SetAllConnectionConfigsRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(ctx context.Context, in *UpdateConnectionConfigsRequest, opts ...grpc.CallOption) (*UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(ctx context.Context, in *GetSupportedOperationsRequest, opts ...grpc.CallOption) (*GetSupportedOperationsResponse, error)
-	EstablishMessageStream(ctx context.Context, in *EstablishMessageStreamRequest, opts ...grpc.CallOption) (WrapperPlugin_EstablishMessageStreamClient, error)
 }
 
 type wrapperPluginClient struct {
@@ -38,15 +37,6 @@ type wrapperPluginClient struct {
 
 func NewWrapperPluginClient(cc grpc.ClientConnInterface) WrapperPluginClient {
 	return &wrapperPluginClient{cc}
-}
-
-type WrapperPlugin_EstablishMessageStreamClient interface {
-	Recv() (*PluginMessage, error)
-	grpc.ClientStream
-}
-
-type wrapperPluginEstablishMessageStreamClient struct {
-	grpc.ClientStream
 }
 
 func (c *wrapperPluginClient) EstablishMessageStream(ctx context.Context, in *EstablishMessageStreamRequest, opts ...grpc.CallOption) (WrapperPlugin_EstablishMessageStreamClient, error) {
@@ -62,6 +52,15 @@ func (c *wrapperPluginClient) EstablishMessageStream(ctx context.Context, in *Es
 		return nil, err
 	}
 	return x, nil
+}
+
+type WrapperPlugin_EstablishMessageStreamClient interface {
+	Recv() (*PluginMessage, error)
+	grpc.ClientStream
+}
+
+type wrapperPluginEstablishMessageStreamClient struct {
+	grpc.ClientStream
 }
 
 func (x *wrapperPluginEstablishMessageStreamClient) Recv() (*PluginMessage, error) {
@@ -149,38 +148,6 @@ func (c *wrapperPluginClient) GetSupportedOperations(ctx context.Context, in *Ge
 	return out, nil
 }
 
-func (c *wrapperPluginClient) EstablishMessageStream(ctx context.Context, in *EstablishMessageStreamRequest, opts ...grpc.CallOption) (WrapperPlugin_EstablishMessageStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &WrapperPlugin_ServiceDesc.Streams[1], "/proto.WrapperPlugin/EstablishMessageStream", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &wrapperPluginEstablishMessageStreamClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type WrapperPlugin_EstablishMessageStreamClient interface {
-	Recv() (*PluginMessage, error)
-	grpc.ClientStream
-}
-
-type wrapperPluginEstablishMessageStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *wrapperPluginEstablishMessageStreamClient) Recv() (*PluginMessage, error) {
-	m := new(PluginMessage)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // WrapperPluginServer is the server API for WrapperPlugin service.
 // All implementations must embed UnimplementedWrapperPluginServer
 // for forward compatibility
@@ -192,7 +159,6 @@ type WrapperPluginServer interface {
 	SetAllConnectionConfigs(context.Context, *SetAllConnectionConfigsRequest) (*SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(context.Context, *UpdateConnectionConfigsRequest) (*UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error)
-	EstablishMessageStream(*EstablishMessageStreamRequest, WrapperPlugin_EstablishMessageStreamServer) error
 	mustEmbedUnimplementedWrapperPluginServer()
 }
 
@@ -220,9 +186,6 @@ func (UnimplementedWrapperPluginServer) UpdateConnectionConfigs(context.Context,
 }
 func (UnimplementedWrapperPluginServer) GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSupportedOperations not implemented")
-}
-func (UnimplementedWrapperPluginServer) EstablishMessageStream(*EstablishMessageStreamRequest, WrapperPlugin_EstablishMessageStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method EstablishMessageStream not implemented")
 }
 func (UnimplementedWrapperPluginServer) mustEmbedUnimplementedWrapperPluginServer() {}
 
@@ -369,27 +332,6 @@ func _WrapperPlugin_GetSupportedOperations_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
-func _WrapperPlugin_EstablishMessageStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(EstablishMessageStreamRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(WrapperPluginServer).EstablishMessageStream(m, &wrapperPluginEstablishMessageStreamServer{stream})
-}
-
-type WrapperPlugin_EstablishMessageStreamServer interface {
-	Send(*PluginMessage) error
-	grpc.ServerStream
-}
-
-type wrapperPluginEstablishMessageStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *wrapperPluginEstablishMessageStreamServer) Send(m *PluginMessage) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 // WrapperPlugin_ServiceDesc is the grpc.ServiceDesc for WrapperPlugin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -427,11 +369,6 @@ var WrapperPlugin_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Execute",
 			Handler:       _WrapperPlugin_Execute_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "EstablishMessageStream",
-			Handler:       _WrapperPlugin_EstablishMessageStream_Handler,
 			ServerStreams: true,
 		},
 	},

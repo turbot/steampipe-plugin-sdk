@@ -11,15 +11,6 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"log"
-	"reflect"
-	"strings"
-	"time"
-
-	"github.com/fsnotify/fsnotify"
-	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 )
 
 /*
@@ -223,12 +214,6 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 		log.Printf("[TRACE] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
-		// update the watch paths if there is a change in the watched files
-		err := p.updateConnectionWatchPaths(c)
-		if err != nil {
-			log.Printf("[WARN] UpdateConnectionConfigs unable to update the watched paths for connection %s", c.Name)
-		}
-
 		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
 			TableMap:   tableMap,
 			Connection: c,
@@ -324,7 +309,7 @@ func (p *Plugin) extractWatchPaths(config interface{}) []watchedPath {
 				// get property value
 				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
 					// does this affect the schema
-					// disable alter schem,a functionality fo rnow
+					// disable alter schem,a functionality for now
 					//alterSchema := helpers.StringSliceContains(steampipeTagLabels, "alterschema")
 					alterSchema := false
 					if arrayVal, ok := value.([]string); ok {

@@ -114,22 +114,8 @@ type Plugin struct {
 	// temporary dir for this plugin
 	// this will only created if GetSourceFiles is used
 	tempDir string
-	// streeam used to send messages back to plugin manager
+	// stream used to send messages back to plugin manager
 	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
-}
-
-func (p *Plugin) ConfigureFileWatcher(ctx context.Context, connectionName string, opts *filewatcher.WatcherOptions) error {
-
-	// First find the existing file Watcher for the connection
-	// If there is one stop it
-	// Create new file watcher
-	// and write new file watcher to the connection data
-
-	connectionData := p.ConnectionMap[connectionName]
-
-	// WatchedFileChangedFunc is a callback function which is called when any watched source file(s) gets changed
-	WatchedFileChangedFunc func(ctx context.Context, p *Plugin, connection *Connection, events []fsnotify.Event)
-	messageStream          proto.WrapperPlugin_EstablishMessageStreamServer
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -182,10 +168,6 @@ func (p *Plugin) initialise() {
 		p.WatchedFileChangedFunc = defaultWatchedFilesChangedFunc
 	}
 
-	// set file limit
-	// TODO REMOVE WITH GO 1.19
-	p.setuLimit()
-
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
 	}
@@ -232,30 +214,6 @@ func (p *Plugin) ensureConnectionCache(connectionName string) *connectionmanager
 	// add to map of connection caches
 	p.connectionCacheMap[connectionName] = connectionCache
 	return connectionCache
-}
-
-/*
-EstablishMessageStream establishes a streaming message connection between the plugin and the plugin manager
-This is used if the plugin has a dynamic schema and uses file watching
-
-This is the handler function for the EstablishMessageStream grpc function
-*/
-func (p *Plugin) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
-	log.Printf("[WARN] plugin.EstablishMessageStream plugin %p, stream %p", p, stream)
-	// if the plugin does not have a dynamic schema, we do not need the message stream
-	if p.SchemaMode != SchemaModeDynamic {
-		log.Printf("[WARN] EstablishMessageStream - plugin %s has static schema so no message stream, required", p.Name)
-		return nil
-	}
-
-	p.messageStream = stream
-
-	log.Printf("[WARN] plugin.EstablishMessageStream set on plugin: plugin.messageStream %p", p.messageStream)
-
-	// hold stream open
-	for {
-	}
-	return nil
 }
 
 /*
