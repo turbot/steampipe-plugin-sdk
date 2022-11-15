@@ -121,6 +121,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			TableMap:   tableMap,
 			Connection: c,
 			Schema:     schema,
+			Plugin:     p,
 		}
 		log.Printf("[TRACE] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
@@ -298,15 +299,20 @@ func (p *Plugin) updateConnectionWatchPaths(c *Connection) error {
 	return nil
 }
 
+type watchedPath struct {
+	watchPath    string
+	altersSchema bool
+}
+
 // reflect on a config struct and extract any watch paths, using the `watch` tag
-func (p *Plugin) extractWatchPaths(config interface{}) []string {
+func (p *Plugin) extractWatchPaths(config interface{}) []watchedPath {
 	if helpers.IsNil(config) {
 		return nil
 	}
 
 	val := reflect.ValueOf(config)
 	valType := val.Type()
-	var watchedProperties []string
+	var watchedProperties []watchedPath
 	for i := 0; i < val.Type().NumField(); i++ {
 		// does this property have a steampipe tag
 		field := valType.Field(i)
@@ -317,10 +323,14 @@ func (p *Plugin) extractWatchPaths(config interface{}) []string {
 			if helpers.StringSliceContains(steampipeTagLabels, "watch") {
 				// get property value
 				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
+					// does this affect the schema
+					alterSchema := helpers.StringSliceContains(steampipeTagLabels, "alterschema")
 					if arrayVal, ok := value.([]string); ok {
-						watchedProperties = append(watchedProperties, arrayVal...)
+						for _, val := range arrayVal {
+							watchedProperties = append(watchedProperties, watchedPath{val, alterSchema})
+						}
 					} else if stringVal, ok := value.(string); ok {
-						watchedProperties = append(watchedProperties, stringVal)
+						watchedProperties = append(watchedProperties, watchedPath{stringVal, alterSchema})
 					}
 				}
 			}

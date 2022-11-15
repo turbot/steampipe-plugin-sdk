@@ -429,8 +429,8 @@ func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 //
 // This should be called from the plugin implementation of [plugin.Plugin.WatchedFileChangedFunc]
 // if a change in watched source files has changed the plugin schema.
-func (p *Plugin) ConnectionSchemaChanged(ctx context.Context, connectionName string) error {
-	log.Printf("[WARN] ConnectionSchemaChanged plugin %p, p.messageStream %p", p, p.messageStream)
+func (p *Plugin) ConnectionSchemaChanged(connectionName string) error {
+	log.Printf("[TRACE] ConnectionSchemaChanged plugin %p, p.messageStream %p", p, p.messageStream)
 	if p.messageStream != nil {
 		return p.messageStream.Send(&proto.PluginMessage{
 			MessageType: proto.PluginMessageType_SCHEMA_UPDATED,
