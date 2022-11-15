@@ -78,13 +78,12 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 func addQueryToSourcePath(urlData *url.URL, sourcePath string) string {
 	// if any query string passed in the URL, it will appear in u.RawQuery
 	// (in other words we have stripped out the glob)
-
-	// iterate through all the query params and escape the characters (if needed)
-	values := urlData.Query()
-	if len(values) == 0 {
+	if urlData.RawQuery == "" {
 		return sourcePath
 	}
 
+	// iterate through all the query params and escape the characters (if needed)
+	values := urlData.Query()
 	for k := range values {
 		// we must use values.Get rather that ranging over k,v as the value is an array
 		// and Get returns the first value
