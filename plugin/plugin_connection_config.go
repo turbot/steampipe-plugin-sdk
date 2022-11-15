@@ -324,7 +324,9 @@ func (p *Plugin) extractWatchPaths(config interface{}) []watchedPath {
 				// get property value
 				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
 					// does this affect the schema
-					alterSchema := helpers.StringSliceContains(steampipeTagLabels, "alterschema")
+					// disable alter schem,a functionality fo rnow
+					//alterSchema := helpers.StringSliceContains(steampipeTagLabels, "alterschema")
+					alterSchema := false
 					if arrayVal, ok := value.([]string); ok {
 						for _, val := range arrayVal {
 							watchedProperties = append(watchedProperties, watchedPath{val, alterSchema})
