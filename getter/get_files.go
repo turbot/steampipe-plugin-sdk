@@ -61,22 +61,19 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 	}
 
 	// if any query string passed in the URL, it will appear in u.RawQuery
-	// append this back into with the source path
 	// (in other words we have stripped out the glob)
-	// also, escape the special characters passed in the query params
 	if urlData.RawQuery != "" {
 		values := urlData.Query()
-		if values.Has("aws_access_key_id") {
-			values.Set("aws_access_key_id", url.QueryEscape(values.Get("aws_access_key_id")))
-		}
-		if values.Has("aws_access_key_secret") {
-			values.Set("aws_access_key_secret", url.QueryEscape(values.Get("aws_access_key_secret")))
-		}
-		if values.Has("aws_access_token") {
-			values.Set("aws_access_token", url.QueryEscape(values.Get("aws_access_token")))
+
+		// iterate through all the query params and escape the characters (if needed)
+		for k := range values {
+			if values.Has(k) {
+				values.Set(k, url.QueryEscape(values.Get(k)))
+			}
 		}
 		queryString := values.Encode()
 
+		// append the query params again with the remoteSourcePath
 		remoteSourcePath = fmt.Sprintf("%s?%s", remoteSourcePath, queryString)
 	}
 
