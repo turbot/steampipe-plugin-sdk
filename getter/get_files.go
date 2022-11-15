@@ -13,9 +13,10 @@ import (
 )
 
 // GetFiles determines whether sourcePath is a local or remote path
-// - if local, it returns the root directory and any glob specified
-// - if remote, it uses go-getter to download the files into a temporary location,
-//   then returns the location and the glob used the retrieve the files
+//   - if local, it returns the root directory and any glob specified
+//   - if remote, it uses go-getter to download the files into a temporary location,
+//     then returns the location and the glob used the retrieve the files
+//
 // and the glob
 func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern string, err error) {
 	if sourcePath == "" {
@@ -32,7 +33,7 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 		return localSourcePath, globPattern, nil
 	}
 
-	remoteSourcePath, queryString, globPattern, err := resolveGlobAndSourcePath(sourcePath)
+	remoteSourcePath, globPattern, urlData, err := resolveGlobAndSourcePath(sourcePath)
 	if err != nil {
 		return "", "", err
 	}
@@ -62,13 +63,32 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 			if len(sourceSplit) > 1 {
 				dest = path.Join(dest, strings.Split(sourceSplit[1], "?")[0])
 			}
+
+			// go-getter supports as extra / at the end of the source path
+			// which will download all data stored in that path
+			if !strings.HasSuffix(remoteSourcePath, "/") {
+				remoteSourcePath += "/"
+			}
 		}
 	}
 
 	// if any query string passed in the URL, it will appear in u.RawQuery
 	// append this back into with the source path
 	// (in other words we have stripped out the glob)
-	if queryString != "" {
+	// also, escape the special characters passed in the query params
+	if urlData.RawQuery != "" {
+		values := urlData.Query()
+		if values.Has("aws_access_key_id") {
+			values.Set("aws_access_key_id", url.QueryEscape(values.Get("aws_access_key_id")))
+		}
+		if values.Has("aws_access_key_secret") {
+			values.Set("aws_access_key_secret", url.QueryEscape(values.Get("aws_access_key_secret")))
+		}
+		if values.Has("aws_access_token") {
+			values.Set("aws_access_token", url.QueryEscape(values.Get("aws_access_token")))
+		}
+		queryString := values.Encode()
+
 		remoteSourcePath = fmt.Sprintf("%s?%s", remoteSourcePath, queryString)
 	}
 
@@ -84,12 +104,12 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 	return dest, globPattern, nil
 }
 
-func resolveGlobAndSourcePath(sourcePath string) (remoteSourcePath, queryString, glob string, err error) {
+func resolveGlobAndSourcePath(sourcePath string) (remoteSourcePath, glob string, urlData *url.URL, err error) {
 	// parse source path to extract the raw query string
 	u, err := url.Parse(sourcePath)
 	if err != nil {
 
-		return "", "", "", fmt.Errorf("failed to parse the source %s: %s", sourcePath, err.Error())
+		return "", "", nil, fmt.Errorf("failed to parse the source %s: %s", sourcePath, err.Error())
 	}
 
 	// rebuild the source path without any query params
@@ -108,7 +128,7 @@ func resolveGlobAndSourcePath(sourcePath string) (remoteSourcePath, queryString,
 	// 	sourcePath = fmt.Sprintf("%s/", sourcePath)
 	// }
 
-	return remoteSourcePath, u.RawQuery, globPattern, nil
+	return remoteSourcePath, globPattern, u, nil
 }
 
 func removeQueryParams(u *url.URL, remoteSourcePath string) string {
