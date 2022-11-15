@@ -41,18 +41,18 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 	// create temporary directory to store the go-getter data
 	dest := createTempDirForGet(tmpDir)
 
-	// TODO tidy this up
-	// if the source path is a S3 URL, and the path refers to a top-level file, for example:
-	// s3::https://bucket.s3.amazonaws.com/foo.ext
-	// send the path directly to go-getter, and use the destination path as glob pattern for file searching
-	// and also remove the query parameters (parts after ?) from destination path
-
 	// If there is no glob pattern, source path is a filename - make the glob pattern the full DESTINATION file path
 	if globPattern == "" {
+
+		// if the source path is a S3 URL, and the path refers to a top-level file, for example:
+		// s3::https://bucket.s3.amazonaws.com/foo.ext
+		// send the path directly to go-getter, and use the destination path as glob pattern for file searching
+		// and also remove the query parameters (parts after ?) from destination path
+
 		parts := strings.Split(remoteSourcePath, string(os.PathSeparator))
 		// extract file name from remoteSourcePath
 		filename := parts[len(parts)-1]
-		// build the dest filename anmd assign to glob
+		// build the dest filename and assign to glob
 		dest = path.Join(dest, filename)
 		globPattern = dest
 	} else {
@@ -60,22 +60,8 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 		remoteSourcePath, dest = handleS3FolderPath(remoteSourcePath, dest)
 	}
 
-	// if any query string passed in the URL, it will appear in u.RawQuery
-	// (in other words we have stripped out the glob)
-	if urlData.RawQuery != "" {
-		values := urlData.Query()
-
-		// iterate through all the query params and escape the characters (if needed)
-		for k := range values {
-			if values.Has(k) {
-				values.Set(k, url.QueryEscape(values.Get(k)))
-			}
-		}
-		queryString := values.Encode()
-
-		// append the query params again with the remoteSourcePath
-		remoteSourcePath = fmt.Sprintf("%s?%s", remoteSourcePath, queryString)
-	}
+	// is there was a query string, escape the values and add to the url
+	remoteSourcePath = addQueryToSourcePath(urlData, remoteSourcePath)
 
 	err = getter.Get(dest, remoteSourcePath)
 	if err != nil {
@@ -87,6 +73,27 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 	}
 
 	return dest, globPattern, nil
+}
+
+func addQueryToSourcePath(urlData *url.URL, sourcePath string) string {
+	// if any query string passed in the URL, it will appear in u.RawQuery
+	// (in other words we have stripped out the glob)
+
+	// iterate through all the query params and escape the characters (if needed)
+	values := urlData.Query()
+	if len(values) == 0 {
+		return sourcePath
+	}
+
+	for k := range values {
+		// we must use values.Get rather that ranging over k,v as the value is an array
+		// and Get returns the first value
+		values.Set(k, url.QueryEscape(values.Get(k)))
+	}
+	queryString := values.Encode()
+
+	// append the query params to the source path
+	return fmt.Sprintf("%s?%s", sourcePath, queryString)
 }
 
 func handleS3FolderPath(remoteSourcePath string, dest string) (string, string) {

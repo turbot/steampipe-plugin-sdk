@@ -49,7 +49,7 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []watchedPath, p *Plugin) e
 	for _, path := range watchPaths {
 		dest, globPattern, err := getter.GetFiles(path.watchPath, connTempDir)
 		if err != nil {
-			log.Printf("[WARN] ConnectionData updateWatchPaths - error resolving source path %s: %s", path, err.Error())
+			log.Printf("[WARN] ConnectionData updateWatchPaths - error resolving source path %s: %s", path.watchPath, err.Error())
 			continue
 		}
 		opts.Directories = append(opts.Directories, dest)
