@@ -104,7 +104,7 @@ func handleS3FolderPath(remoteSourcePath string, dest string) (string, string) {
 	// In this case we need to extract the folder path from the url to build the dest path.
 	//
 	// We do this by taking everything after the string "amazonaws.com/"
-	if strings.Contains(remoteSourcePath, "amazonaws.com/") {
+	if strings.Contains(remoteSourcePath, "amazonaws.com") {
 		// add the bucket folder to the end of the dest path
 		sourceSplit := strings.Split(remoteSourcePath, "amazonaws.com/")
 		if len(sourceSplit) > 1 {
