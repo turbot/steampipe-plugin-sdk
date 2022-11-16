@@ -15,6 +15,10 @@ type GRPCClient struct {
 	ctx context.Context
 }
 
+func (c *GRPCClient) EstablishMessageStream() (proto.WrapperPlugin_EstablishMessageStreamClient, error) {
+	return c.client.EstablishMessageStream(c.ctx, &proto.EstablishMessageStreamRequest{})
+}
+
 func (c *GRPCClient) GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error) {
 	return c.client.GetSchema(c.ctx, req)
 }
@@ -71,4 +75,8 @@ func (m *GRPCServer) UpdateConnectionConfigs(_ context.Context, req *proto.Updat
 
 func (m *GRPCServer) GetSupportedOperations(_ context.Context, req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return m.Impl.GetSupportedOperations(req)
+}
+
+func (m *GRPCServer) EstablishMessageStream(_ *proto.EstablishMessageStreamRequest, server proto.WrapperPlugin_EstablishMessageStreamServer) error {
+	return m.Impl.EstablishMessageStream(server)
 }

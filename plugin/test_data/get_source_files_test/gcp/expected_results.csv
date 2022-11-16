@@ -1,0 +1,3 @@
+service_name,control_id,tf_output_key,expected_result,control_title
+account,control.cis_v130_4_3,compute_instance_native_rodent,ok,"4.3 Ensure 'Block Project-wide SSH keys' is enabled for VM instances"
+account,control.cis_v130_4_3,compute_instance_actual_earwig,alarm,"4.3 Ensure 'Block Project-wide SSH keys' is enabled for VM instances"

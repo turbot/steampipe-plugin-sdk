@@ -20,7 +20,7 @@ jobs:
         - name: Run SDK Unit Tests
           run: |
             go clean -testcache
-            go test -timeout 30s ./...
+            go test -timeout 600s ./...
 
 
   buildChaosPlugin:

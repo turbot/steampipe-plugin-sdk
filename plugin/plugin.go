@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -14,6 +16,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
+	"github.com/fsnotify/fsnotify"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
@@ -98,6 +101,8 @@ type Plugin struct {
 	ConnectionMap map[string]*ConnectionData
 	// is this a static or dynamic schema
 	SchemaMode string
+	// callback function which is called when any watched source file(s) gets changed
+	WatchedFileChangedFunc func(ctx context.Context, p *Plugin, connection *Connection, events []fsnotify.Event)
 
 	queryCache *query_cache.QueryCache
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
@@ -105,6 +110,12 @@ type Plugin struct {
 	// map of the connection caches, keyed by connection name
 	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
+
+	// temporary dir for this plugin
+	// this will only created if GetSourceFiles is used
+	tempDir string
+	// stream used to send messages back to plugin manager
+	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -151,8 +162,34 @@ func (p *Plugin) initialise() {
 		p.ConnectionConfigChangedFunc = defaultConnectionConfigChangedFunc
 	}
 
+	// create the default WatchedFileChangedFunc if needed
+	if p.WatchedFileChangedFunc == nil {
+		log.Printf("[TRACE] intialising defaultWatchedFilesChangedFunc")
+		p.WatchedFileChangedFunc = defaultWatchedFilesChangedFunc
+	}
+
 	if err := p.createConnectionCacheStore(); err != nil {
 		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
+	}
+
+	// set temporary dir for this plugin
+	// this will only created if GetSourceFiles is used
+	p.tempDir = path.Join(os.TempDir(), p.Name)
+}
+
+func (p *Plugin) shutdown() {
+	// iterate through the connections in the plugin and
+	// stop the file watchers for each
+	for _, connectionData := range p.ConnectionMap {
+		if watcher := connectionData.Watcher; watcher != nil {
+			watcher.Close()
+		}
+	}
+
+	// destroy the temp directory
+	err := os.RemoveAll(p.tempDir)
+	if err != nil {
+		log.Printf("[WARN] failed to delete the temp directory %s: %s", p.tempDir, err.Error())
 	}
 }
 
@@ -180,10 +217,34 @@ func (p *Plugin) ensureConnectionCache(connectionName string) *connectionmanager
 }
 
 /*
+EstablishMessageStream establishes a streaming message connection between the plugin and the plugin manager
+This is used if the plugin has a dynamic schema and uses file watching
+
+This is the handler function for the EstablishMessageStream grpc function
+*/
+func (p *Plugin) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
+	log.Printf("[TRACE] plugin.EstablishMessageStream plugin %p, stream %p", p, stream)
+	// if the plugin does not have a dynamic schema, we do not need the message stream
+	if p.SchemaMode != SchemaModeDynamic {
+		log.Printf("[TRACE] EstablishMessageStream - plugin %s has static schema so no message stream, required", p.Name)
+		return nil
+	}
+
+	p.messageStream = stream
+
+	log.Printf("[TRACE] plugin.EstablishMessageStream set on plugin: plugin.messageStream %p", p.messageStream)
+
+	// hold stream open
+	for {
+	}
+	return nil
+}
+
+/*
 GetSchema returns the [grpc.PluginSchema].
 Note: the connection config must be set before calling this function.
 
-GetSchema is the handler function for the GetSchema grpc function
+This is the handler function for the GetSchema grpc function
 */
 func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 	var connectionData *ConnectionData
@@ -320,6 +381,21 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 // ClearQueryCache clears the query cache for the given connection.
 func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 	p.queryCache.ClearForConnection(ctx, connectionName)
+}
+
+// ConnectionSchemaChanged sends a message to the plugin-manager that the scheman of this plugin has changed
+//
+// This should be called from the plugin implementation of [plugin.Plugin.WatchedFileChangedFunc]
+// if a change in watched source files has changed the plugin schema.
+func (p *Plugin) ConnectionSchemaChanged(connectionName string) error {
+	log.Printf("[TRACE] ConnectionSchemaChanged plugin %p, p.messageStream %p", p, p.messageStream)
+	if p.messageStream != nil {
+		return p.messageStream.Send(&proto.PluginMessage{
+			MessageType: proto.PluginMessageType_SCHEMA_UPDATED,
+			Connection:  connectionName,
+		})
+	}
+	return nil
 }
 
 func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {

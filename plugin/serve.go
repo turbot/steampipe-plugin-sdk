@@ -53,12 +53,13 @@ func Serve(opts *ServeOpts) {
 	// initialise the plugin - create the connection config map, set plugin pointer on all tables and setup logger
 	p.initialise()
 
-	shutdown, _ := telemetry.Init(p.Name)
+	shutdownTelemetry, _ := telemetry.Init(p.Name)
 	defer func() {
 		log.Println("[TRACE] FLUSHING instrumentation")
 		//instrument.FlushTraces()
 		log.Println("[TRACE] Shutdown instrumentation")
-		shutdown()
+		shutdownTelemetry()
+		p.shutdown()
 	}()
 	if _, found := os.LookupEnv("STEAMPIPE_PPROF"); found {
 		log.Printf("[INFO] PROFILING!!!!")
@@ -66,6 +67,7 @@ func Serve(opts *ServeOpts) {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	}
+	// TODO add context into all of these handlers
 
-	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.UpdateConnectionConfigs, p.GetSchema, p.Execute).Serve()
+	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.UpdateConnectionConfigs, p.GetSchema, p.Execute, p.EstablishMessageStream).Serve()
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"strings"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
@@ -76,6 +78,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			if err != nil {
 				return err
 			}
+
 			c.Config = config
 		}
 
@@ -109,6 +112,14 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			TableMap:   tableMap,
 			Connection: c,
 			Schema:     schema,
+			Plugin:     p,
+		}
+		log.Printf("[TRACE] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
+
+		// update the watch paths for the connection file watcher
+		err = p.updateConnectionWatchPaths(c)
+		if err != nil {
+			log.Printf("[WARN] SetAllConnectionConfigs failed to update the watched paths for connection %s: %s", c.Name, err.Error())
 		}
 	}
 
@@ -181,6 +192,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 			if err != nil {
 				return err
 			}
+
 			c.Config = config
 		}
 
@@ -200,10 +212,18 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 			}
 		}
 
+		log.Printf("[TRACE] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
+
 		p.ConnectionMap[addedConnection.Connection] = &ConnectionData{
 			TableMap:   tableMap,
 			Connection: c,
 			Schema:     schema,
+		}
+
+		// update the watch paths for the connection file watcher, if used
+		err := p.updateConnectionWatchPaths(c)
+		if err != nil {
+			log.Printf("[WARN] UpdateConnectionConfigs failed to update the watched paths for connection %s: %s", c.Name, err.Error())
 		}
 	}
 
@@ -238,12 +258,72 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		connectionData.Connection = updatedConnection
 		p.ConnectionMap[changedConnection.Connection] = connectionData
 
+		// update the watch paths for the connection file watcher, if used
+		log.Printf("[TRACE] UpdateConnectionConfigs update connection %s in map, setting watch paths", changedConnection.Connection)
+		err = p.updateConnectionWatchPaths(updatedConnection)
+		if err != nil {
+			log.Printf("[WARN] UpdateConnectionConfigs failed to update the watched paths for connection %s: %s", updatedConnection.Name, err.Error())
+		}
+
 		// call the ConnectionConfigChanged callback function
 		p.ConnectionConfigChangedFunc(ctx, p, existingConnection, updatedConnection)
-
 	}
 
 	return nil
+}
+
+func (p *Plugin) updateConnectionWatchPaths(c *Connection) error {
+	if watchPaths := p.extractWatchPaths(c.Config); len(watchPaths) > 0 {
+		log.Printf("[TRACE] updateConnectionWatchPaths for connection %s, watch paths: %v", c.Name, watchPaths)
+		connectionData := p.ConnectionMap[c.Name]
+		err := connectionData.updateWatchPaths(watchPaths, p)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type watchedPath struct {
+	watchPath    string
+	altersSchema bool
+}
+
+// reflect on a config struct and extract any watch paths, using the `watch` tag
+func (p *Plugin) extractWatchPaths(config interface{}) []watchedPath {
+	if helpers.IsNil(config) {
+		return nil
+	}
+
+	val := reflect.ValueOf(config)
+	valType := val.Type()
+	var watchedProperties []watchedPath
+	for i := 0; i < val.Type().NumField(); i++ {
+		// does this property have a steampipe tag
+		field := valType.Field(i)
+		steampipeTag := field.Tag.Get("steampipe")
+		if steampipeTag != "" {
+			steampipeTagLabels := strings.Split(steampipeTag, ",")
+			// does the tag have a 'watch' label?
+			if helpers.StringSliceContains(steampipeTagLabels, "watch") {
+				// get property value
+				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
+					// does this affect the schema
+					// disable alter schem,a functionality for now
+					//alterSchema := helpers.StringSliceContains(steampipeTagLabels, "alterschema")
+					alterSchema := false
+					if arrayVal, ok := value.([]string); ok {
+						for _, val := range arrayVal {
+							watchedProperties = append(watchedProperties, watchedPath{val, alterSchema})
+						}
+					} else if stringVal, ok := value.(string); ok {
+						watchedProperties = append(watchedProperties, watchedPath{stringVal, alterSchema})
+					}
+				}
+			}
+		}
+	}
+	return watchedProperties
 }
 
 func (p *Plugin) logChanges(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) {
@@ -263,11 +343,19 @@ func (p *Plugin) logChanges(added []*proto.ConnectionConfig, deleted []*proto.Co
 	log.Printf("[TRACE] UpdateConnectionConfigs added: %s, deleted: %s, changed: %s", strings.Join(addedNames, ","), strings.Join(deletedNames, ","), strings.Join(changedNames, ","))
 }
 
-// this is the default ConnectionConfigChanged callback function - it clears both the query cache and connection cache
-// for the given connection
+// this is the default ConnectionConfigChanged callback function
+// it clears both the query cache and connection cache for the given connection
 func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Connection, new *Connection) error {
-	// clear the connection and query cache for this connection
+	log.Printf("[TRACE] defaultConnectionConfigChangedFunc connection config changed for connection: %s", new.Name)
 	p.ClearConnectionCache(ctx, new.Name)
 	p.ClearQueryCache(ctx, new.Name)
 	return nil
+}
+
+// this is the default WatchedFilesChangedFunc callback function
+// it clears both the query cache and connection cache for the given connection
+func defaultWatchedFilesChangedFunc(ctx context.Context, p *Plugin, conn *Connection, events []fsnotify.Event) {
+	log.Printf("[TRACE] defaultWatchedFilesChangedFunc filewatchers changed for connection %s", conn.Name)
+	p.ClearConnectionCache(ctx, conn.Name)
+	p.ClearQueryCache(ctx, conn.Name)
 }

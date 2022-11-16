@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WrapperPluginClient interface {
+	EstablishMessageStream(ctx context.Context, in *EstablishMessageStreamRequest, opts ...grpc.CallOption) (WrapperPlugin_EstablishMessageStreamClient, error)
 	GetSchema(ctx context.Context, in *GetSchemaRequest, opts ...grpc.CallOption) (*GetSchemaResponse, error)
 	Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (WrapperPlugin_ExecuteClient, error)
 	SetConnectionConfig(ctx context.Context, in *SetConnectionConfigRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
@@ -38,6 +39,38 @@ func NewWrapperPluginClient(cc grpc.ClientConnInterface) WrapperPluginClient {
 	return &wrapperPluginClient{cc}
 }
 
+func (c *wrapperPluginClient) EstablishMessageStream(ctx context.Context, in *EstablishMessageStreamRequest, opts ...grpc.CallOption) (WrapperPlugin_EstablishMessageStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &WrapperPlugin_ServiceDesc.Streams[0], "/proto.WrapperPlugin/EstablishMessageStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &wrapperPluginEstablishMessageStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type WrapperPlugin_EstablishMessageStreamClient interface {
+	Recv() (*PluginMessage, error)
+	grpc.ClientStream
+}
+
+type wrapperPluginEstablishMessageStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *wrapperPluginEstablishMessageStreamClient) Recv() (*PluginMessage, error) {
+	m := new(PluginMessage)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *wrapperPluginClient) GetSchema(ctx context.Context, in *GetSchemaRequest, opts ...grpc.CallOption) (*GetSchemaResponse, error) {
 	out := new(GetSchemaResponse)
 	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/GetSchema", in, out, opts...)
@@ -48,7 +81,7 @@ func (c *wrapperPluginClient) GetSchema(ctx context.Context, in *GetSchemaReques
 }
 
 func (c *wrapperPluginClient) Execute(ctx context.Context, in *ExecuteRequest, opts ...grpc.CallOption) (WrapperPlugin_ExecuteClient, error) {
-	stream, err := c.cc.NewStream(ctx, &WrapperPlugin_ServiceDesc.Streams[0], "/proto.WrapperPlugin/Execute", opts...)
+	stream, err := c.cc.NewStream(ctx, &WrapperPlugin_ServiceDesc.Streams[1], "/proto.WrapperPlugin/Execute", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,6 +152,7 @@ func (c *wrapperPluginClient) GetSupportedOperations(ctx context.Context, in *Ge
 // All implementations must embed UnimplementedWrapperPluginServer
 // for forward compatibility
 type WrapperPluginServer interface {
+	EstablishMessageStream(*EstablishMessageStreamRequest, WrapperPlugin_EstablishMessageStreamServer) error
 	GetSchema(context.Context, *GetSchemaRequest) (*GetSchemaResponse, error)
 	Execute(*ExecuteRequest, WrapperPlugin_ExecuteServer) error
 	SetConnectionConfig(context.Context, *SetConnectionConfigRequest) (*SetConnectionConfigResponse, error)
@@ -132,6 +166,9 @@ type WrapperPluginServer interface {
 type UnimplementedWrapperPluginServer struct {
 }
 
+func (UnimplementedWrapperPluginServer) EstablishMessageStream(*EstablishMessageStreamRequest, WrapperPlugin_EstablishMessageStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method EstablishMessageStream not implemented")
+}
 func (UnimplementedWrapperPluginServer) GetSchema(context.Context, *GetSchemaRequest) (*GetSchemaResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSchema not implemented")
 }
@@ -161,6 +198,27 @@ type UnsafeWrapperPluginServer interface {
 
 func RegisterWrapperPluginServer(s grpc.ServiceRegistrar, srv WrapperPluginServer) {
 	s.RegisterService(&WrapperPlugin_ServiceDesc, srv)
+}
+
+func _WrapperPlugin_EstablishMessageStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(EstablishMessageStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(WrapperPluginServer).EstablishMessageStream(m, &wrapperPluginEstablishMessageStreamServer{stream})
+}
+
+type WrapperPlugin_EstablishMessageStreamServer interface {
+	Send(*PluginMessage) error
+	grpc.ServerStream
+}
+
+type wrapperPluginEstablishMessageStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *wrapperPluginEstablishMessageStreamServer) Send(m *PluginMessage) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _WrapperPlugin_GetSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -303,6 +361,11 @@ var WrapperPlugin_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "EstablishMessageStream",
+			Handler:       _WrapperPlugin_EstablishMessageStream_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "Execute",
 			Handler:       _WrapperPlugin_Execute_Handler,
