@@ -1,7 +1,7 @@
 ## v5.0.0 [2022-11-16]
 _What's new_
 * Add `QueryData.GetSourceFiles` which fetches files using [go-getter](https://github.com/hashicorp/go-getter). ([#434](https://github.com/turbot/steampipe-plugin-sdk/issues/434))
-* Add support for watching files specified by connection config properties with the tag watch. ([#451](https://github.com/turbot/steampipe-plugin-sdk/issues/451))
+* Add support for watching files specified by connection config properties with the tag `watch`. ([#451](https://github.com/turbot/steampipe-plugin-sdk/issues/451))
 * Update comments to improve GoDoc documentation and remove unnecessary exports.  ([#432](https://github.com/turbot/steampipe-plugin-sdk/issues/432))
 * Update signature of TableMapFunc to accept TableMapData, which included ConnectionCache.  ([#436](https://github.com/turbot/steampipe-plugin-sdk/issues/436))
 * Add support to customize the RetryHydrate function. ([#349](https://github.com/turbot/steampipe-plugin-sdk/issues/349))
