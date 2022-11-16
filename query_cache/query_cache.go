@@ -29,7 +29,8 @@ type CacheData interface {
 
 // default ttl - increase this if any client has a larger ttl
 const (
-	defaultTTL    = 5 * time.Minute
+	// cache has a hard TTL limit of 24 hours
+	ttlHardLimit  = 24 * time.Hour
 	rowBufferSize = 1000
 )
 
@@ -42,7 +43,6 @@ type QueryCache struct {
 	pendingData     map[string]*pendingIndexBucket
 	pendingDataLock sync.Mutex
 	ttlLock         sync.Mutex
-	ttl             time.Duration
 	// lock while streaming data and setting data, to avoid eviction while streaming is in progress
 	streamLock sync.Mutex
 	cache      *cache.Cache[[]byte]
@@ -58,7 +58,6 @@ func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSch
 		PluginSchemaMap: pluginSchemaMap,
 		pendingData:     make(map[string]*pendingIndexBucket),
 		setRequests:     make(map[string]*CacheRequest),
-		ttl:             defaultTTL,
 	}
 	if err := queryCache.createCache(maxCacheStorageMb); err != nil {
 		return nil, err
@@ -77,7 +76,7 @@ func (c *QueryCache) createCache(maxCacheStorageMb int) error {
 }
 
 func (c *QueryCache) createCacheStore(maxCacheStorageMb int) (store.StoreInterface, error) {
-	config := bigcache.DefaultConfig(5 * time.Minute)
+	config := bigcache.DefaultConfig(ttlHardLimit)
 	// ensure each shard is at least 5Mb
 	config.Shards = 1024
 	for maxCacheStorageMb/config.Shards < 5 {
@@ -88,9 +87,6 @@ func (c *QueryCache) createCacheStore(maxCacheStorageMb int) (store.StoreInterfa
 	}
 	config.HardMaxCacheSize = maxCacheStorageMb
 	log.Printf("[TRACE] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
-	//config.Shards = 10
-	// max entry size is HardMaxCacheSize/1000
-	//config.MaxEntrySize = (maxCacheStorageMb) * 1024 * 1024
 
 	bigcacheClient, _ := bigcache.NewBigCache(config)
 	bigcacheStore := store.NewBigcache(bigcacheClient)
@@ -107,9 +103,6 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 
 	// set root result key
 	req.resultKeyRoot = c.buildResultKey(req)
-
-	// if the client TTL is greater than the cache TTL, update the cache value to match the client value
-	c.setTtl(req.TtlSeconds)
 
 	// get the index bucket key for this table and quals
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
@@ -286,17 +279,6 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 // ClearForConnection removes all cache entries for the given connection
 func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) {
 	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
-}
-
-func (c *QueryCache) setTtl(clientTTLSeconds int64) {
-	clientTTL := time.Duration(clientTTLSeconds) * time.Second
-	// lock to handle concurrent updates
-	c.ttlLock.Lock()
-	if clientTTL > c.ttl {
-		log.Printf("[INFO] QueryCache.Get %p client TTL %s is greater than cache TTL %s - updating cache value", c, clientTTL.String(), c.ttl.String())
-		c.ttl = clientTTL
-	}
-	c.ttlLock.Unlock()
 }
 
 // write a page of rows to the cache
