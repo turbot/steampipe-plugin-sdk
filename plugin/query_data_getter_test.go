@@ -169,7 +169,10 @@ func TestGetSourceFiles(t *testing.T) {
 	for name, test := range getSourceFilesTestCases {
 		filePaths, err := q.GetSourceFiles(test.Input)
 		if err != nil {
-			t.Errorf(`Test: '%s'' ERROR : %v`, name, err)
+			if strings.Contains(err.Error(), "NoCredentialProviders") {
+				t.Skip(`Skipping test`)
+			}
+			t.Errorf(`Test: '%s' ERROR : %v`, name, err)
 		}
 
 		for i, filePath := range filePaths {
@@ -185,7 +188,7 @@ func TestGetSourceFiles(t *testing.T) {
 		}
 
 		if !reflect.DeepEqual(test.ExpectedFilePaths, filePaths) {
-			t.Errorf(`Test: '%s'' FAILED : expected %v, got %v`, name, test.ExpectedFilePaths, filePaths)
+			t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.ExpectedFilePaths, filePaths)
 		}
 	}
 }
