@@ -114,39 +114,39 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 		ExpectedFilePaths: []string{"ghost/Dockerfile"},
 	},
 	"s3 force protocol with quey params - specific folder - Dockerfile*": {
-		Input:             "s3::https://demo-integrated-2022.s3.ap-southeast-1.amazonaws.com/ghost//Dockerfile*?aws_profile=default",
+		Input:             "s3::https://demo-integrated-2022.s3.ap-southeast-1.amazonaws.com/ghost//Dockerfile*",
 		ExpectedFilePaths: []string{"ghost/Dockerfile"},
 	},
 	"s3 url with quey params - specific folder - Dockerfile*": {
-		Input:             "demo-integrated-2022.s3-ap-southeast-1.amazonaws.com/ghost//Dockerfile?aws_profile=default",
+		Input:             "demo-integrated-2022.s3-ap-southeast-1.amazonaws.com/ghost//Dockerfile",
 		ExpectedFilePaths: []string{"ghost/Dockerfile"},
 	},
 	"s3 url with query params - top-level - *.json": {
-		Input:             "cloudformation-templates-ap-southeast-1.s3-ap-southeast-1.amazonaws.com///*.json?aws_profile=default",
+		Input:             "cloudformation-templates-ap-southeast-1.s3-ap-southeast-1.amazonaws.com///*.json",
 		ExpectedFilePaths: []string{"Managed_EC2_Batch_Environment.json", "Managed_EC2_and_Spot_Batch_Environment.json", "cc1-cluster.json", "cc2-cluster.json"},
 	},
 	"s3 url with query params - specific file - no glob": {
-		Input:             "demo-integrated-2022.s3-ap-southeast-1.amazonaws.com/ghost/Dockerfile?aws_profile=default",
+		Input:             "demo-integrated-2022.s3-ap-southeast-1.amazonaws.com/ghost/Dockerfile",
 		ExpectedFilePaths: []string{"Dockerfile"},
 	},
 	"s3 url with query params - **/*.json": {
-		Input:             "cloudformation-templates-ap-southeast-1.s3-ap-southeast-1.amazonaws.com///**/*.json?aws_profile=default",
+		Input:             "cloudformation-templates-ap-southeast-1.s3-ap-southeast-1.amazonaws.com///**/*.json",
 		ExpectedFilePaths: []string{"Managed_EC2_Batch_Environment.json", "Managed_EC2_and_Spot_Batch_Environment.json", "cc1-cluster.json", "cc2-cluster.json"},
 	},
 	"virtual-host style without http protocol prefix - *.json": {
-		Input:             "s3.amazonaws.com/cloudformation-templates-ap-southeast-1///*.json?aws_profile=default",
+		Input:             "s3-ap-southeast-1.amazonaws.com/cloudformation-templates-ap-southeast-1///*.json",
 		ExpectedFilePaths: []string{"cloudformation-templates-ap-southeast-1/Managed_EC2_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/Managed_EC2_and_Spot_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/cc1-cluster.json", "cloudformation-templates-ap-southeast-1/cc2-cluster.json"},
 	},
 	"virtual-host style without http protocol prefix - **/*.json": {
-		Input:             "s3.amazonaws.com/cloudformation-templates-ap-southeast-1///**/*.json?aws_profile=default",
+		Input:             "s3-ap-southeast-1.amazonaws.com/cloudformation-templates-ap-southeast-1///**/*.json",
 		ExpectedFilePaths: []string{"cloudformation-templates-ap-southeast-1/Managed_EC2_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/Managed_EC2_and_Spot_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/cc1-cluster.json", "cloudformation-templates-ap-southeast-1/cc2-cluster.json"},
 	},
 	"virtual-host style without http protocol prefix - no extra / - **/*.json": {
-		Input:             "s3.amazonaws.com/cloudformation-templates-ap-southeast-1//**/*.json?aws_profile=default",
+		Input:             "s3-ap-southeast-1.amazonaws.com/cloudformation-templates-ap-southeast-1//**/*.json",
 		ExpectedFilePaths: []string{"cloudformation-templates-ap-southeast-1/Managed_EC2_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/Managed_EC2_and_Spot_Batch_Environment.json", "cloudformation-templates-ap-southeast-1/cc1-cluster.json", "cloudformation-templates-ap-southeast-1/cc2-cluster.json"},
 	},
 	"virtual-host style without http protocol prefix - specific file - no glob": {
-		Input:             "s3.amazonaws.com/cloudformation-templates-ap-southeast-1/Managed_EC2_Batch_Environment.json?aws_profile=default",
+		Input:             "s3-ap-southeast-1.amazonaws.com/cloudformation-templates-ap-southeast-1/Managed_EC2_Batch_Environment.json",
 		ExpectedFilePaths: []string{"Managed_EC2_Batch_Environment.json"},
 	},
 }
