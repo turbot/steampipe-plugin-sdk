@@ -167,7 +167,10 @@ func TestGetSourceFiles(t *testing.T) {
 	prefixDividerCount := 4
 
 	for name, test := range getSourceFilesTestCases {
-		filePaths, _ := q.GetSourceFiles(test.Input)
+		filePaths, err := q.GetSourceFiles(test.Input)
+		if err != nil {
+			t.Errorf(`Test: '%s'' ERROR : %v`, name, err)
+		}
 
 		for i, filePath := range filePaths {
 			var splitPath []string
