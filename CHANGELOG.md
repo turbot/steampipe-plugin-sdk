@@ -1,3 +1,31 @@
+## v5.0.0 [2022-11-16]
+_What's new_
+* Add `QueryData.GetSourceFiles` which fetches files using [go-getter](https://github.com/hashicorp/go-getter). ([#434](https://github.com/turbot/steampipe-plugin-sdk/issues/434))
+* Add support for watching files specified by connection config properties with the tag watch. ([#451](https://github.com/turbot/steampipe-plugin-sdk/issues/451))
+* Update comments to improve GoDoc documentation and remove unnecessary exports.  ([#432](https://github.com/turbot/steampipe-plugin-sdk/issues/432))
+* Update signature of TableMapFunc to accept TableMapData, which included ConnectionCache.  ([#436](https://github.com/turbot/steampipe-plugin-sdk/issues/436))
+* Add support to customize the RetryHydrate function. ([#349](https://github.com/turbot/steampipe-plugin-sdk/issues/349))
+* Remove explicit setting of rlimit, now that Go 1.19 does it automatically. ([#444](https://github.com/turbot/steampipe-plugin-sdk/issues/444))
+* Fix query cache TTL maxing out at 5 mins - set hard limit to 24 hours.  ([#446](https://github.com/turbot/steampipe-plugin-sdk/issues/446))
+
+_Bug fixes_
+* Fix nil pointer reference error when qual value is nil. ([#442](https://github.com/turbot/steampipe-plugin-sdk/issues/442))
+
+_Breaking changes_
+* The signature or `TableMapFunc` has changed to
+  ```func(ctx context.Context, d *TableMapData) (map[string]*Table, error)```
+  where `TableMapData` is:
+```
+type TableMapData struct {
+	Connection     *Connection
+	ConectionCache *connection.ConnectionCache
+}
+```
+* `QueryData.QueryStatus.RowsRemaining` has been moved to `QueryData.RowsRemaining`. (`QueryData.QueryStatus` is no longer exported)
+* `QueryData.KeyColumnQuals` has been renamed to `EqualsQuals` 
+* `QueryData.KeyColumnQualsString` has been renamed to  `EqualsQualString`
+* `ConcurrencyManager` and `HydrateCall` and no longer exported
+
 ## v4.1.8 [2022-09-08]
 _Bug fixes_
 * Remove explicit setting of the open-files limit, which was using a default which was too small. Instead, make use of the fact that Go 1.19 now sets the soft file limit to the hard limit automatically. ([#444](https://github.com/turbot/steampipe-plugin-sdk/issues/444))
