@@ -388,21 +388,20 @@ func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 // This should be called from the plugin implementation of [plugin.Plugin.WatchedFileChangedFunc]
 // if a change in watched source files has changed the plugin schema.
 func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
-	log.Printf("[WARN] ConnectionSchemaChanged plugin %s, connection %s", p.Name, connection.Name)
+	log.Printf("[TRACE] ConnectionSchemaChanged plugin %s, connection %s", p.Name, connection.Name)
 
-	// TODO KAI uncomment
 	// get the updated table map and schema
-	//tableMap, schema, err := p.refreshSchema(connection)
-	//if err != nil {
-	//	return err
-	//}
+	tableMap, schema, err := p.refreshSchema(connection)
+	if err != nil {
+		return err
+	}
 	// update the connection data
-	//p.ConnectionMap[connection.Name] = &ConnectionData{
-	//	TableMap:   tableMap,
-	//	Connection: connection,
-	//	Schema:     schema,
-	//	Plugin:     p,
-	//}
+	p.ConnectionMap[connection.Name] = &ConnectionData{
+		TableMap:   tableMap,
+		Connection: connection,
+		Schema:     schema,
+		Plugin:     p,
+	}
 
 	// let the plugin manager know
 	if p.messageStream != nil {
