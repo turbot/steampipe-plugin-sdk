@@ -89,7 +89,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		// if tableMap is nil, exemplar is not yet set
 		if tableMap == nil {
 			log.Printf("[TRACE] connection %s build schema and table map", connectionName)
-			tableMap, schema, err := p.refreshSchema(c)
+			tableMap, schema, err = p.refreshSchema(c)
 			if err != nil {
 				return err
 			}
