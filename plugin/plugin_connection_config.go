@@ -3,14 +3,13 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"log"
-	"reflect"
-	"strings"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"log"
+	"reflect"
+	"strings"
 )
 
 /*
@@ -82,21 +81,15 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			c.Config = config
 		}
 
+		var err error
+		// set table map ands schem exemplar
 		schema := exemplarSchema
 		tableMap := exemplarTableMap
-		var err error
 
+		// if tableMap is nil, exemplar is not yet set
 		if tableMap == nil {
 			log.Printf("[TRACE] connection %s build schema and table map", connectionName)
-			// if the plugin defines a CreateTables func, call it now
-			ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
-			tableMap, err = p.initialiseTables(ctx, c)
-			if err != nil {
-				return err
-			}
-
-			// populate the plugin schema
-			schema, err = p.buildSchema(tableMap)
+			tableMap, schema, err = p.refreshSchema(c)
 			if err != nil {
 				return err
 			}
@@ -143,6 +136,22 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	p.ensureCache(maxCacheSizeMb)
 
 	return nil
+}
+
+func (p *Plugin) refreshSchema(c *Connection) (map[string]*Table, map[string]*proto.TableSchema, error) {
+	// if the plugin defines a CreateTables func, call it now
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+	tableMap, err := p.initialiseTables(ctx, c)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// populate the plugin schema
+	schema, err := p.buildSchema(tableMap)
+	if err != nil {
+		return nil, nil, err
+	}
+	return tableMap, schema, err
 }
 
 /*
@@ -199,14 +208,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		if p.SchemaMode == SchemaModeDynamic {
 			var err error
 			log.Printf("[TRACE] UpdateConnectionConfigs - connection %s build schema and table map", addedConnection.Connection)
-			ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
-			tableMap, err = p.initialiseTables(ctx, c)
-			if err != nil {
-				return err
-			}
-
-			// populate the plugin schema
-			schema, err = p.buildSchema(tableMap)
+			tableMap, schema, err = p.refreshSchema(c)
 			if err != nil {
 				return err
 			}
@@ -253,6 +255,15 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 			return err
 		}
 		updatedConnection.Config = config
+
+		if p.SchemaMode == SchemaModeDynamic {
+			var err error
+			log.Printf("[TRACE] UpdateConnectionConfigs - dynamic plugin connection updated - connection %s build schema and table map", updatedConnection)
+			connectionData.TableMap, connectionData.Schema, err = p.refreshSchema(updatedConnection)
+			if err != nil {
+				return err
+			}
+		}
 
 		// now update connectionData and write back
 		connectionData.Connection = updatedConnection
@@ -309,9 +320,8 @@ func (p *Plugin) extractWatchPaths(config interface{}) []watchedPath {
 				// get property value
 				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
 					// does this affect the schema
-					// disable alter schem,a functionality for now
-					//alterSchema := helpers.StringSliceContains(steampipeTagLabels, "alterschema")
-					alterSchema := false
+					alterSchema := helpers.StringSliceContains(steampipeTagLabels, "alterschema")
+
 					if arrayVal, ok := value.([]string); ok {
 						for _, val := range arrayVal {
 							watchedProperties = append(watchedProperties, watchedPath{val, alterSchema})

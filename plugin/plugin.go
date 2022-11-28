@@ -383,16 +383,31 @@ func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 	p.queryCache.ClearForConnection(ctx, connectionName)
 }
 
-// ConnectionSchemaChanged sends a message to the plugin-manager that the scheman of this plugin has changed
+// ConnectionSchemaChanged sends a message to the plugin-manager that the schema of this plugin has changed
 //
 // This should be called from the plugin implementation of [plugin.Plugin.WatchedFileChangedFunc]
 // if a change in watched source files has changed the plugin schema.
-func (p *Plugin) ConnectionSchemaChanged(connectionName string) error {
-	log.Printf("[TRACE] ConnectionSchemaChanged plugin %p, p.messageStream %p", p, p.messageStream)
+func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
+	log.Printf("[TRACE] ConnectionSchemaChanged plugin %s, connection %s", p.Name, connection.Name)
+
+	// get the updated table map and schema
+	tableMap, schema, err := p.refreshSchema(connection)
+	if err != nil {
+		return err
+	}
+	// update the connection data
+	p.ConnectionMap[connection.Name] = &ConnectionData{
+		TableMap:   tableMap,
+		Connection: connection,
+		Schema:     schema,
+		Plugin:     p,
+	}
+
+	// let the plugin manager know
 	if p.messageStream != nil {
 		return p.messageStream.Send(&proto.PluginMessage{
 			MessageType: proto.PluginMessageType_SCHEMA_UPDATED,
-			Connection:  connectionName,
+			Connection:  connection.Name,
 		})
 	}
 	return nil
