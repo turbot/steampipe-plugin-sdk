@@ -64,18 +64,18 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []watchedPath, p *Plugin) e
 
 	// if we have no paths, do not start a watcher
 	if len(opts.Directories) == 0 {
-		log.Printf("[WARN] ConnectionData updateWatchPaths - no watch paths resolved - not creating watcher")
+		log.Printf("[TRACE] ConnectionData updateWatchPaths - no watch paths resolved - not creating watcher")
 		return nil
 	}
 	// Add the callback function for the filewatchers to watcher options
 	opts.OnChange = func(events []fsnotify.Event) {
 		p.WatchedFileChangedFunc(context.Background(), p, d.Connection, events)
 
-		log.Printf("[WARN] watched connection files changed")
+		log.Printf("[TRACE] watched connection files changed")
 
 		// for each event, check whether it affects the schema
 		if d.fileChangesUpdateSchema(events) {
-			log.Printf("[WARN] watched connection files updated schema")
+			log.Printf("[TRACE] watched connection files updated schema")
 			if err := d.Plugin.ConnectionSchemaChanged(d.Connection); err != nil {
 				log.Printf("[WARN] failed to update plugin schema after file event: %s", err.Error())
 			}

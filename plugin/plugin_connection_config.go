@@ -41,7 +41,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		}
 	}()
 
-	log.Printf("[WARN] SetAllConnectionConfigs setting %d configs", len(configs))
+	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))
 
 	// if this plugin does not have dynamic config, we can share table map and schema
 	var exemplarSchema map[string]*proto.TableSchema
@@ -258,7 +258,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 		if p.SchemaMode == SchemaModeDynamic {
 			var err error
-			log.Printf("[WARN] UpdateConnectionConfigs - dynamic plugin connection updated - connection %s build schema and table map", updatedConnection)
+			log.Printf("[TRACE] UpdateConnectionConfigs - dynamic plugin connection updated - connection %s build schema and table map", updatedConnection)
 			connectionData.TableMap, connectionData.Schema, err = p.refreshSchema(updatedConnection)
 			if err != nil {
 				return err
