@@ -19,12 +19,19 @@ This is the handler function for the SetConnectionConfig GRPC function.
 */
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
 	log.Printf("[TRACE] SetConnectionConfig %s", connectionName)
-	return p.SetAllConnectionConfigs([]*proto.ConnectionConfig{
+	failedConnections, err := p.SetAllConnectionConfigs([]*proto.ConnectionConfig{
 		{
 			Connection: connectionName,
 			Config:     connectionConfigString,
 		},
 	}, 0)
+	if err != nil {
+		return err
+	}
+	if len(failedConnections) > 0 {
+		return failedConnections[connectionName]
+	}
+	return nil
 }
 
 /*
@@ -32,7 +39,7 @@ SetAllConnectionConfigs sets the connection config for a list of connections.
 
 This is the handler function for the SetAllConnectionConfigs GRPC function.
 */
-func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (err error) {
+func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (failedConnections map[string]error, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("SetAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
@@ -40,6 +47,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			p.Logger.Debug("SetAllConnectionConfigs finished")
 		}
 	}()
+	failedConnections = make(map[string]error)
 
 	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))
 
@@ -48,6 +56,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	var exemplarTableMap map[string]*Table
 
 	var aggregators []*proto.ConnectionConfig
+
 	for _, config := range configs {
 		// NOTE: do not set connection config for aggregator connections
 		if len(config.ChildConnections) > 0 {
@@ -61,7 +70,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		connectionConfigString := config.Config
 		if connectionName == "" {
 			log.Printf("[WARN] SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
-			return fmt.Errorf("SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
+			return failedConnections, fmt.Errorf("SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
 		}
 
 		// create connection object
@@ -70,12 +79,14 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		// if config was provided, parse it
 		if connectionConfigString != "" {
 			if p.ConnectionConfigSchema == nil {
-				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+				failedConnections[connectionName] = fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+				continue
 			}
 			// ask plugin for a struct to deserialise the config into
 			config, err := p.ConnectionConfigSchema.parse(connectionConfigString)
 			if err != nil {
-				return err
+				failedConnections[connectionName] = err
+				continue
 			}
 
 			c.Config = config
@@ -91,7 +102,8 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			log.Printf("[TRACE] connection %s build schema and table map", connectionName)
 			tableMap, schema, err = p.refreshSchema(c)
 			if err != nil {
-				return err
+				failedConnections[connectionName] = err
+				continue
 			}
 
 			if p.SchemaMode == SchemaModeStatic {
@@ -120,7 +132,8 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		firstChild := p.ConnectionMap[aggregatorConfig.ChildConnections[0]]
 		// we do not currently support aggregator connections for dynamic schema
 		if p.SchemaMode == SchemaModeDynamic {
-			return fmt.Errorf("aggregator connections are not supported for dynamic plugins: connection '%s', plugin: '%s'", aggregatorConfig.Connection, aggregatorConfig.Plugin)
+			failedConnections[aggregatorConfig.Connection] = fmt.Errorf("aggregator connections are not supported for dynamic plugins: connection '%s', plugin: '%s'", aggregatorConfig.Connection, aggregatorConfig.Plugin)
+			continue
 		}
 
 		// add to connection map using the first child's schema
@@ -133,9 +146,9 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 
 	// now create the query cache - do this AFTER setting the connection config so the cache can build
 	// the connection schema map
-	p.ensureCache(maxCacheSizeMb)
+	err = p.ensureCache(maxCacheSizeMb)
 
-	return nil
+	return failedConnections, err
 }
 
 func (p *Plugin) refreshSchema(c *Connection) (map[string]*Table, map[string]*proto.TableSchema, error) {

@@ -165,7 +165,10 @@ message ConnectionConfig {
   repeated string child_connections = 5;
 }
 
-message SetConnectionConfigResponse{}
+message SetConnectionConfigResponse{
+  map<string, string> failed_connections= 1;
+}
+
 message UpdateConnectionConfigsResponse{}
 
 message Row {

@@ -16,7 +16,7 @@ type PluginSchema struct {
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
-type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) error
+type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) (map[string]error, error)
 type UpdateConnectionConfigsFunc func([]*proto.ConnectionConfig, []*proto.ConnectionConfig, []*proto.ConnectionConfig) error
 type EstablishMessageStreamFunc func(stream proto.WrapperPlugin_EstablishMessageStreamServer) error
 
@@ -116,8 +116,14 @@ func (s PluginServer) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigs
 			err = helpers.ToError(r)
 		}
 	}()
-	err = s.setAllConnectionConfigsFunc(req.Configs, int(req.MaxCacheSizeMb))
-	return &proto.SetConnectionConfigResponse{}, err
+	failedConnections, err := s.setAllConnectionConfigsFunc(req.Configs, int(req.MaxCacheSizeMb))
+	res = &proto.SetConnectionConfigResponse{
+		FailedConnections: make(map[string]string),
+	}
+	for connectionName, err := range failedConnections {
+		res.FailedConnections[connectionName] = err.Error()
+	}
+	return
 }
 
 func (s PluginServer) UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (res *proto.UpdateConnectionConfigsResponse, err error) {
