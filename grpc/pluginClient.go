@@ -80,13 +80,13 @@ func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest
 	return nil
 }
 
-func (c *PluginClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) error {
-	_, err := c.Stub.SetAllConnectionConfigs(req)
+func (c *PluginClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error) {
+	resp, err := c.Stub.SetAllConnectionConfigs(req)
 	if err != nil {
 		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility
-		return HandleGrpcError(err, c.Name, "SetAllConnectionConfigs")
+		return nil, HandleGrpcError(err, c.Name, "SetAllConnectionConfigs")
 	}
-	return nil
+	return resp, nil
 }
 
 func (c *PluginClient) UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) error {
