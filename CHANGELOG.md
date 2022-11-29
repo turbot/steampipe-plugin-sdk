@@ -1,3 +1,8 @@
+## v5.1.0 [tbd]
+_What's new_
+* Add support for update of dynamic plugin schema based on file watching events. (https://github.com/hashicorp/go-getter). ([#457](https://github.com/turbot/steampipe-plugin-sdk/issues/457))
+* Update SetAllConnectionConfigs to return map of failed connections. (https://github.com/hashicorp/go-getter). ([#458](https://github.com/turbot/steampipe-plugin-sdk/issues/458))
+
 ## v5.0.0 [2022-11-16]
 _What's new_
 * Add `QueryData.GetSourceFiles` which fetches files using [go-getter](https://github.com/hashicorp/go-getter). ([#434](https://github.com/turbot/steampipe-plugin-sdk/issues/434))
