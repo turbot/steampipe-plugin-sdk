@@ -1,3 +1,7 @@
+## v5.0.1 [2022-11-30]
+_Bug fixes_
+* Fix hydrate function caching using `WithCache` for aggregator connections. ([#460](https://github.com/turbot/steampipe-plugin-sdk/issues/460))
+
 ## v5.0.0 [2022-11-16]
 _What's new_
 * Add `QueryData.GetSourceFiles` which fetches files using [go-getter](https://github.com/hashicorp/go-getter). ([#434](https://github.com/turbot/steampipe-plugin-sdk/issues/434))
