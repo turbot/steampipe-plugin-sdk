@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 
@@ -42,11 +43,14 @@ func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 			return nil, err
 		}
 		cacheKey := k.(string)
+		// build a key to access the cacheableHydrateFunctionsPending map, which includes the connection
+		// NOTE: when caching the hydrate data, the connection name will also be added but this happens lower down
+		executeLockKey := fmt.Sprintf("%s-%s", cacheKey, d.Connection.Name)
 
 		// wait until there is no instance of the hydrate function running
 		// get the global lock
 		cacheableHydrateLock.Lock()
-		functionLock, ok := cacheableHydrateFunctionsPending[cacheKey]
+		functionLock, ok := cacheableHydrateFunctionsPending[executeLockKey]
 		if ok {
 			// a hydrate function is running - or it has completed
 			// unlock the global lock and try to lock the functionLock
@@ -76,7 +80,7 @@ func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 			// ensure we unlock before return
 			defer functionLock.Done()
 			// add to map
-			cacheableHydrateFunctionsPending[cacheKey] = functionLock
+			cacheableHydrateFunctionsPending[executeLockKey] = functionLock
 			// unlock the global lock
 			cacheableHydrateLock.Unlock()
 
