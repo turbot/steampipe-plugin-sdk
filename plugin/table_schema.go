@@ -1,12 +1,18 @@
 package plugin
 
 import (
-	"fmt"
-
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
-const ContextColumnName = "_ctx"
+func contextColumnName(columns map[string]struct{}) string {
+	c := "_ctx"
+	_, columnExists := columns[c]
+	for columnExists {
+		c = "_" + c
+		_, columnExists = columns[c]
+	}
+	return c
+}
 
 // GetSchema returns the [proto.TableSchema], which defines the columns returned by the table.
 //
@@ -22,9 +28,6 @@ func (t Table) GetSchema() (*proto.TableSchema, error) {
 	// This is therefore a reserved column name
 	// column schema
 	for i, column := range t.Columns {
-		if column.Name == ContextColumnName {
-			return nil, fmt.Errorf("column '%s' is reserved and may not be used within a plugin schema", ContextColumnName)
-		}
 		schema.Columns[i] = &proto.ColumnDefinition{
 			Name:        column.Name,
 			Type:        column.Type,
@@ -33,7 +36,7 @@ func (t Table) GetSchema() (*proto.TableSchema, error) {
 	}
 	// add _ctx column
 	schema.Columns[len(t.Columns)] = &proto.ColumnDefinition{
-		Name:        ContextColumnName,
+		Name:        contextColumnName(t.columnNameMap()),
 		Type:        proto.ColumnType_JSON,
 		Description: "Steampipe context in JSON form, e.g. connection_name.",
 	}
