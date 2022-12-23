@@ -231,3 +231,11 @@ func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
 	}
 	return t.Get.Hydrate
 }
+
+func (t *Table) columnNameMap() map[string]struct{} {
+	res := make(map[string]struct{}, len(t.Columns))
+	for _, c := range t.Columns {
+		res[c.Name] = struct{}{}
+	}
+	return res
+}
