@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -152,6 +153,9 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 }
 
 func TestGetSourceFiles(t *testing.T) {
+	// disable - these are SLOW
+	return
+
 	tmpDir := filepath.Join("/tmp", "testGetSourceFiles")
 	if !filehelpers.DirectoryExists(tmpDir) {
 		os.RemoveAll(tmpDir)
@@ -167,6 +171,7 @@ func TestGetSourceFiles(t *testing.T) {
 	prefixDividerCount := 4
 
 	for name, test := range getSourceFilesTestCases {
+		fmt.Printf(" %s\n", name)
 		filePaths, err := q.GetSourceFiles(test.Input)
 		if err != nil {
 			if strings.Contains(err.Error(), "NoCredentialProviders") {

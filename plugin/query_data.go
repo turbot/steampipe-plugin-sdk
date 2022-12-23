@@ -700,7 +700,8 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 
 func (d *QueryData) addContextData(row *proto.Row) {
 	jsonValue, _ := json.Marshal(map[string]string{"connection_name": d.Connection.Name})
-	row.Columns[ContextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
+	contextColumnName := contextColumnName(d.Table.columnNameMap())
+	row.Columns[contextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
