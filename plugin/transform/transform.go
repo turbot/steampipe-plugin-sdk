@@ -95,3 +95,9 @@ func (t *ColumnTransforms) NullIfZero() *ColumnTransforms {
 	t.Transforms = append(t.Transforms, &TransformCall{Transform: NullIfZeroValue})
 	return t
 }
+
+// NullIfEmptySlice returns nil if the input value is an empty slice/array
+func (t *ColumnTransforms) NullIfEmptySlice() *ColumnTransforms {
+	t.Transforms = append(t.Transforms, &TransformCall{Transform: NullIfEmptySliceValue})
+	return t
+}

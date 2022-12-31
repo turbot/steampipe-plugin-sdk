@@ -17,7 +17,7 @@ import (
 	"github.com/turbot/go-kit/types"
 )
 
-///////////////////////
+// /////////////////////
 // Transform primitives
 // predefined transform functions that may be chained together
 
@@ -203,6 +203,19 @@ func NullIfZeroValue(_ context.Context, d *TransformData) (interface{}, error) {
 		return d.Value, nil
 	}
 	if helpers.IsZero(v) {
+		return nil, nil
+	}
+	return d.Value, nil
+}
+
+// NullIfEmptySliceValue returns nil if the input Value is an empty slice/array
+func NullIfEmptySliceValue(_ context.Context, d *TransformData) (interface{}, error) {
+	if d.Value == nil {
+		return nil, nil
+	}
+	v := helpers.DereferencePointer(d.Value)
+	b, l := reflect.TypeOf(v).Kind() == reflect.Slice, reflect.ValueOf(v).Len()
+	if b && l == 0 {
 		return nil, nil
 	}
 	return d.Value, nil
