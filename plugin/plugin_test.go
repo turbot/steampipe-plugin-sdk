@@ -459,9 +459,9 @@ var testCasesValidate = map[string]validateTest{
 func TestValidate(t *testing.T) {
 	for name, test := range testCasesValidate {
 		test.plugin.initialise()
-		test.plugin.initialiseTables(context.Background(), nil)
+		test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
 
-		validationErrors := test.plugin.validate()
+		validationErrors := test.plugin.validate(test.plugin.TableMap)
 
 		if test.expected != validationErrors {
 			t.Errorf("Test: '%s'' FAILED. \nExpected: '%s' \nGot: '%s'  ", name, test.expected, validationErrors)

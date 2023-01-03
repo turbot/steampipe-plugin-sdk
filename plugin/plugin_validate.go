@@ -8,12 +8,10 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-func (p *Plugin) validate() string {
-	// TODO KAI for dynamic schema we must validate all table maps in ConnectionMap
-
+func (p *Plugin) validate(tableMap map[string]*Table) string {
 	log.Printf("[TRACE] validate plugin %s, required columns %v", p.Name, p.RequiredColumns)
 	var validationErrors []string
-	for tableName, table := range p.TableMap {
+	for tableName, table := range tableMap {
 		validationErrors = append(validationErrors, table.validate(tableName, p.RequiredColumns)...)
 	}
 	if p.ConnectionConfigSchema != nil {
