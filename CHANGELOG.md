@@ -1,6 +1,6 @@
 ## v5.0.2 [2023-01-04]
 _Bug fixes_
-* When adding the \_ctx column to table schema, if that column already exists, keep prepending '_' (e.g. __ctx) until a unique name is found. ([#466](https://github.com/turbot/steampipe-plugin-sdk/issues/466))
+* When adding the `\_ctx` column to table schema, if that column already exists, keep prepending '_' (e.g. `__ctx`) until a unique name is found. ([#466](https://github.com/turbot/steampipe-plugin-sdk/issues/466))
 * Fix validation for dynamic plugins. This fixes optional key columns which were sometimes not working for dynamic plugins as the key column operators were not being defaulted. ([#469](https://github.com/turbot/steampipe-plugin-sdk/issues/469))
 
 ## v5.0.1 [2022-11-30]
