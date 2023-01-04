@@ -598,8 +598,10 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 
 // initialiseTables does 2 things:
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
-// 2) call initialise on the table, plassing the plugin pointer which the table stores
+// 2) call initialise on the table, passing the plugin pointer which the table stores
 func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (tableMap map[string]*Table, err error) {
+	log.Printf("[TRACE] Plugin %s initialiseTables", p.Name)
+
 	tableMap = p.TableMap
 
 	if p.TableMapFunc != nil {
@@ -621,14 +623,15 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 	}
 
 	// update tables to have a reference to the plugin
+
 	for _, table := range tableMap {
 		table.initialise(p)
 	}
 
 	// now validate the plugin
 	// NOTE: must do this after calling TableMapFunc
-	if validationErrors := p.validate(); validationErrors != "" {
-		return nil, fmt.Errorf("plugin %s validation failed: \n%s", p.Name, validationErrors)
+	if validationErrors := p.validate(tableMap); validationErrors != "" {
+		return nil, fmt.Errorf("plugin %s connection %s validation failed: \n%s", p.Name, connection.Name, validationErrors)
 	}
 	return tableMap, nil
 }

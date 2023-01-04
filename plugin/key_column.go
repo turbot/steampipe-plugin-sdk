@@ -72,7 +72,7 @@ const (
 // The solution is to set CacheMatch="exact".
 //
 // Plugin examples:
-//  - [salesforce]
+//   - [salesforce]
 //
 // [salesforce]: https://github.com/turbot/steampipe-plugin-salesforce/blob/bd563985a57c6a5dc526d5e4c701f37e017270cd/salesforce/utils.go#L297-L319
 type KeyColumn struct {
@@ -82,7 +82,7 @@ type KeyColumn struct {
 	CacheMatch string
 }
 
-func (k KeyColumn) String() string {
+func (k *KeyColumn) String() string {
 	return fmt.Sprintf("column:'%s' %s: %s", k.Name, pluralize.NewClient().Pluralize("operator", len(k.Operators), false), strings.Join(k.Operators, ","))
 }
 
