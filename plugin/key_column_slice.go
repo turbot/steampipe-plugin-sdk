@@ -62,8 +62,8 @@ func (k KeyColumnSlice) Validate() []string {
 }
 
 // Find looks for a key column with the given name and returns it if found
-func (k *KeyColumnSlice) Find(name string) *KeyColumn {
-	for _, keyColumn := range *k {
+func (k KeyColumnSlice) Find(name string) *KeyColumn {
+	for _, keyColumn := range k {
 		if keyColumn.Name == name {
 			return keyColumn
 		}
