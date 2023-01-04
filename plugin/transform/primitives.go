@@ -208,6 +208,19 @@ func NullIfZeroValue(_ context.Context, d *TransformData) (interface{}, error) {
 	return d.Value, nil
 }
 
+// NullIfEmptySliceValue returns nil if the input Value is an empty slice/array
+func NullIfEmptySliceValue(_ context.Context, d *TransformData) (interface{}, error) {
+	if d.Value == nil {
+		return nil, nil
+	}
+	v := helpers.DereferencePointer(d.Value)
+	b, l := reflect.TypeOf(v).Kind() == reflect.Slice, reflect.ValueOf(v).Len()
+	if b && l == 0 {
+		return nil, nil
+	}
+	return d.Value, nil
+}
+
 // UnmarshalYAML parse the yaml-encoded data and return the result
 func UnmarshalYAML(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
