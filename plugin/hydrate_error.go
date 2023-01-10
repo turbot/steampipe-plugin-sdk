@@ -81,11 +81,11 @@ func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 	var err error
 	switch backoffAlgorithm {
 	case "Fibonacci":
-		backoff, err = retry.NewFibonacci(retryInterval * time.Millisecond)
+		backoff = retry.NewFibonacci(retryInterval * time.Millisecond)
 	case "Exponential":
-		backoff, err = retry.NewExponential(retryInterval * time.Millisecond)
+		backoff = retry.NewExponential(retryInterval * time.Millisecond)
 	case "Constant":
-		backoff, err = retry.NewConstant(retryInterval * time.Millisecond)
+		backoff = retry.NewConstant(retryInterval * time.Millisecond)
 	}
 	if err != nil {
 		return nil, err
