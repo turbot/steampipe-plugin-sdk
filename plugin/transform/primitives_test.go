@@ -793,6 +793,20 @@ Statement:
 		function: StringArrayToMap,
 		expected: "ERROR",
 	},
+	"NullIfEmptySlice array": {
+		d: &TransformData{
+			Value: []testStruct{{a: "A", b: "B"}, {a: "1", b: "2"}},
+		},
+		function: NullIfEmptySliceValue,
+		expected: []testStruct{{a: "A", b: "B"}, {a: "1", b: "2"}},
+	},
+	"NullIfEmptySlice nil": {
+		d: &TransformData{
+			Value: []testStruct{},
+		},
+		function: NullIfEmptySliceValue,
+		expected: nil,
+	},
 }
 
 func TestTransformFunctions(t *testing.T) {
