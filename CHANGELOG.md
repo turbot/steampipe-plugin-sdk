@@ -1,3 +1,8 @@
+## v5.1.0 [2023-01-11]
+_What's new_
+* Add DiagsToWarnings function. ([#474](https://github.com/turbot/steampipe-plugin-sdk/issues/474))
+* Add NullIfEmptySlice transform. ([#476](https://github.com/turbot/steampipe-plugin-sdk/issues/476))
+
 ## v5.0.2 [2023-01-04]
 _Bug fixes_
 * When adding the `_ctx` column to table schema, if that column already exists, keep prepending '_' (e.g. `__ctx`) until a unique name is found. ([#466](https://github.com/turbot/steampipe-plugin-sdk/issues/466))
