@@ -1,7 +1,12 @@
-## v5.1.0 [tbd]
+## v5.2.0 [tbd]
 _What's new_
 * Add support for update of dynamic plugin schema based on file watching events. (https://github.com/hashicorp/go-getter). ([#457](https://github.com/turbot/steampipe-plugin-sdk/issues/457))
 * Update SetAllConnectionConfigs to return map of failed connections. (https://github.com/hashicorp/go-getter). ([#458](https://github.com/turbot/steampipe-plugin-sdk/issues/458))
+
+## v5.1.0 [2023-01-11]
+_What's new_
+* Add DiagsToWarnings function. ([#474](https://github.com/turbot/steampipe-plugin-sdk/issues/474))
+* Add NullIfEmptySlice transform. ([#476](https://github.com/turbot/steampipe-plugin-sdk/issues/476))
 
 ## v5.0.2 [2023-01-04]
 _Bug fixes_
