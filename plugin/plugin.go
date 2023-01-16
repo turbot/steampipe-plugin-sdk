@@ -266,8 +266,8 @@ func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
 			return nil, fmt.Errorf("Plugin.GetSchema failed - no connection data loaded for connection '%s'", connectionName)
 		}
 	}
-	schema := &grpc.PluginSchema{Schema: connectionData.Schema, Mode: p.SchemaMode}
-	return schema, nil
+
+	return connectionData.Schema, nil
 }
 
 // Execute starts a query and streams the results using the given GRPC stream.
@@ -390,6 +390,8 @@ func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	log.Printf("[TRACE] ConnectionSchemaChanged plugin %s, connection %s", p.Name, connection.Name)
 
+	oldSchema := p.ConnectionMap[connection.Name].Schema
+
 	// get the updated table map and schema
 	tableMap, schema, err := p.refreshSchema(connection)
 	if err != nil {
@@ -403,8 +405,8 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 		Plugin:     p,
 	}
 
-	// let the plugin manager know
-	if p.messageStream != nil {
+	// if there are changes,  let the plugin manager know
+	if !oldSchema.Equals(schema) && p.messageStream != nil {
 		return p.messageStream.Send(&proto.PluginMessage{
 			MessageType: proto.PluginMessageType_SCHEMA_UPDATED,
 			Connection:  connection.Name,
@@ -683,8 +685,11 @@ func (p *Plugin) ensureCache(maxCacheSizeMb int) error {
 	return nil
 }
 
-func (p *Plugin) buildSchema(tableMap map[string]*Table) (map[string]*proto.TableSchema, error) {
-	schema := map[string]*proto.TableSchema{}
+func (p *Plugin) buildSchema(tableMap map[string]*Table) (*grpc.PluginSchema, error) {
+	schema := &grpc.PluginSchema{
+		Schema: make(map[string]*proto.TableSchema),
+		Mode:   p.SchemaMode,
+	}
 
 	var tables []string
 	for tableName, table := range tableMap {
@@ -692,7 +697,7 @@ func (p *Plugin) buildSchema(tableMap map[string]*Table) (map[string]*proto.Tabl
 		if err != nil {
 			return nil, err
 		}
-		schema[tableName] = tableSchema
+		schema.Schema[tableName] = tableSchema
 		tables = append(tables, tableName)
 	}
 
@@ -702,10 +707,7 @@ func (p *Plugin) buildSchema(tableMap map[string]*Table) (map[string]*proto.Tabl
 func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
 	res := make(map[string]*grpc.PluginSchema, len(p.ConnectionMap))
 	for k, v := range p.ConnectionMap {
-		res[k] = &grpc.PluginSchema{
-			Schema: v.Schema,
-			Mode:   p.SchemaMode,
-		}
+		res[k] = v.Schema
 	}
 	return res
 }
