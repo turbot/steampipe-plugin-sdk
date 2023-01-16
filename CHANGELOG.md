@@ -45,6 +45,10 @@ type TableMapData struct {
 * `QueryData.KeyColumnQualsString` has been renamed to  `EqualsQualString`
 * `ConcurrencyManager` and `HydrateCall` and no longer exported
 
+## v4.1.9 [2022-11-30]
+_Bug fixes_
+* Fix hydrate function caching using `WithCache` for aggregator connections. ([#460](https://github.com/turbot/steampipe-plugin-sdk/issues/460))
+
 ## v4.1.8 [2022-09-08]
 _Bug fixes_
 * Remove explicit setting of the open-files limit, which was using a default which was too small. Instead, make use of the fact that Go 1.19 now sets the soft file limit to the hard limit automatically. ([#444](https://github.com/turbot/steampipe-plugin-sdk/issues/444))
