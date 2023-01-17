@@ -63,7 +63,15 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 	// Add the callback function for the filewatchers to watcher options
 	opts.OnChange = func(events []fsnotify.Event) {
 		log.Printf("[TRACE] watched connection files changed")
+		// call the callback
 		p.WatchedFileChangedFunc(context.Background(), p, d.Connection, events)
+		// if this plugin has a dynamic schema, rebuild the schema and notify if it has changed
+		if p.SchemaMode == SchemaModeDynamic {
+			log.Printf("[TRACE] watched connection files updated schema")
+			if err := p.ConnectionSchemaChanged(d.Connection); err != nil {
+				log.Printf("[WARN] failed to update plugin schema after file event: %s", err.Error())
+			}
+		}
 	}
 
 	// Get the new file watcher from file options

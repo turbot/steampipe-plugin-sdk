@@ -374,11 +374,4 @@ func defaultWatchedFilesChangedFunc(ctx context.Context, p *Plugin, conn *Connec
 	log.Printf("[TRACE] defaultWatchedFilesChangedFunc filewatchers changed for connection %s", conn.Name)
 	p.ClearConnectionCache(ctx, conn.Name)
 	p.ClearQueryCache(ctx, conn.Name)
-	// if this plugin has a dynamic schema, rebuild the schema and notify if it has changed
-	if p.SchemaMode == SchemaModeDynamic {
-		log.Printf("[TRACE] watched connection files updated schema")
-		if err := p.ConnectionSchemaChanged(conn); err != nil {
-			log.Printf("[WARN] failed to update plugin schema after file event: %s", err.Error())
-		}
-	}
 }
