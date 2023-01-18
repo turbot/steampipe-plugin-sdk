@@ -9,10 +9,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/version"
 )
 
-type PluginSchema struct {
-	Schema map[string]*proto.TableSchema
-	Mode   string
-}
 type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
 type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error

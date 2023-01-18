@@ -507,7 +507,7 @@ func (c *QueryCache) getKeyColumnsForTable(table string, connectionName string) 
 			res[k.Name] = k
 		}
 	} else {
-		log.Printf("[WARN] getKeyColumnsForTable found no schema for table '%s'", table)
+		log.Printf("[TRACE] getKeyColumnsForTable found no schema for table '%s'", table)
 	}
 	return res
 }

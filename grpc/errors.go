@@ -34,7 +34,6 @@ func IsNotImplementedError(err error) bool {
 		return false
 	}
 
-	// ignore unimplemented error
 	return status.Code() == codes.Unimplemented
 }
 
@@ -44,7 +43,6 @@ func IsEOFError(err error) bool {
 		return false
 	}
 
-	// ignore unimplemented error
 	return status.Code() == codes.Unavailable
 }
 

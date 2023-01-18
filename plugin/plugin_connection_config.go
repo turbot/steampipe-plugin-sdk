@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"log"
@@ -52,7 +53,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))
 
 	// if this plugin does not have dynamic config, we can share table map and schema
-	var exemplarSchema map[string]*proto.TableSchema
+	var exemplarSchema *grpc.PluginSchema
 	var exemplarTableMap map[string]*Table
 
 	var aggregators []*proto.ConnectionConfig
@@ -151,7 +152,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	return failedConnections, err
 }
 
-func (p *Plugin) refreshSchema(c *Connection) (map[string]*Table, map[string]*proto.TableSchema, error) {
+func (p *Plugin) refreshSchema(c *Connection) (map[string]*Table, *grpc.PluginSchema, error) {
 	// if the plugin defines a CreateTables func, call it now
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 	tableMap, err := p.initialiseTables(ctx, c)
@@ -182,7 +183,7 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	p.logChanges(added, deleted, changed)
 
 	// if this plugin does not have dynamic config, we can share table map and schema
-	var exemplarSchema map[string]*proto.TableSchema
+	var exemplarSchema *grpc.PluginSchema
 	var exemplarTableMap map[string]*Table
 	if p.SchemaMode == SchemaModeStatic {
 		for _, connectionData := range p.ConnectionMap {
@@ -308,20 +309,15 @@ func (p *Plugin) updateConnectionWatchPaths(c *Connection) error {
 	return nil
 }
 
-type watchedPath struct {
-	watchPath    string
-	altersSchema bool
-}
-
 // reflect on a config struct and extract any watch paths, using the `watch` tag
-func (p *Plugin) extractWatchPaths(config interface{}) []watchedPath {
+func (p *Plugin) extractWatchPaths(config interface{}) []string {
 	if helpers.IsNil(config) {
 		return nil
 	}
 
 	val := reflect.ValueOf(config)
 	valType := val.Type()
-	var watchedProperties []watchedPath
+	var watchedProperties []string
 	for i := 0; i < val.Type().NumField(); i++ {
 		// does this property have a steampipe tag
 		field := valType.Field(i)
@@ -332,15 +328,12 @@ func (p *Plugin) extractWatchPaths(config interface{}) []watchedPath {
 			if helpers.StringSliceContains(steampipeTagLabels, "watch") {
 				// get property value
 				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
-					// does this affect the schema
-					alterSchema := helpers.StringSliceContains(steampipeTagLabels, "alterschema")
-
 					if arrayVal, ok := value.([]string); ok {
 						for _, val := range arrayVal {
-							watchedProperties = append(watchedProperties, watchedPath{val, alterSchema})
+							watchedProperties = append(watchedProperties, val)
 						}
 					} else if stringVal, ok := value.(string); ok {
-						watchedProperties = append(watchedProperties, watchedPath{stringVal, alterSchema})
+						watchedProperties = append(watchedProperties, stringVal)
 					}
 				}
 			}
