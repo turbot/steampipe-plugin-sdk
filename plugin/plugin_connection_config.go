@@ -76,7 +76,6 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 
 		// create connection object
 		c := &Connection{Name: connectionName}
-
 		// if config was provided, parse it
 		if connectionConfigString != "" {
 			if p.ConnectionConfigSchema == nil {
