@@ -23,14 +23,17 @@ func (c *ConnectionConfigSchema) Validate() []string {
 		validationErrors = append(validationErrors, fmt.Sprintf("NewInstance function must return a pointer to a struct instance, got %v", kind))
 	}
 
-	for name, attr := range c.Schema {
-		if attr.Type != schema.TypeList && attr.Elem != nil {
-			validationErrors = append(validationErrors, fmt.Sprintf("attribute %s has 'Elem' set but is Type is not TypeList", name))
-		}
+	if c.Schema != nil {
+		for name, attr := range c.Schema {
+			if attr.Type != schema.TypeList && attr.Elem != nil {
+				validationErrors = append(validationErrors, fmt.Sprintf("attribute %s has 'Elem' set but is Type is not TypeList", name))
+			}
 
-		// find a property in the struct which is tagged with this field
-		validationErrors = append(validationErrors, c.validateConfigStruct(name, attr, instance)...)
+			// find a property in the struct which is tagged with this field
+			validationErrors = append(validationErrors, c.validateConfigStruct(name, attr, instance)...)
+		}
 	}
+
 	return validationErrors
 }
 
