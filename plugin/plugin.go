@@ -34,13 +34,6 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const (
-	SchemaModeStatic  = "static"
-	SchemaModeDynamic = "dynamic"
-)
-
-var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
-
 /*
 Plugin is the primary struct that defines a Steampipe GRPC plugin.
 

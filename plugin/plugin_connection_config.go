@@ -56,7 +56,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	// if this plugin does not have dynamic config, we can share table map and schema
 	var exemplarSchema *grpc.PluginSchema
 	var exemplarTableMap map[string]*Table
-
+	failedConnections = make(map[string]error)
 	var aggregators []*proto.ConnectionConfig
 
 	for _, config := range configs {
@@ -67,82 +67,14 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			continue
 		}
 
-		connectionName := config.Connection
-
-		connectionConfigString := config.Config
-		if connectionName == "" {
-			log.Printf("[WARN] SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
-			return failedConnections, fmt.Errorf("SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
-		}
-
-		// create connection object
-		c := &Connection{Name: connectionName}
-		// if config was provided, parse it
-		if connectionConfigString != "" {
-			if p.ConnectionConfigSchema == nil {
-				failedConnections[connectionName] = fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
-				continue
-			}
-			// ask plugin for a struct to deserialise the config into
-			config, err := p.ConnectionConfigSchema.parse(connectionConfigString)
-			if err != nil {
-				failedConnections[connectionName] = err
-				continue
-			}
-
-			c.Config = config
-		}
-
-		var err error
-		// set table map ands schem exemplar
-		schema := exemplarSchema
-		tableMap := exemplarTableMap
-
-		// if tableMap is nil, exemplar is not yet set
-		if tableMap == nil {
-			log.Printf("[TRACE] connection %s build schema and table map", connectionName)
-			tableMap, schema, err = p.refreshSchema(c)
-			if err != nil {
-				failedConnections[connectionName] = err
-				continue
-			}
-
-			if p.SchemaMode == SchemaModeStatic {
-				exemplarSchema = schema
-				exemplarTableMap = tableMap
-			}
-		}
-
-		// add to connection map
-		p.ConnectionMap[connectionName] = &ConnectionData{
-			TableMap:   tableMap,
-			Connection: c,
-			Schema:     schema,
-			Plugin:     p,
-		}
-		log.Printf("[TRACE] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
-
-		// update the watch paths for the connection file watcher
-		err = p.updateConnectionWatchPaths(c)
+		err := p.setConnectionData(config, failedConnections, exemplarSchema, exemplarTableMap)
 		if err != nil {
-			log.Printf("[WARN] SetAllConnectionConfigs failed to update the watched paths for connection %s: %s", c.Name, err.Error())
+			return nil, err
 		}
 	}
 
 	for _, aggregatorConfig := range aggregators {
-		firstChild := p.ConnectionMap[aggregatorConfig.ChildConnections[0]]
-		// we do not currently support aggregator connections for dynamic schema
-		if p.SchemaMode == SchemaModeDynamic {
-			failedConnections[aggregatorConfig.Connection] = fmt.Errorf("aggregator connections are not supported for dynamic plugins: connection '%s', plugin: '%s'", aggregatorConfig.Connection, aggregatorConfig.Plugin)
-			continue
-		}
-
-		// add to connection map using the first child's schema
-		p.ConnectionMap[aggregatorConfig.Connection] = &ConnectionData{
-			TableMap:   firstChild.TableMap,
-			Connection: &Connection{Name: aggregatorConfig.Connection},
-			Schema:     firstChild.Schema,
-		}
+		p.setAggregatorConnectionData(failedConnections, aggregatorConfig)
 	}
 
 	// now create the query cache - do this AFTER setting the connection config so the cache can build
@@ -150,22 +82,6 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	err = p.ensureCache(maxCacheSizeMb)
 
 	return failedConnections, err
-}
-
-func (p *Plugin) refreshSchema(c *Connection) (map[string]*Table, *grpc.PluginSchema, error) {
-	// if the plugin defines a CreateTables func, call it now
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
-	tableMap, err := p.initialiseTables(ctx, c)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// populate the plugin schema
-	schema, err := p.buildSchema(tableMap)
-	if err != nil {
-		return nil, nil, err
-	}
-	return tableMap, schema, err
 }
 
 /*
@@ -295,6 +211,182 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	}
 
 	return nil
+}
+
+// create a connectionData for this conneciton
+// NOTE: this (may) mutate failedConnections, exemplarSchema and exemplarTableMap
+func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnections map[string]error, exemplarSchema *grpc.PluginSchema, exemplarTableMap map[string]*Table) error {
+	connectionName := config.Connection
+	connectionConfigString := config.Config
+	if connectionName == "" {
+		log.Printf("[WARN] SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
+		return fmt.Errorf("SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
+	}
+
+	// create connection object
+	c := &Connection{Name: connectionName}
+	// if config was provided, parse it
+	if connectionConfigString != "" {
+		if p.ConnectionConfigSchema == nil {
+			failedConnections[connectionName] = fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+			return nil
+		}
+		// ask plugin for a struct to deserialise the config into
+		config, err := p.ConnectionConfigSchema.parse(connectionConfigString)
+		if err != nil {
+			failedConnections[connectionName] = err
+			return nil
+		}
+		c.Config = config
+	}
+
+	var err error
+	// set table map ands schema exemplar
+	schema := exemplarSchema
+	tableMap := exemplarTableMap
+
+	// if tableMap is nil, exemplar is not yet set
+	if tableMap == nil {
+		log.Printf("[TRACE] connection %s build schema and table map", connectionName)
+		tableMap, schema, err = p.refreshSchema(c)
+		if err != nil {
+			failedConnections[connectionName] = err
+			return nil
+		}
+
+		if p.SchemaMode == SchemaModeStatic {
+			exemplarSchema = schema
+			exemplarTableMap = tableMap
+		}
+	}
+
+	// add to connection map
+	p.ConnectionMap[connectionName] = &ConnectionData{
+		TableMap:   tableMap,
+		Connection: c,
+		Schema:     schema,
+		Plugin:     p,
+	}
+	log.Printf("[TRACE] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
+
+	// update the watch paths for the connection file watcher
+	err = p.updateConnectionWatchPaths(c)
+	if err != nil {
+		log.Printf("[WARN] SetAllConnectionConfigs failed to update the watched paths for connection %s: %s", c.Name, err.Error())
+		failedConnections[connectionName] = err
+	}
+	return nil
+}
+
+func (p *Plugin) setAggregatorConnectionData(failedConnections map[string]error, aggregatorConfig *proto.ConnectionConfig) {
+
+	if p.SchemaMode == SchemaModeDynamic {
+		logMessages, err := p.setDynamicAggregatorConnectionData(aggregatorConfig)
+		if err != nil {
+			failedConnections[aggregatorConfig.Connection] = err
+		}
+		// TODO notify someone of log messages
+		if len(logMessages) > 0 {
+			log.Printf("[WARN] %v", logMessages)
+		}
+	} else {
+		firstChild := p.ConnectionMap[aggregatorConfig.ChildConnections[0]]
+
+		// add to connection map using the first child's schema
+		p.ConnectionMap[aggregatorConfig.Connection] = &ConnectionData{
+			TableMap:   firstChild.TableMap,
+			Connection: &Connection{Name: aggregatorConfig.Connection},
+			Schema:     firstChild.Schema,
+		}
+	}
+}
+
+// build the schem for the aggregator connection - find the common subset schema
+func (p *Plugin) setDynamicAggregatorConnectionData(aggregatorConfig *proto.ConnectionConfig) (map[string][]string, error) {
+	log.Printf("[TRACE] setDynamicAggregatorConnectionData for connection '%s'", aggregatorConfig.Connection)
+
+	// get child connection schemas
+	aggregatorTablesByConnection := make(map[string]map[string]*Table)
+	for _, c := range aggregatorConfig.ChildConnections {
+		// find connection data fdo
+		connectionData, ok := p.ConnectionMap[c]
+		// should never happen
+		if !ok {
+			err := fmt.Errorf("setDynamicAggregatorConnectionData failed for aggregator connection '%s': no connection data loaded for child connection '%s'", aggregatorConfig.Connection, c)
+			return nil, err
+		}
+
+		aggregatorTablesByConnection[c] = connectionData.getAggregatedTables()
+	}
+
+	var res = &ConnectionData{
+		TableMap:   make(map[string]*Table),
+		Connection: &Connection{Name: aggregatorConfig.Connection},
+		Schema: &grpc.PluginSchema{
+			Schema: make(map[string]*proto.TableSchema),
+			Mode:   SchemaModeDynamic,
+		},
+	}
+
+	// log messages by connection
+	logMessages := make(map[string][]string)
+	log.Printf("[TRACE] setDynamicAggregatorConnectionData resolving tables to include in aggregator schema")
+
+	// resolve tables to include
+	for connectionName, tableMap := range aggregatorTablesByConnection {
+		for tableName, table := range tableMap {
+			// if this is already in the map, skip
+			if _, ok := res.TableMap[tableName]; ok {
+				continue
+			}
+
+			if schema, isSame := p.tableSchemaSameForAllConnections(tableName); isSame {
+				res.TableMap[tableName] = table
+				res.Schema.Schema[tableName] = schema
+			} else {
+				// TODO use standard codes/enum?
+				logMessages[connectionName] = append(logMessages[connectionName], fmt.Sprintf("Excluding table %s.%s as the schema is not the same for all connections", connectionName, tableName))
+			}
+		}
+	}
+
+	// now store connection data
+	p.ConnectionMap[aggregatorConfig.Connection] = res
+	return logMessages, nil
+}
+
+func (p *Plugin) tableSchemaSameForAllConnections(tableName string) (*proto.TableSchema, bool) {
+	var exemplarSchema *proto.TableSchema
+	for _, c := range p.ConnectionMap {
+		// does this connection have this table?
+		tableSchema, ok := c.Schema.Schema[tableName]
+		if !ok {
+			log.Printf("[TRACE] tableSchemaSameForAllConnectionsL connection %s does not provide table %s", c.Connection.Name, tableName)
+			continue
+		}
+		if exemplarSchema == nil {
+			exemplarSchema = tableSchema
+		} else if !tableSchema.Equals(exemplarSchema) {
+			return nil, false
+		}
+	}
+	return exemplarSchema, true
+}
+
+func (p *Plugin) refreshSchema(c *Connection) (map[string]*Table, *grpc.PluginSchema, error) {
+	// if the plugin defines a CreateTables func, call it now
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+	tableMap, err := p.initialiseTables(ctx, c)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// populate the plugin schema
+	schema, err := p.buildSchema(tableMap)
+	if err != nil {
+		return nil, nil, err
+	}
+	return tableMap, schema, err
 }
 
 func (p *Plugin) updateConnectionWatchPaths(c *Connection) error {

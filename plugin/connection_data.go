@@ -89,3 +89,20 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 	d.Watcher = newWatcher
 	return nil
 }
+
+// build a map of tables to include in an aggregator using this connection
+// take into account tables excluded by the table def AND by the connection config
+func (d *ConnectionData) getAggregatedTables() map[string]*Table {
+	res := make(map[string]*Table)
+	for name, table := range d.TableMap {
+		if d.includeTableInAggregator(table) {
+			res[name] = table
+		}
+	}
+	return res
+}
+
+func (d *ConnectionData) includeTableInAggregator(table *Table) bool {
+	// TODO take connection config into account
+	return table.Aggregation != AggregationModeNone
+}

@@ -17,6 +17,12 @@ Use TableCacheOptions to override the .cache off property of the CLI.
 type TableCacheOptions struct {
 	Enabled bool
 }
+type AggregationMode string
+
+const (
+	AggregationModeAggregate AggregationMode = "aggregate"
+	AggregationModeNone      AggregationMode = "none"
+)
 
 /*
 Table defines the properties of a plugin table:
@@ -52,10 +58,6 @@ type Table struct {
 	// function controlling default error handling behaviour
 	DefaultIgnoreConfig *IgnoreConfig
 	DefaultRetryConfig  *RetryConfig
-
-	// deprecated - use DefaultIgnoreConfig
-	DefaultShouldIgnoreError ErrorPredicate
-
 	// the parent plugin object
 	Plugin *Plugin
 	// Deprecated: used HydrateConfig
@@ -65,6 +67,11 @@ type Table struct {
 	HydrateConfig []HydrateConfig
 	// cache options - allows disabling of cache for this table
 	Cache *TableCacheOptions
+	// specify whether to include this table in an aggregate connection
+	Aggregation AggregationMode
+
+	// deprecated - use DefaultIgnoreConfig
+	DefaultShouldIgnoreError ErrorPredicate
 
 	// map of hydrate function name to columns it provides
 	//hydrateColumnMap map[string][]string
@@ -76,6 +83,11 @@ func (t *Table) initialise(p *Plugin) {
 
 	// store the plugin pointer
 	t.Plugin = p
+
+	// default Aggregation to aggregate
+	if t.Aggregation == "" {
+		t.Aggregation = AggregationModeAggregate
+	}
 
 	// create DefaultRetryConfig if needed
 	if t.DefaultRetryConfig == nil {
