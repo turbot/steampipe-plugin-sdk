@@ -41,7 +41,6 @@ jobs:
 
       - name: Update go.mod and build Steampipe
         run: |
-          echo ${{ github.repository_owner }}
           echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
           go get github.com/${{ github.repository_owner }}/steampipe-plugin-sdk/v5@${{ github.event.pull_request.head.sha }}
