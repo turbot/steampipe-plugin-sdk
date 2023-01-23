@@ -1,6 +1,9 @@
 package proto
 
-import "github.com/turbot/go-kit/helpers"
+import (
+	"github.com/gertd/wild"
+	"github.com/turbot/go-kit/helpers"
+)
 
 func (x *ConnectionConfig) Equals(other *ConnectionConfig) bool {
 	res := x.Connection == other.Connection &&
@@ -23,4 +26,12 @@ func (x *ConnectionConfig) childConnectionsEqual(other *ConnectionConfig) bool {
 		}
 	}
 	return true
+}
+func (x *ConnectionConfig) GetAggregationSpecForTable(tableName string) *TableAggregationSpec {
+	for _, spec := range x.TableAggregationSpecs {
+		if wild.Match(spec.Match, tableName, false) {
+			return spec
+		}
+	}
+	return nil
 }

@@ -35,6 +35,7 @@ require (
 	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/eko/gocache/v3 v3.1.2
 	github.com/fsnotify/fsnotify v1.6.0
+	github.com/gertd/wild v0.0.1
 	github.com/hashicorp/go-getter v1.6.2
 	golang.org/x/exp v0.0.0-20221110155412-d0897a79cd37
 	golang.org/x/sync v0.1.0

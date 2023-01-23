@@ -391,12 +391,7 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 		return err
 	}
 	// update the connection data
-	p.ConnectionMap[connection.Name] = &ConnectionData{
-		TableMap:   tableMap,
-		Connection: connection,
-		Schema:     schema,
-		Plugin:     p,
-	}
+	p.ConnectionMap[connection.Name] = NewConnectionData(connection, tableMap, schema, p)
 
 	// if there are changes,  let the plugin manager know
 	if !oldSchema.Equals(schema) && p.messageStream != nil {
