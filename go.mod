@@ -36,6 +36,7 @@ require (
 	github.com/eko/gocache/v3 v3.1.2
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/hashicorp/go-getter v1.6.2
+	golang.org/x/exp v0.0.0-20221110155412-d0897a79cd37
 	golang.org/x/sync v0.1.0
 )
 
@@ -93,7 +94,6 @@ require (
 	go.opencensus.io v0.22.4 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.7.0 // indirect
 	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
-	golang.org/x/exp v0.0.0-20221110155412-d0897a79cd37 // indirect
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
 	golang.org/x/mod v0.6.0 // indirect
 	golang.org/x/net v0.2.0 // indirect

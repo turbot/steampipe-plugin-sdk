@@ -2492,7 +2492,6 @@ func (x *ColumnDefinition) GetDescription() string {
 	return ""
 }
 
-
 type QueryResult struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
