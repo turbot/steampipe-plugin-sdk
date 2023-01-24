@@ -3,6 +3,10 @@ _What's new_
 * Add support for update of dynamic plugin schema based on file watching events. (https://github.com/hashicorp/go-getter). ([#457](https://github.com/turbot/steampipe-plugin-sdk/issues/457))
 * Update SetAllConnectionConfigs to return map of failed connections. (https://github.com/hashicorp/go-getter). ([#458](https://github.com/turbot/steampipe-plugin-sdk/issues/458))
 
+## v5.1.2 [2023-01-24]
+_Bug fixes_
+* Fix cache timeout when doing `select *` -  when adding all columns to the cache request, include the `_ctx` column. ([#490](https://github.com/turbot/steampipe-plugin-sdk/issues/490))
+
 ## v5.1.1 [2023-01-24]
 _Bug fixes_
 * When caching query results, cache all columns, not just those that were requested. ([#487](https://github.com/turbot/steampipe-plugin-sdk/issues/487))
@@ -48,6 +52,10 @@ type TableMapData struct {
 * `QueryData.KeyColumnQuals` has been renamed to `EqualsQuals` 
 * `QueryData.KeyColumnQualsString` has been renamed to  `EqualsQualString`
 * `ConcurrencyManager` and `HydrateCall` and no longer exported
+
+## v4.1.11 [2023-01-24]
+_Bug fixes_
+* Fix cache timeout when doing `select *` -  when adding all columns to the cache request, include the `_ctx` column. ([#490](https://github.com/turbot/steampipe-plugin-sdk/issues/490))
 
 ## v4.1.10 [2023-01-24]
 _Bug fixes_
