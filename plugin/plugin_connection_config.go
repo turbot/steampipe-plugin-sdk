@@ -48,6 +48,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			p.Logger.Debug("SetAllConnectionConfigs finished")
 		}
 	}()
+
 	failedConnections = make(map[string]error)
 
 	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))

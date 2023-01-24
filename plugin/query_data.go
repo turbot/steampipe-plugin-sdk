@@ -129,7 +129,8 @@ type QueryData struct {
 	freeMemInterval int64
 
 	// temp dir for the connection
-	tempDir string
+	tempDir           string
+	contextColumnName string
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -181,7 +182,8 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
-
+	// set ctx column name
+	d.contextColumnName = contextColumnName(d.Table.columnNameMap())
 	return d, nil
 }
 
@@ -745,8 +747,8 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 
 func (d *QueryData) addContextData(row *proto.Row) {
 	jsonValue, _ := json.Marshal(map[string]string{"connection_name": d.Connection.Name})
-	contextColumnName := contextColumnName(d.Table.columnNameMap())
-	row.Columns[contextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
+
+	row.Columns[d.contextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
@@ -771,5 +773,5 @@ func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
 
 // return the names of all columns that will be returned, adding in the _ctx column
 func (d *QueryData) getColumnNames() []string {
-	return append(maps.Keys(d.columns), ContextColumnName)
+	return append(maps.Keys(d.columns), d.contextColumnName)
 }
