@@ -3,6 +3,10 @@ _What's new_
 * Add support for update of dynamic plugin schema based on file watching events. (https://github.com/hashicorp/go-getter). ([#457](https://github.com/turbot/steampipe-plugin-sdk/issues/457))
 * Update SetAllConnectionConfigs to return map of failed connections. (https://github.com/hashicorp/go-getter). ([#458](https://github.com/turbot/steampipe-plugin-sdk/issues/458))
 
+## v5.1.1 [2023-01-24]
+_Bug fixes_
+* When caching query results, cache all columns, not just those that were requested. ([#487](https://github.com/turbot/steampipe-plugin-sdk/issues/487))
+
 ## v5.1.0 [2023-01-11]
 _What's new_
 * Add DiagsToWarnings function. ([#474](https://github.com/turbot/steampipe-plugin-sdk/issues/474))
@@ -44,6 +48,10 @@ type TableMapData struct {
 * `QueryData.KeyColumnQuals` has been renamed to `EqualsQuals` 
 * `QueryData.KeyColumnQualsString` has been renamed to  `EqualsQualString`
 * `ConcurrencyManager` and `HydrateCall` and no longer exported
+
+## v4.1.10 [2023-01-24]
+_Bug fixes_
+* When caching query results, cache all columns, not just those that were requested. ([#487](https://github.com/turbot/steampipe-plugin-sdk/issues/487))
 
 ## v4.1.9 [2022-11-30]
 _Bug fixes_
