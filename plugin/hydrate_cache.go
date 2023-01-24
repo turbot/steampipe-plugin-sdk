@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/turbot/go-kit/helpers"
 )
@@ -30,15 +31,44 @@ Use it to reduce the number of API calls if the HydrateFunc is used by multiple 
 Plugin examples:
   - [snowflake]
 
+// deprecated: use Memoize
+
 [snowflake]: https://github.com/turbot/steampipe-plugin-snowflake/blob/6e243aad63b5706ee1a9dd8979df88eb097e38a8/snowflake/common_columns.go#L28
 */
 func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 	// build a function to return the cache key
 	getCacheKey := hydrate.getCacheKeyFunction(args)
 
+	return hydrate.Memoize(WithCacheKeyFunction(getCacheKey))
+}
+
+/*
+Memoize ensures the [HydrateFunc] results are saved in the [connection.ConnectionCache].
+
+Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
+
+# Usage
+
+	{
+		Name:        "account",
+		Type:        proto.ColumnType_STRING,
+		Hydrate:     plugin.HydrateFunc(getCommonColumns).Memoize(),
+		Description: "The Snowflake account ID.",
+		Transform:   transform.FromCamel(),
+	}
+*/
+func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
+	config := newMemoizeConfiguration(hydrate)
+	for _, o := range opts {
+		o(config)
+	}
+	// build a function to return the cache key
+	buildCacheKey := config.GetCacheKeyFunc
+	ttl := config.Ttl
+
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (interface{}, error) {
 		// build key
-		k, err := getCacheKey(ctx, d, h)
+		k, err := buildCacheKey(ctx, d, h)
 		if err != nil {
 			return nil, err
 		}
@@ -61,14 +91,14 @@ func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 			// so at this point, there is no hydrate function running - we hope the data is in the cache
 			// (but it may not be - if there was an error)
 			// look in the cache to see if the data is there
-			cachedData, ok := d.ConnectionManager.Cache.Get(cacheKey)
+			cachedData, ok := d.ConnectionCache.Get(ctx, cacheKey)
 			if ok {
 				// we got the data
 				return cachedData, nil
 			}
 
 			// so there is no cached data - call the hydrate function and cache the result
-			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey)
+			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, 0)
 
 		} else {
 			log.Printf("[TRACE] WithCache no function lock key %s", cacheKey)
@@ -86,11 +116,12 @@ func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 
 			log.Printf("[TRACE] WithCache added lock to map key %s", cacheKey)
 			// no call the hydrate function and cache the result
-			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey)
+			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
 		}
 	}
 }
 
+// deprecated
 func (hydrate HydrateFunc) getCacheKeyFunction(args []HydrateFunc) HydrateFunc {
 	var getCacheKey HydrateFunc
 	switch len(args) {
@@ -107,7 +138,7 @@ func (hydrate HydrateFunc) getCacheKeyFunction(args []HydrateFunc) HydrateFunc {
 	return getCacheKey
 }
 
-func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydrate HydrateFunc, cacheKey string) (interface{}, error) {
+func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydrate HydrateFunc, cacheKey string, ttl time.Duration) (interface{}, error) {
 	// now call the hydrate function
 	hydrateData, err := hydrate(ctx, d, h)
 	if err != nil {
@@ -116,7 +147,7 @@ func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydr
 	}
 
 	// so we have a hydrate result - add to the cache
-	d.ConnectionManager.Cache.Set(cacheKey, hydrateData)
+	d.ConnectionCache.SetWithTTL(ctx, cacheKey, hydrateData, ttl)
 	// return the hydrate data
 	return hydrateData, nil
 }
