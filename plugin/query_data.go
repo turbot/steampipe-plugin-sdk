@@ -4,16 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"log"
 	"runtime/debug"
 	"sync"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
-
 	"github.com/turbot/go-kit/helpers"
 	typehelpers "github.com/turbot/go-kit/types"
 	connection_manager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -767,4 +767,9 @@ func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
 		}
 	}
 	return res
+}
+
+// return the names of all columns that will be returned, adding in the _ctx column
+func (d *QueryData) getColumnNames() []string {
+	return append(maps.Keys(d.columns), ContextColumnName)
 }

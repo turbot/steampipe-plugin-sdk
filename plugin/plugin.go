@@ -31,7 +31,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/version"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -555,7 +554,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 		// NOTE: update the cache request to include ALL the columns which will be fetched, not just those requested
 		// this means subsequent queries requesting other columns from same hydrate func(s) can be served from the cache
-		cacheRequest.Columns = maps.Keys(queryData.columns)
+		cacheRequest.Columns = queryData.getColumnNames()
 		p.queryCache.StartSet(ctx, cacheRequest)
 	} else {
 		log.Printf("[INFO] Cache DISABLED connectionCallId: %s", connectionCallId)
