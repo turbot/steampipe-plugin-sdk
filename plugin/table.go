@@ -163,50 +163,6 @@ func (t *Table) buildHydrateConfigMap() {
 	}
 }
 
-// build a list of required hydrate function calls which must be executed, based on the columns which have been requested
-// NOTE: 'get' and 'list' calls are hydration functions, but they must be omitted from this list as they are called
-// first. BEFORE the other hydration functions
-// NOTE2: this function also populates the resolvedHydrateName for each column (used to retrieve column values),
-// and the hydrateColumnMap (used to determine which columns to return)
-func (d *QueryData) populateRequiredHydrateCalls() {
-	t := d.Table
-	colsUsed := d.QueryContext.Columns
-	fetchType := d.FetchType
-
-	// what is the name of the fetch call (i.e. the get/list call)
-	fetchFunc := t.getFetchFunc(fetchType)
-	fetchCallName := helpers.GetFunctionName(fetchFunc)
-
-	// initialise hydrateColumnMap
-	d.hydrateColumnMap = make(map[string][]string)
-	requiredCallBuilder := newRequiredHydrateCallBuilder(t, fetchCallName)
-
-	// populate a map keyed by function name to ensure we only store each hydrate function once
-	for _, column := range t.Columns {
-		// see if this column specifies a hydrate function
-
-		var hydrateName string
-		if hydrateFunc := column.Hydrate; hydrateFunc == nil {
-			// so there is NO hydrate call registered for the column
-			// the column is provided by the fetch call
-			// do not add to map of hydrate functions as the fetch call will always be called
-			hydrateFunc = fetchFunc
-			hydrateName = fetchCallName
-		} else {
-			// there is a hydrate call registered
-			hydrateName = helpers.GetFunctionName(hydrateFunc)
-			// if this column was requested in query, add the hydrate call to required calls
-			if helpers.StringSliceContains(colsUsed, column.Name) {
-				requiredCallBuilder.Add(hydrateFunc)
-			}
-		}
-
-		// now update hydrateColumnMap
-		d.hydrateColumnMap[hydrateName] = append(d.hydrateColumnMap[hydrateName], column.Name)
-	}
-	d.hydrateCalls = requiredCallBuilder.Get()
-}
-
 func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
 	if fetchType == fetchTypeList {
 		return t.List.Hydrate
