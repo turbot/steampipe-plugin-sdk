@@ -16,10 +16,10 @@ type hydrateCall struct {
 	Name    string
 }
 
-func newHydrateCall(hydrateFunc HydrateFunc, config *HydrateConfig) *hydrateCall {
+func newHydrateCall( config *HydrateConfig) *hydrateCall {
 	res := &hydrateCall{
-		Name:   helpers.GetFunctionName(hydrateFunc),
-		Func:   hydrateFunc,
+		Name:   helpers.GetFunctionName(config.Func),
+		Func:   config.Func,
 		Config: config,
 	}
 	for _, f := range config.Depends {
