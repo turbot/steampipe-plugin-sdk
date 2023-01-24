@@ -396,6 +396,8 @@ func newTestQueryData(plugin *Plugin, queryContext *QueryContext, table *Table, 
 		Quals:       make(KeyColumnQualMap),
 		FetchType:   fetchType,
 		plugin:      plugin,
+		columns:        make(map[string]*QueryColumn),
+
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
 	}
