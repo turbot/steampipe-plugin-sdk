@@ -31,7 +31,7 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
 		// get the config for this hydrate function
 		config := c.table.hydrateConfigMap[hydrateName]
 
-		c.requiredHydrateCalls[hydrateName] = newHydrateCall(hydrateFunc, config)
+		c.requiredHydrateCalls[hydrateName] = newHydrateCall(config)
 
 		// now add dependencies (we have already checked for circular dependencies so recursion is fine
 		for _, dep := range config.Depends {
