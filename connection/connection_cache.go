@@ -30,18 +30,13 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 	// build a key which includes the connection name
 	key = c.buildCacheKey(key)
 
-	var opts = []store.Option{
-		// put connection name in tags
-		store.WithTags([]string{c.connectionName}),
-	}
-	if ttl != 0 {
-		opts = append(opts, store.WithExpiration(ttl))
-	}
-
 	err := c.cache.Set(ctx,
 		key,
 		value,
-		opts...,
+		// if ttl is zero there is no expiration
+		store.WithExpiration(ttl),
+		// put connection name in tags
+		store.WithTags([]string{c.connectionName}),
 	)
 
 	// wait for value to pass through buffers (necessary for ristretto)

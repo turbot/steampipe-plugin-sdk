@@ -98,7 +98,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 			}
 
 			// so there is no cached data - call the hydrate function and cache the result
-			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, 0)
+			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
 
 		} else {
 			log.Printf("[TRACE] WithCache no function lock key %s", cacheKey)
