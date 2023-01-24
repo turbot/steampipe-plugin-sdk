@@ -1,5 +1,5 @@
 ## v5.1.1 [2023-01-24]
-_What's new_
+_Bug fixes_
 * When caching query results, cache all columns, not just those that were requested. ([#487](https://github.com/turbot/steampipe-plugin-sdk/issues/487))
 
 ## v5.1.0 [2023-01-11]
