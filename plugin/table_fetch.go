@@ -452,7 +452,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 	rd := newRowData(queryData, nil)
 
 	// if a matrix is defined, run listForEach
-	if len(queryData.Matrix) > 0 {
+	if queryData.Matrix != nil {
 		log.Printf("[TRACE] doList: matrix len %d - calling  listForEach", len(queryData.Matrix))
 		t.listForEach(ctx, queryData, listCall)
 	} else {
