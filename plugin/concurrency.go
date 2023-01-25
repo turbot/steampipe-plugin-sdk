@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"github.com/turbot/go-kit/helpers"
 	"log"
 	"sync"
 )
@@ -9,20 +10,23 @@ import (
 DefaultConcurrencyConfig sets the default maximum number of concurrent [HydrateFunc] calls.
 
 Limit total concurrent hydrate calls:
-		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
-			TotalMaxConcurrency:   500,
-		}
+
+	DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+		TotalMaxConcurrency:   500,
+	}
 
 Limit concurrent hydrate calls to any single HydrateFunc which does not have a [HydrateConfig]:
-		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
-			DefaultMaxConcurrency: 100,
-		}
-		
+
+	DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+		DefaultMaxConcurrency: 100,
+	}
+
 Do both:
-		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
-			TotalMaxConcurrency:   500,
-			DefaultMaxConcurrency: 200,
-		}
+
+	DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+		TotalMaxConcurrency:   500,
+		DefaultMaxConcurrency: 200,
+	}
 
 Plugin examples:
   - [hackernews]
@@ -31,14 +35,14 @@ Plugin examples:
 */
 type DefaultConcurrencyConfig struct {
 	// sets how many HydrateFunc calls can run concurrently in total
-	TotalMaxConcurrency   int
+	TotalMaxConcurrency int
 	// sets the default for how many calls to each HydrateFunc can run concurrently
 	DefaultMaxConcurrency int
 }
 
 // concurrencyManager struct ensures that hydrate functions stay within concurrency limits
 type concurrencyManager struct {
-	mut sync.Mutex
+	mut sync.RWMutex
 	// the maximum number of all hydrate calls which can run concurrently
 	maxConcurrency int
 	// the maximum concurrency for a single hydrate call
@@ -80,8 +84,17 @@ func newConcurrencyManager(t *Table) *concurrencyManager {
 // StartIfAllowed checks whether the named hydrate call is permitted to start
 // based on the number of running instances of that call, and the total calls in progress
 func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int) (res bool) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+	// acquire a Read lock
+	c.mut.RLock()
+	upgradedLock := false
+	// ensure we unlock
+	defer func() {
+		if upgradedLock {
+			c.mut.Unlock()
+		} else {
+			c.mut.RUnlock()
+		}
+	}()
 
 	// is the total call limit exceeded?
 	if c.maxConcurrency > 0 && c.callsInProgress == c.maxConcurrency {
@@ -101,6 +114,10 @@ func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 	if maxCallConcurrency > 0 && currentExecutions == maxCallConcurrency {
 		return false
 	}
+
+	// upgrade the mutex to a Write lock
+	helpers.UpgradeRWMutex(&c.mut)
+	upgradedLock = true
 
 	// to get here we are allowed to execute - increment the call counters
 	c.callMap[name] = currentExecutions + 1
@@ -123,6 +140,7 @@ func (c *concurrencyManager) Finished(name string) {
 			log.Printf("[WARN] %v", r)
 		}
 	}()
+	// acquire a Write lock
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	c.callMap[name]--

@@ -10,8 +10,8 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-var cacheableHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
-var cacheableHydrateLock sync.Mutex
+var memoizedHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
+var memoizedHydrateLock sync.RWMutex
 
 /*
 WithCache ensures the [HydrateFunc] results are saved in the [connection.ConnectionCache].
@@ -74,17 +74,20 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		}
 		cacheKey := k.(string)
 		// build a key to access the cacheableHydrateFunctionsPending map, which includes the connection
-		// NOTE: when caching the hydrate data, the connection name will also be added but this happens lower down
+		// NOTE: when caching the actual hydrate data, the connection name will also be added to the cache key
+		// but this happens lower down
+		// here, we need to add it
 		executeLockKey := fmt.Sprintf("%s-%s", cacheKey, d.Connection.Name)
 
 		// wait until there is no instance of the hydrate function running
-		// get the global lock
-		cacheableHydrateLock.Lock()
-		functionLock, ok := cacheableHydrateFunctionsPending[executeLockKey]
+
+		// acquire a Read lock on the pending call map
+		memoizedHydrateLock.RLock()
+		functionLock, ok := memoizedHydrateFunctionsPending[executeLockKey]
 		if ok {
 			// a hydrate function is running - or it has completed
-			// unlock the global lock and try to lock the functionLock
-			cacheableHydrateLock.Unlock()
+			// unlock the Read lock and wait for the function lock
+			memoizedHydrateLock.RUnlock()
 			functionLock.Wait()
 
 			// we have the function lock
@@ -110,9 +113,11 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 			// ensure we unlock before return
 			defer functionLock.Done()
 			// add to map
-			cacheableHydrateFunctionsPending[executeLockKey] = functionLock
-			// unlock the global lock
-			cacheableHydrateLock.Unlock()
+			// NOTE: upgrade our lock to a Write lock
+			helpers.UpgradeRWMutex(&memoizedHydrateLock)
+			memoizedHydrateFunctionsPending[executeLockKey] = functionLock
+			// unlock the Write lock
+			memoizedHydrateLock.Unlock()
 
 			log.Printf("[TRACE] WithCache added lock to map key %s", cacheKey)
 			// no call the hydrate function and cache the result

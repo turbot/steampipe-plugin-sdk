@@ -41,14 +41,12 @@ type QueryCache struct {
 	PluginSchemaMap map[string]*grpc.PluginSchema
 	// map of pending cache transfers, keyed by index bucket key
 	pendingData     map[string]*pendingIndexBucket
-	pendingDataLock sync.Mutex
-	ttlLock         sync.Mutex
-	// lock while streaming data and setting data, to avoid eviction while streaming is in progress
-	streamLock sync.Mutex
-	cache      *cache.Cache[[]byte]
+	pendingDataLock sync.RWMutex
+
+	cache *cache.Cache[[]byte]
 	// map of ongoing set requests, keyed by callId
 	setRequests       map[string]*CacheRequest
-	setRequestMapLock sync.Mutex
+	setRequestMapLock sync.RWMutex
 }
 
 func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSchema, maxCacheStorageMb int) (*QueryCache, error) {
@@ -115,7 +113,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 		cacheHit = true
 	} else if IsCacheMiss(err) {
 		log.Printf("[TRACE] getCachedQueryResult returned CACHE MISS - checking for pending transfers")
-		// there was no cached result - is there data fetch in progress?q
+		// there was no cached result - is there data fetch in progress?
 		if pendingItem := c.getPendingResultItem(indexBucketKey, req); pendingItem != nil {
 			log.Printf("[TRACE] found pending item - waiting for it")
 			// so there is a pending result, wait for it
@@ -141,10 +139,10 @@ func (c *QueryCache) StartSet(_ context.Context, req *CacheRequest) {
 }
 
 func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId string) error {
-	c.setRequestMapLock.Lock()
 	// get the ongoing request
+	c.setRequestMapLock.RLock()
 	req, ok := c.setRequests[callId]
-	c.setRequestMapLock.Unlock()
+	c.setRequestMapLock.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("IterateSet called for callId %s but there is no in progress set operation", callId)
@@ -154,33 +152,24 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 		return req.err
 	}
 
-	// acquire rowlock - this is to ensure prev page has been written before we overwrite the buffer
-	//req.rowLock.Lock()
 	req.rows[req.rowIndex] = row
 	req.rowIndex++
-	//req.rowLock.Unlock()
 
 	if req.rowIndex == rowBufferSize {
 		// reset index and update page count
 		log.Printf("[TRACE] IterateSet written 1 page of %d rows. Page count %d", rowBufferSize, req.pageCount)
-		//go func() {
-		// lock row lock - to ensure the row buffer is not overwritten before we write to cache
-		//req.rowLock.Lock()
-		//defer req.rowLock.Unlock()
 
 		req.err = c.writePageToCache(ctx, req)
-
-		//}()
 	}
 
 	return nil
 }
 
 func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
-	c.setRequestMapLock.Lock()
-	defer c.setRequestMapLock.Unlock()
+	c.setRequestMapLock.RLock()
 	// get the ongoing request
 	req, ok := c.setRequests[callId]
+	c.setRequestMapLock.RUnlock()
 	if !ok {
 		log.Printf("[WARN] EndSet called for callId %s but there is no in progress set operation", callId)
 		return fmt.Errorf("EndSet called for callId %s but there is no in progress set operation", callId)
@@ -188,20 +177,16 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 
 	log.Printf("[TRACE] EndSet (%s) table %s", callId, req.Table)
 
-	// lock the rowlock to ensure any previous writes are complete
-	//req.rowLock.Lock()
-
 	defer func() {
 		log.Printf("[TRACE] EndSet DEFER (%s) table %s", callId, req.Table)
 		if r := recover(); r != nil {
 			log.Printf("[WARN] QueryCache EndSet suffered a panic: %v", helpers.ToError(r))
 			err = helpers.ToError(r)
 		}
-		// clear the rowlock
-		//req.rowLock.Unlock()
-
 		// remove entry from the map
+		c.setRequestMapLock.RLock()
 		delete(c.setRequests, callId)
+		c.setRequestMapLock.RUnlock()
 		log.Printf("[TRACE] calling pendingItemComplete (%s)", callId)
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
