@@ -10,5 +10,4 @@ const (
 	TypeFloat
 	TypeString
 	TypeList
-	TypeMap
 )

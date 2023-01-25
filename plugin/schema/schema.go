@@ -21,9 +21,6 @@ type Attribute struct {
 	// Elem represents the element type. This may only be set for only set for TypeList.
 	Elem *Attribute
 
-	// Elem represents the element types for a map. This may only be set for only set for TypeMap.
-	AttrTypes map[string]*Attribute
-
 	// is this attribute required
 	Required bool
 }
@@ -60,11 +57,6 @@ func attributeTypeToCty(attr *Attribute) cty.Type {
 			panic(fmt.Sprintf("attribute %s is TypeList but 'Elem' is not set", attr.Name))
 		}
 		return cty.List(attributeTypeToCty(attr.Elem))
-	case TypeMap:
-		if attr.AttrTypes == nil {
-			panic(fmt.Sprintf("attribute %s is TypeMap but 'AttrTypes; is not set", attr.Name))
-		}
-		return cty.Object(attributeTypeMapToCty(attr.AttrTypes))
 	default:
 		panic(fmt.Sprintf("invalid attribute type %v", attr.Type))
 	}
