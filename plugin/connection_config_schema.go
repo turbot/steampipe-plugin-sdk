@@ -2,15 +2,18 @@ package plugin
 
 import (
 	"fmt"
-	"log"
-
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
+	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/function"
 	"github.com/zclconf/go-cty/cty/gocty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"log"
 )
 
 /*
@@ -36,7 +39,7 @@ Usage:
 		},
 	}
 
-	func ConfigInstance() interface{} {
+	func ConfigInstance() any {
 		return &hackernewsConfig{}
 	}
 
@@ -56,7 +59,7 @@ ConnectionConfigInstanceFunc is a function type which returns 'any'.
 
 It is used to implement [plugin.ConnectionConfigSchema.NewInstance].
 */
-type ConnectionConfigInstanceFunc func() interface{}
+type ConnectionConfigInstanceFunc func() any
 
 /*
 Connection is a struct which is used to store connection config.
@@ -74,13 +77,13 @@ type Connection struct {
 	Name string
 	// the connection config
 	// NOTE: we always pass and store connection config BY VALUE
-	Config interface{}
+	Config any
 }
 
 // parse function parses the hcl config string into a connection config struct.
 //
 // The schema and the  struct to parse into are provided by the plugin
-func (c *ConnectionConfigSchema) parse(configString string) (config interface{}, err error) {
+func (c *ConnectionConfigSchema) parse(configString string) (config any, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] ConnectionConfigSchema parse caught a panic: %v\n", r)
@@ -88,13 +91,14 @@ func (c *ConnectionConfigSchema) parse(configString string) (config interface{},
 		}
 	}()
 
-	// ensure a schema is set
-	if len(c.Schema) == 0 {
-		return nil, fmt.Errorf("cannot parse connection config as no config schema is set in the connection config")
+	if c.Schema == nil {
+		return c.parseConfigWithHclTags(configString)
 	}
-	if c.NewInstance == nil {
-		return nil, fmt.Errorf("cannot parse connection config as no NewInstance function is specified in the connection config")
-	}
+	return c.parseConfigWithCtyTags(configString)
+}
+
+// parse for legacy format config struct using cty tags
+func (c *ConnectionConfigSchema) parseConfigWithCtyTags(configString string) (any, error) {
 	configStruct := c.NewInstance()
 	spec := schema.SchemaToObjectSpec(c.Schema)
 	parser := hclparse.NewParser()
@@ -110,9 +114,34 @@ func (c *ConnectionConfigSchema) parse(configString string) (config interface{},
 
 	// decode into the provided struct
 	if err := gocty.FromCtyValue(value, configStruct); err != nil {
-		return nil, fmt.Errorf("Failed to marshal parsed config into config struct: %v", err)
+		return nil, fmt.Errorf("failed to marshal parsed config into config struct: %v", err)
+	}
+	// return the struct by value
+	return helpers.DereferencePointer(configStruct), nil
+}
+
+func (c *ConnectionConfigSchema) parseConfigWithHclTags(configString string) (_ any, err error) {
+	configStruct := c.NewInstance()
+	parser := hclparse.NewParser()
+	file, diags := parser.ParseHCL([]byte(configString), "")
+	if diags.HasErrors() {
+		return nil, DiagsToError("failed to parse connection config", diags)
+	}
+	_, body, diags := file.Body.PartialContent(&hcl.BodySchema{})
+	if diags.HasErrors() {
+		return nil, DiagsToError("failed to parse connection config", diags)
 	}
 
+	evalCtx := &hcl.EvalContext{
+		Variables: make(map[string]cty.Value),
+		Functions: make(map[string]function.Function),
+	}
+
+	moreDiags := gohcl.DecodeBody(body, evalCtx, configStruct)
+	diags = append(diags, moreDiags...)
+	if diags.HasErrors() {
+		return nil, DiagsToError("failed to parse connection config", diags)
+	}
 	// return the struct by value
 	return helpers.DereferencePointer(configStruct), nil
 }
