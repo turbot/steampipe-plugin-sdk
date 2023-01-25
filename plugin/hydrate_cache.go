@@ -84,46 +84,60 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		// acquire a Read lock on the pending call map
 		memoizedHydrateLock.RLock()
 		functionLock, ok := memoizedHydrateFunctionsPending[executeLockKey]
+		memoizedHydrateLock.RUnlock()
+
 		if ok {
 			// a hydrate function is running - or it has completed
-			// unlock the Read lock and wait for the function lock
-			memoizedHydrateLock.RUnlock()
-			functionLock.Wait()
-
-			// we have the function lock
-			// so at this point, there is no hydrate function running - we hope the data is in the cache
-			// (but it may not be - if there was an error)
-			// look in the cache to see if the data is there
-			cachedData, ok := d.ConnectionCache.Get(ctx, cacheKey)
-			if ok {
-				// we got the data
-				return cachedData, nil
-			}
-
-			// so there is no cached data - call the hydrate function and cache the result
-			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
-
-		} else {
-			log.Printf("[TRACE] WithCache no function lock key %s", cacheKey)
-			// there is no lock for this function, which means it has not been run yet
-			// create a lock
-			functionLock = new(sync.WaitGroup)
-			// lock it
-			functionLock.Add(1)
-			// ensure we unlock before return
-			defer functionLock.Done()
-			// add to map
-			// NOTE: upgrade our lock to a Write lock
-			helpers.UpgradeRWMutex(&memoizedHydrateLock)
-			memoizedHydrateFunctionsPending[executeLockKey] = functionLock
-			// unlock the Write lock
-			memoizedHydrateLock.Unlock()
-
-			log.Printf("[TRACE] WithCache added lock to map key %s", cacheKey)
-			// no call the hydrate function and cache the result
-			return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
+			// wait for the function lock
+			return hydrate.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
 		}
+
+		// so there was no function lock - no pending hydrate so we must execute
+
+		// acquire a write lock
+		memoizedHydrateLock.Lock()
+		defer memoizedHydrateLock.Unlock()
+
+		// check again for pending call (in case another thread got the Write lock first)
+		functionLock, ok = memoizedHydrateFunctionsPending[executeLockKey]
+		if ok {
+			// a hydrate function is running - or it has completed
+			return hydrate.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
+		}
+
+		// there is no lock for this function, which means it has not been run yet
+		log.Printf("[TRACE] WithCache no function lock key %s", cacheKey)
+		// create a lock
+		functionLock = new(sync.WaitGroup)
+		// lock it
+		functionLock.Add(1)
+		// ensure we unlock before return
+		defer functionLock.Done()
+		// add to map
+		memoizedHydrateFunctionsPending[executeLockKey] = functionLock
+
+		log.Printf("[TRACE] WithCache added lock to map key %s", cacheKey)
+		// no call the hydrate function and cache the result
+		return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
+
 	}
+}
+
+func (hydrate HydrateFunc) waitForHydrate(ctx context.Context, d *QueryData, h *HydrateData, functionLock *sync.WaitGroup, cacheKey string, ttl time.Duration) (interface{}, error) {
+	functionLock.Wait()
+
+	// we have the function lock
+	// so at this point, there is no hydrate function running - we hope the data is in the cache
+	// (but it may not be - if there was an error)
+	// look in the cache to see if the data is there
+	cachedData, ok := d.ConnectionCache.Get(ctx, cacheKey)
+	if ok {
+		// we got the data
+		return cachedData, nil
+	}
+
+	// so there is no cached data - call the hydrate function and cache the result
+	return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
 }
 
 // deprecated

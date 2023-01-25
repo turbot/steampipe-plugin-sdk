@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"github.com/turbot/go-kit/helpers"
 	"log"
 	"sync"
 )
@@ -96,28 +95,22 @@ func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 		}
 	}()
 
-	// is the total call limit exceeded?
-	if c.maxConcurrency > 0 && c.callsInProgress == c.maxConcurrency {
-		return false
-	}
-
-	// if there is no config or empty config, the maxCallConcurrency will be 0
-	// - use defaultMaxConcurrencyPerCall set on the concurrencyManager
-	if maxCallConcurrency == 0 {
-		maxCallConcurrency = c.defaultMaxConcurrencyPerCall
-	}
-
 	// how many concurrent executions of this function are in progress right now?
 	currentExecutions := c.callMap[name]
-
-	// if we at the call limit return
-	if maxCallConcurrency > 0 && currentExecutions == maxCallConcurrency {
+	if !c.canStart(currentExecutions, maxCallConcurrency) {
 		return false
 	}
 
 	// upgrade the mutex to a Write lock
-	helpers.UpgradeRWMutex(&c.mut)
+	c.mut.RUnlock()
+	c.mut.Lock()
 	upgradedLock = true
+
+	// check again in case another thread grabbed the Write lock before us
+	currentExecutions = c.callMap[name]
+	if !c.canStart(currentExecutions, maxCallConcurrency) {
+		return false
+	}
 
 	// to get here we are allowed to execute - increment the call counters
 	c.callMap[name] = currentExecutions + 1
@@ -129,6 +122,25 @@ func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 	}
 	if c.callsInProgress > c.maxCallsInProgress {
 		c.maxCallsInProgress = c.callsInProgress
+	}
+	return true
+}
+
+func (c *concurrencyManager) canStart(currentExecutions int, maxCallConcurrency int) bool {
+	// is the total call limit exceeded?
+	if c.maxConcurrency > 0 && c.callsInProgress == c.maxConcurrency {
+		return false
+	}
+
+	// if there is no config or empty config, the maxCallConcurrency will be 0
+	// - use defaultMaxConcurrencyPerCall set on the concurrencyManager
+	if maxCallConcurrency == 0 {
+		maxCallConcurrency = c.defaultMaxConcurrencyPerCall
+	}
+
+	// if we at the call limit return
+	if maxCallConcurrency > 0 && currentExecutions == maxCallConcurrency {
+		return false
 	}
 	return true
 }

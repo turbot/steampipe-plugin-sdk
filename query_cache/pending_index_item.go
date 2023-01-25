@@ -19,20 +19,7 @@ func newPendingIndexBucket() *pendingIndexBucket {
 	return &pendingIndexBucket{Items: make(map[string]*pendingIndexItem)}
 }
 
-// GetItemWhichSatisfiesColumnsAndLimit finds an index item which satisfies all columns
-// used to find an IndexItem to satisfy a cache Get request
-func (b *pendingIndexBucket) GetItemWhichSatisfiesColumnsAndLimit(columns []string, limit int64) *pendingIndexItem {
-	log.Printf("[TRACE] find pending index item to satisfy columns %v and limit %d", columns, limit)
-	for _, item := range b.Items {
-		if item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) {
-			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d", strings.Join(columns, ","), limit)
-			return item
-		}
-	}
-	return nil
-}
-
-// GetItemsSatisfiedByColumns finds all index item which are satisfied by the columsn and limit columns
+// GetItemsSatisfiedByColumns finds all index item which are satisfied by the column
 // used when removing pending IndexItems after a cache Set call
 func (b *pendingIndexBucket) GetItemsSatisfiedByColumns(columns []string, limit int64) []*pendingIndexItem {
 	var satisfiedItems []*pendingIndexItem

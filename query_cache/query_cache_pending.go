@@ -2,7 +2,6 @@ package query_cache
 
 import (
 	"context"
-	"github.com/turbot/go-kit/helpers"
 	"log"
 	"time"
 
@@ -16,7 +15,6 @@ const pendingQueryTimeout = 20 * time.Second
 func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheRequest) *pendingIndexItem {
 	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
 	//c.logPending(req)
-	var pendingItem *pendingIndexItem
 
 	// acquire a Read lock for pendingData map
 	upgradedLock := false
@@ -30,30 +28,43 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 		}
 	}()
 
-	// do we have a pending bucket
-	pendingIndexBucket, ok := c.pendingData[indexBucketKey]
-	if ok {
-		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columnd %v, limid %d", indexBucketKey, req.Columns, req.Limit)
-		// is there a pending index bucket for this query
-		// now check whether there is a pending item in this bucket that covers the required columns and limit
-		pendingItem = pendingIndexBucket.GetItemWhichSatisfiesColumnsAndLimit(req.Columns, req.Limit)
-	}
+	// do we have a pending items
+	pendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
 
 	// if there was no pending result  -  we assume the calling code will fetch the data and add it to the cache
 	// so add a pending result
-	if pendingItem == nil {
+	if len(pendingItems) == 0 {
 		// upgrade to a Write lock
-		helpers.UpgradeRWMutex(&c.pendingDataLock)
+		c.pendingDataLock.RUnlock()
+		c.pendingDataLock.Lock()
 		upgradedLock = true
 
-		log.Printf("[TRACE] no pending index item - add pending result, indexBucketKey %s", indexBucketKey)
-		// add a pending result so anyone else asking for this data will wait the fetch to complete
-		c.addPendingResult(indexBucketKey, req)
+		// try again to get a pending item - in case someone else grabbed a Write lock before us
+		pendingItems, _ = c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+		if len(pendingItems) == 0 {
+			log.Printf("[TRACE] no pending index item - add pending result, indexBucketKey %s", indexBucketKey)
+			// add a pending result so anyone else asking for this data will wait the fetch to complete
+			c.addPendingResult(indexBucketKey, req)
+			// return nil (i.e. cache miss)
+			return nil
+		}
 	}
+	// to get here we must have a non-empty list of pending items
+	log.Printf("[TRACE] getPendingResultItem returning %v", pendingItems[0])
+	// return pending item
+	return pendingItems[0]
+}
 
-	log.Printf("[TRACE] getPendingResultItem returning %v", pendingItem)
-	// return pending item, which may be nil, i.e. a cache miss
-	return pendingItem
+// this must be called inside a lock
+func (c *QueryCache) getPendingItemSatisfyingConstraints(indexBucketKey string, req *CacheRequest) ([]*pendingIndexItem, *pendingIndexBucket) {
+	// is there a pending index bucket for this query
+	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
+		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columnd %v, limid %d", indexBucketKey, req.Columns, req.Limit)
+		// now check whether there is a pending item in this bucket that covers the required columns and limit
+		return pendingIndexBucket.GetItemsSatisfiedByColumns(req.Columns, req.Limit), pendingIndexBucket
+
+	}
+	return nil, nil
 }
 
 func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendingIndexItem, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (err error) {
@@ -183,16 +194,19 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 		}
 	}()
 
-	// do we have a pending bucket
-	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
-		log.Printf("[TRACE] got pending index bucket, (%s) len %d", req.CallId, len(pendingIndexBucket.Items))
-		// the may be more than one pending item which is satisfied by this request - clear them all
-		completedPendingItems := pendingIndexBucket.GetItemsSatisfiedByColumns(req.Columns, req.Limit)
+	// do we have a pending items
+	// the may be more than one pending item which is satisfied by this request - clear them all
+	completedPendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+	if len(completedPendingItems) > 0 {
+		log.Printf("[TRACE] got completedPendingItems, (%s) len %d", req.CallId, len(completedPendingItems))
 
 		// upgrade lock to Write lock
-		helpers.UpgradeRWMutex(&c.pendingDataLock)
+		c.pendingDataLock.RUnlock()
+		c.pendingDataLock.Lock()
 		upgradedLock = true
 
+		// check again for completed items (in case anyone else grabbed a Write lock before us
+		completedPendingItems, pendingIndexBucket := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
 		for _, pendingItem := range completedPendingItems {
 			// NOTE set the page count for the pending item to the actual page count, which we now know
 			pendingItem.item.PageCount = req.pageCount
@@ -208,9 +222,6 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 			log.Printf("[TRACE] pending bucket now empty - deleting key %s", indexBucketKey)
 			delete(c.pendingData, indexBucketKey)
 		}
-	} else {
-		// no pending bucket - be sure to unlock the Read lock
-		c.pendingDataLock.RUnlock()
 	}
 }
 
