@@ -17,16 +17,11 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 	//c.logPending(req)
 
 	// acquire a Read lock for pendingData map
-	upgradedLock := false
 	c.pendingDataLock.RLock()
+	// store the function required to unlock the lock (will be changed if we upgrade the lock)
+	unlock := c.pendingDataLock.RLock
 	// ensure we unlock
-	defer func() {
-		if upgradedLock {
-			c.pendingDataLock.Unlock()
-		} else {
-			c.pendingDataLock.RUnlock()
-		}
-	}()
+	defer unlock()
 
 	// do we have a pending items
 	pendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
@@ -37,7 +32,8 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 		// upgrade to a Write lock
 		c.pendingDataLock.RUnlock()
 		c.pendingDataLock.Lock()
-		upgradedLock = true
+		// update the unlock function
+		unlock = c.pendingDataLock.Unlock
 
 		// try again to get a pending item - in case someone else grabbed a Write lock before us
 		pendingItems, _ = c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
@@ -183,16 +179,11 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 	defer log.Printf("[TRACE] pendingItemComplete done (%s)", req.CallId)
 
 	// acquire a Read lock to pendingData map
-	upgradedLock := false
 	c.pendingDataLock.RLock()
+	// store the function required to unlock the lock (will be changed if we upgrade the lock)
+	unlock := c.pendingDataLock.RLock
 	// ensure we unlock
-	defer func() {
-		if upgradedLock {
-			c.pendingDataLock.Unlock()
-		} else {
-			c.pendingDataLock.RUnlock()
-		}
-	}()
+	defer unlock()
 
 	// do we have a pending items
 	// the may be more than one pending item which is satisfied by this request - clear them all
@@ -203,9 +194,10 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 		// upgrade lock to Write lock
 		c.pendingDataLock.RUnlock()
 		c.pendingDataLock.Lock()
-		upgradedLock = true
+		// update the unlock function
+		unlock = c.pendingDataLock.Unlock
 
-		// check again for completed items (in case anyone else grabbed a Write lock before us
+		// check again for completed items (in case anyone else grabbed a Write lock before us)
 		completedPendingItems, pendingIndexBucket := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
 		for _, pendingItem := range completedPendingItems {
 			// NOTE set the page count for the pending item to the actual page count, which we now know
