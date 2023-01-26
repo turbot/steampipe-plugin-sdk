@@ -10,6 +10,7 @@ func (p *Plugin) setAggregatorConnectionData(failedConnections map[string]error,
 	if p.SchemaMode == SchemaModeDynamic {
 		logMessages, err := p.setDynamicAggregatorConnectionData(aggregatorConfig)
 		if err != nil {
+			log.Printf("[WARN] setDynamicAggregatorConnectionData failed for aggregator connection %s: %s", aggregatorConfig.Connection, err)
 			failedConnections[aggregatorConfig.Connection] = err
 		}
 		// TODO notify someone of log messages

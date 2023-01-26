@@ -293,7 +293,25 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	maxConcurrentConnections := getMaxConcurrentConnections()
 	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
 
-	for connectionName, executeData := range req.ExecuteConnectionData {
+	// get the config for the connection - needed in case of aggregator
+	connectionData := p.ConnectionMap[req.Connection]
+
+	for connectionName := range req.ExecuteConnectionData {
+		// if this is an aggregator execution, check whether this child connection supports this table
+		if connectionData.AggregatedTablesByConnection != nil {
+			if tablesForConnection, ok := connectionData.AggregatedTablesByConnection[connectionName]; ok {
+				if _, ok := tablesForConnection[req.Table]; !ok {
+					log.Printf("[WARN] aggregator connection %s, child connection %s does not provide table %s, skipping",
+						connectionData.Connection.Name, connectionName, req.Table)
+					continue
+				}
+			} else {
+				// not expected
+				log.Printf("[WARN] aggregator connection %s has not data for child connection %s",
+					connectionData.Connection.Name, connectionName)
+				// just carry on
+			}
+		}
 		outputWg.Add(1)
 
 		go func(c string) {
@@ -304,7 +322,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 			defer sem.Release(1)
 
-			if err := p.executeForConnection(ctx, req, c, executeData, outputChan); err != nil {
+			if err := p.executeForConnection(ctx, req, c, outputChan); err != nil {
 				if !error_helpers.IsContextCancelledError(err) {
 					log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
 				}
@@ -403,9 +421,11 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	return nil
 }
 
-func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {
+func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, outputChan chan *proto.ExecuteResponse) (err error) {
 	const rowBufferSize = 10
 	var rowChan = make(chan *proto.Row, rowBufferSize)
+
+	executeData := req.ExecuteConnectionData[connectionName]
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)

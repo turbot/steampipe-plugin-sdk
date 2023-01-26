@@ -11,6 +11,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"time"
 )
 
 /*
@@ -213,8 +214,8 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnect
 	connectionName := config.Connection
 	connectionConfigString := config.Config
 	if connectionName == "" {
-		log.Printf("[WARN] SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
-		return fmt.Errorf("SetAllConnectionConfigs failed - ConnectionConfig contained empty connection name")
+		log.Printf("[WARN] setConnectionData failed - ConnectionConfig contained empty connection name")
+		return fmt.Errorf("setConnectionData failed - ConnectionConfig contained empty connection name")
 	}
 
 	// create connection object
@@ -229,6 +230,7 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnect
 		config, err := p.ConnectionConfigSchema.parse(connectionConfigString)
 		if err != nil {
 			failedConnections[connectionName] = err
+			log.Printf("[WARN] setConnectionData failed for connection %s, config validation failed: %s", connectionName, err.Error())
 			return nil
 		}
 		c.Config = config

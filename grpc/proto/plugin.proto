@@ -91,7 +91,7 @@ message TraceContext {
 message ExecuteRequest {
   string table = 1;
   QueryContext query_context = 2;
-  string connection = 3 [deprecated = true];
+  string connection = 3;
   bool cache_enabled = 4 [deprecated = true];
   int64 cache_ttl = 5 [deprecated = true];
   string call_id = 6;
