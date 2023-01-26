@@ -120,7 +120,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		// and release Write lock
 		memoizedHydrateLock.Unlock()
 
-		log.Printf("[TRACE] Memoize added lock to map key %s", cacheKey)
+		log.Printf("[TRACE] Memoize added lock to map, connection %s, cache-key %s", d.Connection.Name, cacheKey)
 		// no call the hydrate function and cache the result
 		return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
 
