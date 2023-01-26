@@ -26,17 +26,13 @@ type rowData struct {
 	matrixItem     map[string]interface{}
 	hydrateResults map[string]interface{}
 	hydrateErrors  map[string]error
-	mut            sync.Mutex
+	mut            sync.RWMutex
 	waitChan       chan bool
 	wg             sync.WaitGroup
 	table          *Table
 	errorChan      chan error
 	queryData      *QueryData
 }
-
-// placeholder struct to return when the hydrate function does not return anything
-// - this allows us to determine the hydrate function _was_ called
-type emptyHydrateResults struct{}
 
 // newRowData creates an empty rowData object
 func newRowData(d *QueryData, item interface{}) *rowData {
@@ -226,8 +222,10 @@ func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 }
 
 func (r *rowData) set(key string, item interface{}) error {
+	// acquire a Write lock
 	r.mut.Lock()
 	defer r.mut.Unlock()
+
 	if _, ok := r.hydrateResults[key]; ok {
 		return fmt.Errorf("failed to save item - row data already contains item for key %s", key)
 	}
@@ -237,6 +235,7 @@ func (r *rowData) set(key string, item interface{}) error {
 }
 
 func (r *rowData) setError(key string, err error) {
+	// acquire a Write lock
 	r.mut.Lock()
 	defer r.mut.Unlock()
 	if _, ok := r.hydrateErrors[key]; ok {
@@ -248,8 +247,9 @@ func (r *rowData) setError(key string, err error) {
 
 // get the name of the hydrate function which have completed
 func (r *rowData) getHydrateKeys() []string {
-	r.mut.Lock()
-	defer r.mut.Unlock()
+	// acquire a Read lock
+	r.mut.RLock()
+	defer r.mut.RUnlock()
 	var keys []string
 	for key := range r.hydrateResults {
 		keys = append(keys, key)

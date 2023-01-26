@@ -3,7 +3,6 @@ package query_cache
 import (
 	"fmt"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"sync"
 	"time"
 )
 
@@ -20,7 +19,6 @@ type CacheRequest struct {
 	// used for set requests
 	rows      []*sdkproto.Row
 	rowIndex  int
-	rowLock   sync.Mutex
 	pageCount int64
 	err       error
 }

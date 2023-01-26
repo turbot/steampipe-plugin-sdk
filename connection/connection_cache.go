@@ -33,6 +33,7 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 	err := c.cache.Set(ctx,
 		key,
 		value,
+		// if ttl is zero there is no expiration
 		store.WithExpiration(ttl),
 		// put connection name in tags
 		store.WithTags([]string{c.connectionName}),

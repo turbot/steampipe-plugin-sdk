@@ -9,20 +9,23 @@ import (
 DefaultConcurrencyConfig sets the default maximum number of concurrent [HydrateFunc] calls.
 
 Limit total concurrent hydrate calls:
-		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
-			TotalMaxConcurrency:   500,
-		}
+
+	DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+		TotalMaxConcurrency:   500,
+	}
 
 Limit concurrent hydrate calls to any single HydrateFunc which does not have a [HydrateConfig]:
-		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
-			DefaultMaxConcurrency: 100,
-		}
-		
+
+	DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+		DefaultMaxConcurrency: 100,
+	}
+
 Do both:
-		DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
-			TotalMaxConcurrency:   500,
-			DefaultMaxConcurrency: 200,
-		}
+
+	DefaultConcurrency: &plugin.DefaultConcurrencyConfig{
+		TotalMaxConcurrency:   500,
+		DefaultMaxConcurrency: 200,
+	}
 
 Plugin examples:
   - [hackernews]
@@ -31,14 +34,14 @@ Plugin examples:
 */
 type DefaultConcurrencyConfig struct {
 	// sets how many HydrateFunc calls can run concurrently in total
-	TotalMaxConcurrency   int
+	TotalMaxConcurrency int
 	// sets the default for how many calls to each HydrateFunc can run concurrently
 	DefaultMaxConcurrency int
 }
 
 // concurrencyManager struct ensures that hydrate functions stay within concurrency limits
 type concurrencyManager struct {
-	mut sync.Mutex
+	mut sync.RWMutex
 	// the maximum number of all hydrate calls which can run concurrently
 	maxConcurrency int
 	// the maximum concurrency for a single hydrate call
@@ -80,25 +83,25 @@ func newConcurrencyManager(t *Table) *concurrencyManager {
 // StartIfAllowed checks whether the named hydrate call is permitted to start
 // based on the number of running instances of that call, and the total calls in progress
 func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int) (res bool) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+	// acquire a Read lock
+	c.mut.RLock()
+	// how many concurrent executions of this function are in progress right now?
+	currentExecutions := c.callMap[name]
+	// ensure we unlock
+	c.mut.RUnlock()
 
-	// is the total call limit exceeded?
-	if c.maxConcurrency > 0 && c.callsInProgress == c.maxConcurrency {
+	if !c.canStart(currentExecutions, maxCallConcurrency) {
 		return false
 	}
 
-	// if there is no config or empty config, the maxCallConcurrency will be 0
-	// - use defaultMaxConcurrencyPerCall set on the concurrencyManager
-	if maxCallConcurrency == 0 {
-		maxCallConcurrency = c.defaultMaxConcurrencyPerCall
-	}
+	// upgrade the mutex to a Write lock
+	c.mut.Lock()
+	// ensure we unlock
+	defer c.mut.Unlock()
 
-	// how many concurrent executions of this function are in progress right now?
-	currentExecutions := c.callMap[name]
-
-	// if we at the call limit return
-	if maxCallConcurrency > 0 && currentExecutions == maxCallConcurrency {
+	// check again in case another thread grabbed the Write lock before us
+	currentExecutions = c.callMap[name]
+	if !c.canStart(currentExecutions, maxCallConcurrency) {
 		return false
 	}
 
@@ -113,6 +116,26 @@ func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 	if c.callsInProgress > c.maxCallsInProgress {
 		c.maxCallsInProgress = c.callsInProgress
 	}
+
+	return true
+}
+
+func (c *concurrencyManager) canStart(currentExecutions int, maxCallConcurrency int) bool {
+	// is the total call limit exceeded?
+	if c.maxConcurrency > 0 && c.callsInProgress == c.maxConcurrency {
+		return false
+	}
+
+	// if there is no config or empty config, the maxCallConcurrency will be 0
+	// - use defaultMaxConcurrencyPerCall set on the concurrencyManager
+	if maxCallConcurrency == 0 {
+		maxCallConcurrency = c.defaultMaxConcurrencyPerCall
+	}
+
+	// if we at the call limit return
+	if maxCallConcurrency > 0 && currentExecutions == maxCallConcurrency {
+		return false
+	}
 	return true
 }
 
@@ -123,10 +146,11 @@ func (c *concurrencyManager) Finished(name string) {
 			log.Printf("[WARN] %v", r)
 		}
 	}()
+	// acquire a Write lock
 	c.mut.Lock()
-	defer c.mut.Unlock()
 	c.callMap[name]--
 	c.callsInProgress--
+	c.mut.Unlock()
 }
 
 // Close executes when the query is complete and dumps out the concurrency stats

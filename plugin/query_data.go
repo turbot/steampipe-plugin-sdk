@@ -75,8 +75,7 @@ type QueryData struct {
 	Matrix []map[string]interface{}
 
 	// object to handle caching of connection specific data
-	// deprecated
-	// use ConnectionCache
+	// deprecated use ConnectionCache
 	ConnectionManager *connection_manager.Manager
 	ConnectionCache   *connection_manager.ConnectionCache
 
