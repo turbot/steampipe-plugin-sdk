@@ -19,7 +19,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 	// acquire a Read lock for pendingData map
 	c.pendingDataLock.RLock()
 	// store the function required to unlock the lock (will be changed if we upgrade the lock)
-	unlock := c.pendingDataLock.RLock
+	unlock := c.pendingDataLock.RUnlock
 	// ensure we unlock
 	defer unlock()
 
@@ -181,7 +181,7 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 	// acquire a Read lock to pendingData map
 	c.pendingDataLock.RLock()
 	// store the function required to unlock the lock (will be changed if we upgrade the lock)
-	unlock := c.pendingDataLock.RLock
+	unlock := c.pendingDataLock.RUnlock
 	// ensure we unlock
 	defer unlock()
 

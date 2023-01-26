@@ -86,7 +86,7 @@ func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int)
 	// acquire a Read lock
 	c.mut.RLock()
 	// store the function required to unlock the lock (will be changed if we upgrade the lock)
-	unlock := c.mut.RLock
+	unlock := c.mut.RUnlock
 	// ensure we unlock
 	defer unlock()
 
@@ -151,9 +151,10 @@ func (c *concurrencyManager) Finished(name string) {
 	}()
 	// acquire a Write lock
 	c.mut.Lock()
-	defer c.mut.Unlock()
+	//update the call map
 	c.callMap[name]--
 	c.callsInProgress--
+	c.mut.Unlock()
 }
 
 // Close executes when the query is complete and dumps out the concurrency stats

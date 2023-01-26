@@ -94,9 +94,8 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 
 		// so there was no function lock - no pending hydrate so we must execute
 
-		// acquire a write lock
+		// acquire a Write lock
 		memoizedHydrateLock.Lock()
-		defer memoizedHydrateLock.Unlock()
 
 		// check again for pending call (in case another thread got the Write lock first)
 		functionLock, ok = memoizedHydrateFunctionsPending[executeLockKey]
@@ -106,7 +105,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		}
 
 		// there is no lock for this function, which means it has not been run yet
-		log.Printf("[TRACE] WithCache no function lock key %s", cacheKey)
+		log.Printf("[TRACE] Memoize no function lock key %s", cacheKey)
 		// create a lock
 		functionLock = new(sync.WaitGroup)
 		// lock it
@@ -115,8 +114,10 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		defer functionLock.Done()
 		// add to map
 		memoizedHydrateFunctionsPending[executeLockKey] = functionLock
+		// and unlock
+		memoizedHydrateLock.Unlock()
 
-		log.Printf("[TRACE] WithCache added lock to map key %s", cacheKey)
+		log.Printf("[TRACE] Memoize added lock to map key %s", cacheKey)
 		// no call the hydrate function and cache the result
 		return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
 
@@ -167,6 +168,7 @@ func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydr
 
 	// so we have a hydrate result - add to the cache
 	d.ConnectionCache.SetWithTTL(ctx, cacheKey, hydrateData, ttl)
+
 	// return the hydrate data
 	return hydrateData, nil
 }
