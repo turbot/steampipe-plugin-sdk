@@ -225,6 +225,7 @@ func (r *rowData) set(key string, item interface{}) error {
 	// acquire a Write lock
 	r.mut.Lock()
 	defer r.mut.Unlock()
+
 	if _, ok := r.hydrateResults[key]; ok {
 		return fmt.Errorf("failed to save item - row data already contains item for key %s", key)
 	}

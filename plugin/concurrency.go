@@ -85,22 +85,19 @@ func newConcurrencyManager(t *Table) *concurrencyManager {
 func (c *concurrencyManager) StartIfAllowed(name string, maxCallConcurrency int) (res bool) {
 	// acquire a Read lock
 	c.mut.RLock()
-	// store the function required to unlock the lock (will be changed if we upgrade the lock)
-	unlock := c.mut.RUnlock
-	// ensure we unlock
-	defer unlock()
-
 	// how many concurrent executions of this function are in progress right now?
 	currentExecutions := c.callMap[name]
+	// ensure we unlock
+	c.mut.RUnlock()
+
 	if !c.canStart(currentExecutions, maxCallConcurrency) {
 		return false
 	}
 
 	// upgrade the mutex to a Write lock
-	c.mut.RUnlock()
 	c.mut.Lock()
-	// update the unlock func
-	unlock = c.mut.Unlock
+	// ensure we unlock
+	defer c.mut.Unlock()
 
 	// check again in case another thread grabbed the Write lock before us
 	currentExecutions = c.callMap[name]
@@ -151,7 +148,6 @@ func (c *concurrencyManager) Finished(name string) {
 	}()
 	// acquire a Write lock
 	c.mut.Lock()
-	//update the call map
 	c.callMap[name]--
 	c.callsInProgress--
 	c.mut.Unlock()

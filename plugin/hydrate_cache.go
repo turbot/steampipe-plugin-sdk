@@ -100,6 +100,9 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		// check again for pending call (in case another thread got the Write lock first)
 		functionLock, ok = memoizedHydrateFunctionsPending[executeLockKey]
 		if ok {
+			//  release Write lock
+			memoizedHydrateLock.Unlock()
+
 			// a hydrate function is running - or it has completed
 			return hydrate.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
 		}
@@ -114,7 +117,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		defer functionLock.Done()
 		// add to map
 		memoizedHydrateFunctionsPending[executeLockKey] = functionLock
-		// and unlock
+		// and release Write lock
 		memoizedHydrateLock.Unlock()
 
 		log.Printf("[TRACE] Memoize added lock to map key %s", cacheKey)

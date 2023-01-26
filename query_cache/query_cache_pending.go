@@ -18,22 +18,16 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 
 	// acquire a Read lock for pendingData map
 	c.pendingDataLock.RLock()
-	// store the function required to unlock the lock (will be changed if we upgrade the lock)
-	unlock := c.pendingDataLock.RUnlock
-	// ensure we unlock
-	defer unlock()
-
 	// do we have a pending items
 	pendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+	c.pendingDataLock.RUnlock()
 
 	// if there was no pending result  -  we assume the calling code will fetch the data and add it to the cache
 	// so add a pending result
 	if len(pendingItems) == 0 {
-		// upgrade to a Write lock
-		c.pendingDataLock.RUnlock()
+		// acquire a Write lock
 		c.pendingDataLock.Lock()
-		// update the unlock function
-		unlock = c.pendingDataLock.Unlock
+		defer c.pendingDataLock.Unlock()
 
 		// try again to get a pending item - in case someone else grabbed a Write lock before us
 		pendingItems, _ = c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
@@ -112,6 +106,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		// add a new pending item, within the lock
 		c.addPendingResult(indexBucketKey, req)
 		c.pendingDataLock.Unlock()
+
 		log.Printf("[TRACE] added new pending item, returning cache miss (%s)", req.CallId)
 		// return cache miss error to force a fetch
 		err = CacheMissError{}
@@ -180,22 +175,19 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 
 	// acquire a Read lock to pendingData map
 	c.pendingDataLock.RLock()
-	// store the function required to unlock the lock (will be changed if we upgrade the lock)
-	unlock := c.pendingDataLock.RUnlock
-	// ensure we unlock
-	defer unlock()
-
 	// do we have a pending items
 	// the may be more than one pending item which is satisfied by this request - clear them all
 	completedPendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+	// release read lock
+	c.pendingDataLock.RUnlock()
+
 	if len(completedPendingItems) > 0 {
 		log.Printf("[TRACE] got completedPendingItems, (%s) len %d", req.CallId, len(completedPendingItems))
 
-		// upgrade lock to Write lock
-		c.pendingDataLock.RUnlock()
+		// acquire a Write lock
 		c.pendingDataLock.Lock()
-		// update the unlock function
-		unlock = c.pendingDataLock.Unlock
+		// ensure we release lock
+		defer c.pendingDataLock.Unlock()
 
 		// check again for completed items (in case anyone else grabbed a Write lock before us)
 		completedPendingItems, pendingIndexBucket := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)

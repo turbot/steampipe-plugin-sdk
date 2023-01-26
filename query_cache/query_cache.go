@@ -170,6 +170,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	// get the ongoing request
 	req, ok := c.setRequests[callId]
 	c.setRequestMapLock.RUnlock()
+
 	if !ok {
 		log.Printf("[WARN] EndSet called for callId %s but there is no in progress set operation", callId)
 		return fmt.Errorf("EndSet called for callId %s but there is no in progress set operation", callId)
@@ -184,9 +185,10 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 			err = helpers.ToError(r)
 		}
 		// remove entry from the map
-		c.setRequestMapLock.RLock()
+		c.setRequestMapLock.Lock()
 		delete(c.setRequests, callId)
-		c.setRequestMapLock.RUnlock()
+		c.setRequestMapLock.Unlock()
+
 		log.Printf("[TRACE] calling pendingItemComplete (%s)", callId)
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
