@@ -87,6 +87,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		memoizedHydrateLock.RUnlock()
 
 		if ok {
+			log.Printf("[TRACE] Memoize (connection %s, cache key %s) - pending call found so waiting for it to complete", d.Connection.Name, cacheKey)
 			// a hydrate function is running - or it has completed
 			// wait for the function lock
 			return hydrate.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
@@ -108,7 +109,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		}
 
 		// there is no lock for this function, which means it has not been run yet
-		log.Printf("[TRACE] Memoize no function lock key %s", cacheKey)
+
 		// create a lock
 		functionLock = new(sync.WaitGroup)
 		// lock it
@@ -120,7 +121,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		// and release Write lock
 		memoizedHydrateLock.Unlock()
 
-		log.Printf("[TRACE] Memoize added lock to map key %s", cacheKey)
+		log.Printf("[TRACE] Memoize (connection %s, cache key %s) - no pending call found so calling and caching hydrate", d.Connection.Name, cacheKey)
 		// no call the hydrate function and cache the result
 		return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
 
