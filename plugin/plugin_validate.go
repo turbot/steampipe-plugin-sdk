@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-
-	"github.com/turbot/go-kit/helpers"
 )
 
 func (p *Plugin) validate(tableMap map[string]*Table) string {
@@ -19,8 +17,8 @@ func (p *Plugin) validate(tableMap map[string]*Table) string {
 	}
 
 	// validate the schema mode
-	if !helpers.StringSliceContains(validSchemaModes, p.SchemaMode) {
-		validationErrors = append(validationErrors, fmt.Sprintf("schema mode must be either %s or %s (if not specified it defaults to %s)", SchemaModeStatic, SchemaModeDynamic, SchemaModeStatic))
+	if err := ValidateSchemaMode(p.SchemaMode); err != nil {
+		validationErrors = append(validationErrors, err.Error())
 	}
 
 	log.Printf("[TRACE] validate DefaultRetryConfig")

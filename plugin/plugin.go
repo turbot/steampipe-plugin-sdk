@@ -34,13 +34,6 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const (
-	SchemaModeStatic  = "static"
-	SchemaModeDynamic = "dynamic"
-)
-
-var validSchemaModes = []string{SchemaModeStatic, SchemaModeDynamic}
-
 /*
 Plugin is the primary struct that defines a Steampipe GRPC plugin.
 
@@ -300,7 +293,25 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	maxConcurrentConnections := getMaxConcurrentConnections()
 	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
 
-	for connectionName, executeData := range req.ExecuteConnectionData {
+	// get the config for the connection - needed in case of aggregator
+	connectionData := p.ConnectionMap[req.Connection]
+
+	for connectionName := range req.ExecuteConnectionData {
+		// if this is an aggregator execution, check whether this child connection supports this table
+		if connectionData.AggregatedTablesByConnection != nil {
+			if tablesForConnection, ok := connectionData.AggregatedTablesByConnection[connectionName]; ok {
+				if _, ok := tablesForConnection[req.Table]; !ok {
+					log.Printf("[WARN] aggregator connection %s, child connection %s does not provide table %s, skipping",
+						connectionData.Connection.Name, connectionName, req.Table)
+					continue
+				}
+			} else {
+				// not expected
+				log.Printf("[WARN] aggregator connection %s has not data for child connection %s",
+					connectionData.Connection.Name, connectionName)
+				// just carry on
+			}
+		}
 		outputWg.Add(1)
 
 		go func(c string) {
@@ -311,7 +322,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 			defer sem.Release(1)
 
-			if err := p.executeForConnection(ctx, req, c, executeData, outputChan); err != nil {
+			if err := p.executeForConnection(ctx, req, c, outputChan); err != nil {
 				if !error_helpers.IsContextCancelledError(err) {
 					log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
 				}
@@ -393,17 +404,12 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	oldSchema := p.ConnectionMap[connection.Name].Schema
 
 	// get the updated table map and schema
-	tableMap, schema, err := p.refreshSchema(connection)
+	tableMap, schema, err := p.getConnectionSchema(connection)
 	if err != nil {
 		return err
 	}
 	// update the connection data
-	p.ConnectionMap[connection.Name] = &ConnectionData{
-		TableMap:   tableMap,
-		Connection: connection,
-		Schema:     schema,
-		Plugin:     p,
-	}
+	p.ConnectionMap[connection.Name].setSchema(tableMap, schema)
 
 	// if there are changes,  let the plugin manager know
 	if !oldSchema.Equals(schema) && p.messageStream != nil {
@@ -415,9 +421,11 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	return nil
 }
 
-func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (err error) {
+func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, outputChan chan *proto.ExecuteResponse) (err error) {
 	const rowBufferSize = 10
 	var rowChan = make(chan *proto.Row, rowBufferSize)
+
+	executeData := req.ExecuteConnectionData[connectionName]
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)
@@ -667,9 +675,7 @@ func (p *Plugin) setupLogger() hclog.Logger {
 
 // if query cache does not exist, create
 // if the query cache exists, update the schema
-func (p *Plugin) ensureCache(maxCacheSizeMb int) error {
-	// build a connection schema map
-	connectionSchemaMap := p.buildConnectionSchemaMap()
+func (p *Plugin) ensureCache(maxCacheSizeMb int, connectionSchemaMap map[string]*grpc.PluginSchema) error {
 	if p.queryCache == nil {
 		log.Printf("[TRACE] Plugin ensureCache creating cache, maxCacheStorageMb %d", maxCacheSizeMb)
 
@@ -689,10 +695,7 @@ func (p *Plugin) ensureCache(maxCacheSizeMb int) error {
 }
 
 func (p *Plugin) buildSchema(tableMap map[string]*Table) (*grpc.PluginSchema, error) {
-	schema := &grpc.PluginSchema{
-		Schema: make(map[string]*proto.TableSchema),
-		Mode:   p.SchemaMode,
-	}
+	schema := grpc.NewPluginSchema(p.SchemaMode)
 
 	var tables []string
 	for tableName, table := range tableMap {

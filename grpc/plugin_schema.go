@@ -7,6 +7,13 @@ type PluginSchema struct {
 	Mode   string
 }
 
+func NewPluginSchema(mode string) *PluginSchema {
+	return &PluginSchema{
+		Schema: make(map[string]*proto.TableSchema),
+		Mode:   mode,
+	}
+}
+
 func (x *PluginSchema) Equals(other *PluginSchema) bool {
 	if len(x.Schema) != len(other.Schema) {
 		return false
