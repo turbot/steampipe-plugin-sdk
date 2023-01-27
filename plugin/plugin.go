@@ -404,12 +404,12 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	oldSchema := p.ConnectionMap[connection.Name].Schema
 
 	// get the updated table map and schema
-	tableMap, schema, err := p.refreshSchema(connection)
+	tableMap, schema, err := p.getConnectionSchema(connection)
 	if err != nil {
 		return err
 	}
 	// update the connection data
-	p.ConnectionMap[connection.Name] = NewConnectionData(connection, tableMap, schema, p)
+	p.ConnectionMap[connection.Name].setSchema(tableMap, schema)
 
 	// if there are changes,  let the plugin manager know
 	if !oldSchema.Equals(schema) && p.messageStream != nil {
@@ -675,9 +675,7 @@ func (p *Plugin) setupLogger() hclog.Logger {
 
 // if query cache does not exist, create
 // if the query cache exists, update the schema
-func (p *Plugin) ensureCache(maxCacheSizeMb int) error {
-	// build a connection schema map
-	connectionSchemaMap := p.buildConnectionSchemaMap()
+func (p *Plugin) ensureCache(maxCacheSizeMb int, connectionSchemaMap map[string]*grpc.PluginSchema) error {
 	if p.queryCache == nil {
 		log.Printf("[TRACE] Plugin ensureCache creating cache, maxCacheStorageMb %d", maxCacheSizeMb)
 
@@ -697,10 +695,7 @@ func (p *Plugin) ensureCache(maxCacheSizeMb int) error {
 }
 
 func (p *Plugin) buildSchema(tableMap map[string]*Table) (*grpc.PluginSchema, error) {
-	schema := &grpc.PluginSchema{
-		Schema: make(map[string]*proto.TableSchema),
-		Mode:   p.SchemaMode,
-	}
+	schema := grpc.NewPluginSchema(p.SchemaMode)
 
 	var tables []string
 	for tableName, table := range tableMap {

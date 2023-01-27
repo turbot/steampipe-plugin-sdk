@@ -15,7 +15,7 @@ import (
 
 /*
 SetConnectionConfig sets the connection config for the given connection.
-
+(for legacy plugins)
 This is the handler function for the SetConnectionConfig GRPC function.
 */
 func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
@@ -48,40 +48,41 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			p.Logger.Debug("SetAllConnectionConfigs finished")
 		}
 	}()
-
 	failedConnections = make(map[string]error)
 
-	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))
-
-	// if this plugin does not have dynamic config, we can share table map and schema
-	var exemplarSchema *grpc.PluginSchema
-	var exemplarTableMap map[string]*Table
-	failedConnections = make(map[string]error)
-	var aggregators []*proto.ConnectionConfig
-
-	for _, config := range configs {
-		// NOTE: do not set connection config for aggregator connections
-		if len(config.ChildConnections) > 0 {
-			log.Printf("[TRACE] connection %s is an aggregator - handle separately", config.Connection)
-			aggregators = append(aggregators, config)
-			continue
-		}
-
-		err := p.setConnectionData(config, failedConnections, exemplarSchema, exemplarTableMap)
-		if err != nil {
-			return nil, err
-		}
+	err = p.addConnections(configs, failedConnections, nil, nil)
+	if err != nil {
+		return failedConnections, err
 	}
 
-	for _, aggregatorConfig := range aggregators {
-		p.setAggregatorConnectionData(failedConnections, aggregatorConfig)
+	// TODO report log messages back somewhere
+	_, err = p.setAggregatorSchemas()
+	if err != nil{
+		return failedConnections, err
 	}
 
-	// now create the query cache - do this AFTER setting the connection config so the cache can build
-	// the connection schema map
-	err = p.ensureCache(maxCacheSizeMb)
+	// build a connection schema map - used to pass to cache
+	connectionSchemaMap := p.buildConnectionSchemaMap()
+
+	// now create the query cache - do this AFTER setting the connection config so we can pass the connection schema map
+	err = p.ensureCache(maxCacheSizeMb, connectionSchemaMap)
 
 	return failedConnections, err
+}
+
+func (p *Plugin) setAggregatorSchemas() (logMessages map[string][]string, err error) {
+	// build the schema of all aggregators (do this AFTER adding all connections)
+	for _, connectionData := range p.ConnectionMap {
+		// if this is an aggregator connection, update its schema, passing its existing config
+		if connectionData.isAggregator() {
+
+			logMessages, err := connectionData.initAggregatorSchema(connectionData.config)
+			if err != nil {
+				return logMessages, nil
+			}
+		}
+	}
+	return logMessages, err
 }
 
 /*
@@ -95,7 +96,9 @@ UpdateConnectionConfigs handles added, changed and deleted connections:
 
 This is the handler function for the UpdateConnectionConfigs GRPC function.
 */
-func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) error {
+func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) (failedConnections map[string]error, err error) {
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+
 	p.logChanges(added, deleted, changed)
 
 	// if this plugin does not have dynamic config, we can share table map and schema
@@ -105,8 +108,13 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		for _, connectionData := range p.ConnectionMap {
 			exemplarSchema = connectionData.Schema
 			exemplarTableMap = connectionData.TableMap
+			// just take the first item
+			break
 		}
 	}
+
+	// key track of connections which have errors
+	failedConnections = make(map[string]error)
 
 	// remove deleted connections
 	for _, deletedConnection := range deleted {
@@ -114,101 +122,85 @@ func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	}
 
 	// add added connections
-	for _, addedConnection := range added {
-		schema := exemplarSchema
-		tableMap := exemplarTableMap
-		// create connection object
-		c := &Connection{
-			Name:   addedConnection.Connection,
-			Config: addedConnection.Config,
-		}
-		if addedConnection.Config != "" {
-			if p.ConnectionConfigSchema == nil {
-				return fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", addedConnection.Connection, p.Name)
-			}
-			// ask plugin to parse the config
-			config, err := p.ConnectionConfigSchema.parse(addedConnection.Config)
-			if err != nil {
-				return err
-			}
+	err = p.addConnections(added, failedConnections, exemplarSchema, exemplarTableMap)
+	if err != nil {
+		return failedConnections, err
+	}
 
-			c.Config = config
-		}
+	// update changed connections
+	// build map of current connection data for each changed connection
+	err = p.updateConnections(ctx, changed, failedConnections)
+	if err != nil {
+		return failedConnections, err
+	}
 
-		if p.SchemaMode == SchemaModeDynamic {
-			var err error
-			log.Printf("[TRACE] UpdateConnectionConfigs - connection %s build schema and table map", addedConnection.Connection)
-			tableMap, schema, err = p.refreshSchema(c)
-			if err != nil {
-				return err
-			}
-		}
-
-		log.Printf("[TRACE] UpdateConnectionConfigs added connection %s to map, setting watch paths", c.Name)
-		p.ConnectionMap[addedConnection.Connection] = NewConnectionData(c, tableMap, schema, p)
-		// update the watch paths for the connection file watcher, if used
-		err := p.updateConnectionWatchPaths(c)
-		if err != nil {
-			log.Printf("[WARN] UpdateConnectionConfigs failed to update the watched paths for connection %s: %s", c.Name, err.Error())
+	// if there are any added or changed connections, we need to rebuild all aggregator schemas
+	if len(added)+len(deleted)+len(changed) > 0 {
+		_, err = p.setAggregatorSchemas()
+		if err != nil{
+			return failedConnections, err
 		}
 	}
 
 	// update the query cache schema map
-	connectionSchemaMap := p.buildConnectionSchemaMap()
-	p.queryCache.PluginSchemaMap = connectionSchemaMap
+	p.queryCache.PluginSchemaMap = p.buildConnectionSchemaMap()
 
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+	return failedConnections, nil
+}
 
+func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.ConnectionConfig, failedConnections map[string]error) error {
+	if len(changed) == 0 {
+		return nil
+	}
+
+	// first get the existing connection data - used for the update events
+	existingConnections := make(map[string]*ConnectionData, len(changed))
 	for _, changedConnection := range changed {
-		// get the existing connection data
 		connectionData, ok := p.ConnectionMap[changedConnection.Connection]
 		if !ok {
 			return fmt.Errorf("no connection config found for changed connection %s", changedConnection.Connection)
 		}
-		existingConnection := connectionData.Connection
-		updatedConnection := &Connection{
-			Name:   changedConnection.Connection,
-			Config: changedConnection.Config,
-		}
-		if p.ConnectionConfigSchema == nil {
-			return fmt.Errorf("connection config has been updated for connection '%s', but plugin '%s' does not define connection config schema", changedConnection.Connection, p.Name)
-		}
-		// ask plugin to parse the config
-		config, err := p.ConnectionConfigSchema.parse(changedConnection.Config)
-		if err != nil {
-			return err
-		}
-		updatedConnection.Config = config
+		existingConnections[changedConnection.Connection] = connectionData
+	}
 
-		if p.SchemaMode == SchemaModeDynamic {
-			var err error
-			log.Printf("[TRACE] UpdateConnectionConfigs - dynamic plugin connection updated - connection %s build schema and table map", updatedConnection)
-			connectionData.TableMap, connectionData.Schema, err = p.refreshSchema(updatedConnection)
+	// now just call addConnections for the changed connections
+	err := p.addConnections(changed, failedConnections, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	// call the ConnectionConfigChanged callback function for each changed connection
+	for _, changedConnection := range changed {
+		c := changedConnection.Connection
+		p.ConnectionConfigChangedFunc(ctx, p, existingConnections[c].Connection, p.ConnectionMap[changedConnection.Connection].Connection)
+	}
+	return nil
+}
+
+// add connections for all the provided configs
+// NOTE: this (may) mutate failedConnections, exemplarSchema and exemplarTableMap
+func (p *Plugin) addConnections(configs []*proto.ConnectionConfig, failedConnections map[string]error, exemplarSchema *grpc.PluginSchema, exemplarTableMap map[string]*Table) error {
+
+	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))
+
+	for _, config := range configs {
+		if len(config.ChildConnections) > 0 {
+			log.Printf("[TRACE] connection %s is an aggregator - handle separately", config.Connection)
+			p.setAggregatorConnectionData(config)
+		} else {
+			err := p.setConnectionData(config, failedConnections, exemplarSchema, exemplarTableMap)
 			if err != nil {
 				return err
 			}
 		}
-
-		// now update connectionData and write back
-		connectionData.Connection = updatedConnection
-		p.ConnectionMap[changedConnection.Connection] = connectionData
-
-		// update the watch paths for the connection file watcher, if used
-		log.Printf("[TRACE] UpdateConnectionConfigs update connection %s in map, setting watch paths", changedConnection.Connection)
-		err = p.updateConnectionWatchPaths(updatedConnection)
-		if err != nil {
-			log.Printf("[WARN] UpdateConnectionConfigs failed to update the watched paths for connection %s: %s", updatedConnection.Name, err.Error())
-		}
-
-		// call the ConnectionConfigChanged callback function
-		p.ConnectionConfigChangedFunc(ctx, p, existingConnection, updatedConnection)
 	}
-
 	return nil
 }
 
-// create a connectionData for this conneciton
+// create a connectionData for this connection and store it on the plugin
+// ConnectionData contains the table map, the schema and the connection
 // NOTE: this (may) mutate failedConnections, exemplarSchema and exemplarTableMap
+// NOTE: this is NOT called for aggregator connections
 func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnections map[string]error, exemplarSchema *grpc.PluginSchema, exemplarTableMap map[string]*Table) error {
 	connectionName := config.Connection
 	connectionConfigString := config.Config
@@ -243,7 +235,7 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnect
 	// if tableMap is nil, exemplar is not yet set
 	if tableMap == nil {
 		log.Printf("[TRACE] connection %s build schema and table map", connectionName)
-		tableMap, schema, err = p.refreshSchema(c)
+		tableMap, schema, err = p.getConnectionSchema(c)
 		if err != nil {
 			failedConnections[connectionName] = err
 			return nil
@@ -256,7 +248,9 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnect
 	}
 
 	// add to connection map
-	p.ConnectionMap[connectionName] = NewConnectionData(c, tableMap, schema, p)
+	d := NewConnectionData(c, p, config).setSchema(tableMap, schema)
+	p.ConnectionMap[connectionName] = d
+
 	log.Printf("[TRACE] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
 	// update the watch paths for the connection file watcher
@@ -268,9 +262,10 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnect
 	return nil
 }
 
-func (p *Plugin) refreshSchema(c *Connection) (map[string]*Table, *grpc.PluginSchema, error) {
-	// if the plugin defines a CreateTables func, call it now
+func (p *Plugin) getConnectionSchema(c *Connection) (map[string]*Table, *grpc.PluginSchema, error) {
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+
+	// if the plugin defines a CreateTables func, call it now
 	tableMap, err := p.initialiseTables(ctx, c)
 	if err != nil {
 		return nil, nil, err

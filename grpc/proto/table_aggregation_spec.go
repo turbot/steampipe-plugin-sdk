@@ -1,6 +1,8 @@
 package proto
 
-import "github.com/gertd/wild"
+import (
+	"github.com/gertd/wild"
+)
 
 func (x *TableAggregationSpec) MatchesConnection(connectionName string) bool {
 	for _, connectionMatch := range x.Connections {
@@ -9,4 +11,9 @@ func (x *TableAggregationSpec) MatchesConnection(connectionName string) bool {
 		}
 	}
 	return false
+}
+func (x *TableAggregationSpec) Equals(other *TableAggregationSpec) bool {
+	m := x.String()
+	o := other.String()
+	return m == o
 }

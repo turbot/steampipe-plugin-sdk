@@ -38,6 +38,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -54,6 +55,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -70,6 +72,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 
@@ -101,6 +104,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -117,6 +121,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -133,6 +138,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 
@@ -170,6 +176,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -186,6 +193,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -202,6 +210,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 
@@ -239,6 +248,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -255,6 +265,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -271,6 +282,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 
@@ -308,6 +320,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -324,6 +337,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -340,6 +354,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 
@@ -377,6 +392,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -393,6 +409,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -409,6 +426,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 
@@ -446,6 +464,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -462,6 +481,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -478,6 +498,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 
@@ -514,6 +535,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -530,6 +552,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -546,6 +569,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 		expected: map[string][]string{
@@ -579,6 +603,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c1"},
+				config:     &proto.ConnectionConfig{Connection: "c1"},
 			},
 			"c2": {
 				TableMap: map[string]*Table{
@@ -593,6 +618,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c2"},
+				config:     &proto.ConnectionConfig{Connection: "c2"},
 			},
 			"c3": {
 				TableMap: map[string]*Table{
@@ -609,6 +635,7 @@ var testCasesInitAggregatorTablesByConnection = map[string]initAggregatorTablesB
 					Mode: SchemaModeDynamic,
 				},
 				Connection: &Connection{Name: "c3"},
+				config:     &proto.ConnectionConfig{Connection: "c3"},
 			},
 		},
 		expected: map[string][]string{
@@ -624,12 +651,9 @@ func TestInitAggregatorTablesByConnection(t *testing.T) {
 	for _, test := range testCasesInitAggregatorTablesByConnection {
 		connectionData := NewConnectionData(
 			&Connection{Name: test.aggregatorConfig.Connection},
-			make(map[string]*Table),
-			&grpc.PluginSchema{
-				Mode:   SchemaModeDynamic,
-				Schema: make(map[string]*proto.TableSchema),
-			},
-			&Plugin{ConnectionMap: test.childConnections})
+			&Plugin{ConnectionMap: test.childConnections},
+			test.aggregatorConfig,
+		)
 
 		// do it
 		connectionData.initAggregatorSchema(test.aggregatorConfig)
