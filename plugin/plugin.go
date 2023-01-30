@@ -294,11 +294,12 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
 
 	// get the config for the connection - needed in case of aggregator
+	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
 	connectionData := p.ConnectionMap[req.Connection]
 
 	for connectionName := range req.ExecuteConnectionData {
 		// if this is an aggregator execution, check whether this child connection supports this table
-		if connectionData.AggregatedTablesByConnection != nil {
+		if connectionData != nil && connectionData.AggregatedTablesByConnection != nil {
 			if tablesForConnection, ok := connectionData.AggregatedTablesByConnection[connectionName]; ok {
 				if _, ok := tablesForConnection[req.Table]; !ok {
 					log.Printf("[WARN] aggregator connection %s, child connection %s does not provide table %s, skipping",
