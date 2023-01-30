@@ -29,15 +29,15 @@ func defaultGetHydrateCacheKeyFunc(hydrate HydrateFunc) HydrateFunc {
 
 type MemoizeOption = func(config *MemoizeConfiguration)
 
-// WithCacheKeyFunction sets the function used to build the cache key
-func WithCacheKeyFunction(getCacheKeyFunc HydrateFunc) MemoizeOption {
+// MemoizeCacheKeyFunction sets the function used to build the cache key
+func MemoizeCacheKeyFunction(getCacheKeyFunc HydrateFunc) MemoizeOption {
 	return func(o *MemoizeConfiguration) {
 		o.GetCacheKeyFunc = getCacheKeyFunc
 	}
 }
 
-// WithTtl sets the function used to build the cache key
-func WithTtl(ttl time.Duration) MemoizeOption {
+// MemoizeTtl sets the function used to build the cache key
+func MemoizeTtl(ttl time.Duration) MemoizeOption {
 	return func(o *MemoizeConfiguration) {
 		o.Ttl = ttl
 	}

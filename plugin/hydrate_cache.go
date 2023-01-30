@@ -39,7 +39,7 @@ func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 	// build a function to return the cache key
 	getCacheKey := hydrate.getCacheKeyFunction(args)
 
-	return hydrate.Memoize(WithCacheKeyFunction(getCacheKey))
+	return hydrate.Memoize(MemoizeCacheKeyFunction(getCacheKey))
 }
 
 /*
