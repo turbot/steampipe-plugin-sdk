@@ -10,9 +10,12 @@ import (
 // - this means it could not be used anywhere expecting a hydrate func, e.g. in a hydrate config etc.
 func Memoize[T any](f HydrateFunc, opts ...MemoizeOption) func(ctx context.Context, d *QueryData, h *HydrateData) (T, error) {
 	return func(ctx context.Context, d *QueryData, h *HydrateData) (T, error) {
+
 		val, err := f.Memoize(opts...)(ctx, d, h)
 		if err != nil {
-			return nil, err
+			var res T
+			return res, err
+
 		}
 		return val.(T), nil
 	}
