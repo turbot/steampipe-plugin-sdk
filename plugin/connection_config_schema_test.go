@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
 	"reflect"
 	"testing"
@@ -723,7 +724,7 @@ var testCasesParseConfig = map[string]parseConfigTest{
 
 func TestParseConnectionConfig(t *testing.T) {
 	for name, test := range testCasesParseConfig {
-		config, err := test.connectionConfigSchema.parse(test.source)
+		config, err := test.connectionConfigSchema.parse(&proto.ConnectionConfig{Config: test.source})
 		if err != nil {
 			if test.expected != "ERROR" {
 				t.Errorf("test %s failed with unexpected error: %v", name, err)
@@ -740,6 +741,5 @@ func TestParseConnectionConfig(t *testing.T) {
 				t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.expected, config)
 			}
 		}
-
 	}
 }
