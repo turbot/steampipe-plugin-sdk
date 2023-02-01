@@ -109,7 +109,10 @@ func (c *ConnectionConfigSchema) parseConfigWithCtyTags(config *proto.Connection
 	// filename and range may not have been passed (for older versions of CLI)
 	filename := ""
 	startPos := hcl.Pos{}
-
+	if config.DeclRange != nil {
+		filename = config.DeclRange.Filename
+		startPos = config.DeclRange.Start.ToHcl()
+	}
 	file, diags := hclsyntax.ParseConfig(configString, filename, startPos)
 	if diags.HasErrors() {
 		return nil, DiagsToError("Failed to parse connection config", diags)
