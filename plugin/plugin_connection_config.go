@@ -13,7 +13,6 @@ import (
 	"log"
 	"reflect"
 	"strings"
-	"time"
 )
 
 /*
@@ -53,10 +52,7 @@ func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	}()
 	failedConnections = make(map[string]error)
 
-	err = p.addConnections(configs, failedConnections, nil, nil)
-	if err != nil {
-		return failedConnections, err
-	}
+	p.addConnections(configs, failedConnections, nil, nil)
 
 	// TODO report log messages back somewhere
 	_, err = p.setAggregatorSchemas()
