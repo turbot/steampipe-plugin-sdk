@@ -5,8 +5,9 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hcldec"
-	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/function"
@@ -84,7 +85,7 @@ type Connection struct {
 // parse function parses the hcl config string into a connection config struct.
 //
 // The schema and the  struct to parse into are provided by the plugin
-func (c *ConnectionConfigSchema) parse(configString string) (config any, err error) {
+func (c *ConnectionConfigSchema) parse(config *proto.ConnectionConfig) (_ any, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] ConnectionConfigSchema parse caught a panic: %v\n", r)
@@ -94,44 +95,52 @@ func (c *ConnectionConfigSchema) parse(configString string) (config any, err err
 	}()
 
 	if c.Schema == nil {
-		return c.parseConfigWithHclTags(configString)
+		return c.parseConfigWithHclTags(config)
 	}
-	return c.parseConfigWithCtyTags(configString)
+	return c.parseConfigWithCtyTags(config)
 }
 
 // parse for legacy format config struct using cty tags
-func (c *ConnectionConfigSchema) parseConfigWithCtyTags(configString string) (any, error) {
+func (c *ConnectionConfigSchema) parseConfigWithCtyTags(config *proto.ConnectionConfig) (any, error) {
+	configString := []byte(config.Config)
 	configStruct := c.NewInstance()
 	spec := schema.SchemaToObjectSpec(c.Schema)
-	parser := hclparse.NewParser()
 
-	file, diags := parser.ParseHCL([]byte(configString), "/")
+	// filename and range may not have been passed (for older versions of CLI)
+	filename := ""
+	startPos := hcl.Pos{}
+
+	file, diags := hclsyntax.ParseConfig(configString, filename, startPos)
 	if diags.HasErrors() {
 		return nil, DiagsToError("Failed to parse connection config", diags)
 	}
 	value, diags := hcldec.Decode(file.Body, spec, nil)
 	if diags.HasErrors() {
-		return nil, DiagsToError("Failed to decode connection config", diags)
+		return nil, DiagsToError(fmt.Sprintf("failed to decode connection config for connection '%s'", config.Connection), diags)
 	}
 
 	// decode into the provided struct
 	if err := gocty.FromCtyValue(value, configStruct); err != nil {
-		return nil, fmt.Errorf("failed to marshal parsed config into config struct: %v", err)
+		return nil, fmt.Errorf("failed to marshal parsed config into config struct for connection '%s': %v", config.Connection, err)
 	}
 	// return the struct by value
 	return helpers.DereferencePointer(configStruct), nil
 }
 
-func (c *ConnectionConfigSchema) parseConfigWithHclTags(configString string) (_ any, err error) {
+func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.ConnectionConfig) (_ any, err error) {
+	configString := []byte(config.Config)
 	configStruct := c.NewInstance()
-	parser := hclparse.NewParser()
-	file, diags := parser.ParseHCL([]byte(configString), "")
+	// filename and range may not have been passed (for older versions of CLI)
+	filename := ""
+	startPos := hcl.Pos{}
+
+	file, diags := hclsyntax.ParseConfig(configString, filename, startPos)
 	if diags.HasErrors() {
-		return nil, DiagsToError("failed to parse connection config", diags)
+		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
 	}
 	_, body, diags := file.Body.PartialContent(&hcl.BodySchema{})
 	if diags.HasErrors() {
-		return nil, DiagsToError("failed to parse connection config", diags)
+		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
 	}
 
 	evalCtx := &hcl.EvalContext{
@@ -142,7 +151,7 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(configString string) (_ 
 	moreDiags := gohcl.DecodeBody(body, evalCtx, configStruct)
 	diags = append(diags, moreDiags...)
 	if diags.HasErrors() {
-		return nil, DiagsToError("failed to parse connection config", diags)
+		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
 	}
 	// return the struct by value
 	return helpers.DereferencePointer(configStruct), nil

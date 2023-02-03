@@ -20,19 +20,19 @@ func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 		if len(errStrings) > 1 {
 			res += "\n"
 		}
-		return fmt.Errorf("%s\n%s", prefix, res)
+		return fmt.Errorf("%s:\n%s", prefix, res)
 	}
 
 	return diags.Errs()[0]
 }
 
-// DiagsToWarning converts warning diags into a list of warning strings
+// DiagsToWarnings converts warning diags into a list of warning strings
 func DiagsToWarnings(diags hcl.Diagnostics) []string {
 	return diagsToString(diags, hcl.DiagWarning)
 }
 
 func diagsToString(diags hcl.Diagnostics, severity hcl.DiagnosticSeverity) []string { // convert the first diag into an error
-	// store list of messages (without the range) and use for deduping (we may get the same message for multiple ranges)
+	// store list of messages (without the range) and use for de-duping (we may get the same message for multiple ranges)
 	var msgMap = make(map[string]struct{})
 	var strs []string
 	for _, diag := range diags {
