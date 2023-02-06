@@ -1,6 +1,26 @@
 package proto
 
-func (x *TableSchema) GetColumnMap() map[string]*ColumnDefinition {
+func (x *TableSchema) GetCallKeyColumnMap() map[string]*KeyColumn {
+	if x != nil {
+		res := make(map[string]*KeyColumn, len(x.GetCallKeyColumnList))
+		for _, c := range x.GetCallKeyColumnList {
+			res[c.Name] = c
+		}
+		return res
+	}
+	return nil
+}
+func (x *TableSchema) ListCallKeyColumnMap() map[string]*KeyColumn {
+	if x != nil {
+		res := make(map[string]*KeyColumn, len(x.ListCallKeyColumnList))
+		for _, c := range x.ListCallKeyColumnList {
+			res[c.Name] = c
+		}
+		return res
+	}
+	return nil
+}
+func (x *TableSchema) ColumnMap() map[string]*ColumnDefinition {
 	if x != nil {
 		res := make(map[string]*ColumnDefinition, len(x.Columns))
 		for _, c := range x.Columns {
@@ -15,8 +35,8 @@ func (x *TableSchema) Equals(other *TableSchema) bool {
 	if len(x.Columns) != len(other.Columns) {
 		return false
 	}
-	columnMap := x.GetColumnMap()
-	otherColumnMap := other.GetColumnMap()
+	columnMap := x.ColumnMap()
+	otherColumnMap := other.ColumnMap()
 
 	for k, column := range columnMap {
 		otherColumn, ok := otherColumnMap[k]
