@@ -11,38 +11,48 @@ func (x *TableSchema) GetColumnMap() map[string]*ColumnDefinition {
 	return nil
 }
 
-func (x *TableSchema) Equals(other *TableSchema) bool {
-	if len(x.Columns) != len(other.Columns) {
-		return false
-	}
+func (x *TableSchema) Diff(other *TableSchema) *TableSchemaDiff {
+	var res = &TableSchemaDiff{}
+
 	columnMap := x.GetColumnMap()
 	otherColumnMap := other.GetColumnMap()
 
 	for k, column := range columnMap {
 		otherColumn, ok := otherColumnMap[k]
-		if !ok {
-			return false
-		}
-		if !column.Equals(otherColumn) {
-			return false
+		if !ok || !column.Equals(otherColumn) {
+			res.MismatchingColumns = append(res.MismatchingColumns, k)
 		}
 	}
+	for k, otherColumn := range otherColumnMap {
+		column, ok := columnMap[k]
+		if !ok || !column.Equals(otherColumn) {
+			res.MismatchingColumns = append(res.MismatchingColumns, k)
+		}
+	}
+
 	if len(x.GetCallKeyColumnList) != len(other.GetCallKeyColumnList) {
-		return false
-	}
-	for i, getKeyColumn := range x.GetCallKeyColumnList {
-		if !other.GetCallKeyColumnList[i].Equals(getKeyColumn) {
-			return false
+		res.KeyColumnsEqual = false
+	} else {
+		for i, getKeyColumn := range x.GetCallKeyColumnList {
+			if !other.GetCallKeyColumnList[i].Equals(getKeyColumn) {
+				res.KeyColumnsEqual = false
+
+			}
 		}
 	}
 	if len(x.ListCallKeyColumnList) != len(other.ListCallKeyColumnList) {
-		return false
-	}
-	for i, listKeyColumn := range x.ListCallKeyColumnList {
-		if !other.ListCallKeyColumnList[i].Equals(listKeyColumn) {
-			return false
+		res.KeyColumnsEqual = false
+	} else {
+		for i, listKeyColumn := range x.ListCallKeyColumnList {
+			if !other.ListCallKeyColumnList[i].Equals(listKeyColumn) {
+				res.KeyColumnsEqual = false
+			}
 		}
 	}
-	return true
+	return res
+}
 
+type TableSchemaDiff struct {
+	MismatchingColumns []string
+	KeyColumnsEqual    bool
 }

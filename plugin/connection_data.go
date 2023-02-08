@@ -3,17 +3,17 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/gertd/go-pluralize"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"golang.org/x/exp/maps"
 	"log"
 	"path"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/filewatcher"
 	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"golang.org/x/exp/maps"
 )
 
 // ConnectionData is the data stored by the plugin which is connection dependent.
@@ -144,7 +144,7 @@ func (d *ConnectionData) logInitAggregatorSchema(aggregatorConfig *proto.Connect
 	log.Printf("[INFO] ")
 }
 
-// for each table in AggregatedTablesByConnection, verify all connections havde the same schema and if so,
+// for each table in AggregatedTablesByConnection, verify all connections have the same schema and if so,
 // add to table map
 func (d *ConnectionData) resolveAggregatorTableMap(logMessages map[string][]string) {
 	// clear table map and schema before we start
@@ -160,19 +160,33 @@ func (d *ConnectionData) resolveAggregatorTableMap(logMessages map[string][]stri
 				continue
 			}
 
-			if schema, isSame := d.tableSchemaSameForAllConnections(tableName); isSame {
+			// TODO log messages from buildAggregatorTableSchema
+			tableSchema, messages := d.buildAggregatorTableSchema(tableName, table.Aggregation)
+			if tableSchema != nil {
+				// so we managed to b
 				d.TableMap[tableName] = table
-				d.Schema.Schema[tableName] = schema
+				d.Schema.Schema[tableName] = tableSchema
 			} else {
-				msg := fmt.Sprintf("excluding %s: schema mismatch", tableName)
-				log.Println("[INFO] - ", msg)
-
-				// TODO use standard codes/enum?
-				logMessages[connectionName] = append(logMessages[connectionName], msg)
+				// no schema returned - we are excluding this table
+				log.Printf("[INFO] excluding %s", tableName)
 				// NOTE: remove this table from ALL entries in AggregatedTablesByConnection
 				for _, tableMap := range d.AggregatedTablesByConnection {
 					delete(tableMap, tableName)
 				}
+			}
+			// there may be messages even if we do not exclude the table
+			if msgCount := len(messages); msgCount > 0 {
+				log.Printf("[INFO] connection %s, table %s: %d schema build %s",
+					connectionName,
+					tableName,
+					msgCount,
+					pluralize.NewClient().Pluralize("message", msgCount, false))
+
+				for _, m := range messages {
+					log.Println("[INFO]", m)
+				}
+
+				logMessages[connectionName] = append(logMessages[connectionName], messages...)
 			}
 		}
 	}
@@ -245,7 +259,9 @@ func (d *ConnectionData) getAggregatedTables(aggregatorConfig *proto.ConnectionC
 	return res, exclusionReasons
 }
 
-func (d *ConnectionData) tableSchemaSameForAllConnections(tableName string) (*proto.TableSchema, bool) {
+func (d *ConnectionData) buildAggregatorTableSchema(tableName string, aggregation AggregationMode) (*proto.TableSchema, []string) {
+	var excludedColumns = make(map[string]struct{})
+	var messages []string
 	p := d.Plugin
 	var exemplarSchema *proto.TableSchema
 	for _, c := range p.ConnectionMap {
@@ -255,17 +271,56 @@ func (d *ConnectionData) tableSchemaSameForAllConnections(tableName string) (*pr
 		}
 		// does this connection have this table?
 		tableSchema, ok := c.Schema.Schema[tableName]
-		if !ok {
-			log.Printf("[TRACE] tableSchemaSameForAllConnections: connection %s does not provide table %s", c.Connection.Name, tableName)
+		if !ok || len(tableSchema.Columns) == 0 {
+			log.Printf("[TRACE] buildAggregatorTableSchema: connection %s does not provide table %s", c.Connection.Name, tableName)
 			continue
 		}
 		if exemplarSchema == nil {
 			exemplarSchema = tableSchema
-		} else if !tableSchema.Equals(exemplarSchema) {
-			return nil, false
+			continue
+		}
+
+		schemaDiff := tableSchema.Diff(exemplarSchema)
+		if !schemaDiff.KeyColumnsEqual {
+			messages = append(messages, fmt.Sprintf("cannot build merged schema for table %s as key columns are not consistent", tableName))
+			return nil, messages
+		}
+		for _, c := range schemaDiff.MismatchingColumns {
+			excludedColumns[c] = struct{}{}
 		}
 	}
-	return exemplarSchema, true
+	if len(excludedColumns) == 0 {
+		return exemplarSchema, messages
+	}
+
+	// otherwise build a subset schema
+	// if any required key columns are excluded,. we cannot build a subset
+	allKeyColumns := append(exemplarSchema.GetCallKeyColumnList, exemplarSchema.ListCallKeyColumnList...)
+	for _, k := range allKeyColumns {
+		// TODO fail if ANY key column excluded?
+		if k.Require == Required {
+			if _, isExcluded := excludedColumns[k.Name]; isExcluded {
+				messages = append(messages, fmt.Sprintf("cannot build merged schema for table %s as required key column %s is excluded\"", tableName, k.Name))
+				return nil, messages
+			}
+		}
+	}
+
+	var subsetSchema = &proto.TableSchema{
+		Description:                exemplarSchema.Description,
+		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,
+		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,
+		ListCallOptionalKeyColumns: exemplarSchema.ListCallOptionalKeyColumns,
+		GetCallKeyColumnList:       exemplarSchema.GetCallKeyColumnList,
+		ListCallKeyColumnList:      exemplarSchema.ListCallKeyColumnList,
+	}
+
+	for _, c := range exemplarSchema.Columns {
+		if _, isExcluded := excludedColumns[c.Name]; !isExcluded {
+			subsetSchema.Columns = append(subsetSchema.Columns, c)
+		}
+	}
+	return subsetSchema, messages
 
 }
 
