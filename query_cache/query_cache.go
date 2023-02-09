@@ -104,7 +104,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 
 	// get the index bucket key for this table and quals
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
-	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, quals", indexBucketKey)
+	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, (%s)", indexBucketKey, req.CallId)
 
 	// do we have a cached result?
 	err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
@@ -112,10 +112,10 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 		// only set cache hit if there was no error
 		cacheHit = true
 	} else if IsCacheMiss(err) {
-		log.Printf("[TRACE] getCachedQueryResult returned CACHE MISS - checking for pending transfers")
+		log.Printf("[TRACE] getCachedQueryResult returned CACHE MISS - checking for pending transfers (%s)", req.CallId)
 		// there was no cached result - is there data fetch in progress?
 		if pendingItem := c.getPendingResultItem(indexBucketKey, req); pendingItem != nil {
-			log.Printf("[TRACE] found pending item - waiting for it")
+			log.Printf("[TRACE] found pending item - waiting for it (%s)", req.CallId)
 			// so there is a pending result, wait for it
 			return c.waitForPendingItem(ctx, pendingItem, indexBucketKey, req, streamRowFunc)
 		}
@@ -125,6 +125,8 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	return err
 }
 
+// StartSet begins a streaming cache Set operation.
+// NOTE: this mutates req
 func (c *QueryCache) StartSet(_ context.Context, req *CacheRequest) {
 	log.Printf("[TRACE] StartSet (%s)", req.CallId)
 
@@ -157,7 +159,7 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 
 	if req.rowIndex == rowBufferSize {
 		// reset index and update page count
-		log.Printf("[TRACE] IterateSet written 1 page of %d rows. Page count %d", rowBufferSize, req.pageCount)
+		log.Printf("[TRACE] IterateSet written 1 page of %d rows. Page count %d (%s)", rowBufferSize, req.pageCount, req.CallId)
 
 		req.err = c.writePageToCache(ctx, req)
 	}
@@ -176,7 +178,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		return fmt.Errorf("EndSet called for callId %s but there is no in progress set operation", callId)
 	}
 
-	log.Printf("[TRACE] EndSet (%s) table %s", callId, req.Table)
+	log.Printf("[TRACE] EndSet (%s) table %s root key %s, pages: %d", callId, req.Table, req.resultKeyRoot, req.pageCount)
 
 	defer func() {
 		log.Printf("[TRACE] EndSet DEFER (%s) table %s", callId, req.Table)
@@ -190,6 +192,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		c.setRequestMapLock.Unlock()
 
 		log.Printf("[TRACE] calling pendingItemComplete (%s)", callId)
+
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
 		c.pendingItemComplete(req, err)
@@ -205,12 +208,14 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	}
 
 	// now update the index
-	// get the index bucket for this table and quals
+	// get the index bucket for this table and connection
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
+	log.Printf("[TRACE] QueryCache EndSet indexBucketKey %s", indexBucketKey)
+
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
 		if IsCacheMiss(err) {
-			log.Printf("[TRACE] getCachedIndexBucket returned cache miss")
+			log.Printf("[TRACE] getCachedIndexBucket returned cache miss (%s)", callId)
 		} else {
 			// if there is an error fetching the index bucket, log it and return
 			// we do not want to risk overwriting an existing index bucket
@@ -226,14 +231,14 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		indexBucket = newIndexBucket()
 	}
 	indexBucket.Append(indexItem)
-	log.Printf("[TRACE] QueryCache EndSet - Added index item (%p) to bucket (%p), page count %d,  key root %s", indexItem, indexBucket, req.pageCount, req.resultKeyRoot)
+	log.Printf("[TRACE] QueryCache EndSet - Added index item (%p) to bucket (%p), page count %d,  key root %s (%s)", indexItem, indexBucket, req.pageCount, req.resultKeyRoot, callId)
 
 	// write index bucket back to cache
 	err = c.cacheSetIndexBucket(ctx, indexBucketKey, indexBucket, req)
 	if err != nil {
 		log.Printf("[WARN] cache Set failed for index bucket: %v", err)
 	} else {
-		log.Printf("[TRACE] QueryCache EndSet - IndexBucket written")
+		log.Printf("[TRACE] QueryCache EndSet - IndexBucket written (%s)", callId)
 	}
 
 	return err
@@ -444,6 +449,7 @@ func (c *QueryCache) buildIndexKey(connectionName, table string) string {
 	return str
 }
 
+// build a result key, using connection, table, quals, columns and limit
 func (c *QueryCache) buildResultKey(req *CacheRequest) string {
 	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s%d",
 		req.ConnectionName,
