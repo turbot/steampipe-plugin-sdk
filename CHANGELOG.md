@@ -8,6 +8,7 @@ _What's new_
 * If an empty Matrix is returned from MatrixItemFunc, fetch function should not be called.([#496](https://github.com/turbot/steampipe-plugin-sdk/issues/496))
 * Remove need for connection config schema - support hcl tags on connection config struct. ([#482](https://github.com/turbot/steampipe-plugin-sdk/issues/482))
 * Add support for including child `struct` properties in connection config. ([#168](https://github.com/turbot/steampipe-plugin-sdk/issues/168))
+* Fix query cache `pending item` functionality, which waits for existing pending cache items when satisfying a cache request. ([#511](https://github.com/turbot/steampipe-plugin-sdk/issues/511), [#512](https://github.com/turbot/steampipe-plugin-sdk/issues/512))
 
 ## v5.1.2 [2023-01-24]
 _Bug fixes_
