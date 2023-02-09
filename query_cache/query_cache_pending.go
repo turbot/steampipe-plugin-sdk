@@ -103,7 +103,8 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, (%s) pending item %p index item %p indexBucketKey: %s, item key %s", req.CallId, pendingItem, pendingItem.item, indexBucketKey, pendingItem.item.Key)
 
 		// now try to read from the cache again
-		err := c.getCachedQueryResultFromIndexItem(ctx, pendingItem.item, streamRowFunc)
+		// NOTE: use same error variable, so we can return it
+		err = c.getCachedQueryResultFromIndexItem(ctx, pendingItem.item, streamRowFunc)
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem (%s) - pending item %p, key %s, transferCompleteChan was signalled but getCachedResult returned error: %v", req.CallId, pendingItem, pendingItem.item.Key, err)
 			// if the data is still not in the cache, create a pending item
@@ -171,14 +172,18 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 		// the may be more than one pending item which is satisfied by this request - clear them all
 		completedPendingItems := pendingIndexBucket.GetItemsSatisfiedByColumns(req.Columns, req.Limit)
 		for _, pendingItem := range completedPendingItems {
+			// remove pending item from the parent pendingIndexBucket (BEFORE updating the index item cache key)
+			delete(pendingIndexBucket.Items, pendingItem.item.Key)
+
 			// NOTE set the page count for the pending item to the actual page count, which we now know
 			pendingItem.item.PageCount = req.pageCount
+			// NOTE: set the key for the pending item to be the root key of the completed request
+			// this is necessary as this is the cache key which was actually used to insert the data
+			pendingItem.item.Key = req.resultKeyRoot
 
 			log.Printf("[TRACE] found completed pending item (%s) %p, key %s - removing from map as it is complete", req.CallId, pendingItem, pendingItem.item.Key)
 			// unlock the item passing err (which may be nil)
 			pendingItem.Unlock(err)
-			// remove it from the map
-			delete(pendingIndexBucket.Items, pendingItem.item.Key)
 			log.Printf("[TRACE] deleted from pending, (%s) len %d", req.CallId, len(pendingIndexBucket.Items))
 		}
 		if len(pendingIndexBucket.Items) == 0 {
