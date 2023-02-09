@@ -273,7 +273,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	log.Printf("[INFO] Plugin Execute (%s)", req.CallId)
+	log.Printf("[INFO] Plugin Execute, table: %s (%s)", req.Table, req.CallId)
 	defer log.Printf("[INFO]  Plugin Execute complete (%s)", req.CallId)
 
 	// limit the plugin memory

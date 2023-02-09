@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// IndexBucket contains index items for all cache results for a given table and qual set
+// IndexBucket contains index items for all cache results for a given table and connection
 type IndexBucket struct {
 	Items []*IndexItem
 }

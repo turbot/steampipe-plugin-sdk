@@ -2,6 +2,8 @@ package query_cache
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
 	"strings"
 	"sync"
@@ -19,14 +21,16 @@ func newPendingIndexBucket() *pendingIndexBucket {
 	return &pendingIndexBucket{Items: make(map[string]*pendingIndexItem)}
 }
 
-// GetItemsSatisfiedByColumns finds all index item which are satisfied by the column
+// GetItemsSatisfyingRequest finds all index item which are satisfied by the column
 // used when removing pending IndexItems after a cache Set call
-func (b *pendingIndexBucket) GetItemsSatisfiedByColumns(columns []string, limit int64) []*pendingIndexItem {
+func (b *pendingIndexBucket) GetItemsSatisfyingRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) []*pendingIndexItem {
 	var satisfiedItems []*pendingIndexItem
-
+	columns := req.Columns
+	limit := req.Limit
+	quals := req.QualMap
 	for _, item := range b.Items {
-		if item.SatisfiedByColumns(columns) && item.SatisfiesLimit(limit) {
-			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d", strings.Join(columns, ","), limit)
+		if item.SatisfiedByColumns(columns) && item.SatisfiesLimit(limit) && item.SatisfiesQuals(quals, keyColumns) {
+			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d, quals: %s", strings.Join(columns, ","), limit, grpc.QualMapToString(quals, true))
 			satisfiedItems = append(satisfiedItems, item)
 		}
 	}
@@ -94,6 +98,11 @@ func (i *pendingIndexItem) SatisfiesColumns(columns []string) bool {
 // SatisfiesLimit returns whether our index item satisfies the given limit
 func (i *pendingIndexItem) SatisfiesLimit(limit int64) bool {
 	return i.item.SatisfiesLimit(limit)
+}
+
+// SatisfiesQuals returns whether our index item satisfies the given quals
+func (i *pendingIndexItem) SatisfiesQuals(qualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
+	return i.item.SatisfiesQuals(qualMap, keyColumns)
 }
 
 // SatisfiedByColumns returns whether we would be satisfied by the given columns
