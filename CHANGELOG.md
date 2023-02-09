@@ -1,3 +1,6 @@
+## v5.1.3 [2023-02-09]
+* Fix query cache `pending item` functionality, which waits for existing pending cache items when satisfying a cache request. This sometimes returns empty results instead of the expected pending results.  ([#511](https://github.com/turbot/steampipe-plugin-sdk/issues/511), [#512](https://github.com/turbot/steampipe-plugin-sdk/issues/512))
+
 ## v5.1.2 [2023-01-24]
 _Bug fixes_
 * Fix cache timeout when doing `select *` -  when adding all columns to the cache request, include the `_ctx` column. ([#490](https://github.com/turbot/steampipe-plugin-sdk/issues/490))
