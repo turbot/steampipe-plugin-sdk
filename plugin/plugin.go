@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gertd/go-pluralize"
 	"log"
 	"os"
 	"path"
@@ -275,14 +274,6 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetFlags(0)
 
 	log.Printf("[INFO] Plugin Execute table: %s  (%s)", req.Table, req.CallId)
-	log.Printf("[INFO] %d %s: (%s)",
-		len(req.QueryContext.Quals),
-		pluralize.NewClient().Pluralize("QUAL", len(req.QueryContext.Quals), false),
-		req.CallId)
-	//for _, q := range strings.Split(grpc.QualMapToString(req.QueryContext.Quals, true), "\n") {
-	//	log.Printf("[INFO] %s", q)
-	//}
-
 	defer log.Printf("[INFO]  Plugin Execute complete (%s)", req.CallId)
 
 	// limit the plugin memory
@@ -363,11 +354,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				complete = true
 				break
 			}
-
-			log.Printf("[INFO] Stream row: %v (%s)", row.Row.Columns["group_id"], req.CallId)
-
 			if err := stream.Send(row); err != nil {
-
 				log.Printf("[INFO] ERROR streaming row (%s)", req.CallId)
 				// ignore context cancellation - they will get picked up further downstream
 				if !error_helpers.IsContextCancelledError(err) {
