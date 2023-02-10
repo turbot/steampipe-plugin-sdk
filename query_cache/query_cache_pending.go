@@ -18,11 +18,11 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 
 	// acquire a Read lock for pendingData map
 	c.pendingDataLock.RLock()
-	// do we have a pending items which satisfy the qual, limit and column constraints
+	// do we have a pending items whihc satisfy the qual, limit and column constraints
 	pendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
 	c.pendingDataLock.RUnlock()
 
-	// if there was no pending result, we assume the calling code will fetch the data and add it to the cache
+	// if there was no pending result  - we assume the calling code will fetch the data and add it to the cache
 	// so add a pending result
 	if len(pendingItems) == 0 {
 		// acquire a Write lock
@@ -51,7 +51,7 @@ func (c *QueryCache) getPendingItemSatisfyingConstraints(indexBucketKey string, 
 
 	// is there a pending index bucket for this query
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
-		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columnd %v, limid %d", indexBucketKey, req.Columns, req.Limit)
+		log.Printf("[INFO] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columnd %v, limid %d", indexBucketKey, req.Columns, req.Limit)
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
 		return pendingIndexBucket.GetItemsSatisfyingRequest(req, keyColumns), pendingIndexBucket
 
@@ -117,7 +117,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, (%s) pending item %p index item %p indexBucketKey: %s, item key %s", req.CallId, pendingItem, pendingItem.item, indexBucketKey, pendingItem.item.Key)
 
 		// now try to read from the cache again
-		// NOTE: use same error variable, so we can return it
+		// NOTE: use same error variable so we can return it
 		err = c.getCachedQueryResultFromIndexItem(ctx, pendingItem.item, streamRowFunc)
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem (%s) - pending item %p, key '%s', transferCompleteChan was signalled but getCachedResult returned error: %v", req.CallId, pendingItem, pendingItem.item.Key, err)
@@ -194,15 +194,14 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 
 		// check again for completed items (in case anyone else grabbed a Write lock before us)
 		completedPendingItems, pendingIndexBucket := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
-		// mark each completed pending item as complete
 		for _, pendingItem := range completedPendingItems {
 			// remove pending item from the parent pendingIndexBucket (BEFORE updating the index item cache key)
 			delete(pendingIndexBucket.Items, pendingItem.item.Key)
 
-			// NOTE: set the page count for the pending item to the actual page count, which we now know
+			// NOTE set the page count for the pending item to the actual page count, which we now know
 			pendingItem.item.PageCount = req.pageCount
-			// NOTE: set the key for the pending item to be the root key of the completed request
-			// this is necessary as this is the cache key which was actually used to insert the data
+			// NOTE set the key for the pending item to be the root key of the completed request
+			// this is necessary as ths is the cache key which was actually used to insert the data
 			pendingItem.item.Key = req.resultKeyRoot
 
 			log.Printf("[TRACE] found completed pending item (%s) %p, key %s - removing from map as it is complete", req.CallId, pendingItem, pendingItem.item.Key)

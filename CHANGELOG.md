@@ -9,9 +9,6 @@ _What's new_
 * Remove need for connection config schema - support hcl tags on connection config struct. ([#482](https://github.com/turbot/steampipe-plugin-sdk/issues/482))
 * Add support for including child `struct` properties in connection config. ([#168](https://github.com/turbot/steampipe-plugin-sdk/issues/168))
 
-## v5.1.3 [2023-02-09]
-* Fix query cache `pending item` functionality, which waits for existing pending cache items when satisfying a cache request. This sometimes returns empty results instead of the expected pending results.  ([#511](https://github.com/turbot/steampipe-plugin-sdk/issues/511), [#512](https://github.com/turbot/steampipe-plugin-sdk/issues/512))
-
 ## v5.1.2 [2023-01-24]
 _Bug fixes_
 * Fix cache timeout when doing `select *` -  when adding all columns to the cache request, include the `_ctx` column. ([#490](https://github.com/turbot/steampipe-plugin-sdk/issues/490))
@@ -61,9 +58,6 @@ type TableMapData struct {
 * `QueryData.KeyColumnQuals` has been renamed to `EqualsQuals` 
 * `QueryData.KeyColumnQualsString` has been renamed to  `EqualsQualString`
 * `ConcurrencyManager` and `HydrateCall` and no longer exported
-
-## v4.1.12 [2023-02-09]
-* Fix query cache `pending item` functionality, which waits for existing pending cache items when satisfying a cache request. This sometimes returns empty results instead of the expected pending results.  ([#511](https://github.com/turbot/steampipe-plugin-sdk/issues/511), [#512](https://github.com/turbot/steampipe-plugin-sdk/issues/512))
 
 ## v4.1.11 [2023-01-24]
 _Bug fixes_

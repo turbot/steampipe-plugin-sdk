@@ -273,7 +273,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	log.Printf("[INFO] Plugin Execute, table: %s (%s)", req.Table, req.CallId)
+	log.Printf("[INFO] Plugin Execute table: %s  (%s)", req.Table, req.CallId)
+	log.Printf("[INFO] quals: %s (%s)", grpc.QualMapToString(req.QueryContext.Quals, true), req.CallId)
 	defer log.Printf("[INFO]  Plugin Execute complete (%s)", req.CallId)
 
 	// limit the plugin memory
@@ -329,7 +330,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				}
 				errorChan <- err
 			}
-			log.Printf("[TRACE] executeForConnection %s returned", c)
+			log.Printf("[INFO] executeForConnection %s returned", c)
 		}(connectionName)
 	}
 
@@ -339,7 +340,8 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		outputWg.Wait()
 		// so all executeForConnection calls are complete
 		// stream a nil row to indicate completion
-		log.Printf("[TRACE] output wg complete - send nil row")
+		log.Printf("[INFO] output wg complete - send nil row (%s)", req.CallId)
+
 		outputChan <- nil
 	}()
 
@@ -354,7 +356,11 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				break
 			}
 
+			log.Printf("[INFO] Stream row: %v (%s)", row.Row.Columns["security_group_rule_id"], req.CallId)
+
 			if err := stream.Send(row); err != nil {
+
+				log.Printf("[INFO] ERROR streaming row (%s)", req.CallId)
 				// ignore context cancellation - they will get picked up further downstream
 				if !error_helpers.IsContextCancelledError(err) {
 					errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
@@ -436,6 +442,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		log.Printf("[TRACE] executeForConnection DEFER (%s) ", connectionCallId)
 		if r := recover(); r != nil {
 			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
+			log.Printf("[WARN] %s", debug.Stack())
 			err = helpers.ToError(r)
 			return
 		}
@@ -467,7 +474,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 			log.Printf("[INFO] caching is disabled for table %s", table.Name)
 		}
 	}
-
+	//cacheEnabled = false
 	logging.LogTime("Start execute")
 
 	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL)

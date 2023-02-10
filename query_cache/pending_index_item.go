@@ -30,7 +30,7 @@ func (b *pendingIndexBucket) GetItemsSatisfyingRequest(req *CacheRequest, keyCol
 	quals := req.QualMap
 	for _, item := range b.Items {
 		if item.SatisfiedByColumns(columns) && item.SatisfiesLimit(limit) && item.SatisfiesQuals(quals, keyColumns) {
-			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d, quals: %s", strings.Join(columns, ","), limit, grpc.QualMapToString(quals, true))
+			log.Printf("[INFO] found pending index item to satisfy columns %s, limit %d, quals: %s", strings.Join(columns, ","), limit, grpc.QualMapToString(quals, true))
 			satisfiedItems = append(satisfiedItems, item)
 		}
 	}
