@@ -25,7 +25,7 @@ func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {
 func (b *IndexBucket) Get(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) *IndexItem {
 	for _, item := range b.Items {
 		log.Printf("[TRACE] IndexBucket.Get key %s limit %d", item.Key, item.Limit)
-		if item.SatisfiesQuals(req.QualMap, keyColumns) && item.SatisfiesColumns(req.Columns) && item.SatisfiesLimit(req.Limit) && item.SatisfiesTtl(req.TtlSeconds) {
+		if item.SatisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns) && item.satisfiesTtl(req.TtlSeconds) {
 			return item
 		}
 	}

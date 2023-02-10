@@ -3,6 +3,7 @@ package query_cache
 import (
 	"context"
 	"fmt"
+	"github.com/gertd/go-pluralize"
 	"log"
 	"sort"
 	"strings"
@@ -105,6 +106,19 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	// get the index bucket key for this table and quals
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
 	log.Printf("[INFO] QueryCache Get - indexBucketKey %s, (%s)", indexBucketKey, req.CallId)
+	log.Printf("[INFO] %d %s: (%s)",
+		len(req.QualMap),
+		pluralize.NewClient().Pluralize("QUAL", len(req.QualMap), false),
+		req.CallId)
+	//if len(req.QualMap) > 0 {
+	//	log.Printf("[INFO] quals: (%s)", req.CallId)
+	//	for _, q := range strings.Split(grpc.QualMapToString(req.QualMap, true), "\n") {
+	//		log.Printf("[INFO] %s", q)
+	//	}
+	//} else {
+	//	log.Printf("[INFO] NO quals: (%s)", req.CallId)
+	//}
+	//log.Printf("[INFO] quals: (%s)", req.CallId)
 
 	// do we have a cached result?
 	err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)

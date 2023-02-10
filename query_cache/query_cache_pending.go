@@ -2,7 +2,9 @@ package query_cache
 
 import (
 	"context"
+	"golang.org/x/exp/maps"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
@@ -19,7 +21,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 	// acquire a Read lock for pendingData map
 	c.pendingDataLock.RLock()
 	// do we have a pending items whihc satisfy the qual, limit and column constraints
-	pendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+	pendingItems, _ := c.getPendingItemSatisfyingRequest(indexBucketKey, req)
 	c.pendingDataLock.RUnlock()
 
 	// if there was no pending result  - we assume the calling code will fetch the data and add it to the cache
@@ -30,7 +32,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 		defer c.pendingDataLock.Unlock()
 
 		// try again to get a pending item - in case someone else grabbed a Write lock before us
-		pendingItems, _ = c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+		pendingItems, _ = c.getPendingItemSatisfyingRequest(indexBucketKey, req)
 		if len(pendingItems) == 0 {
 			log.Printf("[TRACE] no pending index item - add pending result, indexBucketKey %s", indexBucketKey)
 			// add a pending result so anyone else asking for this data will wait the fetch to complete
@@ -46,14 +48,30 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 }
 
 // this must be called inside a lock
-func (c *QueryCache) getPendingItemSatisfyingConstraints(indexBucketKey string, req *CacheRequest) ([]*pendingIndexItem, *pendingIndexBucket) {
+func (c *QueryCache) getPendingItemSatisfyingRequest(indexBucketKey string, req *CacheRequest) ([]*pendingIndexItem, *pendingIndexBucket) {
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
 
 	// is there a pending index bucket for this query
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
-		log.Printf("[INFO] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columnd %v, limid %d", indexBucketKey, req.Columns, req.Limit)
+		qualsString := strings.Join(maps.Keys(req.QualMap), ",")
+		log.Printf("[INFO] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)", indexBucketKey, req.Columns, req.Limit, qualsString, req.CallId)
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
 		return pendingIndexBucket.GetItemsSatisfyingRequest(req, keyColumns), pendingIndexBucket
+
+	}
+	return nil, nil
+}
+
+// this must be called inside a lock
+func (c *QueryCache) getPendingItemSatisfiedByRequest(indexBucketKey string, req *CacheRequest) ([]*pendingIndexItem, *pendingIndexBucket) {
+	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
+
+	// is there a pending index bucket for this query
+	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
+		qualsString := strings.Join(maps.Keys(req.QualMap), ",")
+		log.Printf("[INFO] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)", indexBucketKey, req.Columns, req.Limit, qualsString, req.CallId)
+		// now check whether there is a pending item in this bucket that covers the required columns and limit
+		return pendingIndexBucket.GetItemsSatisfiedByRequest(req, keyColumns), pendingIndexBucket
 
 	}
 	return nil, nil
@@ -180,7 +198,7 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 	c.pendingDataLock.RLock()
 	// do we have a pending items
 	// the may be more than one pending item which is satisfied by this request - clear them all
-	completedPendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+	completedPendingItems, _ := c.getPendingItemSatisfiedByRequest(indexBucketKey, req)
 	// release read lock
 	c.pendingDataLock.RUnlock()
 
@@ -193,7 +211,7 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 		defer c.pendingDataLock.Unlock()
 
 		// check again for completed items (in case anyone else grabbed a Write lock before us)
-		completedPendingItems, pendingIndexBucket := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+		completedPendingItems, pendingIndexBucket := c.getPendingItemSatisfyingRequest(indexBucketKey, req)
 		for _, pendingItem := range completedPendingItems {
 			// remove pending item from the parent pendingIndexBucket (BEFORE updating the index item cache key)
 			delete(pendingIndexBucket.Items, pendingItem.item.Key)

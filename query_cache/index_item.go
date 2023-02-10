@@ -2,6 +2,7 @@ package query_cache
 
 import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"golang.org/x/exp/maps"
 	"log"
 	"strings"
 	"time"
@@ -32,27 +33,38 @@ func NewIndexItem(req *CacheRequest) *IndexItem {
 	}
 }
 
-// SatisfiesColumns returns whether this index item satisfies the given columns
+func (i IndexItem) SatisfiesRequest(columns []string, limit int64, qualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
+	return i.satisfiesColumns(columns) &&
+		i.satisfiesLimit(limit) &&
+		i.satisfiesQuals(qualMap, keyColumns)
+}
+func (i IndexItem) SatisfiedByRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
+	// make an index item for the request
+	requestIndexItem := NewIndexItem(req)
+	return requestIndexItem.SatisfiesRequest(i.Columns, i.Limit, i.Quals, keyColumns)
+}
+
+// satisfiesColumns returns whether this index item satisfies the given columns
 // used when determining whether this IndexItem satisfies a cache reques
-func (i IndexItem) SatisfiesColumns(columns []string) bool {
+func (i IndexItem) satisfiesColumns(columns []string) bool {
 	for _, c := range columns {
 		if !helpers.StringSliceContains(i.Columns, c) {
-			log.Printf("[TRACE] SatisfiesColumns returning false - %s missing from %s", c, strings.Join(columns, ","))
+			log.Printf("[TRACE] satisfiesColumns returning false - %s missing from %s", c, strings.Join(columns, ","))
 			return false
 		}
 	}
 	return true
 }
 
-// SatisfiesLimit returns whether this index item satisfies the given limit
+// satisfiesLimit returns whether this index item satisfies the given limit
 // used when determining whether this IndexItem satisfies a cache reques
-func (i IndexItem) SatisfiesLimit(limit int64) bool {
+func (i IndexItem) satisfiesLimit(limit int64) bool {
 	// if index item has is no limit, it will be -1
 	if i.Limit == -1 {
-		log.Printf("[TRACE] SatisfiesLimit limit %d, no item limit - satisfied", limit)
+		log.Printf("[TRACE] satisfiesLimit limit %d, no item limit - satisfied", limit)
 		return true
 	}
-	log.Printf("[TRACE] SatisfiesLimit limit %d, item limit %d ", limit, i.Limit)
+	log.Printf("[TRACE] satisfiesLimit limit %d, item limit %d ", limit, i.Limit)
 	// if 'limit' is -1 and i.Limit is not, we cannot satisfy this
 	if limit == -1 {
 		return false
@@ -64,7 +76,7 @@ func (i IndexItem) SatisfiesLimit(limit int64) bool {
 
 }
 
-// SatisfiesQuals
+// satisfiesQuals
 // does this index item satisfy the check quals
 // all data returned by check quals is returned by index quals
 //
@@ -80,29 +92,35 @@ func (i IndexItem) SatisfiesLimit(limit int64) bool {
 // In this case, we only identify a cache hit if the cached data has the _same_ value for the given colummn
 //
 // NOTE: if the IndexItem has a limit, the quals must be IDENTICAL (ignoring ordering)
-func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
-	log.Printf("[TRACE] SatisfiesQuals, limit %d", i.Limit)
+func (i IndexItem) satisfiesQuals(checkQualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
+	qualsString := strings.Join(maps.Keys(i.Quals), ",")
+	if qualsString == "" {
+		qualsString = "NONE"
+	}
+	log.Printf("[INFO] satisfiesQuals, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
+
 	if i.Limit != -1 {
 		res := grpc.QualMapsEqual(checkQualMap, i.Quals)
-		log.Printf("[TRACE] there is a limit so quals must be identical to satisfy - result: %v", res)
+		log.Printf("[INFO] there is a limit so quals must be identical to satisfy - result: %v", res)
 		return res
 	}
 
 	for col, indexQuals := range i.Quals {
-		log.Printf("[TRACE] col %s", col)
+		log.Printf("[INFO] col %s", col)
 		// if we have quals the check quals do not, we DO NOT satisfy
 		checkQuals, ok := checkQualMap[col]
 		var isSubset bool
 		if ok {
-			log.Printf("[TRACE] SatisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
-			log.Printf("[TRACE] indexQuals %+v, checkQuals %+v", indexQuals, checkQuals)
+			log.Printf("[INFO] satisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
+			log.Printf("[INFO] indexQuals %+v, checkQuals %+v", indexQuals, checkQuals)
 			// isSubset means all data returned by check quals is returned by index quals
 			isSubset = checkQuals.IsASubsetOf(indexQuals)
 		} else {
-			log.Printf("[TRACE] SatisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED", col)
+			log.Printf("[INFO] satisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED", col)
 		}
-		log.Printf("[TRACE] get check qual %v, isSubset %v", ok, isSubset)
+		log.Printf("[INFO] get check qual %v, isSubset %v", ok, isSubset)
 		if !ok || !isSubset {
+			log.Printf("[INFO] satisfiesQuals FALSE, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 			return false
 		}
 	}
@@ -113,23 +131,24 @@ func (i IndexItem) SatisfiesQuals(checkQualMap map[string]*proto.Quals, keyColum
 		if keyColumn, ok := keyColumns[col]; ok && keyColumn.CacheMatch == CacheMatchExact {
 			quals, ok := i.Quals[col]
 			if !ok || !quals.Equals(checkQuals) {
+				log.Printf("[INFO] satisfiesQuals FALSE, same qual does not exist in cached data - limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 				return false
 			}
 		}
 	}
-
+	log.Printf("[INFO] satisfiesQuals TRUE, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 	return true
 }
 
-// SatisfiesTtl
+// satisfiesTtl
 // does this index item satisfy the ttl requirement
-func (i IndexItem) SatisfiesTtl(ttlSeconds int64) bool {
+func (i IndexItem) satisfiesTtl(ttlSeconds int64) bool {
 	timeSince := time.Since(i.InsertionTime)
 	if timeSince > time.Duration(ttlSeconds)*time.Second {
-		log.Printf("[TRACE] SatisfiesTtl: cache ttl %d has expired (%fs)", ttlSeconds, timeSince.Seconds())
+		log.Printf("[TRACE] satisfiesTtl: cache ttl %d has expired (%fs)", ttlSeconds, timeSince.Seconds())
 		return false
 	}
-	log.Printf("[TRACE] SatisfiesTtl: cache ttl %d has NOT expired (%fs)", ttlSeconds, timeSince.Seconds())
+	log.Printf("[TRACE] satisfiesTtl: cache ttl %d has NOT expired (%fs)", ttlSeconds, timeSince.Seconds())
 
 	return true
 
