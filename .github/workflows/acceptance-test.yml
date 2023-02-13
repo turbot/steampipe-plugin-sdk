@@ -38,7 +38,8 @@ jobs:
         with:
           repository: turbot/steampipe
           path: steampipe
-          ref: v0.18.x
+#          last ref before using sdk v0.18.2
+          ref: 1f64bf4dfb2d60fa1fe9f4072be708024be21b9f
 
       - name: Update go.mod and build Steampipe
         run: |
