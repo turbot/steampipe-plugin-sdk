@@ -2,11 +2,11 @@ package query_cache
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"golang.org/x/exp/maps"
 	"log"
 	"strings"
 	"sync"
-
-	"github.com/turbot/go-kit/helpers"
 )
 
 // pendingIndexBucket contains index items for all pending cache results for a given table and qual set
@@ -19,28 +19,34 @@ func newPendingIndexBucket() *pendingIndexBucket {
 	return &pendingIndexBucket{Items: make(map[string]*pendingIndexItem)}
 }
 
-// GetItemWhichSatisfiesColumnsAndLimit finds an index item which satisfies all columns
-// used to find an IndexItem to satisfy a cache Get request
-func (b *pendingIndexBucket) GetItemWhichSatisfiesColumnsAndLimit(columns []string, limit int64) *pendingIndexItem {
-	log.Printf("[TRACE] find pending index item to satisfy columns %v and limit %d", columns, limit)
-	for _, item := range b.Items {
-		if item.SatisfiesColumns(columns) && item.SatisfiesLimit(limit) {
-			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d", strings.Join(columns, ","), limit)
-			return item
+// GetItemsSatisfyingRequest finds all index item which satisfy the given cache request
+// used when finding a pending item after a cache miss occurs
+func (b *pendingIndexBucket) GetItemsSatisfyingRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) []*pendingIndexItem {
+	var satisfyingItems []*pendingIndexItem
+
+	for _, pendingItem := range b.Items {
+		if pendingItem.SatisfiesRequest(req, keyColumns) {
+			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d, quals count: %d (%s)", strings.Join(req.Columns, ","), req.Limit, len(req.QualMap), req.CallId)
+			satisfyingItems = append(satisfyingItems, pendingItem)
 		}
 	}
-	return nil
+	return satisfyingItems
 }
 
-// GetItemsSatisfiedByColumns finds all index item which are satisfied by the columsn and limit columns
-// used when removing pending IndexItems after a cache Set call
-func (b *pendingIndexBucket) GetItemsSatisfiedByColumns(columns []string, limit int64) []*pendingIndexItem {
+// GetItemsSatisfiedByRequest finds all index item which would be SATISFIED BY  the given cache request
+// used when finding a pending items to mark as complete after a cache set has been executed
+func (b *pendingIndexBucket) GetItemsSatisfiedByRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) []*pendingIndexItem {
 	var satisfiedItems []*pendingIndexItem
 
-	for _, item := range b.Items {
-		if item.SatisfiedByColumns(columns) && item.SatisfiesLimit(limit) {
-			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d", strings.Join(columns, ","), limit)
-			satisfiedItems = append(satisfiedItems, item)
+	for _, pendingItem := range b.Items {
+		if pendingItem.SatisfiedByRequest(req, keyColumns) {
+			qualsString := strings.Join(maps.Keys(req.QualMap), ",")
+			if qualsString == "" {
+				qualsString = "NONE"
+			}
+
+			log.Printf("[INFO] found pending index item satisfied by columns %s, limit %d, quals: %s (%s)", strings.Join(req.Columns, ","), req.Limit, qualsString, req.CallId)
+			satisfiedItems = append(satisfiedItems, pendingItem)
 		}
 	}
 	return satisfiedItems
@@ -99,45 +105,12 @@ func NewPendingIndexItem(req *CacheRequest) *pendingIndexItem {
 	return res
 }
 
-// SatisfiesColumns returns whether our index item satisfies the given columns
-func (i *pendingIndexItem) SatisfiesColumns(columns []string) bool {
-	return i.item.SatisfiesColumns(columns)
+// SatisfiesRequest returns whether our index item satisfies the given cache request
+func (i *pendingIndexItem) SatisfiesRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
+	return i.item.SatisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns)
 }
 
-// SatisfiesLimit returns whether our index item satisfies the given limit
-func (i *pendingIndexItem) SatisfiesLimit(limit int64) bool {
-	return i.item.SatisfiesLimit(limit)
-}
-
-// SatisfiedByColumns returns whether we would be satisfied by the given columns
-func (i *pendingIndexItem) SatisfiedByColumns(columns []string) bool {
-	// does columns contain all out index item columns?
-	for _, c := range i.item.Columns {
-		if !helpers.StringSliceContains(columns, c) {
-			log.Printf("[TRACE] SatisfiedByColumns %s missing from %s", c, strings.Join(columns, ","))
-			return false
-		}
-	}
-	return true
-}
-
-// SatisfiedByLimit returns whether we would be satisfied by the given limt
-func (i *pendingIndexItem) SatisfiedByLimit(limit int64) bool {
-	// if index item has no limit, we would only be satisfied by no limit
-	if i.item.Limit == -1 {
-		satisfied := limit == -1
-		log.Printf("[TRACE] SatisfiedByLimit limit %d, no item limit - satisfied: %v", limit, satisfied)
-		return satisfied
-	}
-	log.Printf("[TRACE] SatisfiesLimit limit %d, item limit %d ", limit, i.item.Limit)
-	// if 'limit' is -1 - it must satisfy us
-	if limit == -1 {
-		log.Printf("[TRACE] SatisfiedByLimit - no limit so it satisfied")
-		return true
-	}
-
-	// otherwise just check whether limit is >= item limit
-	res := limit >= i.item.Limit
-	log.Printf("[TRACE] satisfied = %v", res)
-	return res
+// SatisfiedByRequest returns whether our index item would be satisfied by the given cache request
+func (i *pendingIndexItem) SatisfiedByRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
+	return i.item.SatisfiedByRequest(req, keyColumns)
 }
