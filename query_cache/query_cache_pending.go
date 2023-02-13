@@ -2,9 +2,8 @@ package query_cache
 
 import (
 	"context"
-	"golang.org/x/exp/maps"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
@@ -20,11 +19,11 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 
 	// acquire a Read lock for pendingData map
 	c.pendingDataLock.RLock()
-	// do we have a pending items whihc satisfy the qual, limit and column constraints
+	// do we have a pending items which satisfy the qual, limit and column constraints
 	pendingItems, _ := c.getPendingItemSatisfyingRequest(indexBucketKey, req)
 	c.pendingDataLock.RUnlock()
 
-	// if there was no pending result  - we assume the calling code will fetch the data and add it to the cache
+	// if there was no pending result - we assume the calling code will fetch the data and add it to the cache
 	// so add a pending result
 	if len(pendingItems) == 0 {
 		// acquire a Write lock
@@ -53,8 +52,8 @@ func (c *QueryCache) getPendingItemSatisfyingRequest(indexBucketKey string, req 
 
 	// is there a pending index bucket for this query
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
-		qualsString := strings.Join(maps.Keys(req.QualMap), ",")
-		log.Printf("[INFO] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)", indexBucketKey, req.Columns, req.Limit, qualsString, req.CallId)
+		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)",
+			indexBucketKey, req.Columns, req.Limit, grpc.QualMapToLogLine(req.QualMap), req.CallId)
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
 		return pendingIndexBucket.GetItemsSatisfyingRequest(req, keyColumns), pendingIndexBucket
 
@@ -68,8 +67,8 @@ func (c *QueryCache) getPendingItemSatisfiedByRequest(indexBucketKey string, req
 
 	// is there a pending index bucket for this query
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
-		qualsString := strings.Join(maps.Keys(req.QualMap), ",")
-		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)", indexBucketKey, req.Columns, req.Limit, qualsString, req.CallId)
+		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)",
+			indexBucketKey, req.Columns, req.Limit, grpc.QualMapToLogLine(req.QualMap), req.CallId)
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
 		return pendingIndexBucket.GetItemsSatisfiedByRequest(req, keyColumns), pendingIndexBucket
 

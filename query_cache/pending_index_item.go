@@ -2,11 +2,12 @@ package query_cache
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"golang.org/x/exp/maps"
 	"log"
 	"strings"
 	"sync"
+
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
 // pendingIndexBucket contains index items for all pending cache results for a given table and qual set
@@ -26,10 +27,7 @@ func (b *pendingIndexBucket) GetItemsSatisfyingRequest(req *CacheRequest, keyCol
 
 	for _, pendingItem := range b.Items {
 		if pendingItem.SatisfiesRequest(req, keyColumns) {
-			qualsString := strings.Join(maps.Keys(req.QualMap), ",")
-			if qualsString == "" {
-				qualsString = "NONE"
-			}
+			qualsString := grpc.QualMapToLogLine(req.QualMap)
 
 			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d, quals: %s (%s)", strings.Join(req.Columns, ","), req.Limit, qualsString, req.CallId)
 			satisfyingItems = append(satisfyingItems, pendingItem)
@@ -45,10 +43,7 @@ func (b *pendingIndexBucket) GetItemsSatisfiedByRequest(req *CacheRequest, keyCo
 
 	for _, pendingItem := range b.Items {
 		if pendingItem.SatisfiedByRequest(req, keyColumns) {
-			qualsString := strings.Join(maps.Keys(req.QualMap), ",")
-			if qualsString == "" {
-				qualsString = "NONE"
-			}
+			qualsString := grpc.QualMapToLogLine(req.QualMap)
 
 			log.Printf("[TRACE] found pending index item satisfied by columns %s, limit %d, quals: %s (%s)", strings.Join(req.Columns, ","), req.Limit, qualsString, req.CallId)
 			satisfyingItems = append(satisfyingItems, pendingItem)

@@ -12,7 +12,6 @@ import (
 	"github.com/allegro/bigcache/v3"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -105,20 +104,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 
 	// get the index bucket key for this table and quals
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
-	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, (%s)", indexBucketKey, req.CallId)
-	log.Printf("[INFO] %d %s: (%s)",
-		len(req.QualMap),
-		pluralize.NewClient().Pluralize("QUAL", len(req.QualMap), false),
-		req.CallId)
-	//if len(req.QualMap) > 0 {
-	//	log.Printf("[INFO] quals: (%s)", req.CallId)
-	//	for _, q := range strings.Split(grpc.QualMapToString(req.QualMap, true), "\n") {
-	//		log.Printf("[INFO] %s", q)
-	//	}
-	//} else {
-	//	log.Printf("[INFO] NO quals: (%s)", req.CallId)
-	//}
-	//log.Printf("[INFO] quals: (%s)", req.CallId)
+	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, quals: %s (%s)", indexBucketKey, req.CallId, grpc.QualMapToLogLine(req.QualMap))
 
 	// do we have a cached result?
 	err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"strings"
 	"time"
 
@@ -39,6 +40,12 @@ func QualMapToString(qualMap map[string]*proto.Quals, pretty bool) string {
 	}
 
 	return sb.String()
+}
+func QualMapToLogLine(qualMap map[string]*proto.Quals) string {
+	if len(qualMap) == 0 {
+		return "NONE"
+	}
+	return strings.Join(maps.Keys(qualMap), ",")
 }
 
 func QualMapsEqual(l map[string]*proto.Quals, r map[string]*proto.Quals) bool {

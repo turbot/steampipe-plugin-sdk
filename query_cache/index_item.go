@@ -1,13 +1,12 @@
 package query_cache
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"golang.org/x/exp/maps"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
@@ -94,10 +93,8 @@ func (i IndexItem) satisfiesLimit(limit int64) bool {
 //
 // NOTE: if the IndexItem has a limit, the quals must be IDENTICAL (ignoring ordering)
 func (i IndexItem) satisfiesQuals(checkQualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
-	qualsString := strings.Join(maps.Keys(i.Quals), ",")
-	if qualsString == "" {
-		qualsString = "NONE"
-	}
+	qualsString := grpc.QualMapToLogLine(i.Quals)
+
 	log.Printf("[TRACE] satisfiesQuals, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 
 	if i.Limit != -1 {
