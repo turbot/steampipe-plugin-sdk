@@ -11,7 +11,7 @@ import (
 var ProtocolVersion int64 = 20220201
 
 // Version is the main version number that is being run at the moment.
-var version = "4.1.12"
+var version = "4.1.13"
 
 // A pre-release marker for the version. If this is "" (empty string)
 // then it means that it is a final release. Otherwise, this is a pre-release

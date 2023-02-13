@@ -1,3 +1,7 @@
+## v4.1.13 [2023-02-13]
+_Bug fixes_
+* Fix query cache `pending item` functionality, which was populating incorrectly filtered data when a query with a qual was executed concurrently with a query with no qual. ([#517](https://github.com/turbot/steampipe-plugin-sdk/issues/517))
+
 ## v4.1.12 [2023-02-09]
 * Fix query cache `pending item` functionality, which waits for existing pending cache items when satisfying a cache request. This sometimes returns empty results instead of the expected pending results.  ([#511](https://github.com/turbot/steampipe-plugin-sdk/issues/511), [#512](https://github.com/turbot/steampipe-plugin-sdk/issues/512))
 
