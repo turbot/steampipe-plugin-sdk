@@ -2,6 +2,7 @@ package query_cache
 
 import (
 	"context"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"log"
 	"time"
 
@@ -19,10 +20,10 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 	// acquire a Read lock for pendingData map
 	c.pendingDataLock.RLock()
 	// do we have a pending items which satisfy the qual, limit and column constraints
-	pendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+	pendingItems, _ := c.getPendingItemSatisfyingRequest(indexBucketKey, req)
 	c.pendingDataLock.RUnlock()
 
-	// if there was no pending result, we assume the calling code will fetch the data and add it to the cache
+	// if there was no pending result - we assume the calling code will fetch the data and add it to the cache
 	// so add a pending result
 	if len(pendingItems) == 0 {
 		// acquire a Write lock
@@ -30,7 +31,7 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 		defer c.pendingDataLock.Unlock()
 
 		// try again to get a pending item - in case someone else grabbed a Write lock before us
-		pendingItems, _ = c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+		pendingItems, _ = c.getPendingItemSatisfyingRequest(indexBucketKey, req)
 		if len(pendingItems) == 0 {
 			log.Printf("[TRACE] no pending index item - add pending result, indexBucketKey %s", indexBucketKey)
 			// add a pending result so anyone else asking for this data will wait the fetch to complete
@@ -46,14 +47,30 @@ func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheReque
 }
 
 // this must be called inside a lock
-func (c *QueryCache) getPendingItemSatisfyingConstraints(indexBucketKey string, req *CacheRequest) ([]*pendingIndexItem, *pendingIndexBucket) {
+func (c *QueryCache) getPendingItemSatisfyingRequest(indexBucketKey string, req *CacheRequest) ([]*pendingIndexItem, *pendingIndexBucket) {
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
 
 	// is there a pending index bucket for this query
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
-		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columnd %v, limid %d", indexBucketKey, req.Columns, req.Limit)
+		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)",
+			indexBucketKey, req.Columns, req.Limit, grpc.QualMapToLogLine(req.QualMap), req.CallId)
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
 		return pendingIndexBucket.GetItemsSatisfyingRequest(req, keyColumns), pendingIndexBucket
+
+	}
+	return nil, nil
+}
+
+// this must be called inside a lock
+func (c *QueryCache) getPendingItemSatisfiedByRequest(indexBucketKey string, req *CacheRequest) ([]*pendingIndexItem, *pendingIndexBucket) {
+	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
+
+	// is there a pending index bucket for this query
+	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
+		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)",
+			indexBucketKey, req.Columns, req.Limit, grpc.QualMapToLogLine(req.QualMap), req.CallId)
+		// now check whether there is a pending item in this bucket that covers the required columns and limit
+		return pendingIndexBucket.GetItemsSatisfiedByRequest(req, keyColumns), pendingIndexBucket
 
 	}
 	return nil, nil
@@ -117,7 +134,7 @@ func (c *QueryCache) waitForPendingItem(ctx context.Context, pendingItem *pendin
 		log.Printf("[TRACE] waitForPendingItem transfer complete - trying cache again, (%s) pending item %p index item %p indexBucketKey: %s, item key %s", req.CallId, pendingItem, pendingItem.item, indexBucketKey, pendingItem.item.Key)
 
 		// now try to read from the cache again
-		// NOTE: use same error variable, so we can return it
+		// NOTE: use same error variable so we can return it
 		err = c.getCachedQueryResultFromIndexItem(ctx, pendingItem.item, streamRowFunc)
 		if err != nil {
 			log.Printf("[WARN] waitForPendingItem (%s) - pending item %p, key '%s', transferCompleteChan was signalled but getCachedResult returned error: %v", req.CallId, pendingItem, pendingItem.item.Key, err)
@@ -180,7 +197,7 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 	c.pendingDataLock.RLock()
 	// do we have a pending items
 	// the may be more than one pending item which is satisfied by this request - clear them all
-	completedPendingItems, _ := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
+	completedPendingItems, _ := c.getPendingItemSatisfiedByRequest(indexBucketKey, req)
 	// release read lock
 	c.pendingDataLock.RUnlock()
 
@@ -193,15 +210,14 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 		defer c.pendingDataLock.Unlock()
 
 		// check again for completed items (in case anyone else grabbed a Write lock before us)
-		completedPendingItems, pendingIndexBucket := c.getPendingItemSatisfyingConstraints(indexBucketKey, req)
-		// mark each completed pending item as complete
+		completedPendingItems, pendingIndexBucket := c.getPendingItemSatisfyingRequest(indexBucketKey, req)
 		for _, pendingItem := range completedPendingItems {
 			// remove pending item from the parent pendingIndexBucket (BEFORE updating the index item cache key)
 			delete(pendingIndexBucket.Items, pendingItem.item.Key)
 
-			// NOTE: set the page count for the pending item to the actual page count, which we now know
+			// NOTE set the page count for the pending item to the actual page count, which we now know
 			pendingItem.item.PageCount = req.pageCount
-			// NOTE: set the key for the pending item to be the root key of the completed request
+			// NOTE set the key for the pending item to be the root key of the completed request
 			// this is necessary as this is the cache key which was actually used to insert the data
 			pendingItem.item.Key = req.resultKeyRoot
 

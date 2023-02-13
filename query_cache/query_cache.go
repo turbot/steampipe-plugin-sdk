@@ -104,7 +104,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 
 	// get the index bucket key for this table and quals
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
-	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, (%s)", indexBucketKey, req.CallId)
+	log.Printf("[TRACE] QueryCache Get - indexBucketKey %s, quals: %s (%s)", indexBucketKey, req.CallId, grpc.QualMapToLogLine(req.QualMap))
 
 	// do we have a cached result?
 	err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
