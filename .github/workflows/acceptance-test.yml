@@ -38,6 +38,7 @@ jobs:
         with:
           repository: turbot/steampipe
           path: steampipe
+          branch: v0.18.x
 
       - name: Update go.mod and build Steampipe
         run: |
