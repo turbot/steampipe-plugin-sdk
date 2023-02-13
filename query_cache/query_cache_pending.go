@@ -69,7 +69,7 @@ func (c *QueryCache) getPendingItemSatisfiedByRequest(indexBucketKey string, req
 	// is there a pending index bucket for this query
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
 		qualsString := strings.Join(maps.Keys(req.QualMap), ",")
-		log.Printf("[INFO] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)", indexBucketKey, req.Columns, req.Limit, qualsString, req.CallId)
+		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)", indexBucketKey, req.Columns, req.Limit, qualsString, req.CallId)
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
 		return pendingIndexBucket.GetItemsSatisfiedByRequest(req, keyColumns), pendingIndexBucket
 
@@ -219,7 +219,7 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
 			// NOTE set the page count for the pending item to the actual page count, which we now know
 			pendingItem.item.PageCount = req.pageCount
 			// NOTE set the key for the pending item to be the root key of the completed request
-			// this is necessary as ths is the cache key which was actually used to insert the data
+			// this is necessary as this is the cache key which was actually used to insert the data
 			pendingItem.item.Key = req.resultKeyRoot
 
 			log.Printf("[TRACE] found completed pending item (%s) %p, key %s - removing from map as it is complete", req.CallId, pendingItem, pendingItem.item.Key)

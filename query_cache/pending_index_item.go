@@ -31,7 +31,7 @@ func (b *pendingIndexBucket) GetItemsSatisfyingRequest(req *CacheRequest, keyCol
 				qualsString = "NONE"
 			}
 
-			log.Printf("[INFO] found pending index item to satisfy columns %s, limit %d, quals: %s (%s)", strings.Join(req.Columns, ","), req.Limit, qualsString, req.CallId)
+			log.Printf("[TRACE] found pending index item to satisfy columns %s, limit %d, quals: %s (%s)", strings.Join(req.Columns, ","), req.Limit, qualsString, req.CallId)
 			satisfyingItems = append(satisfyingItems, pendingItem)
 		}
 	}
@@ -50,7 +50,7 @@ func (b *pendingIndexBucket) GetItemsSatisfiedByRequest(req *CacheRequest, keyCo
 				qualsString = "NONE"
 			}
 
-			log.Printf("[INFO] found pending index item satisfied by columns %s, limit %d, quals: %s (%s)", strings.Join(req.Columns, ","), req.Limit, qualsString, req.CallId)
+			log.Printf("[TRACE] found pending index item satisfied by columns %s, limit %d, quals: %s (%s)", strings.Join(req.Columns, ","), req.Limit, qualsString, req.CallId)
 			satisfyingItems = append(satisfyingItems, pendingItem)
 		}
 	}

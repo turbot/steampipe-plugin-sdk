@@ -38,6 +38,7 @@ func (i IndexItem) SatisfiesRequest(columns []string, limit int64, qualMap map[s
 		i.satisfiesLimit(limit) &&
 		i.satisfiesQuals(qualMap, keyColumns)
 }
+
 func (i IndexItem) SatisfiedByRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
 	// make an index item for the request
 	requestIndexItem := NewIndexItem(req)
@@ -97,30 +98,30 @@ func (i IndexItem) satisfiesQuals(checkQualMap map[string]*proto.Quals, keyColum
 	if qualsString == "" {
 		qualsString = "NONE"
 	}
-	log.Printf("[INFO] satisfiesQuals, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
+	log.Printf("[TRACE] satisfiesQuals, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 
 	if i.Limit != -1 {
 		res := grpc.QualMapsEqual(checkQualMap, i.Quals)
-		log.Printf("[INFO] there is a limit so quals must be identical to satisfy - result: %v", res)
+		log.Printf("[TRACE] there is a limit so quals must be identical to satisfy - result: %v", res)
 		return res
 	}
 
 	for col, indexQuals := range i.Quals {
-		log.Printf("[INFO] col %s", col)
+		log.Printf("[TRACE] col %s", col)
 		// if we have quals the check quals do not, we DO NOT satisfy
 		checkQuals, ok := checkQualMap[col]
 		var isSubset bool
 		if ok {
-			log.Printf("[INFO] satisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
-			log.Printf("[INFO] indexQuals %+v, checkQuals %+v", indexQuals, checkQuals)
+			log.Printf("[TRACE] satisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
+			log.Printf("[TRACE] indexQuals %+v, checkQuals %+v", indexQuals, checkQuals)
 			// isSubset means all data returned by check quals is returned by index quals
 			isSubset = checkQuals.IsASubsetOf(indexQuals)
 		} else {
-			log.Printf("[INFO] satisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED", col)
+			log.Printf("[TRACE] satisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED", col)
 		}
-		log.Printf("[INFO] get check qual %v, isSubset %v", ok, isSubset)
+		log.Printf("[TRACE] get check qual %v, isSubset %v", ok, isSubset)
 		if !ok || !isSubset {
-			log.Printf("[INFO] satisfiesQuals FALSE, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
+			log.Printf("[TRACE] satisfiesQuals FALSE, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 			return false
 		}
 	}
@@ -131,12 +132,12 @@ func (i IndexItem) satisfiesQuals(checkQualMap map[string]*proto.Quals, keyColum
 		if keyColumn, ok := keyColumns[col]; ok && keyColumn.CacheMatch == CacheMatchExact {
 			quals, ok := i.Quals[col]
 			if !ok || !quals.Equals(checkQuals) {
-				log.Printf("[INFO] satisfiesQuals FALSE, same qual does not exist in cached data - limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
+				log.Printf("[TRACE] satisfiesQuals FALSE, same qual does not exist in cached data - limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 				return false
 			}
 		}
 	}
-	log.Printf("[INFO] satisfiesQuals TRUE, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
+	log.Printf("[TRACE] satisfiesQuals TRUE, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 	return true
 }
 
