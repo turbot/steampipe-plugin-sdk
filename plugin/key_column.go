@@ -24,7 +24,7 @@ const (
 //
 // # Operators
 //
-// This property specifies the accepted operators (from a possible set: "=", "<>", "<", "<=", ">", ">=")
+// This property specifies the accepted operators (from a possible set: "=", "<>", "<", "<=", ">", ">=", "~~", "!~~", "~~*", "!~~*")
 //
 // # Require
 //
@@ -122,7 +122,7 @@ func (k *KeyColumn) Validate() []string {
 	// first set default operator and convert "!=" to "<>"
 	k.InitialiseOperators()
 	// ensure operators are valid
-	validOperators := []string{"=", "<>", "<", "<=", ">", ">=", quals.QualOperatorIsNull, quals.QualOperatorIsNotNull}
+	validOperators := []string{"=", "<>", "<", "<=", ">", ">=", "~~", "!~~", "~~*", "!~~*", quals.QualOperatorIsNull, quals.QualOperatorIsNotNull}
 	validRequire := []string{Required, Optional, AnyOf}
 	validCacheMatch := []string{query_cache.CacheMatchSubset, query_cache.CacheMatchExact, ""}
 	var res []string
