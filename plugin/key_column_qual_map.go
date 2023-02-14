@@ -92,7 +92,7 @@ func (m KeyColumnQualMap) GetUnsatisfiedKeyColumns(columns KeyColumnSlice) KeyCo
 }
 
 // ToQualMap converts the map into a simpler map of column to []Quals
-// this is used in the TraansformData
+// this is used in the TransformData
 // (needed to avoid the transform package needing to reference plugin)
 func (m KeyColumnQualMap) ToQualMap() map[string]quals.QualSlice {
 	var res = make(map[string]quals.QualSlice)
