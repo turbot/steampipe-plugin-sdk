@@ -113,7 +113,6 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 // if this connection data is for a dynamic aggregator, build a map of the tables which each child connection provides
 func (d *ConnectionData) initAggregatorSchema(aggregatorConfig *proto.ConnectionConfig) (logMessages map[string][]string, err error) {
 	// build map of the tables provided by each child connection
-	// this takes into account the table 'Aggregation' property and the aggregator config TableAggregationSpecs
 	logMessages, err = d.setAggregatedTablesByConnection(aggregatorConfig)
 	if err != nil {
 		return logMessages, err
@@ -198,7 +197,6 @@ func (d *ConnectionData) resolveAggregatorTableMap(aggregatorConfig *proto.Conne
 }
 
 // build map of the tables provided by each child connection
-// this takes into account the table 'Aggregation' property and the aggregator config TableAggregationSpecs
 func (d *ConnectionData) setAggregatedTablesByConnection(aggregatorConfig *proto.ConnectionConfig) (map[string][]string, error) {
 	d.AggregatedTablesByConnection = make(map[string]map[string]*Table)
 	logMessages := make(map[string][]string)
@@ -211,9 +209,6 @@ func (d *ConnectionData) setAggregatedTablesByConnection(aggregatorConfig *proto
 		}
 
 		// ask the connection data to build a list of tables that this connection provides
-		// this takes into account:
-		// - table level `Aggregation` property
-		// - aggregator connection config TableAggregationSpecs
 		var exclusionReasons map[string]string
 		d.AggregatedTablesByConnection[c], exclusionReasons = connectionData.getAggregatedTables(aggregatorConfig)
 		if exclusionCount := len(exclusionReasons); exclusionCount > 0 {
@@ -232,21 +227,7 @@ func (d *ConnectionData) setAggregatedTablesByConnection(aggregatorConfig *proto
 
 func (d *ConnectionData) includeTableInAggregator(connectionName string, table *Table, aggregatorConfig *proto.ConnectionConfig) (include bool, reason string) {
 	// TODO for now hard code to true
-	// update when (if)_ we add aggregation specs
-	//// see if there is a matching table spec
-	//if aggregationSpec := aggregatorConfig.GetAggregationSpecForTable(table.Name); aggregationSpec != nil {
-	//	// if a table is matched by the connection config, this overrides any table defintion `Aggregation` props
-	//	if !aggregationSpec.MatchesConnection(connectionName) {
-	//		return false, fmt.Sprintf("excluded by aggregation spec: match: %s, connections: %s", aggregationSpec.Match, strings.Join(aggregationSpec.Connections, ","))
-	//	}
-	//	// if we match the spec, ignore the table aggregation mode and return true
-	//	return true, ""
-	//}
-
-	// otherwise if the config does not specify this table, fall back onto the table a`Aggregation` property
-	//if table.Aggregation == AggregationModeNone {
-	//	return false, "table aggregation mode set to 'none'"
-	//}
+	// update when (if)_ we re-add aggregation specs
 	return true, ""
 }
 
@@ -267,13 +248,64 @@ func (d *ConnectionData) getAggregatedTables(aggregatorConfig *proto.ConnectionC
 }
 
 func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.ConnectionConfig, tableName string) (*proto.TableSchema, []string) {
+	exemplarSchema, connectionTableDiffs, messages := d.getSchemaDiffBetweenConnections(aggregatorConfig, tableName)
+
+	// if there are no diffs, there is nothing more to do
+	if exemplarSchema == nil || !connectionTableDiffs.HasDiffs() {
+		return exemplarSchema, messages
+	}
+
+	// so there are diffs between the schemas for this table for each connection
+
+	//  build a superset schema
+	var subsetSchema = &proto.TableSchema{
+		Description:                exemplarSchema.Description,
+		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,
+		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,
+		ListCallOptionalKeyColumns: exemplarSchema.ListCallOptionalKeyColumns,
+		GetCallKeyColumnList:       exemplarSchema.GetCallKeyColumnList,
+		ListCallKeyColumnList:      exemplarSchema.ListCallKeyColumnList,
+	}
+
+	includedColumns := make(map[string]struct{})
+	for _, connectionName := range aggregatorConfig.ChildConnections {
+		c := d.Plugin.ConnectionMap[connectionName]
+		tableSchema, ok := c.Schema.Schema[tableName]
+		if !ok {
+			continue
+		}
+
+		for _, column := range tableSchema.Columns {
+			// have we already handled this column
+			if _, ok := includedColumns[column.Name]; ok {
+				continue
+			}
+
+			if _, columnTypeMismatch := connectionTableDiffs.TypeMismatchColumns[column.Name]; columnTypeMismatch {
+				// set the column type to JSON
+				// overwrite 'column'
+				column = &proto.ColumnDefinition{
+					Name:        column.Name,
+					Type:        proto.ColumnType_JSON,
+					Description: column.Description,
+				}
+			}
+
+			// ok including this column
+			subsetSchema.Columns = append(subsetSchema.Columns, column)
+			includedColumns[column.Name] = struct{}{}
+		}
+	}
+
+	return subsetSchema, messages
+}
+
+func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto.ConnectionConfig, tableName string) (*proto.TableSchema, *proto.TableSchemaDiff, []string) {
 	// construct a diff for all connections
 	var connectionTableDiffs = proto.NewTableSchemaDiff()
 
 	var messages []string
 
-	//// TODO move to function
-	// build diffs across all connections
 	var exemplarSchema *proto.TableSchema
 	for _, connectionName := range aggregatorConfig.ChildConnections {
 		c := d.Plugin.ConnectionMap[connectionName]
@@ -294,85 +326,13 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 		// if key columns not equal, fail immediately
 		if !schemaDiff.KeyColumnsEqual {
 			messages = append(messages, fmt.Sprintf("cannot build merged schema for table %s as key columns are not consistent", tableName))
-			return nil, messages
+			return nil, nil, messages
 		}
 
 		// merge the diffs
 		connectionTableDiffs.Merge(schemaDiff)
 	}
-	////
-
-	// if there are no diffs, there is nothing more to do
-	if !connectionTableDiffs.HasDiffs() {
-		return exemplarSchema, messages
-	}
-
-	// so there are diffs between the schemas for this table for each connection
-
-	// if the aggregation mod is NOT a merge mode, we will exclude this table
-	//if aggregation == AggregationModeAggregate {
-	//	messages = append(messages, fmt.Sprintf("table %s has inconsistent schema between connections and the aggregation mode is not merge - excluding", tableName))
-	//	return nil, messages
-	//}
-
-	// otherwise build a subset schema
-	var subsetSchema = &proto.TableSchema{
-		Description:                exemplarSchema.Description,
-		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,
-		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,
-		ListCallOptionalKeyColumns: exemplarSchema.ListCallOptionalKeyColumns,
-		GetCallKeyColumnList:       exemplarSchema.GetCallKeyColumnList,
-		ListCallKeyColumnList:      exemplarSchema.ListCallKeyColumnList,
-	}
-
-	//excludedColumns := make(map[string]struct{})
-	includedColumns := make(map[string]struct{})
-	for _, connectionName := range aggregatorConfig.ChildConnections {
-		c := d.Plugin.ConnectionMap[connectionName]
-		tableSchema, ok := c.Schema.Schema[tableName]
-		if !ok {
-			continue
-		}
-
-		for _, column := range tableSchema.Columns {
-			// have we already handled this column
-			if _, ok := includedColumns[column.Name]; ok {
-				continue
-			}
-
-			//_, missingInSomeConnections := connectionTableDiffs.MissingColumns[c.Name]
-			_, columnTypeMismatch := connectionTableDiffs.TypeMismatchColumns[column.Name]
-
-			if columnTypeMismatch {
-				// set the column type to JSON
-				// overwrite 'column'
-				column = &proto.ColumnDefinition{
-					Name:        column.Name,
-					Type:        proto.ColumnType_JSON,
-					Description: column.Description,
-				}
-			}
-			//if missingInSomeConnections && aggregation != AggregationModeMergeUnion {
-			//	excludedColumns[c.Name] = struct{}{}
-			//	continue
-			//}
-
-			// ok including this column
-			subsetSchema.Columns = append(subsetSchema.Columns, column)
-			includedColumns[column.Name] = struct{}{}
-		}
-	}
-
-	// if any required key columns are excluded, we cannot build a subset
-	//allKeyColumns := append(exemplarSchema.GetCallKeyColumnList, exemplarSchema.ListCallKeyColumnList...)
-	//for _, k := range allKeyColumns {
-	//	if _, isExcluded := excludedColumns[k.Name]; isExcluded {
-	//		messages = append(messages, fmt.Sprintf("cannot build merged schema for table %s as required key column %s is excluded\"", tableName, k.Name))
-	//		return nil, messages
-	//	}
-	//}
-
-	return subsetSchema, messages
+	return exemplarSchema, connectionTableDiffs, messages
 }
 
 func (d *ConnectionData) setSchema(tableMap map[string]*Table, schema *grpc.PluginSchema) *ConnectionData {
