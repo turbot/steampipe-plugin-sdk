@@ -36,7 +36,7 @@ func (t *Table) GetSchema() (*proto.TableSchema, error) {
 	}
 	// add _ctx column
 	schema.Columns[len(t.Columns)] = &proto.ColumnDefinition{
-		Name:        contextColumnName(t.columnNameMap()),
+		Name:        contextColumnName(t.columnNameMap),
 		Type:        proto.ColumnType_JSON,
 		Description: "Steampipe context in JSON form, e.g. connection_name.",
 	}

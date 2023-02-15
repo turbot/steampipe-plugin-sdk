@@ -76,6 +76,8 @@ type Table struct {
 	// map of hydrate function name to columns it provides
 	//hydrateColumnMap map[string][]string
 	hydrateConfigMap map[string]*HydrateConfig
+
+	columnNameMap map[string]struct{}
 }
 
 func (t *Table) initialise(p *Plugin) {
@@ -128,9 +130,18 @@ func (t *Table) initialise(p *Plugin) {
 	// NOTE: this map also includes information from the legacy HydrateDependencies property
 	t.initialiseHydrateConfigs()
 
+	t.setColumnNameMap()
+
 	log.Printf("[TRACE] back from initialiseHydrateConfigs")
 
 	log.Printf("[TRACE] initialise table %s COMPLETE", t.Name)
+}
+
+func (t *Table) setColumnNameMap() {
+	t.columnNameMap = make(map[string]struct{}, len(t.Columns))
+	for _, c := range t.Columns {
+		t.columnNameMap[c.Name] = struct{}{}
+	}
 }
 
 // build map of all hydrate configs, and initialise them
@@ -193,12 +204,4 @@ func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
 		return t.List.Hydrate
 	}
 	return t.Get.Hydrate
-}
-
-func (t *Table) columnNameMap() map[string]struct{} {
-	res := make(map[string]struct{}, len(t.Columns))
-	for _, c := range t.Columns {
-		res[c.Name] = struct{}{}
-	}
-	return res
 }

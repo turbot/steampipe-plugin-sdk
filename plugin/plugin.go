@@ -308,7 +308,7 @@ func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 				}
 			} else {
 				// not expected
-				log.Printf("[WARN] aggregator connection %s has not data for child connection %s",
+				log.Printf("[WARN] aggregator connection %s has no data for child connection %s",
 					connectionData.Connection.Name, connectionName)
 				// just carry on
 			}
@@ -470,7 +470,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	}
 	logging.LogTime("Start execute")
 
-	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL)
+	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL, table)
 
 	log.Printf("[TRACE] Got query context, table: %s, cols: %v", req.Table, queryContext.Columns)
 

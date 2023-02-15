@@ -67,7 +67,7 @@ func (c *QueryCache) getPendingItemSatisfiedByRequest(indexBucketKey string, req
 
 	// is there a pending index bucket for this query
 	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
-		log.Printf("[TRACE] got pending index bucket, checking for pending item which satisfies columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)",
+		log.Printf("[TRACE] got pending index bucket, checking for pending item satisfied by columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)",
 			indexBucketKey, req.Columns, req.Limit, grpc.QualMapToLogLine(req.QualMap), req.CallId)
 		// now check whether there is a pending item in this bucket that covers the required columns and limit
 		return pendingIndexBucket.GetItemsSatisfiedByRequest(req, keyColumns), pendingIndexBucket
