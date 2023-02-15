@@ -18,6 +18,28 @@ const (
 	AnyOf    = "any_of"
 )
 
+// GetValidOperators returns the list of operators which are valid in the context of KeyColumn
+func GetValidOperators() []string {
+	return []string{
+		quals.QualOperatorEqual,
+		quals.QualOperatorNotEqual,
+		quals.QualOperatorLess,
+		quals.QualOperatorLessOrEqual,
+		quals.QualOperatorGreater,
+		quals.QualOperatorGreaterOrEqual,
+		quals.QualOperatorLike,
+		quals.QualOperatorNotLike,
+		quals.QualOperatorILike,
+		quals.QualOperatorNotILike,
+		quals.QualOperatorRegex,
+		quals.QualOperatorNotRegex,
+		quals.QualOperatorIRegex,
+		quals.QualOperatorNotIRegex,
+		quals.QualOperatorIsNull,
+		quals.QualOperatorIsNotNull,
+	}
+}
+
 // KeyColumn is a struct representing the definition of a column used to filter and Get and List calls.
 //
 // At least one key column must be defined for a Get call. They are optional for List calls.
@@ -122,7 +144,7 @@ func (k *KeyColumn) Validate() []string {
 	// first set default operator and convert "!=" to "<>"
 	k.InitialiseOperators()
 	// ensure operators are valid
-	validOperators := []string{"=", "<>", "<", "<=", ">", ">=", "~~", "!~~", "~~*", "!~~*", "~", "~*", "!~", "!~*", quals.QualOperatorIsNull, quals.QualOperatorIsNotNull}
+	validOperators := GetValidOperators()
 	validRequire := []string{Required, Optional, AnyOf}
 	validCacheMatch := []string{query_cache.CacheMatchSubset, query_cache.CacheMatchExact, ""}
 	var res []string
