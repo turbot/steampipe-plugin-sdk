@@ -24,15 +24,25 @@ type QueryContext struct {
 }
 
 // NewQueryContext maps from a [proto.QueryContext] to a [plugin.QueryContext].
-func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabled bool, cacheTTL int64) *QueryContext {
+func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabled bool, cacheTTL int64, table *Table) *QueryContext {
 	q := &QueryContext{
-		Columns:      p.Columns,
 		UnsafeQuals:  p.Quals,
 		CacheEnabled: cacheEnabled,
 		CacheTTL:     cacheTTL,
 	}
 	if limit != nil {
 		q.Limit = &limit.Value
+	}
+	// set columns
+	// NOTE: only set columns which are supported by this table
+	// (in the case of dynamic aggregators, the query may request
+	// columns that this table does not provide for this connection)
+	contextColumnName := contextColumnName(table.columnNameMap)
+	for _, c := range p.Columns {
+		// context column is not in the table column map
+		if _, hasColumn := table.columnNameMap[c]; hasColumn || c == contextColumnName {
+			q.Columns = append(q.Columns, c)
+		}
 	}
 	return q
 }
