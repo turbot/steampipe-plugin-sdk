@@ -163,13 +163,13 @@ message ConnectionConfig {
   string plugin_short_name = 3;
   string config = 4;
   repeated string child_connections = 5;
-  repeated TableAggregationSpec table_aggregation_specs = 6;
+//  repeated TableAggregationSpec table_aggregation_specs = 6;
 }
 
-message TableAggregationSpec {
-  string match = 1;
-  repeated string connections = 2;
-}
+//message TableAggregationSpec {
+//  string match = 1;
+//  repeated string connections = 2;
+//}
 
 message SetConnectionConfigResponse{
   map<string, string> failed_connections= 1;

@@ -11,23 +11,30 @@ func (x *TableSchema) GetColumnMap() map[string]*ColumnDefinition {
 	return nil
 }
 
+func (x *TableSchema) Equals(other *TableSchema) bool {
+	return !x.Diff(other).HasDiffs()
+}
+
 func (x *TableSchema) Diff(other *TableSchema) *TableSchemaDiff {
-	var res = &TableSchemaDiff{}
+	var res = NewTableSchemaDiff()
 
 	columnMap := x.GetColumnMap()
 	otherColumnMap := other.GetColumnMap()
 
-	for k, column := range columnMap {
-		otherColumn, ok := otherColumnMap[k]
-		if !ok || !column.Equals(otherColumn) {
-			res.MismatchingColumns = append(res.MismatchingColumns, k)
+	for columnName, column := range columnMap {
+		otherColumn, ok := otherColumnMap[columnName]
+		if !ok {
+			res.MissingColumns[columnName] = struct{}{}
+		} else if column.Type != otherColumn.Type {
+			res.TypeMismatchColumns[columnName] = struct{}{}
 		}
 	}
-	for k, otherColumn := range otherColumnMap {
-		column, ok := columnMap[k]
-		if !ok || !column.Equals(otherColumn) {
-			res.MismatchingColumns = append(res.MismatchingColumns, k)
+	for columnName := range otherColumnMap {
+		_, ok := columnMap[columnName]
+		if !ok {
+			res.MissingColumns[columnName] = struct{}{}
 		}
+		// we've already checked type of matching columns
 	}
 
 	if len(x.GetCallKeyColumnList) != len(other.GetCallKeyColumnList) {
@@ -36,7 +43,6 @@ func (x *TableSchema) Diff(other *TableSchema) *TableSchemaDiff {
 		for i, getKeyColumn := range x.GetCallKeyColumnList {
 			if !other.GetCallKeyColumnList[i].Equals(getKeyColumn) {
 				res.KeyColumnsEqual = false
-
 			}
 		}
 	}
@@ -53,6 +59,32 @@ func (x *TableSchema) Diff(other *TableSchema) *TableSchemaDiff {
 }
 
 type TableSchemaDiff struct {
-	MismatchingColumns []string
-	KeyColumnsEqual    bool
+	MissingColumns      map[string]struct{}
+	TypeMismatchColumns map[string]struct{}
+	KeyColumnsEqual     bool
+}
+
+func NewTableSchemaDiff() *TableSchemaDiff {
+	return &TableSchemaDiff{
+		MissingColumns:      make(map[string]struct{}),
+		TypeMismatchColumns: make(map[string]struct{}),
+		KeyColumnsEqual:     true,
+	}
+}
+
+func (d *TableSchemaDiff) HasDiffs() bool {
+	return len(d.MissingColumns)+len(d.TypeMismatchColumns) > 0 ||
+		d.KeyColumnsEqual
+}
+
+func (d *TableSchemaDiff) Merge(other *TableSchemaDiff) {
+	for missingColumn := range other.MissingColumns {
+		d.MissingColumns[missingColumn] = struct{}{}
+	}
+	for typeMismatchColumn := range other.TypeMismatchColumns {
+		d.TypeMismatchColumns[typeMismatchColumn] = struct{}{}
+	}
+	if !other.KeyColumnsEqual {
+		d.KeyColumnsEqual = false
+	}
 }

@@ -20,8 +20,10 @@ type TableCacheOptions struct {
 type AggregationMode string
 
 const (
-	AggregationModeAggregate AggregationMode = "aggregate"
-	AggregationModeNone      AggregationMode = "none"
+	AggregationModeMatch             AggregationMode = "match"
+	AggregationModeMergeUnion        AggregationMode = "merge_union"
+	AggregationModeMergeIntersection AggregationMode = "merge_intersection"
+	AggregationModeNone              AggregationMode = "none"
 )
 
 /*
@@ -67,8 +69,6 @@ type Table struct {
 	HydrateConfig []HydrateConfig
 	// cache options - allows disabling of cache for this table
 	Cache *TableCacheOptions
-	// specify whether to include this table in an aggregate connection
-	Aggregation AggregationMode
 
 	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
@@ -83,11 +83,6 @@ func (t *Table) initialise(p *Plugin) {
 
 	// store the plugin pointer
 	t.Plugin = p
-
-	// default Aggregation to aggregate
-	if t.Aggregation == "" {
-		t.Aggregation = AggregationModeAggregate
-	}
 
 	// create DefaultRetryConfig if needed
 	if t.DefaultRetryConfig == nil {

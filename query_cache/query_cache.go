@@ -443,7 +443,7 @@ func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, inde
 }
 
 func (c *QueryCache) buildIndexKey(connectionName, table string) string {
-	str := c.sanitiseKey(fmt.Sprintf("index__%s%s",
+	str := c.sanitiseKey(fmt.Sprintf("index__%s_%s",
 		connectionName,
 		table))
 	return str
@@ -451,7 +451,7 @@ func (c *QueryCache) buildIndexKey(connectionName, table string) string {
 
 // build a result key, using connection, table, quals, columns and limit
 func (c *QueryCache) buildResultKey(req *CacheRequest) string {
-	str := c.sanitiseKey(fmt.Sprintf("%s%s%s%s%d",
+	str := c.sanitiseKey(fmt.Sprintf("%s_%s_%s_%s_%d",
 		req.ConnectionName,
 		req.Table,
 		c.formatQualMapForKey(req.QualMap),
