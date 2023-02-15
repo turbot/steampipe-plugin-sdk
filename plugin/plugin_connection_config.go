@@ -79,7 +79,6 @@ func (p *Plugin) setAggregatorSchemas() (logMessages map[string][]string, err er
 	for _, connectionData := range p.ConnectionMap {
 		// if this is an aggregator connection, update its schema, passing its existing config
 		if connectionData.isAggregator() {
-
 			logMessages, err := connectionData.initAggregatorSchema(connectionData.config)
 			if err != nil {
 				return logMessages, nil

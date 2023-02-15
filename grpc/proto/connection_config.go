@@ -1,7 +1,6 @@
 package proto
 
 import (
-	"github.com/gertd/wild"
 	"github.com/turbot/go-kit/helpers"
 )
 
@@ -10,23 +9,23 @@ func (x *ConnectionConfig) Equals(other *ConnectionConfig) bool {
 		x.Plugin == other.Plugin &&
 		x.PluginShortName == other.PluginShortName &&
 		x.Config == other.Config &&
-		x.TableAggregationSpecsEqual(other) &&
+		//x.TableAggregationSpecsEqual(other) &&
 		x.childConnectionsEqual(other)
 
 	return res
 }
 
-func (x *ConnectionConfig) TableAggregationSpecsEqual(other *ConnectionConfig) bool {
-	if len(x.TableAggregationSpecs) != len(other.TableAggregationSpecs) {
-		return false
-	}
-	for i, s := range x.TableAggregationSpecs {
-		if !other.TableAggregationSpecs[i].Equals(s) {
-			return false
-		}
-	}
-	return true
-}
+//func (x *ConnectionConfig) TableAggregationSpecsEqual(other *ConnectionConfig) bool {
+//	if len(x.TableAggregationSpecs) != len(other.TableAggregationSpecs) {
+//		return false
+//	}
+//	for i, s := range x.TableAggregationSpecs {
+//		if !other.TableAggregationSpecs[i].Equals(s) {
+//			return false
+//		}
+//	}
+//	return true
+//}
 
 func (x *ConnectionConfig) childConnectionsEqual(other *ConnectionConfig) bool {
 	if len(x.ChildConnections) != len(other.ChildConnections) {
@@ -41,11 +40,12 @@ func (x *ConnectionConfig) childConnectionsEqual(other *ConnectionConfig) bool {
 	}
 	return true
 }
-func (x *ConnectionConfig) GetAggregationSpecForTable(tableName string) *TableAggregationSpec {
-	for _, spec := range x.TableAggregationSpecs {
-		if wild.Match(spec.Match, tableName, false) {
-			return spec
-		}
-	}
-	return nil
-}
+
+//func (x *ConnectionConfig) GetAggregationSpecForTable(tableName string) *TableAggregationSpec {
+//	for _, spec := range x.TableAggregationSpecs {
+//		if wild.Match(spec.Match, tableName, false) {
+//			return spec
+//		}
+//	}
+//	return nil
+//}
