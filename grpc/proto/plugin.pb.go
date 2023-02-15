@@ -1713,7 +1713,7 @@ type ConnectionConfig struct {
 	Plugin           string   `protobuf:"bytes,2,opt,name=plugin,proto3" json:"plugin,omitempty"`
 	PluginShortName  string   `protobuf:"bytes,3,opt,name=plugin_short_name,json=pluginShortName,proto3" json:"plugin_short_name,omitempty"`
 	Config           string   `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
-	ChildConnections []string `protobuf:"bytes,5,rep,name=child_connections,json=childConnections,proto3" json:"child_connections,omitempty"` //  repeated TableAggregationSpec table_aggregation_specs = 6;
+	ChildConnections []string `protobuf:"bytes,5,rep,name=child_connections,json=childConnections,proto3" json:"child_connections,omitempty"`
 }
 
 func (x *ConnectionConfig) Reset() {
