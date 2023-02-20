@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// expect csv containing permitted folder roots
-const EnvPermittedFileRoots = "STEAMPIPE_PERMITTED_FOLDERS"
+// EnvPermittedFileRoots specified a comma separate list of permitted folder roots
+const EnvPermittedFileRoots = "STEAMPIPE_SDK_PERMITTED_ROOT_PATHS"
 
 func pathPermitted(sourcePath string) bool {
 	permittedFileRootEnv, ok := os.LookupEnv(EnvPermittedFileRoots)
