@@ -229,10 +229,10 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnect
 			log.Printf("[WARN] setConnectionData failed for connection %s, config validation failed: %s", connectionName, err.Error())
 			return
 		}
-		if len(warnings) > 0{
+		if len(warnings) > 0 {
 			p.logValidationWarnings(connectionName, warnings)
 		}
-			c.Config = config
+		c.Config = config
 	}
 
 	var err error
