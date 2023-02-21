@@ -218,6 +218,14 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnect
 		config, err := p.ConnectionConfigSchema.parse(config)
 		if err != nil {
 			failedConnections[connectionName] = err
+			log.Printf("[WARN] setConnectionData failed for connection %s, config parse failed: %s", connectionName, err.Error())
+			return
+		}
+		// now ask the plugin to validate and/or transform the config
+
+		config, err = p.onConfigParsed(config)
+		if err != nil {
+			failedConnections[connectionName] = err
 			log.Printf("[WARN] setConnectionData failed for connection %s, config validation failed: %s", connectionName, err.Error())
 			return
 		}

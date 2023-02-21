@@ -18,6 +18,10 @@ import (
 	"runtime/debug"
 )
 
+// ConfigParsedHook hook function called after connection config is parsed
+// - it provides the opportunity to validate and transform the config
+type ConfigParsedHook func(config any) (any, error)
+
 /*
 ConnectionConfigSchema is a struct that defines custom arguments in the plugin spc file
 that are passed to the plugin as [plugin.Connection.Config].
@@ -54,6 +58,8 @@ type ConnectionConfigSchema struct {
 	Schema map[string]*schema.Attribute
 	// function which returns an instance of a connection config struct
 	NewInstance ConnectionConfigInstanceFunc
+	// function which validates/transforms the parsed config
+	OnConfigParsed ConfigParsedHook
 }
 
 /*

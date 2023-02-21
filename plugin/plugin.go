@@ -66,6 +66,7 @@ Plugin examples:
 [github]: https://github.com/turbot/steampipe-plugin-github/blob/a5ae211ee602be4adcea3a5c495cbe36aa87b957/github/plugin.go#L11
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/plugin.go#L10
 */
+
 type Plugin struct {
 	Name   string
 	Logger hclog.Logger
@@ -717,4 +718,12 @@ func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
 		res[k] = v.Schema
 	}
 	return res
+}
+
+func (p *Plugin) onConfigParsed(config any) (any, error) {
+	if p.ConnectionConfigSchema != nil && p.ConnectionConfigSchema.OnConfigParsed != nil {
+		return p.ConnectionConfigSchema.OnConfigParsed(config)
+	}
+	return config, nil
+
 }
