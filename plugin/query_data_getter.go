@@ -14,6 +14,11 @@ func (d *QueryData) GetSourceFiles(source string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if resolvedSourcePath == "" && glob == "" {
+		log.Printf("[TRACE] GetSourceFiles: no files found")
+		return nil, nil
+	}
 	log.Printf("[TRACE] GetSourceFiles source: %s, glob: %s", resolvedSourcePath, glob)
 
 	// if resolvedSourcePath and glob is same, it indicates that no glob patterns are defined in source
