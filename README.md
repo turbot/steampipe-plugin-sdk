@@ -32,7 +32,7 @@ Join our [Slack community](https://steampipe.io/community/join) to ask questions
 <p>
 
 <details>
-<summary>Compiling this SDK</summary>
+<summary>Compiling this Steampipe plugin SDK</summary>
 To compile the SDK repo, you must install protoc.
 <pre>
 brew install protoc
