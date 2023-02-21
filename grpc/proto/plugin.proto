@@ -164,6 +164,8 @@ message ConnectionConfig {
   string config = 4;
   repeated string child_connections = 5;
   repeated TableAggregationSpec table_aggregation_specs = 6;
+  string raw_config=7;
+  Range decl_range=8;
 }
 
 message TableAggregationSpec {
@@ -291,4 +293,16 @@ message IndexItem{
   int64 limit = 5;
   int64 page_count = 6;
   google.protobuf.Timestamp insertion_time =7;
+}
+
+message Range{
+  string Filename=1;
+  Pos Start=2;
+  Pos End=3;
+}
+
+message Pos{
+  int64 Line=1;
+  int64 Column=2;
+  int64 Byte=3;
 }
