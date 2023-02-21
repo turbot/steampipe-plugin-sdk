@@ -109,10 +109,11 @@ func (c *ConnectionConfigSchema) parseConfigWithCtyTags(config *proto.Connection
 	// filename and range may not have been passed (for older versions of CLI)
 	filename := ""
 	startPos := hcl.Pos{}
-	if config.DeclRange != nil {
-		filename = config.DeclRange.Filename
-		startPos = config.DeclRange.Start.ToHcl()
-	}
+	// when parsing raw config, we camn use the passed in range
+	//if config.DeclRange != nil {
+	//	filename = config.DeclRange.Filename
+	//	startPos = config.DeclRange.Start.ToHcl()
+	//}
 	file, diags := hclsyntax.ParseConfig(configString, filename, startPos)
 	if diags.HasErrors() {
 		return nil, DiagsToError("Failed to parse connection config", diags)
@@ -136,7 +137,11 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.Connection
 	// filename and range may not have been passed (for older versions of CLI)
 	filename := ""
 	startPos := hcl.Pos{}
-
+	// when parsing raw config, we camn use the passed in range
+	//if config.DeclRange != nil {
+	//	filename = config.DeclRange.Filename
+	//	startPos = config.DeclRange.Start.ToHcl()
+	//}
 	file, diags := hclsyntax.ParseConfig(configString, filename, startPos)
 	if diags.HasErrors() {
 		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
