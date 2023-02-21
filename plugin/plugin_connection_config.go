@@ -222,14 +222,17 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, failedConnect
 			return
 		}
 		// now ask the plugin to validate and/or transform the config
-
-		config, err = p.onConfigParsed(config)
+		var warnings []string
+		config, warnings, err = p.onConfigParsed(config)
 		if err != nil {
 			failedConnections[connectionName] = err
 			log.Printf("[WARN] setConnectionData failed for connection %s, config validation failed: %s", connectionName, err.Error())
 			return
 		}
-		c.Config = config
+		if len(warnings) > 0{
+			p.logValidationWarnings(connectionName, warnings)
+		}
+			c.Config = config
 	}
 
 	var err error

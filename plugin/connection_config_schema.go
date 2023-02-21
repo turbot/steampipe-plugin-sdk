@@ -20,7 +20,7 @@ import (
 
 // ConfigParsedHook hook function called after connection config is parsed
 // - it provides the opportunity to validate and transform the config
-type ConfigParsedHook func(config any) (any, error)
+type ConfigParsedHook func(config any) (any, []string, error)
 
 /*
 ConnectionConfigSchema is a struct that defines custom arguments in the plugin spc file

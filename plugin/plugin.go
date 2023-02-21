@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gertd/go-pluralize"
 	"log"
 	"os"
 	"path"
@@ -720,10 +721,22 @@ func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
 	return res
 }
 
-func (p *Plugin) onConfigParsed(config any) (any, error) {
+func (p *Plugin) onConfigParsed(config any) (any, []string, error) {
 	if p.ConnectionConfigSchema != nil && p.ConnectionConfigSchema.OnConfigParsed != nil {
 		return p.ConnectionConfigSchema.OnConfigParsed(config)
 	}
-	return config, nil
+	return config, nil, nil
 
+}
+
+func (p *Plugin) logValidationWarnings(connectionName string, warnings []string) {
+	count := len(warnings)
+	log.Printf("[WARN] Connection %s has %d config validation %s",
+		connectionName,
+		count,
+		pluralize.NewClient().Pluralize("warning",count, false))
+
+	for _, w := range warnings{
+		log.Printf("[WARN] %s", w)
+	}
 }
