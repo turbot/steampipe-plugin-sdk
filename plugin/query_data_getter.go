@@ -1,10 +1,11 @@
 package plugin
 
 import (
-	filehelpers "github.com/turbot/go-kit/files"
-	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 	"log"
 	"path"
+
+	filehelpers "github.com/turbot/go-kit/files"
+	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 )
 
 // GetSourceFiles accept a source path downloads files if necessary, and returns a list of local file paths

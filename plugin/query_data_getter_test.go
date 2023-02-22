@@ -238,9 +238,7 @@ var getSourceFilesWithFolderJailTestCases = map[string]getSourceFilesWithFolderJ
 }
 
 func TestGetSourceFilesWithFolderJail(t *testing.T) {
-
 	q := &QueryData{}
-	prefixDividerCount := 4
 
 	for name, test := range getSourceFilesWithFolderJailTestCases {
 		permittedAbsPaths := []string{}
@@ -259,7 +257,6 @@ func TestGetSourceFilesWithFolderJail(t *testing.T) {
 
 		// set the env for STEAMPIPE_PERMITTED_FOLDERS
 		err := os.Setenv("STEAMPIPE_PERMITTED_FOLDERS", envPermittedPaths)
-
 		if err != nil {
 			t.Errorf(`Test: '%s' ERROR : %v`, name, err)
 		}
@@ -267,6 +264,11 @@ func TestGetSourceFilesWithFolderJail(t *testing.T) {
 		filePaths, err := q.GetSourceFiles(test.Input)
 		if err != nil {
 			t.Errorf(`Test: '%s' ERROR : %v`, name, err)
+		}
+
+		// to compare [] vs nil
+		if filePaths == nil {
+			filePaths = []string{}
 		}
 
 		for i, filePath := range filePaths {
@@ -277,14 +279,9 @@ func TestGetSourceFilesWithFolderJail(t *testing.T) {
 				filePaths[i] = path.Join(splitPath[1:]...)
 				continue
 			}
-			splitPath = strings.Split(filePath, string(os.PathSeparator))
-			filePaths[i] = path.Join(splitPath[prefixDividerCount:]...)
 		}
 
 		if !reflect.DeepEqual(test.ExpectedFilePaths, filePaths) {
-			fmt.Printf("\n")
-			fmt.Printf("expected: %v", test.ExpectedFilePaths)
-			fmt.Printf("actual: %v", filePaths)
 			t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.ExpectedFilePaths, filePaths)
 		}
 	}
