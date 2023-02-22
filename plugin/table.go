@@ -17,14 +17,6 @@ Use TableCacheOptions to override the .cache off property of the CLI.
 type TableCacheOptions struct {
 	Enabled bool
 }
-type AggregationMode string
-
-const (
-	AggregationModeMatch             AggregationMode = "match"
-	AggregationModeMergeUnion        AggregationMode = "merge_union"
-	AggregationModeMergeIntersection AggregationMode = "merge_intersection"
-	AggregationModeNone              AggregationMode = "none"
-)
 
 /*
 Table defines the properties of a plugin table:
