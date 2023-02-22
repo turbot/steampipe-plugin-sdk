@@ -3,17 +3,17 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/gertd/go-pluralize"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"golang.org/x/exp/maps"
 	"log"
 	"path"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/filewatcher"
 	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"golang.org/x/exp/maps"
 )
 
 // ConnectionData is the data stored by the plugin which is connection dependent.
@@ -113,14 +113,15 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 // if this connection data is for a dynamic aggregator, build a map of the tables which each child connection provides
 func (d *ConnectionData) initAggregatorSchema(aggregatorConfig *proto.ConnectionConfig) (logMessages map[string][]string, err error) {
 	// build map of the tables provided by each child connection
-	// this takes into account the table 'Aggregation' property and the aggregator config TableAggregationSpecs
-	logMessages, err = d.getAggregatedTablesByConnection(aggregatorConfig)
+	logMessages, err = d.setAggregatedTablesByConnection(aggregatorConfig)
 	if err != nil {
 		return logMessages, err
 	}
 
-	// resolve tables to include (only include tables who have same schema for all connections)
-	d.resolveAggregatorTableMap(logMessages)
+	// resolve tables to include by comparing the tablde schemas for each connection
+	// and resolving the aggregator schema, (based on the `Aggregation` property)
+	d.resolveAggregatorTableMap(aggregatorConfig, logMessages)
+
 	// log out the schema init process
 	d.logInitAggregatorSchema(aggregatorConfig)
 
@@ -144,9 +145,9 @@ func (d *ConnectionData) logInitAggregatorSchema(aggregatorConfig *proto.Connect
 	log.Printf("[INFO] ")
 }
 
-// for each table in AggregatedTablesByConnection, verify all connections havde the same schema and if so,
+// for each table in AggregatedTablesByConnection, verify all connections have the same schema and if so,
 // add to table map
-func (d *ConnectionData) resolveAggregatorTableMap(logMessages map[string][]string) {
+func (d *ConnectionData) resolveAggregatorTableMap(aggregatorConfig *proto.ConnectionConfig, logMessages map[string][]string) {
 	// clear table map and schema before we start
 	d.TableMap = make(map[string]*Table)
 	d.Schema = grpc.NewPluginSchema(d.Plugin.SchemaMode)
@@ -160,27 +161,43 @@ func (d *ConnectionData) resolveAggregatorTableMap(logMessages map[string][]stri
 				continue
 			}
 
-			if schema, isSame := d.tableSchemaSameForAllConnections(tableName); isSame {
+			// try to build a schema for this table - this will compare the schemas for all connections and
+			// if they are the same, or the Aggregation property if merge_*, it will build a schema
+			// If the tables have a different schema between connections, and the aggregation mode is not merge,
+			// this table will be EXCLUDED
+			tableSchema, messages := d.buildAggregatorTableSchema(aggregatorConfig, tableName)
+			if tableSchema != nil {
+				// so we managed to b
 				d.TableMap[tableName] = table
-				d.Schema.Schema[tableName] = schema
+				d.Schema.Schema[tableName] = tableSchema
 			} else {
-				msg := fmt.Sprintf("excluding %s: schema mismatch", tableName)
-				log.Println("[INFO] - ", msg)
-
-				// TODO use standard codes/enum?
-				logMessages[connectionName] = append(logMessages[connectionName], msg)
+				// no schema returned - we are excluding this table
+				log.Printf("[INFO] excluding %s", tableName)
 				// NOTE: remove this table from ALL entries in AggregatedTablesByConnection
 				for _, tableMap := range d.AggregatedTablesByConnection {
 					delete(tableMap, tableName)
 				}
+			}
+			// there may be messages even if we do not exclude the table
+			if msgCount := len(messages); msgCount > 0 {
+				log.Printf("[INFO] connection %s, table %s: %d schema build %s",
+					connectionName,
+					tableName,
+					msgCount,
+					pluralize.NewClient().Pluralize("message", msgCount, false))
+
+				for _, m := range messages {
+					log.Println("[INFO]", m)
+				}
+
+				logMessages[connectionName] = append(logMessages[connectionName], messages...)
 			}
 		}
 	}
 }
 
 // build map of the tables provided by each child connection
-// this takes into account the table 'Aggregation' property and the aggregator config TableAggregationSpecs
-func (d *ConnectionData) getAggregatedTablesByConnection(aggregatorConfig *proto.ConnectionConfig) (map[string][]string, error) {
+func (d *ConnectionData) setAggregatedTablesByConnection(aggregatorConfig *proto.ConnectionConfig) (map[string][]string, error) {
 	d.AggregatedTablesByConnection = make(map[string]map[string]*Table)
 	logMessages := make(map[string][]string)
 	for _, c := range aggregatorConfig.ChildConnections {
@@ -192,9 +209,6 @@ func (d *ConnectionData) getAggregatedTablesByConnection(aggregatorConfig *proto
 		}
 
 		// ask the connection data to build a list of tables that this connection provides
-		// this takes into account:
-		// - table level `Aggregation` property
-		// - aggregator connection config TableAggregationSpecs
 		var exclusionReasons map[string]string
 		d.AggregatedTablesByConnection[c], exclusionReasons = connectionData.getAggregatedTables(aggregatorConfig)
 		if exclusionCount := len(exclusionReasons); exclusionCount > 0 {
@@ -212,20 +226,8 @@ func (d *ConnectionData) getAggregatedTablesByConnection(aggregatorConfig *proto
 }
 
 func (d *ConnectionData) includeTableInAggregator(connectionName string, table *Table, aggregatorConfig *proto.ConnectionConfig) (include bool, reason string) {
-	// see if there is a matching table spec
-	if aggregationSpec := aggregatorConfig.GetAggregationSpecForTable(table.Name); aggregationSpec != nil {
-		// if a table is matched by the connection config, this overrides any table defintion `Aggregation` props
-		if !aggregationSpec.MatchesConnection(connectionName) {
-			return false, fmt.Sprintf("excluded by aggregation spec: match: %s, connections: %s", aggregationSpec.Match, strings.Join(aggregationSpec.Connections, ","))
-		}
-		// if we match the spec, ignore the table aggregation mode and return true
-		return true, ""
-	}
-
-	// otherwise if the config does not specify this table, fall back onto the table a`Aggregation` property
-	if table.Aggregation == AggregationModeNone {
-		return false, "table aggregation mode set to 'none'"
-	}
+	// TODO for now hard code to true
+	// update when (if)_ we re-add aggregation specs
 	return true, ""
 }
 
@@ -245,28 +247,92 @@ func (d *ConnectionData) getAggregatedTables(aggregatorConfig *proto.ConnectionC
 	return res, exclusionReasons
 }
 
-func (d *ConnectionData) tableSchemaSameForAllConnections(tableName string) (*proto.TableSchema, bool) {
-	p := d.Plugin
-	var exemplarSchema *proto.TableSchema
-	for _, c := range p.ConnectionMap {
-		// only interested in non-aggregator connections
-		if c.isAggregator() {
-			continue
-		}
-		// does this connection have this table?
+func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.ConnectionConfig, tableName string) (*proto.TableSchema, []string) {
+	exemplarSchema, connectionTableDiffs, messages := d.getSchemaDiffBetweenConnections(aggregatorConfig, tableName)
+
+	// if there are no diffs, there is nothing more to do
+	if exemplarSchema == nil || !connectionTableDiffs.HasDiffs() {
+		return exemplarSchema, messages
+	}
+
+	// so there are diffs between the schemas for this table for each connection
+
+	//  build a superset schema
+	var subsetSchema = &proto.TableSchema{
+		Description:                exemplarSchema.Description,
+		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,
+		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,
+		ListCallOptionalKeyColumns: exemplarSchema.ListCallOptionalKeyColumns,
+		GetCallKeyColumnList:       exemplarSchema.GetCallKeyColumnList,
+		ListCallKeyColumnList:      exemplarSchema.ListCallKeyColumnList,
+	}
+
+	includedColumns := make(map[string]struct{})
+	for _, connectionName := range aggregatorConfig.ChildConnections {
+		c := d.Plugin.ConnectionMap[connectionName]
 		tableSchema, ok := c.Schema.Schema[tableName]
 		if !ok {
-			log.Printf("[TRACE] tableSchemaSameForAllConnections: connection %s does not provide table %s", c.Connection.Name, tableName)
+			continue
+		}
+
+		for _, column := range tableSchema.Columns {
+			// have we already handled this column
+			if _, ok := includedColumns[column.Name]; ok {
+				continue
+			}
+
+			if _, columnTypeMismatch := connectionTableDiffs.TypeMismatchColumns[column.Name]; columnTypeMismatch {
+				// set the column type to JSON
+				// overwrite 'column'
+				column = &proto.ColumnDefinition{
+					Name:        column.Name,
+					Type:        proto.ColumnType_JSON,
+					Description: column.Description,
+				}
+			}
+
+			// ok including this column
+			subsetSchema.Columns = append(subsetSchema.Columns, column)
+			includedColumns[column.Name] = struct{}{}
+		}
+	}
+
+	return subsetSchema, messages
+}
+
+func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto.ConnectionConfig, tableName string) (*proto.TableSchema, *proto.TableSchemaDiff, []string) {
+	// construct a diff for all connections
+	var connectionTableDiffs = proto.NewTableSchemaDiff()
+
+	var messages []string
+
+	var exemplarSchema *proto.TableSchema
+	for _, connectionName := range aggregatorConfig.ChildConnections {
+		c := d.Plugin.ConnectionMap[connectionName]
+
+		// does this connection have this table?
+		tableSchema, ok := c.Schema.Schema[tableName]
+		if !ok || len(tableSchema.Columns) == 0 {
+			log.Printf("[TRACE] buildAggregatorTableSchema: connection %s does not provide table %s", c.Connection.Name, tableName)
 			continue
 		}
 		if exemplarSchema == nil {
 			exemplarSchema = tableSchema
-		} else if !tableSchema.Equals(exemplarSchema) {
-			return nil, false
+			continue
 		}
-	}
-	return exemplarSchema, true
 
+		schemaDiff := tableSchema.Diff(exemplarSchema)
+
+		// if key columns not equal, fail immediately
+		if !schemaDiff.KeyColumnsEqual {
+			messages = append(messages, fmt.Sprintf("cannot build merged schema for table %s as key columns are not consistent", tableName))
+			return nil, nil, messages
+		}
+
+		// merge the diffs
+		connectionTableDiffs.Merge(schemaDiff)
+	}
+	return exemplarSchema, connectionTableDiffs, messages
 }
 
 func (d *ConnectionData) setSchema(tableMap map[string]*Table, schema *grpc.PluginSchema) *ConnectionData {

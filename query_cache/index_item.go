@@ -33,9 +33,12 @@ func NewIndexItem(req *CacheRequest) *IndexItem {
 }
 
 func (i IndexItem) SatisfiesRequest(columns []string, limit int64, qualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
-	return i.satisfiesColumns(columns) &&
-		i.satisfiesLimit(limit) &&
-		i.satisfiesQuals(qualMap, keyColumns)
+	satisfiedColumns := i.satisfiesColumns(columns)
+	satisfiesLimit := i.satisfiesLimit(limit)
+	satisfiesQuals := i.satisfiesQuals(qualMap, keyColumns)
+
+	log.Printf("[TRACE] IndexItem) SatisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v", satisfiedColumns, satisfiesLimit, satisfiesQuals)
+	return satisfiedColumns && satisfiesLimit && satisfiesQuals
 }
 
 func (i IndexItem) SatisfiedByRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
@@ -49,7 +52,7 @@ func (i IndexItem) SatisfiedByRequest(req *CacheRequest, keyColumns map[string]*
 func (i IndexItem) satisfiesColumns(columns []string) bool {
 	for _, c := range columns {
 		if !helpers.StringSliceContains(i.Columns, c) {
-			log.Printf("[TRACE] satisfiesColumns returning false - %s missing from %s", c, strings.Join(columns, ","))
+			log.Printf("[TRACE] satisfiesColumns returning false - %s missing from %s", c, strings.Join(i.Columns, ","))
 			return false
 		}
 	}

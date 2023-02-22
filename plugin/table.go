@@ -17,12 +17,6 @@ Use TableCacheOptions to override the .cache off property of the CLI.
 type TableCacheOptions struct {
 	Enabled bool
 }
-type AggregationMode string
-
-const (
-	AggregationModeAggregate AggregationMode = "aggregate"
-	AggregationModeNone      AggregationMode = "none"
-)
 
 /*
 Table defines the properties of a plugin table:
@@ -67,8 +61,6 @@ type Table struct {
 	HydrateConfig []HydrateConfig
 	// cache options - allows disabling of cache for this table
 	Cache *TableCacheOptions
-	// specify whether to include this table in an aggregate connection
-	Aggregation AggregationMode
 
 	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
@@ -76,6 +68,8 @@ type Table struct {
 	// map of hydrate function name to columns it provides
 	//hydrateColumnMap map[string][]string
 	hydrateConfigMap map[string]*HydrateConfig
+
+	columnNameMap map[string]struct{}
 }
 
 func (t *Table) initialise(p *Plugin) {
@@ -83,11 +77,6 @@ func (t *Table) initialise(p *Plugin) {
 
 	// store the plugin pointer
 	t.Plugin = p
-
-	// default Aggregation to aggregate
-	if t.Aggregation == "" {
-		t.Aggregation = AggregationModeAggregate
-	}
 
 	// create DefaultRetryConfig if needed
 	if t.DefaultRetryConfig == nil {
@@ -133,9 +122,18 @@ func (t *Table) initialise(p *Plugin) {
 	// NOTE: this map also includes information from the legacy HydrateDependencies property
 	t.initialiseHydrateConfigs()
 
+	t.setColumnNameMap()
+
 	log.Printf("[TRACE] back from initialiseHydrateConfigs")
 
 	log.Printf("[TRACE] initialise table %s COMPLETE", t.Name)
+}
+
+func (t *Table) setColumnNameMap() {
+	t.columnNameMap = make(map[string]struct{}, len(t.Columns))
+	for _, c := range t.Columns {
+		t.columnNameMap[c.Name] = struct{}{}
+	}
 }
 
 // build map of all hydrate configs, and initialise them
@@ -198,12 +196,4 @@ func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
 		return t.List.Hydrate
 	}
 	return t.Get.Hydrate
-}
-
-func (t *Table) columnNameMap() map[string]struct{} {
-	res := make(map[string]struct{}, len(t.Columns))
-	for _, c := range t.Columns {
-		res[c.Name] = struct{}{}
-	}
-	return res
 }
