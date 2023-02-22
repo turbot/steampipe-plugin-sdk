@@ -20,7 +20,7 @@ func pathPermitted(sourcePath string) bool {
 	for _, root := range roots {
 		// TODO: is it ok to only support abs roots?
 		if !path.IsAbs(root) {
-			log.Printf("[WARN] permitted file root %s is not an absolute path - ignoreing", roots)
+			log.Printf("[WARN] permitted file root %s is not an absolute path - ignoring", roots)
 			continue
 		}
 		isSubElement, _ := subElem(root, sourcePath)
