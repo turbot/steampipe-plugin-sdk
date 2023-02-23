@@ -182,7 +182,7 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
 	// set ctx column name
-	d.contextColumnName = contextColumnName(d.Table.columnNameMap())
+	d.contextColumnName = contextColumnName(d.Table.columnNameMap)
 	return d, nil
 }
 
