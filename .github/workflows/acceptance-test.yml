@@ -33,6 +33,17 @@ jobs:
         with:
           go-version: 1.19
 
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          path: sdk
+
+      - name: Check sdk path
+        run: |
+          ls /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
+          ls /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk
+
       - name: Checkout Steampipe
         uses: actions/checkout@v3
         with:
@@ -43,8 +54,8 @@ jobs:
         run: |
           echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
-          go get github.com/${{ github.event.pull_request.head.repo.full_name }}/v5@${{ github.event.pull_request.head.sha }}
-          go get
+          go mod edit -replace github.com/turbot/steampipe-plugin-sdk/v5=/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
+          go mod tidy
           go build -o /home/runner/steampipe
 
       - name: Install Chaos plugin from registry
