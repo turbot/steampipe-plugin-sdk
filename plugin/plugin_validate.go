@@ -2,15 +2,16 @@ package plugin
 
 import (
 	"fmt"
+	"github.com/gertd/go-pluralize"
 	"log"
-	"strings"
 )
 
-func (p *Plugin) validate(tableMap map[string]*Table) string {
+func (p *Plugin) validate(tableMap map[string]*Table) (validationWarnings, validationErrors []string) {
 	log.Printf("[TRACE] validate plugin %s, required columns %v", p.Name, p.RequiredColumns)
-	var validationErrors []string
 	for tableName, table := range tableMap {
-		validationErrors = append(validationErrors, table.validate(tableName, p.RequiredColumns)...)
+		w, e := table.validate(tableName, p.RequiredColumns)
+		validationWarnings = append(validationWarnings, w...)
+		validationErrors = append(validationErrors, e...)
 	}
 	if p.ConnectionConfigSchema != nil {
 		validationErrors = append(validationErrors, p.ConnectionConfigSchema.Validate()...)
@@ -30,8 +31,13 @@ func (p *Plugin) validate(tableMap map[string]*Table) string {
 	log.Printf("[TRACE] validate table names")
 	validationErrors = append(validationErrors, p.validateTableNames()...)
 
-	log.Printf("[TRACE] plugin has %d validation errors", len(validationErrors))
-	return strings.Join(validationErrors, "\n")
+	log.Printf("[INFO] plugin validation result: %d %s %d %s",
+		len(validationWarnings),
+		pluralize.NewClient().Pluralize("warning", len(validationWarnings), false),
+		len(validationErrors),
+		pluralize.NewClient().Pluralize("error", len(validationErrors), false))
+
+	return validationWarnings, validationErrors
 }
 
 // validate that table names are consistent with their key in the table map

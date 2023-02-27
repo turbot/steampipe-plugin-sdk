@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -9,7 +10,7 @@ import (
 
 type validateTest struct {
 	plugin   Plugin
-	expected string
+	expected []string
 }
 
 // test hydrate functions
@@ -72,7 +73,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "",
+		expected: []string{""},
 	},
 	"get with hydrate dependency": {
 		plugin: Plugin{
@@ -104,7 +105,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' Get hydrate function 'getHydrate' has 1 dependency - Get hydrate functions cannot have dependencies",
+		expected: []string{"table 'table' Get hydrate function 'getHydrate' has 1 dependency - Get hydrate functions cannot have dependencies"},
 	},
 	"get with explicit hydrate config": {
 		plugin: Plugin{
@@ -136,7 +137,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' Get hydrate function 'getHydrate' also has an explicit hydrate config declared in `HydrateConfig`",
+		expected: []string{"table 'table' Get hydrate function 'getHydrate' also has an explicit hydrate config declared in `HydrateConfig`"},
 	},
 	"list with hydrate dependency": {
 		plugin: Plugin{
@@ -168,7 +169,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' List hydrate function 'listHydrate' has 1 dependency - List hydrate functions cannot have dependencies",
+		expected: []string{"table 'table' List hydrate function 'listHydrate' has 1 dependency - List hydrate functions cannot have dependencies"},
 	},
 	"list with explicit hydrate config": {
 		plugin: Plugin{
@@ -200,7 +201,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' List hydrate function 'listHydrate' also has an explicit hydrate config declared in `HydrateConfig`",
+		expected: []string{"table 'table' List hydrate function 'listHydrate' also has an explicit hydrate config declared in `HydrateConfig`"},
 	},
 	// non deterministic - skip
 	//"circular dep": {
@@ -241,7 +242,7 @@ var testCasesValidate = map[string]validateTest{
 	//		},
 	//		RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 	//	},
-	//	expected: "Hydration dependencies contains cycle: : hydrate1 -> hydrate2 -> hydrate1",
+	//	expected: []string{"Hydration dependencies contains cycle: : hydrate1 -> hydrate2 -> hydrate1",
 	//},
 	"no get key": {
 		plugin: Plugin{
@@ -272,7 +273,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' GetConfig does not specify a KeyColumn",
+		expected: []string{"table 'table' GetConfig does not specify a KeyColumn"},
 	},
 	"no get hydrate": {
 		plugin: Plugin{
@@ -303,7 +304,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' GetConfig does not specify a hydrate function\ntable 'table' HydrateConfig does not specify a hydrate function",
+		expected: []string{"table 'table' GetConfig does not specify a hydrate function\ntable 'table' HydrateConfig does not specify a hydrate function"},
 	},
 	"no list hydrate": {
 		plugin: Plugin{
@@ -333,7 +334,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' ListConfig does not specify a hydrate function",
+		expected: []string{"table 'table' ListConfig does not specify a hydrate function"},
 	},
 	"no list or get config": {
 		plugin: Plugin{
@@ -357,7 +358,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' does not have either GetConfig or ListConfig - one of these must be provided",
+		expected: []string{"table 'table' does not have either GetConfig or ListConfig - one of these must be provided"},
 	},
 	"required column wrong type": {
 		plugin: Plugin{
@@ -389,7 +390,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' required column 'name' should be type 'ColumnType_STRING' but is type 'ColumnType_INT'",
+		expected: []string{"table 'table' required column 'name' should be type 'ColumnType_STRING' but is type 'ColumnType_INT'"},
 	},
 	"missing required column": {
 		plugin: Plugin{
@@ -421,7 +422,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "missing", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' does not implement required column 'missing'",
+		expected: []string{"table 'table' does not implement required column 'missing'"},
 	},
 	"missing get key": {
 		plugin: Plugin{
@@ -452,7 +453,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: "table 'table' GetConfig does not specify a KeyColumn",
+		expected: []string{"table 'table' GetConfig does not specify a KeyColumn"},
 	},
 }
 
@@ -461,10 +462,10 @@ func TestValidate(t *testing.T) {
 		test.plugin.initialise()
 		test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
 
-		validationErrors := test.plugin.validate(test.plugin.TableMap)
+		_, validationErrors := test.plugin.validate(test.plugin.TableMap)
 
-		if test.expected != validationErrors {
-			t.Errorf("Test: '%s'' FAILED. \nExpected: '%s' \nGot: '%s'  ", name, test.expected, validationErrors)
+		if strings.Join(test.expected, "\n") != strings.Join(validationErrors, "\n") {
+			t.Errorf("Test: '%s'' FAILED. \nexpected: []string{'%s' \nGot: '%s'  ", name, test.expected, validationErrors)
 		}
 	}
 }

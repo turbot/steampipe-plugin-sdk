@@ -128,8 +128,8 @@ type QueryData struct {
 	freeMemInterval int64
 
 	// temp dir for the connection
-	tempDir           string
-	contextColumnName string
+	tempDir         string
+	reservedColumns map[string]struct{}
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -160,6 +160,7 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 		listWg:      &wg,
 
 		freeMemInterval: GetFreeMemInterval(),
+		reservedColumns: getReservedColumns(table),
 
 		// temporary dir for this connection
 		// this will only created if GetSourceFiles is used
@@ -181,9 +182,18 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
-	// set ctx column name
-	d.contextColumnName = contextColumnName(d.Table.columnNameMap)
 	return d, nil
+}
+
+// build a list of reserved columns for this table
+func getReservedColumns(table *Table) map[string]struct{} {
+	var res = make(map[string]struct{}, len(table.Columns))
+	for columnName := range table.columnNameMap {
+		if IsReservedColumnName(columnName) {
+			res[columnName] = struct{}{}
+		}
+	}
+	return res
 }
 
 // ShallowCopy creates a shallow copy of the QueryData, i.e. most pointer properties are copied
@@ -322,6 +332,11 @@ func (d *QueryData) populateColumns() {
 // get the column returned by the given hydrate call
 func (d *QueryData) addColumnsForHydrate(hydrateName string) {
 	for _, columnName := range d.hydrateColumnMap[hydrateName] {
+		// skip reserved columns
+		if _, isReserved := d.reservedColumns[columnName]; isReserved {
+			continue
+		}
+
 		// get the column from the table
 		column := d.Table.getColumn(columnName)
 		d.columns[columnName] = NewQueryColumn(column, hydrateName)
@@ -736,6 +751,8 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			log.Printf("[WARN] getRow failed with error %v", err)
 			d.streamError(err)
 		} else {
+			// remove reserved columns
+			d.removeReservedColumns(row)
 			// NOTE: add the Steampipecontext data to the row
 			d.addContextData(row)
 
@@ -747,7 +764,7 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 func (d *QueryData) addContextData(row *proto.Row) {
 	jsonValue, _ := json.Marshal(map[string]string{"connection_name": d.Connection.Name})
 
-	row.Columns[d.contextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
+	row.Columns[contextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
@@ -772,5 +789,11 @@ func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
 
 // return the names of all columns that will be returned, adding in the _ctx column
 func (d *QueryData) getColumnNames() []string {
-	return append(maps.Keys(d.columns), d.contextColumnName)
+	return append(maps.Keys(d.columns), contextColumnName)
+}
+
+func (d *QueryData) removeReservedColumns(row *proto.Row) {
+	for c := range d.reservedColumns {
+		delete(row.Columns, c)
+	}
 }

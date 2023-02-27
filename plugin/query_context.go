@@ -37,7 +37,6 @@ func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabl
 	// NOTE: only set columns which are supported by this table
 	// (in the case of dynamic aggregators, the query may request
 	// columns that this table does not provide for this connection)
-	contextColumnName := contextColumnName(table.columnNameMap)
 	for _, c := range p.Columns {
 		// context column is not in the table column map
 		if _, hasColumn := table.columnNameMap[c]; hasColumn || c == contextColumnName {

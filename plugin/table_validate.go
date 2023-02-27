@@ -2,15 +2,14 @@ package plugin
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"strings"
 )
 
-func (t *Table) validate(name string, requiredColumns []*Column) []string {
-	var validationErrors []string
+func (t *Table) validate(name string, requiredColumns []*Column) (validationWarnings, validationErrors []string) {
+	validationWarnings, validationErrors = t.validateReservedColumns()
 
 	// does table have a name set?
 	if t.Name == "" {
@@ -18,7 +17,7 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 	}
 
 	// verify all required columns exist
-	validationErrors = t.validateRequiredColumns(requiredColumns)
+	validationErrors = append(validationErrors, t.validateRequiredColumns(requiredColumns)...)
 
 	// validated list and get config
 	// NOTE: this also sets key column require and operators to default value if not specified
@@ -36,7 +35,7 @@ func (t *Table) validate(name string, requiredColumns []*Column) []string {
 		validationErrors = append(validationErrors, h.Validate(t)...)
 	}
 
-	return validationErrors
+	return validationWarnings, validationErrors
 }
 
 func (t *Table) validateRequiredColumns(requiredColumns []*Column) []string {
@@ -164,7 +163,7 @@ func (t *Table) validateKeyColumns() []string {
 			getValidationErrors = append(getValidationErrors, fmt.Sprintf("table '%s' Get key columns must only use '=' operators", t.Name))
 		}
 		// ensure all key columns actually exist
-		getValidationErrors = append(getValidationErrors, t.ValidateColumnsExist(t.Get.KeyColumns)...)
+		getValidationErrors = append(getValidationErrors, t.validateColumnsExist(t.Get.KeyColumns)...)
 		if len(getValidationErrors) > 0 {
 			getValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid Get config:", t.Name)}, helpers.TabifyStringSlice(getValidationErrors, "    - ")...)
 		}
@@ -176,13 +175,13 @@ func (t *Table) validateKeyColumns() []string {
 			listValidationErrors = append([]string{fmt.Sprintf("table '%s' has an invalid List config:", t.Name)}, helpers.TabifyStringSlice(listValidationErrors, "    - ")...)
 		}
 		// ensure all key columns actually exist
-		listValidationErrors = append(listValidationErrors, t.ValidateColumnsExist(t.List.KeyColumns)...)
+		listValidationErrors = append(listValidationErrors, t.validateColumnsExist(t.List.KeyColumns)...)
 	}
 
 	return append(getValidationErrors, listValidationErrors...)
 }
 
-func (t *Table) ValidateColumnsExist(keyColumns KeyColumnSlice) []string {
+func (t *Table) validateColumnsExist(keyColumns KeyColumnSlice) []string {
 	var res []string
 	for _, c := range keyColumns {
 		if t.getColumn(c.Name) == nil {
@@ -190,4 +189,18 @@ func (t *Table) ValidateColumnsExist(keyColumns KeyColumnSlice) []string {
 		}
 	}
 	return res
+}
+
+func (t *Table) validateReservedColumns() (validationWarnings, validationErrors []string) {
+	for columnName := range t.columnNameMap {
+		if IsReservedColumnName(columnName) {
+			// if this is a static plugin, it is an error to use reserved columns. For dynamic plugins itr is a warning
+			if t.Plugin.SchemaMode == SchemaModeDynamic {
+				validationWarnings = append(validationWarnings, fmt.Sprintf("table '%s': column name '%s' is a reserved name and will be ignored", t.Name, columnName))
+			} else {
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s': column name %s is a reserved name", t.Name, columnName))
+			}
+		}
+	}
+	return
 }
