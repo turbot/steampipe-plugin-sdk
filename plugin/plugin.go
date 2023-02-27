@@ -229,8 +229,8 @@ func (p *Plugin) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMess
 	log.Printf("[TRACE] plugin.EstablishMessageStream set on plugin: plugin.messageStream %p", p.messageStream)
 
 	// hold stream open
-	for {
-	}
+	select {}
+
 	return nil
 }
 
