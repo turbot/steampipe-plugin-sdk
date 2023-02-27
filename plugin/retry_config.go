@@ -83,18 +83,18 @@ func (c *RetryConfig) validate(table *Table) []string {
 	var res []string
 	validBackoffAlgorithm := []string{"Constant", "Exponential", "Fibonacci"}
 
+	var tablePrefix string
+	if table != nil {
+		tablePrefix = fmt.Sprintf("table '%s' ", table.Name)
+	}
 	if c.ShouldRetryError != nil && c.ShouldRetryErrorFunc != nil {
 		log.Printf("[TRACE] RetryConfig validate failed - both ShouldRetryError and ShouldRetryErrorFunc are defined")
-		var tablePrefix string
-		if table != nil {
-			tablePrefix = fmt.Sprintf("table '%s' ", table.Name)
-		}
 
 		res = append(res, fmt.Sprintf("%sboth ShouldRetryError and ShouldRetryErrorFunc are defined", tablePrefix))
 	}
 
 	if c.BackoffAlgorithm != "" && !helpers.StringSliceContains(validBackoffAlgorithm, c.BackoffAlgorithm) {
-		res = append(res, fmt.Sprintf("BackoffAlgorithm value '%s' is not valid, it must be one of: %s", c.BackoffAlgorithm, strings.Join(validBackoffAlgorithm, ",")))
+		res = append(res, fmt.Sprintf("%sBackoffAlgorithm value '%s' is not valid, it must be one of: %s", tablePrefix, c.BackoffAlgorithm, strings.Join(validBackoffAlgorithm, ",")))
 	}
 
 	return res

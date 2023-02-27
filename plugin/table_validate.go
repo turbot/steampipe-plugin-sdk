@@ -2,15 +2,14 @@ package plugin
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"strings"
 )
 
 func (t *Table) validate(name string, requiredColumns []*Column) (validationWarnings, validationErrors []string) {
-	validationWarnings = t.validateReservedColumns()
+	validationWarnings, validationErrors = t.validateReservedColumns()
 
 	// does table have a name set?
 	if t.Name == "" {
@@ -18,7 +17,7 @@ func (t *Table) validate(name string, requiredColumns []*Column) (validationWarn
 	}
 
 	// verify all required columns exist
-	validationErrors = t.validateRequiredColumns(requiredColumns)
+	validationErrors = append(validationErrors, t.validateRequiredColumns(requiredColumns)...)
 
 	// validated list and get config
 	// NOTE: this also sets key column require and operators to default value if not specified
@@ -192,10 +191,15 @@ func (t *Table) validateColumnsExist(keyColumns KeyColumnSlice) []string {
 	return res
 }
 
-func (t *Table) validateReservedColumns() (validationWarnings []string) {
+func (t *Table) validateReservedColumns() (validationWarnings, validationErrors []string) {
 	for columnName := range t.columnNameMap {
 		if IsReservedColumnName(columnName) {
-			validationWarnings = append(validationWarnings, fmt.Sprintf("Column name %s is a reserved name and will be ignored", columnName))
+			// if this is a static plugin, it is an error to use reserved columns. For dynamic plugins itr is a warning
+			if t.Plugin.SchemaMode == SchemaModeDynamic {
+				validationWarnings = append(validationWarnings, fmt.Sprintf("table '%s': column name '%s' is a reserved name and will be ignored", t.Name, columnName))
+			} else {
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s': column name %s is a reserved name", t.Name, columnName))
+			}
 		}
 	}
 	return
