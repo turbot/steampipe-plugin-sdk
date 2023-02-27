@@ -145,8 +145,8 @@ func (d *ConnectionData) logInitAggregatorSchema(aggregatorConfig *proto.Connect
 	log.Printf("[INFO] ")
 }
 
-// for each table in AggregatedTablesByConnection, verify all connections have the same schema and if so,
-// add to table map
+// for each table in AggregatedTablesByConnection, verify all connections have the key columns, and if so,
+// build a superset schema and add to table map
 func (d *ConnectionData) resolveAggregatorTableMap(aggregatorConfig *proto.ConnectionConfig, logMessages map[string][]string) {
 	// clear table map and schema before we start
 	d.TableMap = make(map[string]*Table)
@@ -161,13 +161,11 @@ func (d *ConnectionData) resolveAggregatorTableMap(aggregatorConfig *proto.Conne
 				continue
 			}
 
-			// try to build a schema for this table - this will compare the schemas for all connections and
-			// if they are the same, or the Aggregation property if merge_*, it will build a schema
-			// If the tables have a different schema between connections, and the aggregation mode is not merge,
-			// this table will be EXCLUDED
+			// try to build a superset schema for this table
+			// If the tables have a different key columns connections this table will be EXCLUDED
 			tableSchema, messages := d.buildAggregatorTableSchema(aggregatorConfig, tableName)
 			if tableSchema != nil {
-				// so we managed to b
+				// so we managed to build a schema
 				d.TableMap[tableName] = table
 				d.Schema.Schema[tableName] = tableSchema
 			} else {
@@ -250,7 +248,7 @@ func (d *ConnectionData) getAggregatedTables(aggregatorConfig *proto.ConnectionC
 func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.ConnectionConfig, tableName string) (*proto.TableSchema, []string) {
 	exemplarSchema, connectionTableDiffs, messages := d.getSchemaDiffBetweenConnections(aggregatorConfig, tableName)
 
-	// if there are no diffs, there is nothing more to do
+	// if there is no exemplar schema, or there are no diffs, there is nothing more to do
 	if exemplarSchema == nil || !connectionTableDiffs.HasDiffs() {
 		return exemplarSchema, messages
 	}
@@ -258,7 +256,7 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 	// so there are diffs between the schemas for this table for each connection
 
 	//  build a superset schema
-	var subsetSchema = &proto.TableSchema{
+	var superset = &proto.TableSchema{
 		Description:                exemplarSchema.Description,
 		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,
 		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,
@@ -292,12 +290,12 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 			}
 
 			// ok including this column
-			subsetSchema.Columns = append(subsetSchema.Columns, column)
+			superset.Columns = append(superset.Columns, column)
 			includedColumns[column.Name] = struct{}{}
 		}
 	}
 
-	return subsetSchema, messages
+	return superset, messages
 }
 
 func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto.ConnectionConfig, tableName string) (*proto.TableSchema, *proto.TableSchemaDiff, []string) {
@@ -332,6 +330,7 @@ func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto
 		// merge the diffs
 		connectionTableDiffs.Merge(schemaDiff)
 	}
+
 	return exemplarSchema, connectionTableDiffs, messages
 }
 

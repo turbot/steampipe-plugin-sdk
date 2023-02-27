@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gertd/go-pluralize"
 	"log"
 	"os"
 	"path"
@@ -659,10 +660,27 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 
 	// now validate the plugin
 	// NOTE: must do this after calling TableMapFunc
-	if validationErrors := p.validate(tableMap); validationErrors != "" {
-		return nil, fmt.Errorf("plugin %s connection %s validation failed: \n%s", p.Name, connection.Name, validationErrors)
+	validationWarnings, validationErrors := p.validate(tableMap)
+
+	if len(validationWarnings) > 0 {
+		logValidationWarning(connection, validationWarnings)
+	}
+	if len(validationErrors) > 0 {
+		return nil, fmt.Errorf("plugin %s connection %s validation failed: \n%s", p.Name, connection.Name, strings.Join(validationErrors, "\n"))
 	}
 	return tableMap, nil
+}
+
+func logValidationWarning(connection *Connection, warnings []string) {
+	count := len(warnings)
+	log.Printf("[WARN] connection %s, has %d table validation %s",
+		connection.Name,
+		count,
+		pluralize.NewClient().Pluralize("warning", count, false))
+
+	for _, w := range warnings {
+		log.Printf("[WARN] %s", w)
+	}
 }
 
 func (p *Plugin) setupLogger() hclog.Logger {
