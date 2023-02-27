@@ -642,8 +642,8 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 		}()
 
 		tableMapData := &TableMapData{
-			Connection:     connection,
-			ConectionCache: p.ensureConnectionCache(connection.Name),
+			Connection:      connection,
+			ConnectionCache: p.ensureConnectionCache(connection.Name),
 		}
 		tableMap, err = p.TableMapFunc(ctx, tableMapData)
 		if err != nil {

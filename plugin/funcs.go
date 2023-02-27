@@ -72,6 +72,6 @@ Plugin examples:
 type TableMapFunc func(ctx context.Context, d *TableMapData) (map[string]*Table, error)
 
 type TableMapData struct {
-	Connection     *Connection
-	ConectionCache *connection.ConnectionCache
+	Connection      *Connection
+	ConnectionCache *connection.ConnectionCache
 }
