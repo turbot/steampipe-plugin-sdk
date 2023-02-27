@@ -129,7 +129,7 @@ type QueryData struct {
 
 	// temp dir for the connection
 	tempDir         string
-	reservedColumns []string
+	reservedColumns map[string]struct{}
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -186,11 +186,11 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 }
 
 // build a list of reserved columns for this table
-func getReservedColumns(table *Table) []string {
-	var res = make([]string, 0, len(table.Columns))
+func getReservedColumns(table *Table) map[string]struct{} {
+	var res = make(map[string]struct{}, len(table.Columns))
 	for columnName := range table.columnNameMap {
 		if IsReservedColumnName(columnName) {
-			res = append(res, columnName)
+			res[columnName] = struct{}{}
 		}
 	}
 	return res
@@ -332,6 +332,11 @@ func (d *QueryData) populateColumns() {
 // get the column returned by the given hydrate call
 func (d *QueryData) addColumnsForHydrate(hydrateName string) {
 	for _, columnName := range d.hydrateColumnMap[hydrateName] {
+		// skip reserved columns
+		if _, isReserved := d.reservedColumns[columnName]; isReserved {
+			continue
+		}
+
 		// get the column from the table
 		column := d.Table.getColumn(columnName)
 		d.columns[columnName] = NewQueryColumn(column, hydrateName)
@@ -788,7 +793,7 @@ func (d *QueryData) getColumnNames() []string {
 }
 
 func (d *QueryData) removeReservedColumns(row *proto.Row) {
-	for _, c := range d.reservedColumns {
+	for c := range d.reservedColumns {
 		delete(row.Columns, c)
 	}
 }
