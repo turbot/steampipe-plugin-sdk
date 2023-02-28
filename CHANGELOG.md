@@ -8,6 +8,15 @@ _What's new_
 * If an empty Matrix is returned from MatrixItemFunc, fetch function should not be called.([#496](https://github.com/turbot/steampipe-plugin-sdk/issues/496))
 * Remove need for connection config schema - support hcl tags on connection config struct. ([#482](https://github.com/turbot/steampipe-plugin-sdk/issues/482))
 * Add support for including child `struct` properties in connection config. ([#168](https://github.com/turbot/steampipe-plugin-sdk/issues/168))
+* Instead of renaming `_ctx` column to dedupe it, implement a set of reserved columns which may not be used. ([#536](https://github.com/turbot/steampipe-plugin-sdk/issues/536))
+* Add support for like, not like, ilike and not ilike operators in List hydrate functions. ([#592](https://github.com/turbot/steampipe-plugin-sdk/issues/592))
+
+_Bug fixes_
+* Fix query cache pending item mechanism. ([#511](https://github.com/turbot/steampipe-plugin-sdk/issues/511),[#512](https://github.com/turbot/steampipe-plugin-sdk/issues/512),[#517](https://github.com/turbot/steampipe-plugin-sdk/issues/517))
+* Fix dynamic plugins exhibiting very high CPU usage due to message stream function. ([#537](https://github.com/turbot/steampipe-plugin-sdk/issues/537))
+
+**BREAKING CHANGE**
+* Fix typo in `TableMapData` - rename `ConectionCache` to `ConnectionCache`. ([#535](https://github.com/turbot/steampipe-plugin-sdk/issues/535))
 
 ## v5.1.2 [2023-01-24]
 _Bug fixes_
