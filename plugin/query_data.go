@@ -289,6 +289,11 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 
 	// populate a map keyed by function name to ensure we only store each hydrate function once
 	for _, column := range t.Columns {
+		// skip reserved columns
+		if _, isReserved := d.reservedColumns[column.Name]; isReserved {
+			continue
+		}
+
 		// see if this column specifies a hydrate function
 
 		var hydrateName string
@@ -332,10 +337,6 @@ func (d *QueryData) populateColumns() {
 // get the column returned by the given hydrate call
 func (d *QueryData) addColumnsForHydrate(hydrateName string) {
 	for _, columnName := range d.hydrateColumnMap[hydrateName] {
-		// skip reserved columns
-		if _, isReserved := d.reservedColumns[columnName]; isReserved {
-			continue
-		}
 
 		// get the column from the table
 		column := d.Table.getColumn(columnName)
