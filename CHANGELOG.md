@@ -1,4 +1,4 @@
-## v5.2.0 [tbd]
+## v5.2.0 [2023-03-02]
 _What's new_
 * Add support for update of dynamic plugin schema based on file watching events. ([#457](https://github.com/turbot/steampipe-plugin-sdk/issues/457))
 * Update SetAllConnectionConfigs to return map of failed connections.  ([#458](https://github.com/turbot/steampipe-plugin-sdk/issues/458))
