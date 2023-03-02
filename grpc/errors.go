@@ -43,7 +43,7 @@ func IsEOFError(err error) bool {
 		return false
 	}
 
-	return status.Code() == codes.Unavailable
+	return status.Code() == codes.Unavailable || err.Error()== "EOF"
 }
 
 func IsGRPCConnectivityError(err error) bool {
