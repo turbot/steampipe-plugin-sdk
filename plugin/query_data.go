@@ -163,8 +163,8 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 		reservedColumns: getReservedColumns(table),
 
 		// temporary dir for this connection
-		// this will only created if GetSourceFiles is used
-		tempDir: connectionData.GetConnectionTempDir(p.tempDir),
+		// this will only created if getSourceFiles is used
+		tempDir: getConnectionTempDir(p.tempDir, connectionData.Connection.Name),
 	}
 
 	d.StreamListItem = d.streamListItem
@@ -259,6 +259,11 @@ func (d *QueryData) EqualsQualString(key string) string {
 		return ""
 	}
 	return typehelpers.ToString(grpc.GetQualValue(qualValue).(string))
+}
+
+// GetSourceFiles accept a source path downloads files if necessary, and returns a list of local file paths
+func (d *QueryData) GetSourceFiles(source string) ([]string, error) {
+	return getSourceFiles(source, d.tempDir)
 }
 
 func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {

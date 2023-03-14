@@ -8,19 +8,19 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 )
 
-// GetSourceFiles accept a source path downloads files if necessary, and returns a list of local file paths
-func (d *QueryData) GetSourceFiles(source string) ([]string, error) {
+// getSourceFiles accept a source path downloads files if necessary, and returns a list of local file paths
+func getSourceFiles(source, tempDir string) ([]string, error) {
 	// get the files into a temporary location
-	resolvedSourcePath, glob, err := getter.GetFiles(source, d.tempDir)
+	resolvedSourcePath, glob, err := getter.GetFiles(source, tempDir)
 	if err != nil {
 		return nil, err
 	}
 
 	if resolvedSourcePath == "" && glob == "" {
-		log.Printf("[TRACE] GetSourceFiles: no files found")
+		log.Printf("[TRACE] getSourceFiles: no files found")
 		return nil, nil
 	}
-	log.Printf("[TRACE] GetSourceFiles source: %s, glob: %s", resolvedSourcePath, glob)
+	log.Printf("[TRACE] getSourceFiles source: %s, glob: %s", resolvedSourcePath, glob)
 
 	// if resolvedSourcePath and glob is same, it indicates that no glob patterns are defined in source
 	// determine whether the target is a file or folder
