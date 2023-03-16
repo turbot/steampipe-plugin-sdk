@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 	"io/fs"
 	"os"
 	"path"
@@ -255,8 +256,8 @@ func TestGetSourceFilesWithFolderJail(t *testing.T) {
 		envPermittedPaths = strings.Join(permittedAbsPaths, ",")
 		fmt.Printf("Permitted absolute paths: %s", envPermittedPaths)
 
-		// set the env for STEAMPIPE_PERMITTED_FOLDERS
-		err := os.Setenv("STEAMPIPE_PERMITTED_FOLDERS", envPermittedPaths)
+		// set the env for STEAMPIPE_SDK_PERMITTED_ROOT_PATHS
+		err := os.Setenv(getter.EnvPermittedFileRoots, envPermittedPaths)
 		if err != nil {
 			t.Errorf(`Test: '%s' ERROR : %v`, name, err)
 		}
