@@ -1,4 +1,5 @@
-## v5.3.0 [tbd]
+## v5.3.0 [2023-03-16]
+
 _What's new_
 * Add env var support for limiting the folders from which source files are retrieved. ([#540](https://github.com/turbot/steampipe-plugin-sdk/issues/540))
 * Add go-getter support to `TableMapFunc` - add `GetSourceFiles` method to `ConnectionMapData`. ([#542](https://github.com/turbot/steampipe-plugin-sdk/issues/542))
