@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"github.com/turbot/steampipe-plugin-sdk/v5/connection"
 )
 
 /*
@@ -70,8 +69,3 @@ Plugin examples:
 [csv]: https://github.com/turbot/steampipe-plugin-csv/blob/fa8c9809f4ebbfa2738e9ecd136da8b89a87f6eb/csv/plugin.go#L25
 */
 type TableMapFunc func(ctx context.Context, d *TableMapData) (map[string]*Table, error)
-
-type TableMapData struct {
-	Connection      *Connection
-	ConnectionCache *connection.ConnectionCache
-}

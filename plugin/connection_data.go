@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"path"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
@@ -43,11 +42,6 @@ func NewConnectionData(c *Connection, p *Plugin, config *proto.ConnectionConfig)
 	}
 }
 
-// GetConnectionTempDir appends the connection name to the plugin temporary directory path
-func (d *ConnectionData) GetConnectionTempDir(pluginTempDir string) string {
-	return path.Join(pluginTempDir, d.Connection.Name)
-}
-
 func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error {
 	// close any existing watcher
 	if d.Watcher != nil {
@@ -57,7 +51,7 @@ func (d *ConnectionData) updateWatchPaths(watchPaths []string, p *Plugin) error 
 	}
 
 	// create WatcherOptions
-	connTempDir := d.GetConnectionTempDir(p.tempDir)
+	connTempDir := getConnectionTempDir(p.tempDir, d.Connection.Name)
 	opts := filewatcher.WatcherOptions{
 		EventMask: fsnotify.Create | fsnotify.Write | fsnotify.Remove | fsnotify.Rename,
 	}

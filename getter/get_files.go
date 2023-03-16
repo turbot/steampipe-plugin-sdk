@@ -30,7 +30,10 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 	}
 	// if we managed to resolve the sourceDir, treat this as a local path
 	if localSourcePath != "" {
-		return localSourcePath, globPattern, nil
+		if pathPermitted(localSourcePath) {
+			return localSourcePath, globPattern, nil
+		}
+		return "", "", nil
 	}
 
 	remoteSourcePath, globPattern, urlData, err := resolveGlobAndSourcePath(sourcePath)

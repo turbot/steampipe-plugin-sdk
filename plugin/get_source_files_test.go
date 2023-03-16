@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 	"io/fs"
 	"os"
 	"path"
@@ -18,6 +19,13 @@ type getSourceFilesTest struct {
 	ExpectedFilePaths []string
 }
 
+type getSourceFilesWithFolderJailTest struct {
+	Input             string
+	ExpectedFilePaths []string
+	// NOTE: these are relative, but will be converted to absolute before calling the test
+	PermittedFileRoots []string
+}
+
 var wd, _ = os.Getwd()
 
 var getSourceFilesTestCases = map[string]getSourceFilesTest{
@@ -25,6 +33,10 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 	"local - *.tf": {
 		Input:             filepath.Join(wd, "test_data/get_source_files_test/*.tf"),
 		ExpectedFilePaths: []string{"test_data/get_source_files_test/steampipe.tf", "test_data/get_source_files_test/steampipe1.tf", "test_data/get_source_files_test/steampunk.tf"},
+	},
+	"local - *.tf, NOT PERMITTED": {
+		Input:             filepath.Join(wd, "test_data/get_source_files_test/*.tf"),
+		ExpectedFilePaths: []string{},
 	},
 	"local - **/*.tf": {
 		Input:             filepath.Join(wd, "test_data/get_source_files_test/**/*.tf"),
@@ -190,6 +202,84 @@ func TestGetSourceFiles(t *testing.T) {
 			}
 			splitPath = strings.Split(filePath, string(os.PathSeparator))
 			filePaths[i] = path.Join(splitPath[prefixDividerCount:]...)
+		}
+
+		if !reflect.DeepEqual(test.ExpectedFilePaths, filePaths) {
+			t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.ExpectedFilePaths, filePaths)
+		}
+	}
+}
+
+var getSourceFilesWithFolderJailTestCases = map[string]getSourceFilesWithFolderJailTest{
+	// local files
+	"local - *.tf": {
+		Input:              filepath.Join(wd, "test_data/get_source_files_test/*.tf"),
+		ExpectedFilePaths:  []string{"test_data/get_source_files_test/steampipe.tf", "test_data/get_source_files_test/steampipe1.tf", "test_data/get_source_files_test/steampunk.tf"},
+		PermittedFileRoots: []string{"test_data/get_source_files_test"},
+	},
+	"local - *.tf, NOT PERMITTED": {
+		Input:              filepath.Join(wd, "test_data/get_source_files_test/*.tf"),
+		ExpectedFilePaths:  []string{},
+		PermittedFileRoots: []string{"some_other_folder"},
+	},
+	"local - **/*.tf": {
+		Input:              filepath.Join(wd, "test_data/get_source_files_test/**/*.tf"),
+		ExpectedFilePaths:  []string{"test_data/get_source_files_test/aws/accessanalyzer.tf", "test_data/get_source_files_test/aws/account.tf", "test_data/get_source_files_test/gcp/compute_instance_actual_earwig.tf", "test_data/get_source_files_test/gcp/compute_instance_native_rodent.tf", "test_data/get_source_files_test/gcp/main.tf", "test_data/get_source_files_test/gcp/vars.tf", "test_data/get_source_files_test/steampipe.tf", "test_data/get_source_files_test/steampipe1.tf", "test_data/get_source_files_test/steampunk.tf"},
+		PermittedFileRoots: []string{"test_data/get_source_files_test"},
+	},
+	"local - steampipe*.tf": {
+		Input:              filepath.Join(wd, "test_data/get_source_files_test/steampipe*.tf"),
+		ExpectedFilePaths:  []string{"test_data/get_source_files_test/steampipe.tf", "test_data/get_source_files_test/steampipe1.tf"},
+		PermittedFileRoots: []string{"test_data/get_source_files_test"},
+	},
+	"local - steampipe.tf - permitted paths not set": {
+		Input:             filepath.Join(wd, "test_data/get_source_files_test/steampipe.tf"),
+		ExpectedFilePaths: []string{"test_data/get_source_files_test/steampipe.tf"},
+	},
+}
+
+func TestGetSourceFilesWithFolderJail(t *testing.T) {
+	q := &QueryData{}
+
+	for name, test := range getSourceFilesWithFolderJailTestCases {
+		permittedAbsPaths := []string{}
+		var envPermittedPaths string
+
+		fmt.Printf("\n >>> %s\n", name)
+
+		// convert into absolute paths
+		for _, v := range test.PermittedFileRoots {
+			permittedAbsPaths = append(permittedAbsPaths, filepath.Join(wd, v))
+		}
+
+		// create a comma separated string of permitted paths
+		envPermittedPaths = strings.Join(permittedAbsPaths, ",")
+		fmt.Printf("Permitted absolute paths: %s", envPermittedPaths)
+
+		// set the env for STEAMPIPE_SDK_PERMITTED_ROOT_PATHS
+		err := os.Setenv(getter.EnvPermittedFileRoots, envPermittedPaths)
+		if err != nil {
+			t.Errorf(`Test: '%s' ERROR : %v`, name, err)
+		}
+
+		filePaths, err := q.GetSourceFiles(test.Input)
+		if err != nil {
+			t.Errorf(`Test: '%s' ERROR : %v`, name, err)
+		}
+
+		// to compare [] vs nil
+		if filePaths == nil {
+			filePaths = []string{}
+		}
+
+		for i, filePath := range filePaths {
+			var splitPath []string
+			// remove the working directory prefix for the filepath
+			if strings.Contains(filePath, wd) {
+				splitPath = strings.Split(filePath, wd+"/")
+				filePaths[i] = path.Join(splitPath[1:]...)
+				continue
+			}
 		}
 
 		if !reflect.DeepEqual(test.ExpectedFilePaths, filePaths) {

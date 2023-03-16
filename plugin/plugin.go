@@ -106,7 +106,7 @@ type Plugin struct {
 	connectionCacheMapLock sync.Mutex
 
 	// temporary dir for this plugin
-	// this will only created if GetSourceFiles is used
+	// this will only created if getSourceFiles is used
 	tempDir string
 	// stream used to send messages back to plugin manager
 	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
@@ -167,7 +167,7 @@ func (p *Plugin) initialise() {
 	}
 
 	// set temporary dir for this plugin
-	// this will only created if GetSourceFiles is used
+	// this will only created if getSourceFiles is used
 	p.tempDir = path.Join(os.TempDir(), p.Name)
 }
 
@@ -647,6 +647,7 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 		tableMapData := &TableMapData{
 			Connection:      connection,
 			ConnectionCache: p.ensureConnectionCache(connection.Name),
+			tempDir:         getConnectionTempDir(p.tempDir, connection.Name),
 		}
 		tableMap, err = p.TableMapFunc(ctx, tableMapData)
 		if err != nil {
