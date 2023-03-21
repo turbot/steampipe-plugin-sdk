@@ -5,74 +5,13 @@ import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"golang.org/x/exp/maps"
 	"log"
 	"reflect"
 	"strings"
 )
-
-/*
-SetConnectionConfig sets the connection config for the given connection.
-(for legacy plugins)
-This is the handler function for the SetConnectionConfig GRPC function.
-*/
-func (p *Plugin) SetConnectionConfig(connectionName, connectionConfigString string) (err error) {
-	log.Printf("[TRACE] SetConnectionConfig %s", connectionName)
-	failedConnections, err := p.SetAllConnectionConfigs([]*proto.ConnectionConfig{
-		{
-			Connection: connectionName,
-			Config:     connectionConfigString,
-		},
-	}, 0)
-	if err != nil {
-		return err
-	}
-	if len(failedConnections) > 0 {
-		return failedConnections[connectionName]
-	}
-	return nil
-}
-
-/*
-SetAllConnectionConfigs sets the connection config for a list of connections.
-
-This is the handler function for the SetAllConnectionConfigs GRPC function.
-*/
-func (p *Plugin) SetAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (failedConnections map[string]error, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("SetAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
-		} else {
-			p.Logger.Debug("SetAllConnectionConfigs finished")
-		}
-	}()
-	failedConnections = make(map[string]error)
-
-	p.addConnections(configs, failedConnections, nil, nil)
-
-	// TODO report log messages back somewhere
-	_, err = p.setAggregatorSchemas()
-	if err != nil {
-		return failedConnections, err
-	}
-
-	// build a connection schema map - used to pass to cache
-	connectionSchemaMap := p.buildConnectionSchemaMap()
-
-	// now create the query cache - do this AFTER setting the connection config so we can pass the connection schema map
-	err = p.ensureCache(maxCacheSizeMb, connectionSchemaMap)
-	if err != nil {
-		return failedConnections, err
-	}
-
-	// if there are any failed connections, raise an error
-	err = error_helpers.CombineErrors(maps.Values(failedConnections)...)
-	return failedConnections, err
-}
 
 func (p *Plugin) setAggregatorSchemas() (logMessages map[string][]string, err error) {
 	// build the schema of all aggregators (do this AFTER adding all connections)
@@ -86,69 +25,6 @@ func (p *Plugin) setAggregatorSchemas() (logMessages map[string][]string, err er
 		}
 	}
 	return logMessages, err
-}
-
-/*
-UpdateConnectionConfigs handles added, changed and deleted connections:
-
-  - Added connections are inserted into [plugin.Plugin.ConnectionMap].
-
-  - Deleted connections are removed from ConnectionMap.
-
-  - For updated connections, ConnectionMap is updated and [plugin.Plugin.ConnectionConfigChangedFunc] is called.
-
-This is the handler function for the UpdateConnectionConfigs GRPC function.
-*/
-func (p *Plugin) UpdateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) (failedConnections map[string]error, err error) {
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
-
-	p.logChanges(added, deleted, changed)
-
-	// if this plugin does not have dynamic config, we can share table map and schema
-	var exemplarSchema *grpc.PluginSchema
-	var exemplarTableMap map[string]*Table
-	if p.SchemaMode == SchemaModeStatic {
-		for _, connectionData := range p.ConnectionMap {
-			exemplarSchema = connectionData.Schema
-			exemplarTableMap = connectionData.TableMap
-			// just take the first item
-			break
-		}
-	}
-
-	// key track of connections which have errors
-	failedConnections = make(map[string]error)
-
-	// remove deleted connections
-	for _, deletedConnection := range deleted {
-		delete(p.ConnectionMap, deletedConnection.Connection)
-	}
-
-	// add added connections
-	p.addConnections(added, failedConnections, exemplarSchema, exemplarTableMap)
-	if err != nil {
-		return failedConnections, err
-	}
-
-	// update changed connections
-	// build map of current connection data for each changed connection
-	err = p.updateConnections(ctx, changed, failedConnections)
-	if err != nil {
-		return failedConnections, err
-	}
-
-	// if there are any added or changed connections, we need to rebuild all aggregator schemas
-	if len(added)+len(deleted)+len(changed) > 0 {
-		_, err = p.setAggregatorSchemas()
-		if err != nil {
-			return failedConnections, err
-		}
-	}
-
-	// update the query cache schema map
-	p.queryCache.PluginSchemaMap = p.buildConnectionSchemaMap()
-
-	return failedConnections, nil
 }
 
 func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.ConnectionConfig, failedConnections map[string]error) error {

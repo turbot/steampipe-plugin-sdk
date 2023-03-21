@@ -45,6 +45,10 @@ func (c *GRPCClient) GetSupportedOperations(req *proto.GetSupportedOperationsReq
 	return c.client.GetSupportedOperations(c.ctx, req)
 }
 
+func (c *GRPCClient) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error) {
+	return c.client.SetCacheOptions(c.ctx, req)
+}
+
 // GRPCServer is the gRPC server that GRPCClient talks to.
 type GRPCServer struct {
 	proto.UnimplementedWrapperPluginServer
@@ -75,6 +79,10 @@ func (m *GRPCServer) UpdateConnectionConfigs(_ context.Context, req *proto.Updat
 
 func (m *GRPCServer) GetSupportedOperations(_ context.Context, req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
 	return m.Impl.GetSupportedOperations(req)
+}
+
+func (m *GRPCServer) SetCacheOptions(_ context.Context, req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error) {
+	return m.Impl.SetCacheOptions(req)
 }
 
 func (m *GRPCServer) EstablishMessageStream(_ *proto.EstablishMessageStreamRequest, server proto.WrapperPlugin_EstablishMessageStreamServer) error {
