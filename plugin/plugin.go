@@ -226,7 +226,9 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 
 // ClearQueryCache clears the query cache for the given connection.
 func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
-	p.queryCache.ClearForConnection(ctx, connectionName)
+	if p.queryCache.Enabled {
+		p.queryCache.ClearForConnection(ctx, connectionName)
+	}
 }
 
 // ConnectionSchemaChanged sends a message to the plugin-manager that the schema of this plugin has changed
@@ -293,7 +295,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	// get limit and cache vars
 	limitParam := executeData.Limit
 	cacheTTL := executeData.CacheTtl
-	cacheEnabled := executeData.CacheEnabled
+	cacheEnabled := p.queryCache.Enabled && executeData.CacheEnabled
 
 	// check whether the cache is disabled for this table
 	if table.Cache != nil {
@@ -530,22 +532,14 @@ func (p *Plugin) setupLogger() hclog.Logger {
 
 // if query cache does not exist, create
 // if the query cache exists, update the schema
-func (p *Plugin) ensureCache(maxCacheSizeMb int, connectionSchemaMap map[string]*grpc.PluginSchema) error {
-	if p.queryCache == nil {
-		log.Printf("[TRACE] Plugin ensureCache creating cache, maxCacheStorageMb %d", maxCacheSizeMb)
+func (p *Plugin) ensureCache(connectionSchemaMap map[string]*grpc.PluginSchema, opts *query_cache.QueryCacheOptions) error {
+	log.Printf("[TRACE] Plugin ensureCache creating cache, maxCacheStorageMb %d", opts.MaxSizeMb)
 
-		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, maxCacheSizeMb)
-		if err != nil {
-			return err
-		}
-		p.queryCache = queryCache
-	} else {
-		// so there is already a cache - that means the config has been updated, not set for the first time
-
-		// update the schema map on the query cache
-		p.queryCache.PluginSchemaMap = connectionSchemaMap
+	queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, opts)
+	if err != nil {
+		return err
 	}
-
+	p.queryCache = queryCache
 	return nil
 }
 

@@ -14,7 +14,7 @@ type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) (map[string]error, error)
 type UpdateConnectionConfigsFunc func([]*proto.ConnectionConfig, []*proto.ConnectionConfig, []*proto.ConnectionConfig) (map[string]error, error)
-type SetCacheOptionsFunc func(*proto.SetCacheOptionsRequest)
+type SetCacheOptionsFunc func(*proto.SetCacheOptionsRequest) error
 type EstablishMessageStreamFunc func(stream proto.WrapperPlugin_EstablishMessageStreamServer) error
 
 // PluginServer is the server for a single plugin
@@ -151,8 +151,8 @@ func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsReques
 	}, nil
 }
 func (s PluginServer) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error) {
-	s.setCacheOptionsFunc(req)
-	return &proto.SetCacheOptionsResponse{}, nil
+	err := s.setCacheOptionsFunc(req)
+	return &proto.SetCacheOptionsResponse{}, err
 }
 
 func (s PluginServer) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {

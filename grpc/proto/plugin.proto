@@ -292,7 +292,6 @@ message IndexItem{
 message SetCacheOptionsRequest {
   bool enabled = 1;
   int64 ttl = 2;
-  int64 default_ttl = 3;
   int64 max_size_mb = 4;
 }
 

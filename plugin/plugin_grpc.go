@@ -9,6 +9,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 	"log"
@@ -61,12 +62,18 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		return failedConnections, err
 	}
 
-	// build a connection schema map - used to pass to cache
-	connectionSchemaMap := p.buildConnectionSchemaMap()
-
+	// if the version of the CLI does not support SetCacheOptions,
+	// it will pass the max size as part of SetAllConnectionConfigs
 	if maxCacheSizeMb != 0 {
+		// build a connection schema map - used to pass to cache
+		connectionSchemaMap := p.buildConnectionSchemaMap()
 		// now create the query cache - do this AFTER setting the connection config so we can pass the connection schema map
-		err = p.ensureCache(maxCacheSizeMb, connectionSchemaMap)
+		opts := &query_cache.QueryCacheOptions{
+			Enabled:   true,
+			Ttl:       query_cache.DefaultMaxTtl,
+			MaxSizeMb: maxCacheSizeMb,
+		}
+		err = p.ensureCache(connectionSchemaMap, opts)
 		if err != nil {
 			return failedConnections, err
 		}
@@ -135,7 +142,9 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	}
 
 	// update the query cache schema map
-	p.queryCache.PluginSchemaMap = p.buildConnectionSchemaMap()
+	if p.queryCache.Enabled {
+		p.queryCache.PluginSchemaMap = p.buildConnectionSchemaMap()
+	}
 
 	return failedConnections, nil
 }
@@ -306,4 +315,6 @@ func (p *Plugin) establishMessageStream(stream proto.WrapperPlugin_EstablishMess
 	return nil
 }
 
-func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) {}
+func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) error {
+	return p.ensureCache(p.buildConnectionSchemaMap(), query_cache.NewQueryCacheOptions(request))
+}
