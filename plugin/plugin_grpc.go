@@ -64,7 +64,8 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 
 	// if the version of the CLI does not support SetCacheOptions,
 	// it will pass the max size as part of SetAllConnectionConfigs
-	if maxCacheSizeMb != 0 {
+	// (if the CLI _does_ support SetCacheOptions it will pass -1 as maxCacheSize)
+	if maxCacheSizeMb != -1 {
 		// build a connection schema map - used to pass to cache
 		connectionSchemaMap := p.buildConnectionSchemaMap()
 		// now create the query cache - do this AFTER setting the connection config so we can pass the connection schema map
