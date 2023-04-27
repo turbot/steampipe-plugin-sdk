@@ -27,10 +27,9 @@ type CacheData interface {
 	*sdkproto.QueryResult | *sdkproto.IndexBucket
 }
 
-// default ttl - increase this if any client has a larger ttl
 const (
-	// cache has a hard TTL limit of 24 hours
-	ttlHardLimit  = 24 * time.Hour
+	// cache has a default hard TTL limit of 24 hours
+	DefaultMaxTtl = 24 * time.Hour
 	rowBufferSize = 1000
 )
 
@@ -47,25 +46,27 @@ type QueryCache struct {
 	// map of ongoing set requests, keyed by callId
 	setRequests       map[string]*CacheRequest
 	setRequestMapLock sync.RWMutex
+	Enabled           bool
 }
 
-func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSchema, maxCacheStorageMb int) (*QueryCache, error) {
+func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSchema, opts *QueryCacheOptions) (*QueryCache, error) {
 	queryCache := &QueryCache{
 		Stats:           &CacheStats{},
 		pluginName:      pluginName,
 		PluginSchemaMap: pluginSchemaMap,
 		pendingData:     make(map[string]*pendingIndexBucket),
 		setRequests:     make(map[string]*CacheRequest),
+		Enabled:         opts.Enabled,
 	}
-	if err := queryCache.createCache(maxCacheStorageMb); err != nil {
+	if err := queryCache.createCache(opts.MaxSizeMb, opts.Ttl); err != nil {
 		return nil, err
 	}
 	log.Printf("[INFO] query cache created")
 	return queryCache, nil
 }
 
-func (c *QueryCache) createCache(maxCacheStorageMb int) error {
-	cacheStore, err := c.createCacheStore(maxCacheStorageMb)
+func (c *QueryCache) createCache(maxCacheStorageMb int, maxTtl time.Duration) error {
+	cacheStore, err := c.createCacheStore(maxCacheStorageMb, maxTtl)
 	if err != nil {
 		return err
 	}
@@ -73,8 +74,8 @@ func (c *QueryCache) createCache(maxCacheStorageMb int) error {
 	return nil
 }
 
-func (c *QueryCache) createCacheStore(maxCacheStorageMb int) (store.StoreInterface, error) {
-	config := bigcache.DefaultConfig(ttlHardLimit)
+func (c *QueryCache) createCacheStore(maxCacheStorageMb int, maxTtl time.Duration) (store.StoreInterface, error) {
+	config := bigcache.DefaultConfig(maxTtl)
 	// ensure each shard is at least 5Mb
 	config.Shards = 1024
 	for maxCacheStorageMb/config.Shards < 5 {
@@ -92,6 +93,9 @@ func (c *QueryCache) createCacheStore(maxCacheStorageMb int) (store.StoreInterfa
 }
 
 func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
+	if !c.Enabled {
+		return fmt.Errorf("cahce disabled")
+	}
 	cacheHit := false
 	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", req.Table)
 	defer func() {
@@ -130,6 +134,10 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 func (c *QueryCache) StartSet(_ context.Context, req *CacheRequest) {
 	log.Printf("[TRACE] StartSet (%s)", req.CallId)
 
+	if !c.Enabled {
+		return
+	}
+
 	// set root result key
 	req.resultKeyRoot = c.buildResultKey(req)
 	// create rows buffer
@@ -141,6 +149,10 @@ func (c *QueryCache) StartSet(_ context.Context, req *CacheRequest) {
 }
 
 func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId string) error {
+	// should never happen
+	if !c.Enabled {
+		return nil
+	}
 	// get the ongoing request
 	c.setRequestMapLock.RLock()
 	req, ok := c.setRequests[callId]
@@ -168,6 +180,11 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 }
 
 func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
+	// should never happen
+	if !c.Enabled {
+		return nil
+	}
+
 	c.setRequestMapLock.RLock()
 	// get the ongoing request
 	req, ok := c.setRequests[callId]
@@ -245,6 +262,9 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 }
 
 func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
+	if !c.Enabled {
+		return
+	}
 	c.setRequestMapLock.Lock()
 	defer c.setRequestMapLock.Unlock()
 	// get the ongoing request
@@ -270,6 +290,9 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 
 // ClearForConnection removes all cache entries for the given connection
 func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) {
+	if !c.Enabled {
+		return
+	}
 	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
 }
 

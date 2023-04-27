@@ -11,6 +11,7 @@ service WrapperPlugin {
   rpc SetAllConnectionConfigs(SetAllConnectionConfigsRequest) returns (SetConnectionConfigResponse);
   rpc UpdateConnectionConfigs(UpdateConnectionConfigsRequest) returns (UpdateConnectionConfigsResponse);
   rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
+  rpc SetCacheOptions(SetCacheOptionsRequest) returns (SetCacheOptionsResponse);
 }
 
 message EstablishMessageStreamRequest{
@@ -132,6 +133,7 @@ message GetSupportedOperationsResponse{
   bool query_cache = 1;
   bool multiple_connections = 2;
   bool message_stream = 3;
+  bool set_cache_options = 4;
 }
 
 message SetConnectionConfigRequest{
@@ -285,4 +287,13 @@ message IndexItem{
   int64 limit = 5;
   int64 page_count = 6;
   google.protobuf.Timestamp insertion_time =7;
+}
+
+message SetCacheOptionsRequest {
+  bool enabled = 1;
+  int64 ttl = 2;
+  int64 max_size_mb = 4;
+}
+
+message SetCacheOptionsResponse {
 }

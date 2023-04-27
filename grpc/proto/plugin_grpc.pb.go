@@ -29,6 +29,7 @@ type WrapperPluginClient interface {
 	SetAllConnectionConfigs(ctx context.Context, in *SetAllConnectionConfigsRequest, opts ...grpc.CallOption) (*SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(ctx context.Context, in *UpdateConnectionConfigsRequest, opts ...grpc.CallOption) (*UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(ctx context.Context, in *GetSupportedOperationsRequest, opts ...grpc.CallOption) (*GetSupportedOperationsResponse, error)
+	SetCacheOptions(ctx context.Context, in *SetCacheOptionsRequest, opts ...grpc.CallOption) (*SetCacheOptionsResponse, error)
 }
 
 type wrapperPluginClient struct {
@@ -148,6 +149,15 @@ func (c *wrapperPluginClient) GetSupportedOperations(ctx context.Context, in *Ge
 	return out, nil
 }
 
+func (c *wrapperPluginClient) SetCacheOptions(ctx context.Context, in *SetCacheOptionsRequest, opts ...grpc.CallOption) (*SetCacheOptionsResponse, error) {
+	out := new(SetCacheOptionsResponse)
+	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/SetCacheOptions", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WrapperPluginServer is the server API for WrapperPlugin service.
 // All implementations must embed UnimplementedWrapperPluginServer
 // for forward compatibility
@@ -159,6 +169,7 @@ type WrapperPluginServer interface {
 	SetAllConnectionConfigs(context.Context, *SetAllConnectionConfigsRequest) (*SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(context.Context, *UpdateConnectionConfigsRequest) (*UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error)
+	SetCacheOptions(context.Context, *SetCacheOptionsRequest) (*SetCacheOptionsResponse, error)
 	mustEmbedUnimplementedWrapperPluginServer()
 }
 
@@ -186,6 +197,9 @@ func (UnimplementedWrapperPluginServer) UpdateConnectionConfigs(context.Context,
 }
 func (UnimplementedWrapperPluginServer) GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSupportedOperations not implemented")
+}
+func (UnimplementedWrapperPluginServer) SetCacheOptions(context.Context, *SetCacheOptionsRequest) (*SetCacheOptionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetCacheOptions not implemented")
 }
 func (UnimplementedWrapperPluginServer) mustEmbedUnimplementedWrapperPluginServer() {}
 
@@ -332,6 +346,24 @@ func _WrapperPlugin_GetSupportedOperations_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WrapperPlugin_SetCacheOptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetCacheOptionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WrapperPluginServer).SetCacheOptions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.WrapperPlugin/SetCacheOptions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WrapperPluginServer).SetCacheOptions(ctx, req.(*SetCacheOptionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WrapperPlugin_ServiceDesc is the grpc.ServiceDesc for WrapperPlugin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -358,6 +390,10 @@ var WrapperPlugin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSupportedOperations",
 			Handler:    _WrapperPlugin_GetSupportedOperations_Handler,
+		},
+		{
+			MethodName: "SetCacheOptions",
+			Handler:    _WrapperPlugin_SetCacheOptions_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

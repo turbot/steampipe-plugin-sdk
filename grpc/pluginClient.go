@@ -106,6 +106,14 @@ func (c *PluginClient) GetSupportedOperations() (*proto.GetSupportedOperationsRe
 	return resp, nil
 }
 
+func (c *PluginClient) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error) {
+	resp, err := c.Stub.SetCacheOptions(req)
+	if err != nil {
+		return nil, HandleGrpcError(err, c.Name, "SetCacheOptions")
+	}
+	return resp, nil
+}
+
 func (c *PluginClient) GetSchema(connectionName string) (*proto.Schema, error) {
 	resp, err := c.Stub.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
 	if err != nil {

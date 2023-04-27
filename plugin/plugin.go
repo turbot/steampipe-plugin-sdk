@@ -32,7 +32,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/version"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"golang.org/x/sync/semaphore"
 )
 
 /*
@@ -210,172 +209,6 @@ func (p *Plugin) ensureConnectionCache(connectionName string) *connectionmanager
 	return connectionCache
 }
 
-/*
-EstablishMessageStream establishes a streaming message connection between the plugin and the plugin manager
-This is used if the plugin has a dynamic schema and uses file watching
-
-This is the handler function for the EstablishMessageStream grpc function
-*/
-func (p *Plugin) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
-	log.Printf("[TRACE] plugin.EstablishMessageStream plugin %p, stream %p", p, stream)
-	// if the plugin does not have a dynamic schema, we do not need the message stream
-	if p.SchemaMode != SchemaModeDynamic {
-		log.Printf("[TRACE] EstablishMessageStream - plugin %s has static schema so no message stream, required", p.Name)
-		return nil
-	}
-
-	p.messageStream = stream
-
-	log.Printf("[TRACE] plugin.EstablishMessageStream set on plugin: plugin.messageStream %p", p.messageStream)
-
-	// hold stream open
-	select {}
-
-	return nil
-}
-
-/*
-GetSchema returns the [grpc.PluginSchema].
-Note: the connection config must be set before calling this function.
-
-This is the handler function for the GetSchema grpc function
-*/
-func (p *Plugin) GetSchema(connectionName string) (*grpc.PluginSchema, error) {
-	var connectionData *ConnectionData
-	if connectionName == "" {
-		// TACTICAL
-		// previous steampipe versions do not pass a connection name
-		// and instantiate a plugin per connection,
-		// is we have more than one connection, this is an error
-		if len(p.ConnectionMap) > 1 {
-			return nil, fmt.Errorf("Plugin.GetSchema failed - no connection name passed and multiple connections loaded")
-		}
-		// get first (and only) connection data
-		for _, connectionData = range p.ConnectionMap {
-		}
-	} else {
-		var ok bool
-		connectionData, ok = p.ConnectionMap[connectionName]
-		if !ok {
-			return nil, fmt.Errorf("Plugin.GetSchema failed - no connection data loaded for connection '%s'", connectionName)
-		}
-	}
-
-	return connectionData.Schema, nil
-}
-
-// Execute starts a query and streams the results using the given GRPC stream.
-//
-// This is the handler function for the Execute GRPC function.
-func (p *Plugin) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
-	// add CallId to logs for the execute call
-	logger := p.Logger.Named(req.CallId)
-	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
-	log.SetPrefix("")
-	log.SetFlags(0)
-
-	log.Printf("[INFO] Plugin Execute table: %s  (%s)", req.Table, req.CallId)
-	defer log.Printf("[INFO]  Plugin Execute complete (%s)", req.CallId)
-
-	// limit the plugin memory
-	newLimit := GetMaxMemoryBytes()
-	debug.SetMemoryLimit(newLimit)
-	log.Printf("[INFO] Plugin Execute, setting memory limit to %dMb", newLimit/(1024*1024))
-
-	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
-	errorChan := make(chan error, len(req.ExecuteConnectionData))
-	//doneChan := make(chan bool)
-	var outputWg sync.WaitGroup
-
-	// get a context which includes telemetry data and logger
-	ctx := p.buildExecuteContext(stream.Context(), req, logger)
-
-	// control how many connections are executed in parallel
-	maxConcurrentConnections := getMaxConcurrentConnections()
-	sem := semaphore.NewWeighted(int64(maxConcurrentConnections))
-
-	// get the config for the connection - needed in case of aggregator
-	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
-	connectionData := p.ConnectionMap[req.Connection]
-
-	for connectionName := range req.ExecuteConnectionData {
-		// if this is an aggregator execution, check whether this child connection supports this table
-		if connectionData != nil && connectionData.AggregatedTablesByConnection != nil {
-			if tablesForConnection, ok := connectionData.AggregatedTablesByConnection[connectionName]; ok {
-				if _, ok := tablesForConnection[req.Table]; !ok {
-					log.Printf("[WARN] aggregator connection %s, child connection %s does not provide table %s, skipping",
-						connectionData.Connection.Name, connectionName, req.Table)
-					continue
-				}
-			} else {
-				// not expected
-				log.Printf("[WARN] aggregator connection %s has no data for child connection %s",
-					connectionData.Connection.Name, connectionName)
-				// just carry on
-			}
-		}
-		outputWg.Add(1)
-
-		go func(c string) {
-			defer outputWg.Done()
-
-			if err := sem.Acquire(ctx, 1); err != nil {
-				return
-			}
-			defer sem.Release(1)
-
-			if err := p.executeForConnection(ctx, req, c, outputChan); err != nil {
-				if !error_helpers.IsContextCancelledError(err) {
-					log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
-				}
-				errorChan <- err
-			}
-			log.Printf("[TRACE] executeForConnection %s returned", c)
-		}(connectionName)
-	}
-
-	var errors []error
-
-	go func() {
-		outputWg.Wait()
-		// so all executeForConnection calls are complete
-		// stream a nil row to indicate completion
-		log.Printf("[TRACE] output wg complete - send nil row (%s)", req.CallId)
-
-		outputChan <- nil
-	}()
-
-	complete := false
-	for !complete {
-		select {
-		case row := <-outputChan:
-			// nil row means that one connection is done streaming
-			if row == nil {
-				log.Printf("[TRACE] empty row on output channel - we are done ")
-				complete = true
-				break
-			}
-			if err := stream.Send(row); err != nil {
-				// ignore context cancellation - they will get picked up further downstream
-				if !error_helpers.IsContextCancelledError(err) {
-					errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
-				}
-				break
-			}
-		case err := <-errorChan:
-			if !error_helpers.IsContextCancelledError(err) {
-				log.Printf("[WARN] error channel received %s", err.Error())
-			}
-			errors = append(errors, err)
-		}
-	}
-
-	close(outputChan)
-	close(errorChan)
-
-	return helpers.CombineErrors(errors...)
-}
-
 // ClearConnectionCache clears the connection cache for the given connection.
 func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
 	p.connectionCacheMapLock.Lock()
@@ -393,7 +226,9 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 
 // ClearQueryCache clears the query cache for the given connection.
 func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
-	p.queryCache.ClearForConnection(ctx, connectionName)
+	if p.queryCache.Enabled {
+		p.queryCache.ClearForConnection(ctx, connectionName)
+	}
 }
 
 // ConnectionSchemaChanged sends a message to the plugin-manager that the schema of this plugin has changed
@@ -460,7 +295,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	// get limit and cache vars
 	limitParam := executeData.Limit
 	cacheTTL := executeData.CacheTtl
-	cacheEnabled := executeData.CacheEnabled
+	cacheEnabled := p.queryCache.Enabled && executeData.CacheEnabled
 
 	// check whether the cache is disabled for this table
 	if table.Cache != nil {
@@ -697,22 +532,14 @@ func (p *Plugin) setupLogger() hclog.Logger {
 
 // if query cache does not exist, create
 // if the query cache exists, update the schema
-func (p *Plugin) ensureCache(maxCacheSizeMb int, connectionSchemaMap map[string]*grpc.PluginSchema) error {
-	if p.queryCache == nil {
-		log.Printf("[TRACE] Plugin ensureCache creating cache, maxCacheStorageMb %d", maxCacheSizeMb)
+func (p *Plugin) ensureCache(connectionSchemaMap map[string]*grpc.PluginSchema, opts *query_cache.QueryCacheOptions) error {
+	log.Printf("[TRACE] Plugin ensureCache creating cache, maxCacheStorageMb %d", opts.MaxSizeMb)
 
-		queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, maxCacheSizeMb)
-		if err != nil {
-			return err
-		}
-		p.queryCache = queryCache
-	} else {
-		// so there is already a cache - that means the config has been updated, not set for the first time
-
-		// update the schema map on the query cache
-		p.queryCache.PluginSchemaMap = connectionSchemaMap
+	queryCache, err := query_cache.NewQueryCache(p.Name, connectionSchemaMap, opts)
+	if err != nil {
+		return err
 	}
-
+	p.queryCache = queryCache
 	return nil
 }
 

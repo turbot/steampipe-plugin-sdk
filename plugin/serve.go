@@ -69,5 +69,5 @@ func Serve(opts *ServeOpts) {
 	}
 	// TODO add context into all of these handlers
 
-	grpc.NewPluginServer(p.Name, p.SetConnectionConfig, p.SetAllConnectionConfigs, p.UpdateConnectionConfigs, p.GetSchema, p.Execute, p.EstablishMessageStream).Serve()
+	grpc.NewPluginServer(p.Name, p.setConnectionConfig, p.setAllConnectionConfigs, p.updateConnectionConfigs, p.getSchema, p.execute, p.establishMessageStream, p.setCacheOptions).Serve()
 }
