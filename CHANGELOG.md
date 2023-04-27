@@ -1,3 +1,7 @@
+## v5.4.0 [2023-04-27]
+_What's new_
+* Add SetCacheOptions to allow control of cache at server level. ([#546](https://github.com/turbot/steampipe-plugin-sdk/issues/546))
+
 ## v5.3.0 [2023-03-16]
 
 _What's new_
