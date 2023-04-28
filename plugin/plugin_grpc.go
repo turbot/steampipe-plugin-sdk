@@ -44,7 +44,7 @@ setAllConnectionConfigs sets the connection config for a list of connections.
 
 This is the handler function for the setAllConnectionConfigs GRPC function.
 */
-func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (failedConnections map[string]error, err error) {
+func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (_ map[string]error, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("setAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
@@ -52,14 +52,15 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			p.Logger.Debug("setAllConnectionConfigs finished")
 		}
 	}()
-	failedConnections = make(map[string]error)
-
-	p.addConnections(configs, failedConnections, nil, nil)
+	// create a struct to populate with exemplar schema and connection failures
+	// this will be passed into update functions and may be mutated
+	updateData := NewConnectionUpdateData()
+	p.addConnections(configs, updateData)
 
 	// TODO report log messages back somewhere
 	_, err = p.setAggregatorSchemas()
 	if err != nil {
-		return failedConnections, err
+		return updateData.failedConnections, err
 	}
 
 	// if the version of the CLI does not support SetCacheOptions,
@@ -76,13 +77,13 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		}
 		err = p.ensureCache(connectionSchemaMap, opts)
 		if err != nil {
-			return failedConnections, err
+			return updateData.failedConnections, err
 		}
 	}
 
 	// if there are any failed connections, raise an error
-	err = error_helpers.CombineErrors(maps.Values(failedConnections)...)
-	return failedConnections, err
+	err = error_helpers.CombineErrors(maps.Values(updateData.failedConnections)...)
+	return updateData.failedConnections, err
 }
 
 /*
@@ -96,25 +97,24 @@ updateConnectionConfigs handles added, changed and deleted connections:
 
 This is the handler function for the updateConnectionConfigs GRPC function.
 */
-func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) (failedConnections map[string]error, err error) {
+func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, deleted []*proto.ConnectionConfig, changed []*proto.ConnectionConfig) (map[string]error, error) {
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 
 	p.logChanges(added, deleted, changed)
 
+	// create a struct to populate with exemplar schema and connection failures
+	// this will be passed into update functions and may be mutated
+	updateData := NewConnectionUpdateData()
+
 	// if this plugin does not have dynamic config, we can share table map and schema
-	var exemplarSchema *grpc.PluginSchema
-	var exemplarTableMap map[string]*Table
 	if p.SchemaMode == SchemaModeStatic {
 		for _, connectionData := range p.ConnectionMap {
-			exemplarSchema = connectionData.Schema
-			exemplarTableMap = connectionData.TableMap
+			updateData.exemplarSchema = connectionData.Schema
+			updateData.exemplarTableMap = connectionData.TableMap
 			// just take the first item
 			break
 		}
 	}
-
-	// key track of connections which have errors
-	failedConnections = make(map[string]error)
 
 	// remove deleted connections
 	for _, deletedConnection := range deleted {
@@ -122,23 +122,17 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	}
 
 	// add added connections
-	p.addConnections(added, failedConnections, exemplarSchema, exemplarTableMap)
-	if err != nil {
-		return failedConnections, err
-	}
+	p.addConnections(added, updateData)
 
 	// update changed connections
 	// build map of current connection data for each changed connection
-	err = p.updateConnections(ctx, changed, failedConnections)
-	if err != nil {
-		return failedConnections, err
-	}
+	p.updateConnections(ctx, changed, updateData)
 
 	// if there are any added or changed connections, we need to rebuild all aggregator schemas
 	if len(added)+len(deleted)+len(changed) > 0 {
-		_, err = p.setAggregatorSchemas()
+		_, err := p.setAggregatorSchemas()
 		if err != nil {
-			return failedConnections, err
+			return updateData.failedConnections, err
 		}
 	}
 
@@ -147,7 +141,7 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		p.queryCache.PluginSchemaMap = p.buildConnectionSchemaMap()
 	}
 
-	return failedConnections, nil
+	return updateData.failedConnections, nil
 }
 
 /*
