@@ -117,7 +117,8 @@ func (d *ConnectionData) initAggregatorSchema(aggregatorConfig *proto.Connection
 	d.resolveAggregatorTableMap(aggregatorConfig, logMessages)
 
 	// log out the schema init process
-	d.logInitAggregatorSchema(aggregatorConfig)
+	// this is very verbose
+	//d.logInitAggregatorSchema(aggregatorConfig)
 
 	return logMessages, nil
 }

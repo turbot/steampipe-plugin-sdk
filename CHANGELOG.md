@@ -1,5 +1,4 @@
-## v5.4.1 [tbd]
-
+## v5.4.1 [2023-05-05]
 * Avoid loading schema repeatedly when initializing plugin with multiple connections. ([#547](https://github.com/turbot/steampipe-plugin-sdk/issues/547))
 
 ## v5.4.0 [2023-04-27]
