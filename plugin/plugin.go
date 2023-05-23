@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gertd/go-pluralize"
 	"log"
 	"os"
 	"path"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gertd/go-pluralize"
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/v3/cache"
@@ -272,7 +272,6 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		log.Printf("[TRACE] executeForConnection DEFER (%s) ", connectionCallId)
 		if r := recover(); r != nil {
 			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
-			log.Printf("[WARN] %s", debug.Stack())
 			err = helpers.ToError(r)
 			return
 		}

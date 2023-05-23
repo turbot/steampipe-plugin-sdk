@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime/debug"
 	"time"
 
 	"github.com/sethvargo/go-retry"
@@ -45,6 +44,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	err = retry.Do(ctx, retry.WithMaxRetries(maxAttempts, backoff), func(ctx context.Context) error {
 		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
 		if err != nil {
+			log.Printf("[TRACE] >>> error %s", err.Error())
 			if shouldRetryError(ctx, d, hydrateData, err, retryConfig) {
 				err = retry.RetryableError(err)
 			}
@@ -122,7 +122,6 @@ func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFun
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("[WARN] recovered a panic from a wrapped hydrate function: %v\n", r)
-				log.Printf("[WARN] stack: %s", debug.Stack())
 				err = status.Error(codes.Internal, fmt.Sprintf("hydrate function %s failed with panic %v", helpers.GetFunctionName(hydrateFunc), r))
 			}
 		}()
