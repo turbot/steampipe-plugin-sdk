@@ -2,12 +2,10 @@ package query_cache
 
 import (
 	"fmt"
-	"log"
-	"strings"
-	"sync"
-
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"log"
+	"strings"
 )
 
 // pendingIndexBucket contains index items for all pending cache results for a given table and qual set
@@ -68,41 +66,18 @@ func (b *pendingIndexBucket) String() any {
 // note - this index item it tied to a specific table and set of quals
 type pendingIndexItem struct {
 	item *IndexItem
-	wg   *sync.WaitGroup
 	// used for logging purposes only (as we cannot access wait groups count)
-	count int
-	err   error
-}
-
-func (i *pendingIndexItem) Lock() {
-	log.Printf("[TRACE] pendingIndexItem Lock count before %d", i.count)
-	i.wg.Add(1)
-	i.count++
-}
-
-func (i *pendingIndexItem) Unlock(err error) {
-	i.err = err
-	log.Printf("[TRACE] pendingIndexItem Unlock count before %d key %s", i.count, i.item.Key)
-	i.wg.Done()
-	i.count--
-}
-
-func (i *pendingIndexItem) Wait() error {
-	log.Printf("[TRACE] pendingIndexItem Wait %p, %s", i, i.item.Key)
-
-	i.wg.Wait()
-	log.Printf("[TRACE] pendingIndexItem Wait DONE %p, %s, err: %v", i, i.item.Key, i.err)
-	return i.err
+	count  int
+	err    error
+	callId string
 }
 
 func NewPendingIndexItem(req *CacheRequest) *pendingIndexItem {
-	res := &pendingIndexItem{
-		item: NewIndexItem(req),
-		wg:   new(sync.WaitGroup),
+	return &pendingIndexItem{
+		item:   NewIndexItem(req),
+		callId: req.CallId,
 	}
-	// increment wait group - indicate this item is pending
-	res.Lock()
-	return res
+
 }
 
 // SatisfiesRequest returns whether our index item satisfies the given cache request
