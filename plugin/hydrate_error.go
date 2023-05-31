@@ -58,9 +58,8 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 	// Default set to Fibonacci
 	backoffAlgorithm := "Fibonacci"
-	retryInterval := 100 * time.Millisecond
-
-	var cappedDuration, maxDuration int64
+	var retryIntervalMs int64 = 100
+	var cappedDurationMs, maxDurationMs int64
 
 	// Check from config
 	if retryConfig != nil {
@@ -68,36 +67,38 @@ func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 			backoffAlgorithm = retryConfig.BackoffAlgorithm
 		}
 		if retryConfig.RetryInterval != 0 {
-			retryInterval = time.Duration(retryConfig.RetryInterval)
+			retryIntervalMs = retryConfig.RetryInterval
 		}
 		if retryConfig.CappedDuration != 0 {
-			cappedDuration = retryConfig.CappedDuration
+			cappedDurationMs = retryConfig.CappedDuration
 		}
 		if retryConfig.MaxDuration != 0 {
-			maxDuration = retryConfig.MaxDuration
+			maxDurationMs = retryConfig.MaxDuration
 		}
 	}
 
 	var backoff retry.Backoff
 	var err error
+	// convert retryIntervalMs into a duration
+	retryInterval := time.Duration(retryIntervalMs) * time.Millisecond
 	switch backoffAlgorithm {
 	case "Fibonacci":
-		backoff = retry.NewFibonacci(retryInterval * time.Millisecond)
+		backoff = retry.NewFibonacci(retryInterval)
 	case "Exponential":
-		backoff = retry.NewExponential(retryInterval * time.Millisecond)
+		backoff = retry.NewExponential(retryInterval)
 	case "Constant":
-		backoff = retry.NewConstant(retryInterval * time.Millisecond)
+		backoff = retry.NewConstant(retryInterval)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	// Apply additional caps or limit
-	if cappedDuration != 0 {
-		backoff = retry.WithCappedDuration(time.Duration(cappedDuration)*time.Millisecond, backoff)
+	if cappedDurationMs != 0 {
+		backoff = retry.WithCappedDuration(time.Duration(cappedDurationMs)*time.Millisecond, backoff)
 	}
-	if maxDuration != 0 {
-		backoff = retry.WithMaxDuration(time.Duration(maxDuration)*time.Second, backoff)
+	if maxDurationMs != 0 {
+		backoff = retry.WithMaxDuration(time.Duration(maxDurationMs)*time.Second, backoff)
 	}
 
 	return backoff, nil
