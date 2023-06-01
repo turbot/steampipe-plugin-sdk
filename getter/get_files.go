@@ -66,9 +66,16 @@ func GetFiles(sourcePath, tmpDir string) (localSourcePath string, globPattern st
 	// is there was a query string, escape the values and add to the url
 	remoteSourcePath = addQueryToSourcePath(urlData, remoteSourcePath)
 
-	err = getter.Get(dest, remoteSourcePath)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get directory specified by the source %s: %s", remoteSourcePath, err.Error())
+	if strings.HasPrefix(remoteSourcePath, "https://") || strings.HasPrefix(remoteSourcePath, "http://") {
+		err = getter.GetAny(dest, remoteSourcePath)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get directory specified by the source %s: %s", remoteSourcePath, err.Error())
+		}
+	} else {
+		err = getter.Get(dest, remoteSourcePath)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to get directory specified by the source %s: %s", remoteSourcePath, err.Error())
+		}
 	}
 
 	if globPattern != "" && dest != globPattern {

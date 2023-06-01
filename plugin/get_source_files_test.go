@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 	"io/fs"
 	"os"
 	"path"
@@ -10,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 
 	filehelpers "github.com/turbot/go-kit/files"
 )
@@ -62,7 +63,7 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 	},
 	"github url - specific folder - **/*.tf": {
 		Input:             "github.com/turbot/steampipe-plugin-alicloud//alicloud-test/tests//**/*.tf",
-		ExpectedFilePaths: []string{"alicloud_account/variables.tf", "alicloud_action_trail/variables.tf", "alicloud_cas_certificate/variables.tf", "alicloud_cms_monitor_host/variables.tf", "alicloud_cs_kubernetes_cluster/variables.tf", "alicloud_cs_kubernetes_cluster_node/variables.tf", "alicloud_ecs_auto_provisioning_group/variables.tf", "alicloud_ecs_key_pair/variables.tf", "alicloud_ecs_launch_template/variables.tf", "alicloud_ecs_network_interface/variables.tf", "alicloud_ecs_region/variables.tf", "alicloud_ecs_zone/variables.tf", "alicloud_kms_key/variables.tf", "alicloud_kms_secret/variables.tf", "alicloud_oss_bucket/variables.tf", "alicloud_ram_policy/variables.tf", "alicloud_ram_user/variables.tf", "alicloud_rds_instance/variables.tf", "alicloud_vpc_dhcp_options_set/variables.tf", "alicloud_vpc_nat_gateway/variables.tf", "alicloud_vpc_network_acl/variables.tf", "alicloud_vpc_route_entry/variables.tf", "alicloud_vpc_route_table/variables.tf", "alicloud_vpc_vpn_customer_gateway/variables.tf", "alicloud_vpc_vpn_gateway/variables.tf"},
+		ExpectedFilePaths: []string{"alicloud_account/variables.tf", "alicloud_action_trail/variables.tf", "alicloud_cas_certificate/variables.tf", "alicloud_cms_monitor_host/variables.tf", "alicloud_cs_kubernetes_cluster/variables.tf", "alicloud_cs_kubernetes_cluster_node/variables.tf", "alicloud_ecs_auto_provisioning_group/variables.tf", "alicloud_ecs_key_pair/variables.tf", "alicloud_ecs_launch_template/variables.tf", "alicloud_ecs_network_interface/variables.tf", "alicloud_ecs_region/variables.tf", "alicloud_ecs_zone/variables.tf", "alicloud_kms_key/variables.tf", "alicloud_kms_secret/variables.tf", "alicloud_oss_bucket/variables.tf", "alicloud_ram_policy/variables.tf", "alicloud_ram_user/variables.tf", "alicloud_rds_backup/variables.tf", "alicloud_rds_database/variables.tf", "alicloud_rds_instance/variables.tf", "alicloud_slb_load_balancer/variables.tf", "alicloud_vpc_dhcp_options_set/variables.tf", "alicloud_vpc_flow_log/variables.tf", "alicloud_vpc_nat_gateway/variables.tf", "alicloud_vpc_network_acl/variables.tf", "alicloud_vpc_route_entry/variables.tf", "alicloud_vpc_route_table/variables.tf", "alicloud_vpc_vpn_customer_gateway/variables.tf", "alicloud_vpc_vpn_gateway/variables.tf"},
 	},
 	"github url - specific file - no glob": {
 		Input:             "github.com/turbot/steampipe-plugin-alicloud//alicloud-test/tests/alicloud_account/variables.tf",
@@ -74,7 +75,7 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 	},
 	"github force protocol - specific folder - **/*.tf": {
 		Input:             "git::github.com/turbot/steampipe-plugin-alicloud//alicloud-test/tests//**/*.tf",
-		ExpectedFilePaths: []string{"alicloud_account/variables.tf", "alicloud_action_trail/variables.tf", "alicloud_cas_certificate/variables.tf", "alicloud_cms_monitor_host/variables.tf", "alicloud_cs_kubernetes_cluster/variables.tf", "alicloud_cs_kubernetes_cluster_node/variables.tf", "alicloud_ecs_auto_provisioning_group/variables.tf", "alicloud_ecs_key_pair/variables.tf", "alicloud_ecs_launch_template/variables.tf", "alicloud_ecs_network_interface/variables.tf", "alicloud_ecs_region/variables.tf", "alicloud_ecs_zone/variables.tf", "alicloud_kms_key/variables.tf", "alicloud_kms_secret/variables.tf", "alicloud_oss_bucket/variables.tf", "alicloud_ram_policy/variables.tf", "alicloud_ram_user/variables.tf", "alicloud_rds_instance/variables.tf", "alicloud_vpc_dhcp_options_set/variables.tf", "alicloud_vpc_nat_gateway/variables.tf", "alicloud_vpc_network_acl/variables.tf", "alicloud_vpc_route_entry/variables.tf", "alicloud_vpc_route_table/variables.tf", "alicloud_vpc_vpn_customer_gateway/variables.tf", "alicloud_vpc_vpn_gateway/variables.tf"},
+		ExpectedFilePaths: []string{"alicloud_account/variables.tf", "alicloud_action_trail/variables.tf", "alicloud_cas_certificate/variables.tf", "alicloud_cms_monitor_host/variables.tf", "alicloud_cs_kubernetes_cluster/variables.tf", "alicloud_cs_kubernetes_cluster_node/variables.tf", "alicloud_ecs_auto_provisioning_group/variables.tf", "alicloud_ecs_key_pair/variables.tf", "alicloud_ecs_launch_template/variables.tf", "alicloud_ecs_network_interface/variables.tf", "alicloud_ecs_region/variables.tf", "alicloud_ecs_zone/variables.tf", "alicloud_kms_key/variables.tf", "alicloud_kms_secret/variables.tf", "alicloud_oss_bucket/variables.tf", "alicloud_ram_policy/variables.tf", "alicloud_ram_user/variables.tf", "alicloud_rds_backup/variables.tf", "alicloud_rds_database/variables.tf", "alicloud_rds_instance/variables.tf", "alicloud_slb_load_balancer/variables.tf", "alicloud_vpc_dhcp_options_set/variables.tf", "alicloud_vpc_flow_log/variables.tf", "alicloud_vpc_nat_gateway/variables.tf", "alicloud_vpc_network_acl/variables.tf", "alicloud_vpc_route_entry/variables.tf", "alicloud_vpc_route_table/variables.tf", "alicloud_vpc_vpn_customer_gateway/variables.tf", "alicloud_vpc_vpn_gateway/variables.tf"},
 	},
 	"github force protocol with https url - specific folder - *.tf": {
 		Input:             "git::https://github.com/turbot/steampipe-plugin-alicloud.git//alicloud-test/tests/alicloud_account//*.tf",
@@ -161,6 +162,10 @@ var getSourceFilesTestCases = map[string]getSourceFilesTest{
 	"virtual-host style without http protocol prefix - specific file - no glob": {
 		Input:             "s3-ap-southeast-1.amazonaws.com/cloudformation-templates-ap-southeast-1/Managed_EC2_Batch_Environment.json",
 		ExpectedFilePaths: []string{"Managed_EC2_Batch_Environment.json"},
+	},
+	"https URL - specific file - no glob": {
+		Input:             "https://www.cisa.gov/sites/default/files/csv/known_exploited_vulnerabilities.csv",
+		ExpectedFilePaths: []string{"known_exploited_vulnerabilities.csv/known_exploited_vulnerabilities.csv"},
 	},
 }
 
