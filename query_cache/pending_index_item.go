@@ -2,10 +2,11 @@ package query_cache
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
 	"strings"
+
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
 // pendingIndexBucket contains index items for all pending cache results for a given table and qual set
@@ -57,7 +58,7 @@ func (b *pendingIndexBucket) delete(pendingItem *pendingIndexItem) {
 func (b *pendingIndexBucket) String() any {
 	var sb strings.Builder
 	for itemKey, item := range b.Items {
-		sb.WriteString(fmt.Sprintf("item: %p, count: %d, key:%s\n", item, item.count, itemKey))
+		sb.WriteString(fmt.Sprintf("item: %p, key:%s\n", item, itemKey))
 	}
 	return sb.String()
 }
@@ -65,9 +66,7 @@ func (b *pendingIndexBucket) String() any {
 // pendingIndexItem stores the columns and cached index for a single pending query result
 // note - this index item it tied to a specific table and set of quals
 type pendingIndexItem struct {
-	item *IndexItem
-	// used for logging purposes only (as we cannot access wait groups count)
-	count  int
+	item   *IndexItem
 	err    error
 	callId string
 }

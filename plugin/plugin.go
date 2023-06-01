@@ -384,6 +384,9 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 			log.Printf("[TRACE] queryCache.Get took %.1fs: (%s),", getDuration.Seconds(), connectionCallId)
 		}
 
+
+
+
 		// so the cache call failed, with either a cache-miss or other error
 		if query_cache.IsCacheMiss(cacheErr) {
 			log.Printf("[TRACE] cache MISS")
@@ -400,6 +403,12 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	} else {
 		log.Printf("[INFO] Cache DISABLED connectionCallId: %s", connectionCallId)
 	}
+
+	// TODO
+	// if partialCacheHit{
+	// calc missing columns, build new query data
+	// queryData = partialCacheHitQueryData()
+	//
 
 	// asyncronously fetch items
 	log.Printf("[TRACE] calling fetchItems, table: %s, matrixItem: %v, limit: %d,  connectionCallId: %s\"", table.Name, queryData.Matrix, limit, connectionCallId)
