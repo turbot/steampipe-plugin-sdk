@@ -15,7 +15,7 @@ require (
 	github.com/iancoleman/strcase v0.2.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sethvargo/go-retry v0.2.4
-	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
+	github.com/stevenle/topsort v0.2.0
 	github.com/turbot/go-kit v0.5.0
 	github.com/zclconf/go-cty v1.12.1
 	go.opentelemetry.io/otel v1.10.0

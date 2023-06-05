@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -166,7 +165,6 @@ func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 	defer func() {
 		if p := recover(); p != nil {
 			log.Printf("[WARN] callHydrate recover: %v", p)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			r.errorChan <- status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
 		}
 		r.wg.Done()

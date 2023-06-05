@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gertd/go-pluralize"
 	"log"
 	"os"
 	"path"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gertd/go-pluralize"
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/v3/cache"
@@ -272,7 +272,6 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		log.Printf("[TRACE] executeForConnection DEFER (%s) ", connectionCallId)
 		if r := recover(); r != nil {
 			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
-			log.Printf("[WARN] %s", debug.Stack())
 			err = helpers.ToError(r)
 			return
 		}
@@ -330,7 +329,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// get the matrix item
 	log.Printf("[TRACE] GetMatrixItem")
-	var matrixItem []map[string]interface{}
+	var matrixItem []map[string]any
 	if table.GetMatrixItem != nil {
 		matrixItem = table.GetMatrixItem(ctx, connectionData.Connection)
 	}
@@ -349,7 +348,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	cacheRequest := &query_cache.CacheRequest{
 		Table:          table.Name,
 		QualMap:        cacheQualMap,
-		Columns:        queryContext.Columns,
+		Columns:        queryData.getColumnNames(), // all column names returned by the required hydrate functions
 		Limit:          limit,
 		ConnectionName: connectionName,
 		TtlSeconds:     queryContext.CacheTTL,
@@ -397,12 +396,6 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		}
 
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
-
-		// NOTE: update the cache request to include ALL the columns which will be fetched, not just those requested
-		// this means subsequent queries requesting other columns from same hydrate func(s) can be served from the cache
-		cacheRequest.Columns = queryData.getColumnNames()
-
-		p.queryCache.StartSet(ctx, cacheRequest)
 	} else {
 		log.Printf("[INFO] Cache DISABLED connectionCallId: %s", connectionCallId)
 	}

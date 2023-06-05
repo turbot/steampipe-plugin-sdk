@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -69,7 +68,6 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 		queryData.fetchComplete(ctx)
 		if r := recover(); r != nil {
 			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r))
-			log.Printf("[WARN] stack: %s", debug.Stack())
 		}
 	}()
 
@@ -186,7 +184,6 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	defer func() {
 		if p := recover(); p != nil {
 			err = status.Error(codes.Internal, fmt.Sprintf("table '%s': Get hydrate call %s failed with panic %v", t.Name, hydrateKey, p))
-			log.Printf("[WARN] stack: %s", debug.Stack())
 		}
 		logging.LogTime(hydrateKey + " end")
 	}()
@@ -346,7 +343,6 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	defer func() {
 		if r := recover(); r != nil {
 			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", helpers.GetFunctionName(t.List.Hydrate), r)))
-			log.Printf("[WARN] stack: %s", debug.Stack())
 		}
 		// list call will return when it has streamed all items so close rowDataChan
 		queryData.fetchComplete(ctx)

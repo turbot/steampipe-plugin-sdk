@@ -32,6 +32,14 @@ func (req *CacheRequest) getPageResultKey() string {
 	return getPageKey(req.resultKeyRoot, req.pageCount-1)
 }
 
+func (req *CacheRequest) getPrevPageResultKeys() []string {
+	var res []string
+	for i := 0; i < int(req.pageCount); i++ {
+		res = append(res, getPageKey(req.resultKeyRoot, req.pageCount-1))
+	}
+	return res
+}
+
 func (req *CacheRequest) getRows() []*sdkproto.Row {
 	if req.rowIndex == 0 {
 		return nil

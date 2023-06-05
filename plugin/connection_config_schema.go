@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hcldec"
@@ -14,8 +16,6 @@ import (
 	"github.com/zclconf/go-cty/cty/gocty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log"
-	"runtime/debug"
 )
 
 /*
@@ -89,7 +89,6 @@ func (c *ConnectionConfigSchema) parse(config *proto.ConnectionConfig) (_ any, e
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[WARN] ConnectionConfigSchema parse caught a panic: %v\n", r)
-			log.Printf("[WARN] stack: %s", debug.Stack())
 			err = status.Error(codes.Internal, fmt.Sprintf("ConnectionConfigSchema parse failed with panic %v", r))
 		}
 	}()
