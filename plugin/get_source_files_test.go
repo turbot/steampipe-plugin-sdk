@@ -70,6 +70,10 @@ var getSourceFilesTestCases = map[string]map[string]getSourceFilesTest{
 			Input:             filepath.Join(wd, "test_data/get_source_files_test/**/file.txt"),
 			ExpectedFilePaths: []string{"test_data/get_source_files_test/sub1/sub11/file.txt", "test_data/get_source_files_test/sub2/sub21/file.txt"},
 		},
+		"local - **/file.txtx": {
+			Input:             filepath.Join(wd, "test_data/get_source_files_test/sub1/*/file.txt"),
+			ExpectedFilePaths: []string{"test_data/get_source_files_test/sub1/sub11/file.txt"},
+		},
 	},
 	"github": {
 		// github urls
