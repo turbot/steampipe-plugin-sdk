@@ -135,7 +135,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 }
 
 func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
-	log.Printf("[WARN] getCachedQueryResult returned CACHE MISS - checking for pending transfers (%s)", req.CallId)
+	log.Printf("[INFO] getCachedQueryResult returned CACHE MISS - checking for pending transfers (%s)", req.CallId)
 	pendingItem := c.getPendingResultItem(ctx, indexBucketKey, req)
 	if pendingItem == nil {
 		// add a pending result so anyone else asking for this data will wait the fetch to complete
@@ -144,7 +144,7 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketK
 		return CacheMissError{}
 	}
 
-	log.Printf("[WARN] found pending item - subscribing to its data (%s)", req.CallId)
+	log.Printf("[INFO] found pending item - subscribing to its data (%s)", req.CallId)
 
 	// get the ongoing set request
 	c.setRequestMapLock.RLock()
@@ -159,7 +159,7 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketK
 
 	wrappedStreamFunc := func(row *sdkproto.Row) {
 		if row == nil {
-			log.Printf("[WARN] null row, closing doneChan (%s)", req.CallId)
+			log.Printf("[INFO] null row, closing doneChan (%s)", req.CallId)
 			close(doneChan)
 			return
 		}
@@ -177,7 +177,7 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketK
 	setRequest.mut.Unlock()
 
 	// stream all data already cached
-	log.Printf("[WARN] stream already cached")
+	log.Printf("[INFO] stream all data already cached")
 	for _, pageKey := range prevKeys {
 		var cacheResult = &sdkproto.QueryResult{}
 		if err := doGet[*sdkproto.QueryResult](ctx, pageKey, c.cache, cacheResult); err != nil {
@@ -192,11 +192,10 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketK
 		wrappedStreamFunc(row)
 	}
 
-	log.Printf("[WARN] wait for done")
 	// wait for all rows to be streamed
 	<-doneChan
 
-	log.Printf("[WARN] done")
+	log.Printf("[WARN] All rows streamed")
 	return nil
 }
 

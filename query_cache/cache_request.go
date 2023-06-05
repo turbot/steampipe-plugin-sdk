@@ -18,7 +18,6 @@ type CacheRequest struct {
 
 	// used for set requests
 	rows      []*sdkproto.Row
-	raws      []any
 	rowIndex  int
 	pageCount int64
 	err       error
