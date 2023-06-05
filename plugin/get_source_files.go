@@ -3,7 +3,6 @@ package plugin
 import (
 	"log"
 	"path"
-	"strings"
 
 	filehelpers "github.com/turbot/go-kit/files"
 	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
@@ -36,13 +35,8 @@ func getSourceFiles(source, tempDir string) ([]string, error) {
 		glob = path.Join(glob, "*")
 	}
 
-	flag := filehelpers.Files
-	if strings.Count(glob, "*") > 1 {
-		flag = filehelpers.AllRecursive
-	}
-
 	opts := &filehelpers.ListOptions{
-		Flags:   flag,
+		Flags:   filehelpers.AllRecursive,
 		Include: []string{glob},
 	}
 
