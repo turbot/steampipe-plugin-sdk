@@ -1,4 +1,17 @@
+## v5.5.0 [tbd]
+_What's new_
+* Update cache pending item implementation. ([#564](https://github.com/turbot/steampipe-plugin-sdk/issues/564),[#566](https://github.com/turbot/steampipe-plugin-sdk/issues/566)) 
+  * Cache requests subscribe to pending items and stream them as the data is received rather than waiting for the item to complete. 
+  * When making cache request, update request to include ALL columns which will be returned, not just columns requested. This will allow pending item code to match in cases where a different column in the same hydrate function is requested.
+
+_Bug fixes_
+* Optimise `GetSourceFiles` to avoid recursing into child folders when not necessary (update go-kit version). ([#557](https://github.com/turbot/steampipe-plugin-sdk/issues/557))
+* Fix hang in hydrate retry code - fix invalid default `retryInterval` in `getBackoff`. ([#558](https://github.com/turbot/steampipe-plugin-sdk/issues/558))
+* Update GetSourceFiles to use go-getter GetAny method for https URLs. ([#560](https://github.com/turbot/steampipe-plugin-sdk/issues/560))
+* Do not print call stacks in logs. ([#553](https://github.com/turbot/steampipe-plugin-sdk/issues/553))
+
 ## v5.4.1 [2023-05-05]
+_Bug fixes_
 * Avoid loading schema repeatedly when initializing plugin with multiple connections. ([#547](https://github.com/turbot/steampipe-plugin-sdk/issues/547))
 
 ## v5.4.0 [2023-04-27]
@@ -6,7 +19,6 @@ _What's new_
 * Add SetCacheOptions to allow control of cache at server level. ([#546](https://github.com/turbot/steampipe-plugin-sdk/issues/546))
 
 ## v5.3.0 [2023-03-16]
-
 _What's new_
 * Add env var support for limiting the folders from which source files are retrieved. ([#540](https://github.com/turbot/steampipe-plugin-sdk/issues/540))
 * Add go-getter support to `TableMapFunc` - add `GetSourceFiles` method to `ConnectionMapData`. ([#542](https://github.com/turbot/steampipe-plugin-sdk/issues/542))
