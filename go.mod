@@ -15,7 +15,7 @@ require (
 	github.com/iancoleman/strcase v0.2.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sethvargo/go-retry v0.2.4
-	github.com/stevenle/topsort v0.0.0-20130922064739-8130c1d7596b
+	github.com/stevenle/topsort v0.2.0
 	github.com/turbot/go-kit v0.5.0
 	github.com/zclconf/go-cty v1.12.1
 	go.opentelemetry.io/otel v1.10.0
@@ -35,7 +35,6 @@ require (
 	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/eko/gocache/v3 v3.1.2
 	github.com/fsnotify/fsnotify v1.6.0
-	github.com/gertd/wild v0.0.1
 	github.com/hashicorp/go-getter v1.6.2
 	golang.org/x/exp v0.0.0-20221110155412-d0897a79cd37
 	golang.org/x/sync v0.1.0
