@@ -134,13 +134,19 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	return err
 }
 
-func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
+func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (err error) {
+	defer func() {
+		// if we fail for any reason, this will be treated as a cache miss - add a pending item
+		if err != nil {
+			log.Printf("[INFO] returning error %s - add pending item (%s)", err.Error(), req.CallId)
+			// add a pending result so anyone else asking for this data will wait the fetch to complete
+			c.addPendingResult(ctx, indexBucketKey, req)
+		}
+	}()
 	log.Printf("[INFO] getCachedQueryResult returned CACHE MISS - checking for pending transfers (%s)", req.CallId)
-	pendingItem := c.getPendingResultItem(ctx, indexBucketKey, req)
+	pendingItem := c.getPendingResultItem(indexBucketKey, req)
 	if pendingItem == nil {
-		// add a pending result so anyone else asking for this data will wait the fetch to complete
-		c.addPendingResult(ctx, indexBucketKey, req)
-		// and return a cache miss
+		// return a cache miss
 		return CacheMissError{}
 	}
 
@@ -150,7 +156,7 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketK
 	c.setRequestMapLock.RLock()
 	setRequest, ok := c.setRequests[pendingItem.callId]
 	c.setRequestMapLock.RUnlock()
-	if !ok {
+	if /*!*/ ok {
 		return fmt.Errorf("found pending item for callId %s but there is no in-progress 'set' operation", pendingItem.callId)
 	}
 
@@ -213,9 +219,7 @@ func (c *QueryCache) startSet(_ context.Context, req *CacheRequest) {
 	// create rows buffer
 	req.rows = make([]*sdkproto.Row, rowBufferSize)
 
-	c.setRequestMapLock.Lock()
 	c.setRequests[req.CallId] = &setRequest{CacheRequest: req}
-	c.setRequestMapLock.Unlock()
 }
 
 func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId string) error {

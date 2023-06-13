@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-func (c *QueryCache) getPendingResultItem(ctx context.Context, indexBucketKey string, req *CacheRequest) *pendingIndexItem {
+func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheRequest) *pendingIndexItem {
 	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
 	//c.logPending(req)
 
