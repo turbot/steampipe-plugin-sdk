@@ -56,28 +56,6 @@ func (c *QueryCache) getPendingItemResolvedByRequest(indexBucketKey string, req 
 	return nil, nil
 }
 
-//// this must be called inside a lock
-//func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheRequest) *pendingIndexItem {
-//	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
-//
-//	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
-//
-//	// is there a pending index bucket for this query
-//	if pendingIndexBucket, ok := c.pendingData[indexBucketKey]; ok {
-//		log.Printf("[TRACE] got pending index bucket, checking for pending item satisfied by columns and limit, indexBucketKey %s, columns %v, limit %d, quals %s (%s)",
-//			indexBucketKey, req.Columns, req.Limit, grpc.QualMapToLogLine(req.QualMap), req.CallId)
-//		// now check whether there is a pending item in this bucket that covers the required columns and limit
-//		items := pendingIndexBucket.GetItemsSatisfiedByRequest(req, keyColumns)
-//		if len(items) > 0 {
-//			return items[0]
-//		}
-//	}
-//
-//	log.Printf("[TRACE] no pending index item for, indexBucketKey %s", indexBucketKey)
-//
-//	return nil
-//}
-
 func (c *QueryCache) addPendingResult(ctx context.Context, indexBucketKey string, req *CacheRequest) {
 	// NOTE: this must be calling inside  c.pendingDataLock.Lock()
 
@@ -95,9 +73,6 @@ func (c *QueryCache) addPendingResult(ctx context.Context, indexBucketKey string
 	// use the root result key to key the pending item map
 	resultKeyRoot := req.resultKeyRoot
 
-	// this pending item _may_ already exist - if we have previously fetched the same data (perhaps the ttl expired)
-	// create a new one anyway to replace that one
-	// NOTE: when creating a pending item the lock wait group is incremented automatically
 	item := NewPendingIndexItem(setRequest)
 	pendingIndexBucket.Items[resultKeyRoot] = item
 
@@ -111,6 +86,8 @@ func (c *QueryCache) addPendingResult(ctx context.Context, indexBucketKey string
 
 // unlock pending result items from the map
 func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
+	// TODO use err
+
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
 
 	log.Printf("[TRACE] pendingItemComplete (%s) indexBucketKey %s, columns %v, limit %d", req.CallId, indexBucketKey, req.Columns, req.Limit)
