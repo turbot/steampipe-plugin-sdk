@@ -6,31 +6,20 @@ import (
 	"log"
 )
 
-func (c *QueryCache) getPendingResultItem(ctx context.Context, indexBucketKey string, req *CacheRequest) *pendingIndexItem {
+func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheRequest) *pendingIndexItem {
 	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
-	//c.logPending(req)
 
-	// acquire a Read lock for pendingData map
-	c.pendingDataLock.RLock()
 	// do we have a pending items which satisfy the qual, limit and column constraints
 	pendingItems, _ := c.getPendingItemSatisfyingRequest(indexBucketKey, req)
-	c.pendingDataLock.RUnlock()
 
 	// if there was no pending result - we assume the calling code will fetch the data and add it to the cache
 	// so add a pending result
 	if len(pendingItems) == 0 {
-		// acquire a Write lock
-		c.pendingDataLock.Lock()
-		defer c.pendingDataLock.Unlock()
-
-		// try again to get a pending item - in case someone else grabbed a Write lock before us
-		pendingItems, _ = c.getPendingItemSatisfyingRequest(indexBucketKey, req)
-		if len(pendingItems) == 0 {
-			log.Printf("[TRACE] no pending index item - add pending result, indexBucketKey %s", indexBucketKey)
-			// return nil (i.e. cache miss)
-			return nil
-		}
+		log.Printf("[TRACE] no pending index item - add pending result, indexBucketKey %s", indexBucketKey)
+		// return nil (i.e. cache miss)
+		return nil
 	}
+
 	// to get here we must have a non-empty list of pending items
 	log.Printf("[TRACE] getPendingResultItem returning %v", pendingItems[0])
 	// return pending item
@@ -68,37 +57,37 @@ func (c *QueryCache) getPendingItemResolvedByRequest(indexBucketKey string, req 
 }
 
 func (c *QueryCache) addPendingResult(ctx context.Context, indexBucketKey string, req *CacheRequest) {
-	// call start set to add the request to the setRequest map
-	c.startSet(ctx, req)
+	// NOTE: this must be calling inside  c.pendingDataLock.Lock()
 
+	// call start set to add the request to the setRequest map
+	setRequest := c.startSet(ctx, req)
 	// this must be called within a pendingDataLock Write Lock
-	log.Printf("[TRACE] addPendingResult (%s) indexBucketKey %s, columns %v, limit %d", req.CallId, indexBucketKey, req.Columns, req.Limit)
+	log.Printf("[WARN] addPendingResult (%s) indexBucketKey %s, columns %v, limit %d", req.CallId, indexBucketKey, req.Columns, req.Limit)
 
 	// do we have a pending bucket
 	pendingIndexBucket, ok := c.pendingData[indexBucketKey]
 	if !ok {
-		log.Printf("[TRACE] no index bucket found - creating one")
+		log.Printf("[WARN] no index bucket found - creating one")
 		pendingIndexBucket = newPendingIndexBucket()
 	}
 	// use the root result key to key the pending item map
 	resultKeyRoot := req.resultKeyRoot
 
-	// this pending item _may_ already exist - if we have previously fetched the same data (perhaps the ttl expired)
-	// create a new one anyway to replace that one
-	// NOTE: when creating a pending item the lock wait group is incremented automatically
-	item := NewPendingIndexItem(req)
+	item := NewPendingIndexItem(setRequest)
 	pendingIndexBucket.Items[resultKeyRoot] = item
 
 	// now write back to pending data map
 	c.pendingData[indexBucketKey] = pendingIndexBucket
 
-	log.Printf("[TRACE] addPendingResult added pending index item to bucket, (%s) indexBucketKey %s, resultKeyRoot %s, pending item : %p", req.CallId, indexBucketKey, resultKeyRoot, item)
+	log.Printf("[WARN] addPendingResult added pending index item to bucket, (%s) indexBucketKey %s, resultKeyRoot %s, pending item : %p", req.CallId, indexBucketKey, resultKeyRoot, item)
 
 	c.logPending(req)
 }
 
 // unlock pending result items from the map
 func (c *QueryCache) pendingItemComplete(req *CacheRequest, err error) {
+	// TODO use err
+
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
 
 	log.Printf("[TRACE] pendingItemComplete (%s) indexBucketKey %s, columns %v, limit %d", req.CallId, indexBucketKey, req.Columns, req.Limit)

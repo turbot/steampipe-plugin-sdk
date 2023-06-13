@@ -66,17 +66,18 @@ func (b *pendingIndexBucket) String() any {
 // pendingIndexItem stores the columns and cached index for a single pending query result
 // note - this index item it tied to a specific table and set of quals
 type pendingIndexItem struct {
-	item   *IndexItem
-	err    error
-	callId string
+	item              *IndexItem
+	err               error
+	callId            string
+	pendingSetRequest *setRequest
 }
 
-func NewPendingIndexItem(req *CacheRequest) *pendingIndexItem {
+func NewPendingIndexItem(pendingSetRequest *setRequest) *pendingIndexItem {
 	return &pendingIndexItem{
-		item:   NewIndexItem(req),
-		callId: req.CallId,
+		item:              NewIndexItem(pendingSetRequest.CacheRequest),
+		callId:            pendingSetRequest.CallId,
+		pendingSetRequest: pendingSetRequest,
 	}
-
 }
 
 // SatisfiesRequest returns whether our index item satisfies the given cache request

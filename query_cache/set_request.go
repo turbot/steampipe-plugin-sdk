@@ -10,6 +10,7 @@ type setRequest struct {
 	// other cache requests who are subscribing to this data
 	subscribers []func(row *sdkproto.Row)
 	mut         sync.RWMutex
+	complete    bool
 }
 
 func (r *setRequest) subscribe(subscriber func(row *sdkproto.Row)) {

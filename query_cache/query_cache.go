@@ -125,7 +125,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 
 	// so we have a cache miss
 	// there was no cached result - is there data fetch in progress? If so, subscribe to it
-	err = c.subscribeToPendingRequest(ctx, indexBucketKey, req, streamRowFunc)
+	err = c.findAndSubscribeToPendingRequest(ctx, indexBucketKey, req, streamRowFunc)
 	if err == nil {
 		log.Printf("[INFO] subscribed to pending request")
 
@@ -134,25 +134,60 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	return err
 }
 
-func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
+func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (err error) {
 	log.Printf("[INFO] getCachedQueryResult returned CACHE MISS - checking for pending transfers (%s)", req.CallId)
-	pendingItem := c.getPendingResultItem(ctx, indexBucketKey, req)
+
+	// try to get pending item within a read lock
+	c.pendingDataLock.RLock()
+	pendingItem := c.getPendingResultItem(indexBucketKey, req)
+	c.pendingDataLock.RUnlock()
+
 	if pendingItem == nil {
-		// add a pending result so anyone else asking for this data will wait the fetch to complete
-		c.addPendingResult(ctx, indexBucketKey, req)
-		// and return a cache miss
-		return CacheMissError{}
+		// return a cache miss
+		err = CacheMissError{}
+	} else {
+		// so we have a pending item - subscribe to it
+		log.Printf("[INFO] found pending item [%s] - subscribing to its data (%s)", pendingItem.callId, req.CallId)
+		err = c.subscribeToPendingRequest(ctx, pendingItem, req, streamRowFunc)
 	}
 
-	log.Printf("[INFO] found pending item - subscribing to its data (%s)", req.CallId)
+	// success?
+	if err == nil {
+		return
+	}
 
+	// if we fail for any reason, this will be treated as a cache miss - add a pending item
+	log.Printf("[INFO] findAndSubscribeToPendingRequest returning error %s - add pending item (%s)", err.Error(), req.CallId)
+
+	// get a write lock in preparation for adding a pending item
+	c.pendingDataLock.Lock()
+
+	// if the error WAS a cache miss error,  before adding a pending result, try again for a pending item
+	// this is to allow for the race condition where 2 threads are both making a concurrent cache request
+	// - one will create a pending item first
+	if IsCacheMiss(err) {
+		if pendingItem := c.getPendingResultItem(indexBucketKey, req); pendingItem != nil {
+			// unlock before subscribeToPendingRequest
+			c.pendingDataLock.Unlock()
+
+			// ok NOW there is a pending item - just subscribe to it
+			return c.subscribeToPendingRequest(ctx, pendingItem, req, streamRowFunc)
+		}
+	}
+
+	// add a pending result so anyone else asking for this data will wait the fetch to complete
+	c.addPendingResult(ctx, indexBucketKey, req)
+
+	// unlock the write lock
+	c.pendingDataLock.Unlock()
+
+	return err
+
+}
+
+func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingItem *pendingIndexItem, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
 	// get the ongoing set request
-	c.setRequestMapLock.RLock()
-	setRequest, ok := c.setRequests[pendingItem.callId]
-	c.setRequestMapLock.RUnlock()
-	if !ok {
-		return fmt.Errorf("found pending item for callId %s but there is no in-progress 'set' operation", pendingItem.callId)
-	}
+	pendingSetRequest := pendingItem.pendingSetRequest
 
 	//  we start a goroutine to stream all rows
 	doneChan := make(chan struct{})
@@ -165,16 +200,22 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketK
 		}
 		streamRowFunc(row)
 	}
-	// now lock the set request
-	setRequest.mut.Lock()
 
+	// it's possible the set request has completed already
+	var setRequestCompleted bool
+
+	// now lock the set request
+	pendingSetRequest.mut.Lock()
 	// subscribe with the wrapped func
-	setRequest.subscribe(wrappedStreamFunc)
+	pendingSetRequest.subscribe(wrappedStreamFunc)
 	// get keys of all data already written to cache
-	prevKeys := setRequest.getPrevPageResultKeys()
-	cachedRows := setRequest.getRows()
+	prevKeys := pendingSetRequest.getPrevPageResultKeys()
+	bufferedRows := pendingSetRequest.getRows()
+
+	// has the set request completed?
+	setRequestCompleted = pendingSetRequest.complete
 	// now unlock the set request
-	setRequest.mut.Unlock()
+	pendingSetRequest.mut.Unlock()
 
 	// stream all data already cached
 	log.Printf("[INFO] stream all data already cached")
@@ -188,12 +229,14 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketK
 		}
 	}
 	// now stream all data currently in the set request buffer
-	for _, row := range cachedRows {
+	for _, row := range bufferedRows {
 		wrappedStreamFunc(row)
 	}
 
-	// wait for all rows to be streamed
-	<-doneChan
+	// if set request was NOT already complete, wait for all rows to be streamed
+	if !setRequestCompleted {
+		<-doneChan
+	}
 
 	log.Printf("[WARN] All rows streamed")
 	return nil
@@ -201,21 +244,26 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, indexBucketK
 
 // startSet begins a streaming cache Set operation.
 // NOTE: this mutates req
-func (c *QueryCache) startSet(_ context.Context, req *CacheRequest) {
-	log.Printf("[TRACE] startSet (%s)", req.CallId)
-
+func (c *QueryCache) startSet(_ context.Context, req *CacheRequest) *setRequest {
+	// should never happen
 	if !c.Enabled {
-		return
+		return nil
 	}
+
+	log.Printf("[TRACE] startSet (%s)", req.CallId)
+	// lock the set request map
+	c.setRequestMapLock.Lock()
+	defer c.setRequestMapLock.Unlock()
 
 	// set root result key
 	req.resultKeyRoot = c.buildResultKey(req)
 	// create rows buffer
 	req.rows = make([]*sdkproto.Row, rowBufferSize)
 
-	c.setRequestMapLock.Lock()
-	c.setRequests[req.CallId] = &setRequest{CacheRequest: req}
-	c.setRequestMapLock.Unlock()
+	setRequest := &setRequest{CacheRequest: req}
+	c.setRequests[req.CallId] = setRequest
+
+	return setRequest
 }
 
 func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId string) error {
@@ -227,7 +275,10 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 	c.setRequestMapLock.RLock()
 	req, ok := c.setRequests[callId]
 	c.setRequestMapLock.RUnlock()
-
+	if !ok {
+		// not expected
+		return fmt.Errorf("IterateSet failed - no set request with call id %s", callId)
+	}
 	// lock access to set request
 	req.mut.Lock()
 	defer req.mut.Unlock()
@@ -266,13 +317,16 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	// get the ongoing request
 	req, ok := c.setRequests[callId]
 	c.setRequestMapLock.RUnlock()
-
 	if !ok {
 		log.Printf("[WARN] EndSet called for callId %s but there is no in progress set operation", callId)
 		return fmt.Errorf("EndSet called for callId %s but there is no in progress set operation", callId)
 	}
 
 	log.Printf("[TRACE] EndSet (%s) table %s root key %s, pages: %d", callId, req.Table, req.resultKeyRoot, req.pageCount)
+
+	// lock the set request
+	req.mut.Lock()
+	defer req.mut.Unlock()
 
 	defer func() {
 		log.Printf("[TRACE] EndSet DEFER (%s) table %s", callId, req.Table)
@@ -290,6 +344,9 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
 		c.pendingItemComplete(req.CacheRequest, err)
+
+		// mark the request as complete
+		req.complete = true
 	}()
 
 	// write the remainder to the result cache
@@ -533,11 +590,9 @@ func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, inde
 			}
 			if cacheHit {
 				// this was a hit - return
-				log.Printf("[INFO] CACHE HIT")
 				c.Stats.Hits++
 				return nil
 			} else {
-				log.Printf("[INFO] CACHE MISS")
 				c.Stats.Misses++
 				return CacheMissError{}
 			}
