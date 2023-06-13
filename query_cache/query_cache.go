@@ -157,7 +157,7 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 	}
 
 	// if we fail for any reason, this will be treated as a cache miss - add a pending item
-	log.Printf("[INFO] findAndSubscribeToPendingRequest returning error %s - add pending item (%s)", err.Error(), req.CallId)
+	log.Printf("[INFO] findAndSubscribeToPendingRequest returning error %s - this will be treated as a cache miss, so add pending item (%s)", err.Error(), req.CallId)
 
 	// get a write lock in preparation for adding a pending item
 	c.pendingDataLock.Lock()
