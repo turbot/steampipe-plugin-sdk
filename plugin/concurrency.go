@@ -143,7 +143,7 @@ func (c *concurrencyManager) canStart(currentExecutions int, maxCallConcurrency 
 func (c *concurrencyManager) Finished(name string) {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[WARN] %v", r)
+			log.Printf("[WARN] concurrencyManager Finished caught a panic %v", r)
 		}
 	}()
 	// acquire a Write lock

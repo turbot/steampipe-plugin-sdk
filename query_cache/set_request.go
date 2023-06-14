@@ -8,17 +8,27 @@ import (
 type setRequest struct {
 	*CacheRequest
 	// other cache requests who are subscribing to this data
-	subscribers []func(row *sdkproto.Row)
+	subscribers []*setRequestSubscriber
 	mut         sync.RWMutex
 	complete    bool
 }
 
-func (r *setRequest) subscribe(subscriber func(row *sdkproto.Row)) {
+func (r *setRequest) subscribe(subscriber *setRequestSubscriber) {
 	r.subscribers = append(r.subscribers, subscriber)
+	// if we are already complete, tell our subscriber by streaming a nil row
+	if r.complete {
+		subscriber.streamRowFunc(nil)
+	}
 }
 
 func (r *setRequest) streamToSubscribers(row *sdkproto.Row) {
-	for _, streamFunc := range r.subscribers {
-		streamFunc(row)
+	for _, subscriber := range r.subscribers {
+		subscriber.streamRowFunc(row)
+	}
+}
+
+func (r *setRequest) abort(err error) {
+	for _, subscriber := range r.subscribers {
+		subscriber.errChan <- err
 	}
 }
