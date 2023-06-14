@@ -272,7 +272,9 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := p.getConnectionCallId(req.CallId, connectionName)
+	// when done, remove call id from map
 	defer p.clearCallId(connectionCallId)
+
 	log.Printf("[INFO] executeForConnection callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {

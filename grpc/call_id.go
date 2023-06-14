@@ -11,7 +11,7 @@ import (
 func BuildCallId() string {
 	// include the connection name in the call ID
 	//- it is used to identify calls to the shared cache service so there is a chance of callId clash
-	return fmt.Sprintf("%d%06d", time.Now().Unix(), rand.Intn(1000000))
+	return fmt.Sprintf("%d%d", time.Now().Unix(), rand.Intn(1000))
 }
 
 // BuildConnectionCallId adds the connection name to the given callId

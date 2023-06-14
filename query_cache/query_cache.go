@@ -138,12 +138,9 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 	log.Printf("[INFO] getCachedQueryResult returned CACHE MISS - checking for pending transfers (%s)", req.CallId)
 
 	// try to get pending item within a read lock
-	log.Printf("[WARN] *lock* findAndSubscribeToPendingRequest before RLock (%s)", req.CallId)
 	c.pendingDataLock.RLock()
-	log.Printf("[WARN] *lock* findAndSubscribeToPendingRequest after RLock (%s)", req.CallId)
 	pendingItem := c.getPendingResultItem(indexBucketKey, req)
 	c.pendingDataLock.RUnlock()
-	log.Printf("[WARN] *lock* findAndSubscribeToPendingRequest after RUnlock (%s)", req.CallId)
 
 	if pendingItem == nil {
 		// return a cache miss
@@ -163,33 +160,26 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 	log.Printf("[INFO] findAndSubscribeToPendingRequest returning error %s - this will be treated as a cache miss, so add pending item (%s)", err.Error(), req.CallId)
 
 	// get a write lock in preparation for adding a pending item
-	log.Printf("[WARN] *lock* findAndSubscribeToPendingRequest before Lock (%s)", req.CallId)
 	c.pendingDataLock.Lock()
-	log.Printf("[WARN] *lock* findAndSubscribeToPendingRequest after Lock (%s)", req.CallId)
 
 	// if the error WAS a cache miss error,  before adding a pending result, try again for a pending item
 	// this is to allow for the race condition where 2 threads are both making a concurrent cache request
 	// - one will create a pending item first
 	if IsCacheMiss(err) {
-		log.Printf("[WARN] *lock2* findAndSubscribeToPendingRequest IsCacheMiss false, try again for pending (%s)", req.CallId)
 		if pendingItem := c.getPendingResultItem(indexBucketKey, req); pendingItem != nil {
 			// unlock before subscribeToPendingRequest
 			c.pendingDataLock.Unlock()
-			log.Printf("[WARN] *lock* findAndSubscribeToPendingRequest after Unlock (got pending 2nd try) (%s)", req.CallId)
 
 			// ok NOW there is a pending item - just subscribe to it
 			return c.subscribeToPendingRequest(ctx, pendingItem, req, streamRowFunc)
 		}
 	}
 
-	log.Printf("[WARN] *lock2* findAndSubscribeToPendingRequest no pending - add pending (%s)", req.CallId)
-
 	// add a pending result so anyone else asking for this data will wait the fetch to complete
 	c.addPendingResult(ctx, indexBucketKey, req)
 
 	// unlock the write lock
 	c.pendingDataLock.Unlock()
-	log.Printf("[WARN] *lock* findAndSubscribeToPendingRequest after Unlock (%s)", req.CallId)
 
 	return err
 
@@ -229,8 +219,13 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingItem 
 		subscriber.streamRowFunc(row)
 	}
 
+	// wait for all rows tro be streamed (or an error)
 	err := subscriber.waitUntilDone()
-	log.Printf("[INFO] All rows streamed")
+	if err != nil {
+		log.Printf("[WARN] set request we are subscribed to failed: %s", err.Error())
+	} else {
+		log.Printf("[INFO] All rows streamed")
+	}
 	return err
 }
 
@@ -336,7 +331,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
-		log.Printf("[WARN] *lock3* QueryCache EndSet table: %s, cancelling pending item", req.Table)
+		log.Printf("[TRACE] QueryCache EndSet table: %s, marking pending item complete (%s)", req.Table, req.CallId)
 		c.pendingItemComplete(req.CacheRequest)
 
 		// mark the request as complete
@@ -396,23 +391,19 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	if !c.Enabled {
 		return
 	}
-	log.Printf("[WARN] *lock2* AbortSet before setRequestMapLock.Lock (%s)", callId)
 	c.setRequestMapLock.Lock()
-	log.Printf("[WARN] *lock2* AbortSet after setRequestMapLock.Lock (%s)", callId)
 	// get the ongoing request
 	req, ok := c.setRequests[callId]
 	// remove set request item
 	delete(c.setRequests, callId)
 	c.setRequestMapLock.Unlock()
-	log.Printf("[WARN] *lock* AbortSet after setRequestMapLock.Unlock (%s)", callId)
 	if !ok {
 		return
 	}
-
+	// tell request to send error to all it's subscribers
 	req.abort(err)
 
 	// clear the corresponding pending item
-	log.Printf("[WARN] *lock3* QueryCache AbortSet table: %s, cancelling pending item", req.Table)
 	c.pendingItemComplete(req.CacheRequest)
 
 	log.Printf("[TRACE] QueryCache AbortSet - deleting %d pages from the cache", req.pageCount)
@@ -421,7 +412,6 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 		pageKey := getPageKey(req.resultKeyRoot, i)
 		c.cache.Delete(ctx, pageKey)
 	}
-
 }
 
 // ClearForConnection removes all cache entries for the given connection

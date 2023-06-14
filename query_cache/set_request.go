@@ -27,6 +27,7 @@ func (r *setRequest) streamToSubscribers(row *sdkproto.Row) {
 	}
 }
 
+// send error to subscribers
 func (r *setRequest) abort(err error) {
 	for _, subscriber := range r.subscribers {
 		subscriber.errChan <- err

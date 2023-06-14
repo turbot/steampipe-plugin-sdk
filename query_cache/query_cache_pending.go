@@ -7,8 +7,6 @@ import (
 )
 
 func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheRequest) *pendingIndexItem {
-	log.Printf("[WARN] *lock2* getPendingResultItem (%s)", req.CallId)
-	defer log.Printf("[WARN] *lock2* getPendingResultItem DONE (%s)", req.CallId)
 	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
 
 	// do we have a pending items which satisfy the qual, limit and column constraints
@@ -45,11 +43,9 @@ func (c *QueryCache) getPendingItemSatisfyingRequest(indexBucketKey string, req 
 
 // this must be called inside a lock
 func (c *QueryCache) getPendingItemResolvedByRequest(indexBucketKey string, req *CacheRequest) (*pendingIndexItem, *pendingIndexBucket) {
-	log.Printf("[WARN] *lock* getPendingItemResolvedByRequest before RLock (%s)", req.CallId)
 	c.pendingDataLock.RLock()
 	defer func() {
 		c.pendingDataLock.RUnlock()
-		log.Printf("[WARN] *lock* getPendingItemResolvedByRequest after RLock (%s)", req.CallId)
 	}()
 
 	// is there a pending index bucket for this query
@@ -65,9 +61,6 @@ func (c *QueryCache) getPendingItemResolvedByRequest(indexBucketKey string, req 
 
 func (c *QueryCache) addPendingResult(ctx context.Context, indexBucketKey string, req *CacheRequest) {
 	// NOTE: this must be calling inside  c.pendingDataLock.Lock()
-	log.Printf("[WARN] *lock2* addPendingResult (%s)", req.CallId)
-	defer log.Printf("[WARN] *lock2* addPendingResult DONE  (%s)", req.CallId)
-
 	// call start set to add the request to the setRequest map
 	setRequest := c.startSet(ctx, req)
 	// this must be called within a pendingDataLock Write Lock
@@ -104,21 +97,15 @@ func (c *QueryCache) pendingItemComplete(req *CacheRequest) {
 	completedPendingItem, pendingIndexBucket := c.getPendingItemResolvedByRequest(indexBucketKey, req)
 
 	if completedPendingItem == nil {
-		log.Printf("[WARN] pendingItemComplete - no pending item found (%s)", req.CallId)
+		log.Printf("[TRACE] pendingItemComplete - no pending item found (%s)", req.CallId)
 		return
 	}
 	log.Printf("[TRACE] got completedPendingItem, (%s)", req.CallId)
 
-	log.Printf("[WARN] *lock* pendingItemComplete before Lock (%s)", req.CallId)
-
 	// acquire a Write lock for remainder of function
 	c.pendingDataLock.Lock()
-	log.Printf("[WARN] *lock* pendingItemComplete after Lock (%s)", req.CallId)
 	// ensure we release lock
-	defer func() {
-		c.pendingDataLock.Unlock()
-		log.Printf("[WARN] *lock* pendingItemComplete after Unlock (%s)", req.CallId)
-	}()
+	defer c.pendingDataLock.Unlock()
 
 	// if there is an error, ONLY remove the pending item corresponding to this request
 	// remove pending item from the parent pendingIndexBucket (BEFORE updating the index item cache key)

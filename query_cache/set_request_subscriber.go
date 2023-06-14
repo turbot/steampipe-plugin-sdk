@@ -35,7 +35,7 @@ func newSetRequestSubscriber(streamRowFunc func(row *sdkproto.Row), callId strin
 }
 
 func (s setRequestSubscriber) waitUntilDone() error {
-	// consider timout since last streamed item
+	// TODO consider timout since last streamed item
 	select {
 	case <-s.doneChan:
 		return nil
