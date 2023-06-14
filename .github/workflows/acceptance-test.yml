@@ -33,6 +33,7 @@ jobs:
 
   buildChaosPlugin:
     name: Run chaos acceptance tests
+    needs: sdkUnitTests
     runs-on: ubuntu-latest
     steps:
 
