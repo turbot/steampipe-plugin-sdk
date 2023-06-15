@@ -109,6 +109,10 @@ type Plugin struct {
 	tempDir string
 	// stream used to send messages back to plugin manager
 	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
+
+	// map of call ids to avoid duplicates
+	callIdLookup    map[string]struct{}
+	callIdLookupMut sync.RWMutex
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
@@ -168,6 +172,8 @@ func (p *Plugin) initialise() {
 	// set temporary dir for this plugin
 	// this will only created if getSourceFiles is used
 	p.tempDir = path.Join(os.TempDir(), p.Name)
+
+	p.callIdLookup = make(map[string]struct{})
 }
 
 func (p *Plugin) shutdown() {
@@ -265,7 +271,10 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	executeData := req.ExecuteConnectionData[connectionName]
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
-	connectionCallId := grpc.BuildConnectionCallId(req.CallId, connectionName)
+	connectionCallId := p.getConnectionCallId(req.CallId, connectionName)
+	// when done, remove call id from map
+	defer p.clearCallId(connectionCallId)
+
 	log.Printf("[INFO] executeForConnection callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
@@ -558,4 +567,46 @@ func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
 		res[k] = v.Schema
 	}
 	return res
+}
+
+func (p *Plugin) getConnectionCallId(callId string, connectionName string) string {
+	// add connection name onto call id
+	connectionCallId := grpc.BuildConnectionCallId(callId, connectionName)
+	// store as orig as we may mutate connectionCallId to dedupe
+	orig := connectionCallId
+	// check if it unique - this is crucial as it is used to key 'set requests` in the query cache
+	idx := 0
+	p.callIdLookupMut.RLock()
+	for {
+		if _, callIdExists := p.callIdLookup[connectionCallId]; !callIdExists {
+			// release read lock and get a write lock
+			p.callIdLookupMut.RUnlock()
+			p.callIdLookupMut.Lock()
+
+			// recheck as ther eis a race condition to acquire a write lockm
+			if _, callIdExists := p.callIdLookup[connectionCallId]; !callIdExists {
+				// store in map
+				p.callIdLookup[connectionCallId] = struct{}{}
+				p.callIdLookupMut.Unlock()
+				return connectionCallId
+			}
+
+			// someone must have got in there before us - downgrade lock again
+			p.callIdLookupMut.Unlock()
+			p.callIdLookupMut.RLock()
+		}
+		// so the id exists already - add a suffix
+		log.Printf("[WARN] getConnectionCallId duplicate call id %s - adding suffix", connectionCallId)
+		connectionCallId = fmt.Sprintf("%s%d", orig, idx)
+		idx++
+
+	}
+	p.callIdLookupMut.RUnlock()
+	return connectionCallId
+}
+
+func (p *Plugin) clearCallId(connectionCallId string) {
+	p.callIdLookupMut.Lock()
+	delete(p.callIdLookup, connectionCallId)
+	p.callIdLookupMut.Unlock()
 }

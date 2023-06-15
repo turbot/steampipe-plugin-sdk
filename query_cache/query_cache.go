@@ -189,31 +189,17 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingItem 
 	// get the ongoing set request
 	pendingSetRequest := pendingItem.pendingSetRequest
 
-	//  we start a goroutine to stream all rows
-	doneChan := make(chan struct{})
-
-	wrappedStreamFunc := func(row *sdkproto.Row) {
-		if row == nil {
-			log.Printf("[INFO] null row, closing doneChan (%s)", req.CallId)
-			close(doneChan)
-			return
-		}
-		streamRowFunc(row)
-	}
-
-	// it's possible the set request has completed already
-	var setRequestCompleted bool
+	// create a subscriber
+	subscriber := newSetRequestSubscriber(streamRowFunc, req.CallId)
 
 	// now lock the set request
 	pendingSetRequest.mut.Lock()
 	// subscribe with the wrapped func
-	pendingSetRequest.subscribe(wrappedStreamFunc)
+	pendingSetRequest.subscribe(subscriber)
 	// get keys of all data already written to cache
 	prevKeys := pendingSetRequest.getPrevPageResultKeys()
 	bufferedRows := pendingSetRequest.getRows()
 
-	// has the set request completed?
-	setRequestCompleted = pendingSetRequest.complete
 	// now unlock the set request
 	pendingSetRequest.mut.Unlock()
 
@@ -225,21 +211,22 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingItem 
 			return err
 		}
 		for _, row := range cacheResult.Rows {
-			wrappedStreamFunc(row)
+			subscriber.streamRowFunc(row)
 		}
 	}
 	// now stream all data currently in the set request buffer
 	for _, row := range bufferedRows {
-		wrappedStreamFunc(row)
+		subscriber.streamRowFunc(row)
 	}
 
-	// if set request was NOT already complete, wait for all rows to be streamed
-	if !setRequestCompleted {
-		<-doneChan
+	// wait for all rows tro be streamed (or an error)
+	err := subscriber.waitUntilDone()
+	if err != nil {
+		log.Printf("[WARN] set request we are subscribed to failed: %s", err.Error())
+	} else {
+		log.Printf("[INFO] All rows streamed")
 	}
-
-	log.Printf("[WARN] All rows streamed")
-	return nil
+	return err
 }
 
 // startSet begins a streaming cache Set operation.
@@ -251,9 +238,6 @@ func (c *QueryCache) startSet(_ context.Context, req *CacheRequest) *setRequest 
 	}
 
 	log.Printf("[TRACE] startSet (%s)", req.CallId)
-	// lock the set request map
-	c.setRequestMapLock.Lock()
-	defer c.setRequestMapLock.Unlock()
 
 	// set root result key
 	req.resultKeyRoot = c.buildResultKey(req)
@@ -261,7 +245,11 @@ func (c *QueryCache) startSet(_ context.Context, req *CacheRequest) *setRequest 
 	req.rows = make([]*sdkproto.Row, rowBufferSize)
 
 	setRequest := &setRequest{CacheRequest: req}
+
+	// lock the set request map
+	c.setRequestMapLock.Lock()
 	c.setRequests[req.CallId] = setRequest
+	c.setRequestMapLock.Unlock()
 
 	return setRequest
 }
@@ -343,7 +331,8 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
-		c.pendingItemComplete(req.CacheRequest, err)
+		log.Printf("[TRACE] QueryCache EndSet table: %s, marking pending item complete (%s)", req.Table, req.CallId)
+		c.pendingItemComplete(req.CacheRequest)
 
 		// mark the request as complete
 		req.complete = true
@@ -403,16 +392,19 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 		return
 	}
 	c.setRequestMapLock.Lock()
-	defer c.setRequestMapLock.Unlock()
 	// get the ongoing request
 	req, ok := c.setRequests[callId]
+	// remove set request item
+	delete(c.setRequests, callId)
+	c.setRequestMapLock.Unlock()
 	if !ok {
 		return
 	}
+	// tell request to send error to all it's subscribers
+	req.abort(err)
 
 	// clear the corresponding pending item
-	log.Printf("[TRACE] QueryCache AbortSet table: %s, cancelling pending item", req.Table)
-	c.pendingItemComplete(req.CacheRequest, err)
+	c.pendingItemComplete(req.CacheRequest)
 
 	log.Printf("[TRACE] QueryCache AbortSet - deleting %d pages from the cache", req.pageCount)
 	// remove all pages that have already been written
@@ -420,9 +412,6 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 		pageKey := getPageKey(req.resultKeyRoot, i)
 		c.cache.Delete(ctx, pageKey)
 	}
-
-	// remove pending item
-	delete(c.setRequests, callId)
 }
 
 // ClearForConnection removes all cache entries for the given connection
