@@ -1,4 +1,4 @@
-## v5.5.0 [tbd]
+## v5.5.0 [2023-06-16]
 _What's new_
 * Update cache pending item implementation. ([#564](https://github.com/turbot/steampipe-plugin-sdk/issues/564),[#566](https://github.com/turbot/steampipe-plugin-sdk/issues/566)) 
   * Cache requests subscribe to pending items and stream them as the data is received rather than waiting for the item to complete. 
