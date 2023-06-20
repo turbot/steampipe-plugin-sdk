@@ -27,7 +27,7 @@ _What's new_
 _What's new_
 * Add support for update of dynamic plugin schema based on file watching events. ([#457](https://github.com/turbot/steampipe-plugin-sdk/issues/457))
 * Update SetAllConnectionConfigs to return map of failed connections.  ([#458](https://github.com/turbot/steampipe-plugin-sdk/issues/458))
-  Add support/handling for aggregator connections using dynamic plugins. ([#453](https://github.com/turbot/steampipe-plugin-sdk/issues/453))
+* Add support/handling for aggregator connections using dynamic plugins. ([#453](https://github.com/turbot/steampipe-plugin-sdk/issues/453))
 * Add new Hydrate function wrapper Memoize to replace WithCache. ([#499](https://github.com/turbot/steampipe-plugin-sdk/issues/499)) 
 * Replace Mutexes with RWMutexes and update locking to use RLock where possible. ([#498](https://github.com/turbot/steampipe-plugin-sdk/issues/498))
 * If an empty Matrix is returned from MatrixItemFunc, fetch function should not be called.([#496](https://github.com/turbot/steampipe-plugin-sdk/issues/496))
