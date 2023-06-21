@@ -53,7 +53,11 @@ Retry errors that may occur in many HydrateFuncs:
 	},
 */
 type RetryConfig struct {
-	ShouldRetryErrorFunc ErrorPredicateWithContext
+	// return a retry config - used if the parameters may vary based on the connection
+	GetDynamicRetryConfig func(context.Context, *QueryData) *RetryConfig
+
+	// predicate function returnin gwhether to retry
+	ShouldRetryErrorFunc  ErrorPredicateWithContext
 	// deprecated use ShouldRetryErrorFunc
 	ShouldRetryError ErrorPredicate
 
