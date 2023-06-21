@@ -104,7 +104,7 @@ func (c *RetryConfig) validate(table *Table) []string {
 	// ensure if GetDynamicRetryConfig is provided no other params are set
 	if c.GetDynamicRetryConfig != nil &&
 		(c.ShouldRetryErrorFunc != nil || c.MaxAttempts != 0 || c.RetryInterval != 0 || c.CappedDuration != 0 || c.MaxDuration != 0 || c.BackoffAlgorithm != "") {
-		res = append(res, fmt.Sprintf("%%if GetDynamicRetryConfig is set, all other parameters must be empty", tablePrefix))
+		res = append(res, fmt.Sprintf("%sif GetDynamicRetryConfig is set, all other parameters must be empty", tablePrefix))
 	}
 
 	return res
