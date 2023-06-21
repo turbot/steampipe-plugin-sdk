@@ -57,7 +57,7 @@ type RetryConfig struct {
 	GetDynamicRetryConfig func(context.Context, *QueryData) *RetryConfig
 
 	// predicate function returnin gwhether to retry
-	ShouldRetryErrorFunc  ErrorPredicateWithContext
+	ShouldRetryErrorFunc ErrorPredicateWithContext
 	// deprecated use ShouldRetryErrorFunc
 	ShouldRetryError ErrorPredicate
 
@@ -99,6 +99,12 @@ func (c *RetryConfig) validate(table *Table) []string {
 
 	if c.BackoffAlgorithm != "" && !helpers.StringSliceContains(validBackoffAlgorithm, c.BackoffAlgorithm) {
 		res = append(res, fmt.Sprintf("%sBackoffAlgorithm value '%s' is not valid, it must be one of: %s", tablePrefix, c.BackoffAlgorithm, strings.Join(validBackoffAlgorithm, ",")))
+	}
+
+	// ensure if GetDynamicRetryConfig is provided no other params are set
+	if c.GetDynamicRetryConfig != nil &&
+		(c.ShouldRetryErrorFunc != nil || c.MaxAttempts != 0 || c.RetryInterval != 0 || c.CappedDuration != 0 || c.MaxDuration != 0 || c.BackoffAlgorithm != "") {
+		res = append(res, fmt.Sprintf("%%if GetDynamicRetryConfig is set, all other parameters must be empty", tablePrefix))
 	}
 
 	return res
