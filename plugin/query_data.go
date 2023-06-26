@@ -704,17 +704,22 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		case row := <-rowChan:
 			//log.Printf("[WARN] got row")
 
+			// TODO KAI SHOULD WE STREAM NIL ROW
 			// stream row (even if it is nil)
 			//d.streamRow(row)
 
 			// nil row means we are done streaming
 			if row == nil {
-				log.Printf("[TRACE] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
+				log.Printf("[WARN] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
 				return nil
 			}
 			// if we are caching stream this row to the cache as well
 			if d.cacheEnabled {
+				if d.Table.Name == "github_my_repository" {
+					log.Printf("[WARN] streamRows calling iterate set")
+				}
 				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
+				log.Printf("[WARN] streamRows AFTER iterate set")
 			}
 
 			// stream row
@@ -723,6 +728,9 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 	}
 
 }
+
+var streamRowMap = make(map[string]int)
+var streamRowMapLock = sync.Mutex{}
 
 func (d *QueryData) streamRow(row *proto.Row) {
 	resp := &proto.ExecuteResponse{
@@ -735,7 +743,25 @@ func (d *QueryData) streamRow(row *proto.Row) {
 		},
 		Connection: d.Connection.Name,
 	}
+
+	var count int
+	if d.Table.Name == "github_my_repository" {
+		streamRowMapLock.Lock()
+		count = streamRowMap[d.connectionCallId] + 1
+
+		streamRowMapLock.Unlock()
+
+		log.Printf("[WARN] streamRow about to stream row %d over GRPC (%s)", count, d.connectionCallId)
+	}
 	d.outputChan <- resp
+	if d.Table.Name == "github_my_repository" {
+		streamRowMapLock.Lock()
+		streamRowMap[d.connectionCallId]++
+		streamRowMapLock.Unlock()
+
+		log.Printf("[WARN] streamRow streamed row %d (%s)", count, d.connectionCallId)
+	}
+
 }
 
 func (d *QueryData) streamError(err error) {
@@ -743,8 +769,8 @@ func (d *QueryData) streamError(err error) {
 	d.errorChan <- err
 }
 
-var rowmap = make(map[string]int)
-var rl = sync.Mutex{}
+var buildRowMap = make(map[string]int)
+var buildRowMapLock = sync.Mutex{}
 
 // execute necessary hydrate calls to populate row data
 func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
@@ -755,12 +781,12 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 				d.streamError(helpers.ToError(r))
 			}
 			wg.Done()
-			rl.Lock()
-			rowmap[d.connectionCallId]++
+			buildRowMapLock.Lock()
+			buildRowMap[d.connectionCallId]++
 			if d.Table.Name == "github_my_repository" {
-				log.Printf("[INFO] buildRowAsync goroutine built %d rows (%s)", rowmap[d.connectionCallId], d.connectionCallId)
+				log.Printf("[INFO] buildRowAsync goroutine built %d rows (%s)", buildRowMap[d.connectionCallId], d.connectionCallId)
 			}
-			rl.Unlock()
+			buildRowMapLock.Unlock()
 		}()
 		if rowData == nil {
 			log.Printf("[INFO] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
@@ -768,12 +794,13 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			return
 		}
 
-		rl.Lock()
-		count := rowmap[d.connectionCallId] + 1
+		var count int
 		if d.Table.Name == "github_my_repository" {
+			buildRowMapLock.Lock()
+			count = buildRowMap[d.connectionCallId] + 1
 			log.Printf("[INFO] buildRowAsync goroutine building %dth row (%s)", count, d.connectionCallId)
+			buildRowMapLock.Unlock()
 		}
-		rl.Unlock()
 		// delegate the work to a row object
 		row, err := rowData.getRow(ctx)
 		if err != nil {
