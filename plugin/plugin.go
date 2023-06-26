@@ -278,7 +278,8 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	log.Printf("[INFO] executeForConnection callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
-		log.Printf("[TRACE] executeForConnection DEFER (%s) ", connectionCallId)
+		log.Printf("[INFO] executeForConnection COMPLETE callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
+
 		if r := recover(); r != nil {
 			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
 			err = helpers.ToError(r)
@@ -406,11 +407,11 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 	} else {
-		log.Printf("[INFO] Cache DISABLED connectionCallId: %s", connectionCallId)
+		log.Printf("[INFO] Cache DISABLED (%s)", connectionCallId)
 	}
 
 	// asyncronously fetch items
-	log.Printf("[TRACE] calling fetchItems, table: %s, matrixItem: %v, limit: %d,  connectionCallId: %s\"", table.Name, queryData.Matrix, limit, connectionCallId)
+	log.Printf("[INFO] calling fetchItems, table: %s, matrixItem: %v, limit: %d  (%s)", table.Name, queryData.Matrix, limit, connectionCallId)
 	if err := table.fetchItems(ctx, queryData); err != nil {
 		log.Printf("[WARN] fetchItems returned an error, table: %s, error: %v", table.Name, err)
 		return err
@@ -418,20 +419,21 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	}
 	logging.LogTime("Calling build Rows")
 
-	log.Printf("[TRACE] buildRowsAsync connectionCallId: %s", connectionCallId)
+	log.Printf("[INFO] buildRowsAsync (%s)", connectionCallId)
 
 	// asyncronously build rows
 	// channel used by streamRows when it receives an error to tell buildRowsAsync to stop
 	doneChan := make(chan bool)
 	queryData.buildRowsAsync(ctx, rowChan, doneChan)
 
-	log.Printf("[TRACE] streamRows connectionCallId: %s", connectionCallId)
+	log.Printf("[INFO] streamRows (%s)", connectionCallId)
 
 	logging.LogTime("Calling streamRows")
 
 	//  stream rows across GRPC
 	err = queryData.streamRows(ctx, rowChan, doneChan)
 	if err != nil {
+		log.Printf("[WARN] queryData.streamRows returned error: %s", err.Error())
 		return err
 	}
 

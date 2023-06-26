@@ -625,11 +625,11 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 				logging.LogTime("got rowData - calling getRow")
 				// is there any more data?
 				if rowData == nil {
-					log.Printf("[TRACE] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
+					log.Printf("[INFO] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
 					// now we know there will be no more items, close row chan when the wait group is complete
 					// this allows time for all hydrate goroutines to complete
 					d.waitForRowsToComplete(&rowWg, rowChan)
-					log.Printf("[TRACE] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
+					log.Printf("[INFO] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
 					return
 				}
@@ -664,9 +664,9 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		}
 		if err != nil {
 			if error_helpers.IsContextCancelledError(err) {
-				log.Printf("[TRACE] streamRows for %s - execution has been cancelled - calling queryCache.AbortSet", d.connectionCallId)
+				log.Printf("[TRACE] streamRows execution has been cancelled - calling queryCache.AbortSet (%s)", d.connectionCallId)
 			} else {
-				log.Printf("[WARN] streamRows for %s - execution has failed (%s) - calling queryCache.AbortSet", d.connectionCallId, err.Error())
+				log.Printf("[WARN] streamRows execution has failed: %s - calling queryCache.AbortSet (%s)", d.connectionCallId, err.Error())
 			}
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
 		} else {
@@ -746,7 +746,7 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			wg.Done()
 		}()
 		if rowData == nil {
-			log.Printf("[TRACE] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
+			log.Printf("[INFO] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
 			rowChan <- nil
 			return
 		}

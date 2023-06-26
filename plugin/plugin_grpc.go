@@ -197,6 +197,10 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	//doneChan := make(chan bool)
 	var outputWg sync.WaitGroup
 
+	// TODO store ctx for each connection in a map
+	// if main context is cancelled, go through treach connection and see if cache request has subscribers.
+	// if so DO NOT cancel - otherwise cacnel
+
 	// get a context which includes telemetry data and logger
 	ctx := p.buildExecuteContext(stream.Context(), req, logger)
 
@@ -261,7 +265,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		case row := <-outputChan:
 			// nil row means that one connection is done streaming
 			if row == nil {
-				log.Printf("[TRACE] empty row on output channel - we are done ")
+				log.Printf("[INFO] empty row on output channel - we are done ")
 				complete = true
 				break
 			}

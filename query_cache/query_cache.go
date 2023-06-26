@@ -3,6 +3,7 @@ package query_cache
 import (
 	"context"
 	"fmt"
+	"github.com/gertd/go-pluralize"
 	"log"
 	"sort"
 	"strings"
@@ -128,7 +129,6 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	err = c.findAndSubscribeToPendingRequest(ctx, indexBucketKey, req, streamRowFunc)
 	if err == nil {
 		log.Printf("[INFO] subscribed to pending request")
-
 		cacheHit = true
 	}
 	return err
@@ -149,11 +149,27 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 		// so we have a pending item - subscribe to it
 		log.Printf("[INFO] found pending item [%s] - subscribing to its data (%s)", pendingItem.callId, req.CallId)
 		err = c.subscribeToPendingRequest(ctx, pendingItem, req, streamRowFunc)
+		if err != nil {
+			log.Printf("[WARN] subscribeToPendingRequest failed: %s (%s)", err.Error(), req.CallId)
+		}
 	}
 
 	// success?
 	if err == nil {
 		return
+	}
+
+	// if the error was a SubscriberError, if any rows have been streamed, just fail
+	if subscriberError, ok := err.(SubscriberError); ok {
+		log.Printf("[WARN] subscribeToPendingRequest failed: %S (%s)", err.Error(), req.CallId)
+		if subscriberError.rowsStreamed > 0 {
+			log.Printf("[WARN] subscriber streamed %d %s before failure - we cannot retry, failing (%s)",
+				subscriberError.rowsStreamed,
+				pluralize.NewClient().Pluralize("row", subscriberError.rowsStreamed, false),
+				req.CallId)
+
+			return err
+		}
 	}
 
 	// if we fail for any reason, this will be treated as a cache miss - add a pending item
@@ -170,7 +186,7 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 			// unlock before subscribeToPendingRequest
 			c.pendingDataLock.Unlock()
 
-			// ok NOW there is a pending item - just subscribe to it
+			// ok NOW there is a pending item - just subscribe to it, returning any error
 			return c.subscribeToPendingRequest(ctx, pendingItem, req, streamRowFunc)
 		}
 	}
@@ -190,7 +206,7 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingItem 
 	pendingSetRequest := pendingItem.pendingSetRequest
 
 	// create a subscriber
-	subscriber := newSetRequestSubscriber(streamRowFunc, req.CallId)
+	subscriber := newSetRequestSubscriber(streamRowFunc, req.CallId, pendingSetRequest)
 
 	// now lock the set request
 	pendingSetRequest.mut.Lock()
@@ -219,12 +235,12 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingItem 
 		subscriber.streamRowFunc(row)
 	}
 
-	// wait for all rows tro be streamed (or an error)
+	// wait for all rows to be streamed (or an error)
 	err := subscriber.waitUntilDone()
 	if err != nil {
-		log.Printf("[WARN] set request we are subscribed to failed: %s", err.Error())
+		log.Printf("[WARN] waiting for all subscription data failed: %s (%s)", err.Error(), req.CallId)
 	} else {
-		log.Printf("[INFO] All rows streamed")
+		log.Printf("[INFO] All rows streamed (%s)", req.CallId)
 	}
 	return err
 }
@@ -244,7 +260,7 @@ func (c *QueryCache) startSet(_ context.Context, req *CacheRequest) *setRequest 
 	// create rows buffer
 	req.rows = make([]*sdkproto.Row, rowBufferSize)
 
-	setRequest := &setRequest{CacheRequest: req}
+	setRequest := newSetRequest(req)
 
 	// lock the set request map
 	c.setRequestMapLock.Lock()
@@ -296,6 +312,7 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 }
 
 func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
+	log.Printf("[INFO] EndSet (%s)", callId)
 	// should never happen
 	if !c.Enabled {
 		return nil
@@ -327,7 +344,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		delete(c.setRequests, callId)
 		c.setRequestMapLock.Unlock()
 
-		log.Printf("[TRACE] calling pendingItemComplete (%s)", callId)
+		log.Printf("[INFO] calling pendingItemComplete (%s)", callId)
 
 		// clear the corresponding pending item - we have completed the transfer
 		// (we need to do this even if the cache set fails)
@@ -400,18 +417,21 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	if !ok {
 		return
 	}
+	log.Printf("[INFO] QueryCache AbortSet - aborting request")
 	// tell request to send error to all it's subscribers
 	req.abort(err)
 
+	log.Printf("[INFO] QueryCache AbortSet pendingItemComplete")
 	// clear the corresponding pending item
 	c.pendingItemComplete(req.CacheRequest)
 
-	log.Printf("[TRACE] QueryCache AbortSet - deleting %d pages from the cache", req.pageCount)
+	log.Printf("[INFO] QueryCache AbortSet - deleting %d pages from the cache", req.pageCount)
 	// remove all pages that have already been written
 	for i := int64(0); i < req.pageCount; i++ {
 		pageKey := getPageKey(req.resultKeyRoot, i)
 		c.cache.Delete(ctx, pageKey)
 	}
+	log.Printf("[INFO] QueryCache AbortSet done")
 }
 
 // ClearForConnection removes all cache entries for the given connection
