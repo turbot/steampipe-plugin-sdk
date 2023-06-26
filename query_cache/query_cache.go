@@ -568,6 +568,7 @@ func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, inde
 				} else {
 					log.Printf("[WARN] cacheGetResult Get failed %v", err)
 				}
+				log.Printf("[WARN] **** errorChan <- err")
 				errorChan <- err
 				return
 			}

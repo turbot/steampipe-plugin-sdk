@@ -44,4 +44,5 @@ func (r *setRequest) abort(err error) {
 	for subscriber := range r.subscribers {
 		subscriber.errChan <- err
 	}
+	log.Printf("[WARN] done aborting")
 }

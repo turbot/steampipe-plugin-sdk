@@ -184,6 +184,9 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetPrefix("")
 	log.SetFlags(0)
 
+	if req.Table == "github_my_repository" {
+		log.Println("OK")
+	}
 	log.Printf("[INFO] Plugin execute table: %s  (%s)", req.Table, req.CallId)
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
@@ -239,9 +242,10 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			defer sem.Release(1)
 
 			if err := p.executeForConnection(ctx, req, c, outputChan); err != nil {
-				if !error_helpers.IsContextCancelledError(err) {
-					log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
-				}
+				log.Printf("[WARN] executeForConnection %s returned error %s, writing to CHAN", c, err.Error())
+				//if !error_helpers.IsContextCancelledError(err) {
+				//}
+
 				errorChan <- err
 			}
 			log.Printf("[TRACE] executeForConnection %s returned", c)
@@ -284,6 +288,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}
 
+	log.Printf("[WARN] Plugin execute table: %s closing error chan and output chan  (%s)", req.Table, req.CallId)
 	close(outputChan)
 	close(errorChan)
 

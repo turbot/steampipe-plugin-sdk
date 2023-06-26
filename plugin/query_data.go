@@ -615,6 +615,7 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 
 	// start goroutine to read items from item chan and generate row data
 	go func() {
+		count := 0
 		for {
 			// wait for either an rowData or an error
 			select {
@@ -632,6 +633,12 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 					log.Printf("[INFO] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
 					return
+				}
+				//if count%10 == 0 {
+				//}
+				count++
+				if d.Table.Name == "github_my_repository" {
+					log.Printf("[INFO] buildRowsAsync goroutine styarted %d rows (%s)", count, d.connectionCallId)
 				}
 
 				rowWg.Add(1)
@@ -736,14 +743,24 @@ func (d *QueryData) streamError(err error) {
 	d.errorChan <- err
 }
 
+var rowmap = make(map[string]int)
+var rl = sync.Mutex{}
+
 // execute necessary hydrate calls to populate row data
 func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
+				log.Printf("[INFO] buildRowAsync recovered panic %v (%s)", r, d.connectionCallId)
 				d.streamError(helpers.ToError(r))
 			}
 			wg.Done()
+			rl.Lock()
+			rowmap[d.connectionCallId]++
+			if d.Table.Name == "github_my_repository" {
+				log.Printf("[INFO] buildRowAsync goroutine built %d rows (%s)", rowmap[d.connectionCallId], d.connectionCallId)
+			}
+			rl.Unlock()
 		}()
 		if rowData == nil {
 			log.Printf("[INFO] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
@@ -751,18 +768,31 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			return
 		}
 
+		rl.Lock()
+		count := rowmap[d.connectionCallId] + 1
+		if d.Table.Name == "github_my_repository" {
+			log.Printf("[INFO] buildRowAsync goroutine building %dth row (%s)", count, d.connectionCallId)
+		}
+		rl.Unlock()
 		// delegate the work to a row object
 		row, err := rowData.getRow(ctx)
 		if err != nil {
 			log.Printf("[WARN] getRow failed with error %v", err)
 			d.streamError(err)
 		} else {
+			if d.Table.Name == "github_my_repository" {
+				log.Printf("[INFO] buildRowAsync goroutine ***** GOT %dth row (%s)", count, d.connectionCallId)
+			}
+
 			// remove reserved columns
 			d.removeReservedColumns(row)
 			// NOTE: add the Steampipecontext data to the row
 			d.addContextData(row)
 
 			rowChan <- row
+			if d.Table.Name == "github_my_repository" {
+				log.Printf("[INFO] buildRowAsync goroutine ***** SENT %dth row (%s)", count, d.connectionCallId)
+			}
 		}
 	}()
 }
