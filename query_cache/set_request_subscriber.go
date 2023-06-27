@@ -1,20 +1,26 @@
 package query_cache
 
 import (
-	"fmt"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
-	"time"
+	"sync"
 )
 
 type setRequestSubscriber struct {
-	streamRowFunc  func(row *sdkproto.Row)
-	errChan        chan error
-	doneChan       chan struct{}
-	callId         string
-	rowsStreamed   int
-	lastStreamTime time.Time
-	publisher      *setRequest
+	streamRowFunc func(row *sdkproto.Row)
+	errChan       chan error
+	doneChan      chan struct{}
+	callId        string
+	rowsStreamed  int
+	//lastStreamTime time.Time
+	publisher *setRequest
+	// lock to indicate we are waiting to stream data to our client channel
+	streamLock sync.Mutex
+	// this flag is set to true when the set request has finished and this subscriber was locked at the time,
+	// meaning there may be additional rows available to strem
+	// (this is required as normallt we rely on the next iterateSet call to stream any missed rows
+	// but iterateSet will not be called again)
+	recheck bool
 }
 
 func newSetRequestSubscriber(streamRowFunc func(row *sdkproto.Row), callId string, publisher *setRequest) *setRequestSubscriber {
@@ -23,11 +29,11 @@ func newSetRequestSubscriber(streamRowFunc func(row *sdkproto.Row), callId strin
 	errChan := make(chan error, 1)
 
 	s := &setRequestSubscriber{
-		errChan:        errChan,
-		doneChan:       doneChan,
-		callId:         callId,
-		publisher:      publisher,
-		lastStreamTime: time.Now(),
+		errChan:   errChan,
+		doneChan:  doneChan,
+		callId:    callId,
+		publisher: publisher,
+		//lastStreamTime: time.Now(),
 	}
 
 	wrappedStreamFunc := func(row *sdkproto.Row) {
@@ -38,7 +44,7 @@ func newSetRequestSubscriber(streamRowFunc func(row *sdkproto.Row), callId strin
 		}
 
 		streamRowFunc(row)
-		s.lastStreamTime = time.Now()
+		//s.lastStreamTime = time.Now()
 		s.rowsStreamed++
 	}
 
@@ -54,26 +60,12 @@ func (s *setRequestSubscriber) waitUntilDone() (err error) {
 			err = newSubscriberError(err, s)
 		}
 	}()
-	const streamTimeout = 2 * time.Minute
-	for {
-		select {
-		//check every 30 secs for stream timeout
-		case <-time.After(30 * time.Second):
-			if time.Since(s.lastStreamTime) > streamTimeout {
-				log.Printf("[WARN] timed out after %ds waiting for pending item to stream a row (%s)", int(streamTimeout.Seconds()), s.callId)
-				// unsubscribe
-				log.Printf("[INFO] unsubscribing from publisher %s (%s)", s.publisher.CallId, s.callId)
-				s.publisher.mut.Lock()
-				s.publisher.unsubscribe(s)
-				s.publisher.mut.Unlock()
-				return fmt.Errorf("timed out after %ds waiting for pending item to stream a row", int(streamTimeout.Seconds()))
-
-			}
-		case <-s.doneChan:
-			return nil
-		case err := <-s.errChan:
-			log.Printf("[WARN] setRequestSubscriber received an error from setRequest %s: %s (%s)", s.publisher.CallId, err.Error(), s.callId)
-			return err
-		}
+	select {
+	case <-s.doneChan:
+		return nil
+	case err := <-s.errChan:
+		log.Printf("[WARN] setRequestSubscriber received an error from setRequest %s: %s (%s)", s.publisher.CallId, err.Error(), s.callId)
+		return err
 	}
+
 }

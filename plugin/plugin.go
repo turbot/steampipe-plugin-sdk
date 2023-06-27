@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -21,7 +20,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -278,15 +276,12 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	log.Printf("[INFO] executeForConnection callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
-		log.Printf("[INFO] executeForConnection COMPLETE callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
-
 		if r := recover(); r != nil {
-			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
+			log.Printf("[WARN] executeForConnection recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
 			err = helpers.ToError(r)
 			return
 		}
-
-		log.Printf("[TRACE] Execute complete callId: %s table: %s ", connectionCallId, req.Table)
+		log.Printf("[INFO] executeForConnection COMPLETE callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s ", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 	}()
 
 	// the connection property must be set already
@@ -394,21 +389,18 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		}
 
 		// so the cache call failed, with either a cache-miss or other error
-		if query_cache.IsCacheMiss(cacheErr) {
-			log.Printf("[TRACE] cache MISS")
-		} else if errors.Is(cacheErr, error_helpers.QueryError{}) {
-			// if this is a QueryError, this means the pending item we were waitign for failed
-			// > we also fail
+		if !query_cache.IsCacheMiss(cacheErr) {
+			// TODO KAI CHECK THIS - new behaviour - fail if cache Get fails
+			log.Printf("[WARN] queryCacheGet returned err %s", cacheErr.Error())
 			return cacheErr
-		} else {
-			// otherwise just log the cache error
-			log.Printf("[TRACE] queryCacheGet returned err %s", cacheErr.Error())
 		}
-
+		// otherwise just log the cache miss error
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 	} else {
 		log.Printf("[INFO] Cache DISABLED (%s)", connectionCallId)
 	}
+
+	// so we need to fetch the data
 
 	// asyncronously fetch items
 	log.Printf("[INFO] calling fetchItems, table: %s, matrixItem: %v, limit: %d  (%s)", table.Name, queryData.Matrix, limit, connectionCallId)
@@ -417,20 +409,19 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		return err
 
 	}
-	logging.LogTime("Calling build Rows")
-
-	log.Printf("[INFO] buildRowsAsync (%s)", connectionCallId)
 
 	// asyncronously build rows
+	logging.LogTime("Calling build Rows")
+	log.Printf("[INFO] buildRowsAsync (%s)", connectionCallId)
+
 	// channel used by streamRows when it receives an error to tell buildRowsAsync to stop
 	doneChan := make(chan bool)
 	queryData.buildRowsAsync(ctx, rowChan, doneChan)
 
+	//  stream rows either into cache (if enabled) or back across GRPC (if not)
 	log.Printf("[INFO] streamRows (%s)", connectionCallId)
-
 	logging.LogTime("Calling streamRows")
 
-	//  stream rows across GRPC
 	err = queryData.streamRows(ctx, rowChan, doneChan)
 	if err != nil {
 		log.Printf("[WARN] queryData.streamRows returned error: %s", err.Error())

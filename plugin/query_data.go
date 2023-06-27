@@ -648,18 +648,17 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 	}()
 }
 
-// read rows from rowChan and stream back across GRPC
-// (also return the rows so we can cache them when complete)
+// read rows from rowChan and stream either intop the cache (if enabled) or back across GRPC if not
 func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) (err error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
-	log.Printf("[TRACE] QueryData streamRows (%s)", d.connectionCallId)
+	log.Printf("[INFO] QueryData streamRows (%s)", d.connectionCallId)
 
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
 		d.concurrencyManager.Close()
-		log.Printf("[TRACE] QueryData streamRows DONE (%s)", d.connectionCallId)
+		log.Printf("[INFO] QueryData streamRows DONE (%s)", d.connectionCallId)
 
 		// if there is an error or cancellation, abort the pending set
 		// if the context is cancelled and the parent callId is in the list of completed executions,
@@ -671,7 +670,8 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		}
 		if err != nil {
 			if error_helpers.IsContextCancelledError(err) {
-				log.Printf("[TRACE] streamRows execution has been cancelled - calling queryCache.AbortSet (%s)", d.connectionCallId)
+				// TODO KAI think about cancellation
+				log.Printf("[INFO] streamRows execution has been cancelled - calling queryCache.AbortSet (%s)", d.connectionCallId)
 			} else {
 				log.Printf("[WARN] streamRows execution has failed: %s - calling queryCache.AbortSet (%s)", d.connectionCallId, err.Error())
 			}
@@ -702,31 +702,28 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// return what we have sent
 			return err
 		case row := <-rowChan:
-			//log.Printf("[WARN] got row")
 
-			// TODO KAI SHOULD WE STREAM NIL ROW
-			// stream row (even if it is nil)
-			//d.streamRow(row)
-
+			// TODO KAI SHOULD WE STREAM NIL ROW???
 			// nil row means we are done streaming
 			if row == nil {
 				log.Printf("[WARN] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
 				return nil
 			}
-			// if we are caching stream this row to the cache as well
+			// if we are caching stream this row to the cache - this will stream it to all subscribers
+			// (including ourselves)
 			if d.cacheEnabled {
 				if d.Table.Name == "github_my_repository" {
 					log.Printf("[WARN] streamRows calling iterate set")
 				}
 				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
 				log.Printf("[WARN] streamRows AFTER iterate set")
+			} else {
+				// if cache is disabled just stream the row across GRPC
+				// stream row
+				d.streamRow(row)
 			}
-
-			// stream row
-			d.streamRow(row)
 		}
 	}
-
 }
 
 var streamRowMap = make(map[string]int)
