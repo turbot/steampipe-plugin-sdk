@@ -13,6 +13,7 @@ import (
 // IndexItem stores the columns and cached index for a single cached query result
 // note - this index item it tied to a specific table and set of quals
 type IndexItem struct {
+	// TODO KAI CHANGE TO LOOKUP
 	Columns       []string
 	Key           string
 	Limit         int64
@@ -52,7 +53,7 @@ func (i IndexItem) SatisfiedByRequest(req *CacheRequest, keyColumns map[string]*
 func (i IndexItem) satisfiesColumns(columns []string) bool {
 	for _, c := range columns {
 		if !helpers.StringSliceContains(i.Columns, c) {
-			log.Printf("[TRACE] satisfiesColumns returning false - %s missing from %s", c, strings.Join(i.Columns, ","))
+			log.Printf("[INFO] satisfiesColumns returning false - %s missing from %s", c, strings.Join(i.Columns, ","))
 			return false
 		}
 	}

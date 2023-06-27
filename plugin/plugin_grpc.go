@@ -184,9 +184,6 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	if req.Table == "github_my_repository" {
-		log.Println("OK")
-	}
 	log.Printf("[INFO] Plugin execute table: %s  (%s)", req.Table, req.CallId)
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
@@ -197,15 +194,16 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
-	//doneChan := make(chan bool)
+
 	var outputWg sync.WaitGroup
 
-	// TODO store ctx for each connection in a map
-	// if main context is cancelled, go through treach connection and see if cache request has subscribers.
-	// if so DO NOT cancel - otherwise cacnel
+	// dedupe the call id
+	req.CallId = p.getUniqueCallId(req.CallId)
+	// when done, remove call id from map
+	defer p.clearCallId(req.CallId)
 
-	// get a context which includes telemetry data and logger
-	ctx := p.buildExecuteContext(stream.Context(), req, logger)
+	// get a fresh context which includes telemetry data and logger
+	ctx := p.buildExecuteContext(context.Background(), req, logger)
 
 	// control how many connections are executed in parallel
 	maxConcurrentConnections := getMaxConcurrentConnections()
@@ -241,7 +239,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 			defer sem.Release(1)
 
-			if err := p.executeForConnection(ctx, req, c, outputChan); err != nil {
+			if err := p.executeForConnection(ctx, stream.Context(), req, c, outputChan); err != nil {
 				log.Printf("[WARN] executeForConnection %s returned error %s, writing to CHAN", c, err.Error())
 				//if !error_helpers.IsContextCancelledError(err) {
 				//}

@@ -262,7 +262,7 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	return nil
 }
 
-func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, outputChan chan *proto.ExecuteResponse) (err error) {
+func (p *Plugin) executeForConnection(ctx context.Context, streamContext context.Context, req *proto.ExecuteRequest, connectionName string, outputChan chan *proto.ExecuteResponse) (err error) {
 	const rowBufferSize = 10
 	var rowChan = make(chan *proto.Row, rowBufferSize)
 
@@ -270,8 +270,6 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := p.getConnectionCallId(req.CallId, connectionName)
-	// when done, remove call id from map
-	defer p.clearCallId(connectionCallId)
 
 	log.Printf("[INFO] executeForConnection callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
@@ -358,6 +356,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		ConnectionName: connectionName,
 		TtlSeconds:     queryContext.CacheTTL,
 		CallId:         connectionCallId,
+		StreamContext:  streamContext,
 	}
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
@@ -562,26 +561,25 @@ func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
 	return res
 }
 
-func (p *Plugin) getConnectionCallId(callId string, connectionName string) string {
-	// add connection name onto call id
-	connectionCallId := grpc.BuildConnectionCallId(callId, connectionName)
+// ensure callId is unique fo rthis plugin instance - important as it is used to key set requests
+func (p *Plugin) getUniqueCallId(callId string) string {
 	// store as orig as we may mutate connectionCallId to dedupe
-	orig := connectionCallId
+	orig := callId
 	// check if it unique - this is crucial as it is used to key 'set requests` in the query cache
 	idx := 0
 	p.callIdLookupMut.RLock()
 	for {
-		if _, callIdExists := p.callIdLookup[connectionCallId]; !callIdExists {
+		if _, callIdExists := p.callIdLookup[callId]; !callIdExists {
 			// release read lock and get a write lock
 			p.callIdLookupMut.RUnlock()
 			p.callIdLookupMut.Lock()
 
 			// recheck as ther eis a race condition to acquire a write lockm
-			if _, callIdExists := p.callIdLookup[connectionCallId]; !callIdExists {
+			if _, callIdExists := p.callIdLookup[callId]; !callIdExists {
 				// store in map
-				p.callIdLookup[connectionCallId] = struct{}{}
+				p.callIdLookup[callId] = struct{}{}
 				p.callIdLookupMut.Unlock()
-				return connectionCallId
+				return callId
 			}
 
 			// someone must have got in there before us - downgrade lock again
@@ -589,15 +587,21 @@ func (p *Plugin) getConnectionCallId(callId string, connectionName string) strin
 			p.callIdLookupMut.RLock()
 		}
 		// so the id exists already - add a suffix
-		log.Printf("[WARN] getConnectionCallId duplicate call id %s - adding suffix", connectionCallId)
-		connectionCallId = fmt.Sprintf("%s%d", orig, idx)
+		log.Printf("[WARN] getUniqueCallId duplicate call id %s - adding suffix", callId)
+		callId = fmt.Sprintf("%s%d", orig, idx)
 		idx++
 
 	}
 	p.callIdLookupMut.RUnlock()
-	return connectionCallId
+	return callId
 }
 
+func (p *Plugin) getConnectionCallId(callId string, connectionName string) string {
+	// add connection name onto call id
+	return grpc.BuildConnectionCallId(callId, connectionName)
+}
+
+// remove callId from callIdLookup
 func (p *Plugin) clearCallId(connectionCallId string) {
 	p.callIdLookupMut.Lock()
 	delete(p.callIdLookup, connectionCallId)

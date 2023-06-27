@@ -637,9 +637,9 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 				//if count%10 == 0 {
 				//}
 				count++
-				if d.Table.Name == "github_my_repository" {
-					log.Printf("[INFO] buildRowsAsync goroutine styarted %d rows (%s)", count, d.connectionCallId)
-				}
+				//if d.Table.Name == "github_my_repository" {
+				//	log.Printf("[INFO] buildRowsAsync goroutine styarted %d rows (%s)", count, d.connectionCallId)
+				//}
 
 				rowWg.Add(1)
 				d.buildRowAsync(ctx, rowData, rowChan, &rowWg)
@@ -668,6 +668,7 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// use the context error instead
 			err = ctx.Err()
 		}
+		// now recheck error
 		if err != nil {
 			if error_helpers.IsContextCancelledError(err) {
 				// TODO KAI think about cancellation
@@ -716,7 +717,9 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 					log.Printf("[WARN] streamRows calling iterate set")
 				}
 				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
-				log.Printf("[WARN] streamRows AFTER iterate set")
+				if d.Table.Name == "github_my_repository" {
+					log.Printf("[WARN] streamRows AFTER iterate set")
+				}
 			} else {
 				// if cache is disabled just stream the row across GRPC
 				// stream row
@@ -780,9 +783,9 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			wg.Done()
 			buildRowMapLock.Lock()
 			buildRowMap[d.connectionCallId]++
-			if d.Table.Name == "github_my_repository" {
-				log.Printf("[INFO] buildRowAsync goroutine built %d rows (%s)", buildRowMap[d.connectionCallId], d.connectionCallId)
-			}
+			//if d.Table.Name == "github_my_repository" {
+			//	log.Printf("[INFO] buildRowAsync goroutine built %d rows (%s)", buildRowMap[d.connectionCallId], d.connectionCallId)
+			//}
 			buildRowMapLock.Unlock()
 		}()
 		if rowData == nil {
@@ -791,22 +794,22 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			return
 		}
 
-		var count int
-		if d.Table.Name == "github_my_repository" {
-			buildRowMapLock.Lock()
-			count = buildRowMap[d.connectionCallId] + 1
-			log.Printf("[INFO] buildRowAsync goroutine building %dth row (%s)", count, d.connectionCallId)
-			buildRowMapLock.Unlock()
-		}
+		//var count int
+		//if d.Table.Name == "github_my_repository" {
+		//	buildRowMapLock.Lock()
+		//	count = buildRowMap[d.connectionCallId] + 1
+		//	log.Printf("[INFO] buildRowAsync goroutine building %dth row (%s)", count, d.connectionCallId)
+		//	buildRowMapLock.Unlock()
+		//}
 		// delegate the work to a row object
 		row, err := rowData.getRow(ctx)
 		if err != nil {
 			log.Printf("[WARN] getRow failed with error %v", err)
 			d.streamError(err)
 		} else {
-			if d.Table.Name == "github_my_repository" {
-				log.Printf("[INFO] buildRowAsync goroutine ***** GOT %dth row (%s)", count, d.connectionCallId)
-			}
+			//if d.Table.Name == "github_my_repository" {
+			//	log.Printf("[INFO] buildRowAsync goroutine ***** GOT %dth row (%s)", count, d.connectionCallId)
+			//}
 
 			// remove reserved columns
 			d.removeReservedColumns(row)
@@ -814,9 +817,9 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			d.addContextData(row)
 
 			rowChan <- row
-			if d.Table.Name == "github_my_repository" {
-				log.Printf("[INFO] buildRowAsync goroutine ***** SENT %dth row (%s)", count, d.connectionCallId)
-			}
+			//if d.Table.Name == "github_my_repository" {
+			//	log.Printf("[INFO] buildRowAsync goroutine ***** SENT %dth row (%s)", count, d.connectionCallId)
+			//}
 		}
 	}()
 }
