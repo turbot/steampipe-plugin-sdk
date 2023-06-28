@@ -22,6 +22,14 @@ const (
 	QualOperatorNotIRegex      = "!~*"
 	QualOperatorIsNull         = "is null"
 	QualOperatorIsNotNull      = "is not null"
+
+	QualOperatorJsonbContainsLeftRight = "@>"
+	QualOperatorJsonbContainsRightLeft = "<@"
+	QualOperatorJsonbExistsOne         = "?"
+	QualOperatorJsonbExistsAny         = "?|"
+	QualOperatorJsonbExistsAll         = "?&"
+	QualOperatorJsonbPathExists        = "@?"
+	QualOperatorJsonbPathPredicate     = "@@" // FIXME: I'm a little confused about this one
 )
 
 // Qual is a struct which represents a database qual in a more easily digestible form that proto.Qual
