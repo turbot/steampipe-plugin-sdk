@@ -197,36 +197,36 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 }
 
 func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingSetRequest *setRequest, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (subscriber *setRequestSubscriber, err error) {
-	log.Printf("[WARN] subscribeToPendingRequest table %s (%s)", req.Table, req.CallId)
+	log.Printf("[INFO] subscribeToPendingRequest table %s (%s)", req.Table, req.CallId)
 
 	// create a subscriber
 	subscriber = newSetRequestSubscriber(streamRowFunc, req.CallId, req.StreamContext, pendingSetRequest)
 
 	// now lock the set request
 	pendingSetRequest.requestLock.Lock()
-	log.Printf("[WARN] GOT LOCK")
+	log.Printf("[INFO] GOT LOCK")
 
 	// subscribe with the wrapped func
 	pendingSetRequest.subscribe(subscriber)
-	log.Printf("[WARN] SUBSCRIBED")
+	log.Printf("[INFO] SUBSCRIBED")
 
 	// get keys of all data already written to cache
 	prevKeys := pendingSetRequest.getPrevPageResultKeys()
-	log.Printf("[WARN] GOT PREV KEYS: %v", prevKeys)
+	log.Printf("[INFO] GOT PREV KEYS: %v", prevKeys)
 
 	bufferedRows := pendingSetRequest.getBufferedRows()
-	log.Printf("[WARN] GOT BUFFERED ROWS: %d", len(bufferedRows))
+	log.Printf("[INFO] GOT BUFFERED ROWS: %d", len(bufferedRows))
 
 	pendingSetRequestComplete := pendingSetRequest.complete
 	// now unlock the set request
 	pendingSetRequest.requestLock.Unlock()
-	log.Printf("[WARN] RELEASE")
+	log.Printf("[INFO] RELEASE")
 
 	// TODO KAI MOVE TO setRequest.streamToSubscribers
 	// stream all data already cached
 	log.Printf("[INFO] stream all data already cached")
 
-	log.Printf("[WARN] READ PREVKEYS FROM CACHE")
+	log.Printf("[INFO] READ PREVKEYS FROM CACHE")
 	for _, pageKey := range prevKeys {
 		var cacheResult = &sdkproto.QueryResult{}
 		if err := doGet[*sdkproto.QueryResult](ctx, pageKey, c.cache, cacheResult); err != nil {
@@ -236,7 +236,7 @@ func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingSetRe
 			subscriber.streamRowFunc(row)
 		}
 	}
-	log.Printf("[WARN] STREAM BUFFERED ROWS")
+	log.Printf("[INFO] STREAM BUFFERED ROWS")
 	// now stream all data currently in the set request buffer
 	for _, row := range bufferedRows {
 		subscriber.streamRowFunc(row)

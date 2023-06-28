@@ -707,18 +707,18 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// TODO KAI SHOULD WE STREAM NIL ROW???
 			// nil row means we are done streaming
 			if row == nil {
-				log.Printf("[WARN] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
+				log.Printf("[INFO] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
 				return nil
 			}
 			// if we are caching stream this row to the cache - this will stream it to all subscribers
 			// (including ourselves)
 			if d.cacheEnabled {
 				if d.Table.Name == "github_my_repository" {
-					log.Printf("[WARN] streamRows calling iterate set")
+					log.Printf("[INFO] streamRows calling iterate set")
 				}
 				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
 				if d.Table.Name == "github_my_repository" {
-					log.Printf("[WARN] streamRows AFTER iterate set")
+					log.Printf("[INFO] streamRows AFTER iterate set")
 				}
 			} else {
 				// if cache is disabled just stream the row across GRPC
@@ -751,7 +751,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 
 		streamRowMapLock.Unlock()
 
-		log.Printf("[WARN] streamRow about to stream row %d over GRPC (%s)", count, d.connectionCallId)
+		log.Printf("[INFO] streamRow about to stream row %d over GRPC (%s)", count, d.connectionCallId)
 	}
 	d.outputChan <- resp
 	if d.Table.Name == "github_my_repository" {
@@ -759,7 +759,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 		streamRowMap[d.connectionCallId]++
 		streamRowMapLock.Unlock()
 
-		log.Printf("[WARN] streamRow streamed row %d (%s)", count, d.connectionCallId)
+		log.Printf("[INFO] streamRow streamed row %d (%s)", count, d.connectionCallId)
 	}
 
 }

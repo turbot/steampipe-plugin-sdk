@@ -286,7 +286,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}
 
-	log.Printf("[WARN] Plugin execute table: %s closing error chan and output chan  (%s)", req.Table, req.CallId)
+	log.Printf("[INFO] Plugin execute table: %s closing error chan and output chan  (%s)", req.Table, req.CallId)
 	close(outputChan)
 	close(errorChan)
 

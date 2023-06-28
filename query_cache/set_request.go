@@ -40,7 +40,7 @@ func (req *setRequest) unsubscribe(subscriber *setRequestSubscriber) {
 }
 
 func (req *setRequest) streamToSubscribers(row *sdkproto.Row) {
-	log.Printf("[WARN] streamToSubscribers (%s)", req.CallId)
+	log.Printf("[INFO] streamToSubscribers (%s)", req.CallId)
 	for subscriber := range req.subscribers {
 
 		// check if subscriber is still waiting to complete streamining previous rows
