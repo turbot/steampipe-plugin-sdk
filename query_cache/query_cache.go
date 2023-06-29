@@ -131,7 +131,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	// If not, create one and subscribe to it (will return a cache miss error)
 	subscriber, err := c.findAndSubscribeToPendingRequest(ctx, indexBucketKey, req, streamRowFunc)
 	if err == nil {
-		log.Printf("[WARN] subscribed to pending request")
+		log.Printf("[INFO] subscribed to pending request")
 		cacheHit = true
 		// wait for all rows to be streamed (or an error)
 		err = subscriber.waitUntilDone()
@@ -464,7 +464,7 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 	log.Printf("[INFO] index bucket key: %s ttlSeconds %d limit: %d (%s)", indexBucketKey, req.TtlSeconds, req.Limit, req.CallId)
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
-		log.Printf("[WARN] getCachedQueryResult found no index bucket for table %s (%s)", req.Table, req.CallId)
+		log.Printf("[INFO] getCachedQueryResult found no index bucket for table %s (%s)", req.Table, req.CallId)
 		return err
 	}
 
@@ -476,7 +476,7 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 			limitString = fmt.Sprintf("%d", req.Limit)
 		}
 		c.Stats.Misses++
-		log.Printf("[WARN] getCachedQueryResult found no index item- no cached data covers columns %v, limit %s (%s)", req.Columns, limitString, req.CallId)
+		log.Printf("[INFO] getCachedQueryResult found no index item- no cached data covers columns %v, limit %s (%s)", req.Columns, limitString, req.CallId)
 		return new(CacheMissError)
 	}
 
