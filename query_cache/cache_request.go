@@ -15,9 +15,11 @@ type CacheRequest struct {
 	Limit          int64
 	ConnectionName string
 	TtlSeconds     int64
-	resultKeyRoot  string
-	pageCount      int64
-	StreamContext  context.Context
+
+	resultKeyRoot string
+	pageCount     int64
+	rowCount      int64
+	StreamContext context.Context
 }
 
 func (req *CacheRequest) ttl() time.Duration {

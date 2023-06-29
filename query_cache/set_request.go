@@ -17,8 +17,8 @@ type setRequest struct {
 	complete   bool
 	pageBuffer []*sdkproto.Row
 	// index within the page buffer
-	pageIndex int
-	err       error
+	bufferIndex int
+	err         error
 }
 
 func newSetRequest(req *CacheRequest) *setRequest {
@@ -40,18 +40,20 @@ func (req *setRequest) unsubscribe(subscriber *setRequestSubscriber) {
 }
 
 func (req *setRequest) streamToSubscribers(row *sdkproto.Row) {
-	log.Printf("[INFO] streamToSubscribers (%s)", req.CallId)
-	for subscriber := range req.subscribers {
+	// TODO KAI
+	if req.Table == "github_my_repository" {
+		log.Printf("[WARN] streamToSubscribers (%s)", req.CallId)
+	}
 
+	for subscriber := range req.subscribers {
 		// check if subscriber is still waiting to complete streamining previous rows
 		// (maybe it's channel is blocked...)
 		// if this is NOT the final row (i.e. row is not nil) skip for now - we will try again when the next row is set
 		// if this is IS the final row (i.e. row is nil) wait for it
 		if row == nil {
-			log.Printf("[INFO] setRequest streamToSubscribers sending nil row to subscribers - waiting to acquire stream lock for %s (%s)", subscriber.callId, req.CallId)
 			subscriber.streamLock.Lock()
-			log.Printf("[INFO] acquired stream lock for %s (%s)", subscriber.callId, req.CallId)
 		} else if !subscriber.streamLock.TryLock() {
+			log.Printf("[WARN] FAILED TO acquire stream lock for %s (%s)", subscriber.callId, req.CallId)
 			continue
 		}
 
@@ -59,17 +61,20 @@ func (req *setRequest) streamToSubscribers(row *sdkproto.Row) {
 
 			defer s.streamLock.Unlock()
 
+			// TODO KAI FINISH THIS
 			// figure out how may rows we need to stream to the subscriber
 			// (it may be reading at a slower rate than the rows are being written so there may be a backlog)
 			//rowsToStream := req.rowCount() - subscriber.rowsStreamed
 
+			log.Printf("[WARN] STREAM TO subscriber %s (%s)", s.callId, req.CallId)
 			// stream the row
 			err := s.streamRowFunc(row)
 			// if this returns a context cancelled error, unsubscribe
 			if error_helpers.IsContextCancelledError(err) {
 				req.requestLock.Lock()
-				log.Printf("[INFO] subscriber %s returned context canclled - unsubscribing (%s)", s.callId, req.CallId)
+				log.Printf("[WARN] subscriber %s returned context cancelled - unsubscribing (%s)", s.callId, req.CallId)
 				req.unsubscribe(s)
+				// TODO kai if we are the last subscriber, abort the request (???? or just get it all??) (maybe inside unsubscribe)
 				req.requestLock.Unlock()
 			}
 		}(subscriber)
@@ -82,18 +87,14 @@ func (req *setRequest) sendErrorToSubscribers(err error) {
 	for subscriber := range req.subscribers {
 		subscriber.errChan <- err
 	}
-	log.Printf("[WARN] done aborting")
+	log.Printf("[INFO] done aborting")
 }
 
 func (req *setRequest) getBufferedRows() []*sdkproto.Row {
-	if req.pageIndex == 0 {
+	if req.bufferIndex == 0 {
 		return nil
 	}
-	return req.pageBuffer[:req.pageIndex]
-}
-
-func (req *setRequest) rowCount() int {
-	return int(req.pageCount)*rowBufferSize + req.pageIndex
+	return req.pageBuffer[:req.bufferIndex]
 }
 
 // get result key for the most recent page of the request

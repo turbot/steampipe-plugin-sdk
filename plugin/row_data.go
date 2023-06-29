@@ -94,7 +94,6 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 
 			// so call needs to start - can it?
 			if call.canStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
-				log.Printf("[WARN] starting %s", hydrateFuncName)
 				// execute the hydrate call asynchronously
 				call.start(rowDataCtx, r, rowQueryData, r.queryData.concurrencyManager)
 				callsStarted[hydrateFuncName] = true
@@ -119,8 +118,8 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 	return nil
 }
 
-var rowmap2 = make(map[string]int)
-var rl2 = sync.Mutex{}
+//var rowmap2 = make(map[string]int)
+//var rl2 = sync.Mutex{}
 
 // wait for all hydrate calls to complete
 func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*proto.Row, error) {

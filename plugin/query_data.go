@@ -744,24 +744,23 @@ func (d *QueryData) streamRow(row *proto.Row) {
 		Connection: d.Connection.Name,
 	}
 
-	var count int
-	if d.Table.Name == "github_my_repository" {
-		streamRowMapLock.Lock()
-		count = streamRowMap[d.connectionCallId] + 1
-
-		streamRowMapLock.Unlock()
-
-		log.Printf("[INFO] streamRow about to stream row %d over GRPC (%s)", count, d.connectionCallId)
-	}
+	//var count int
+	//if d.Table.Name == "github_my_repository" {
+	//	streamRowMapLock.Lock()
+	//	count = streamRowMap[d.connectionCallId] + 1
+	//
+	//	streamRowMapLock.Unlock()
+	//
+	//	log.Printf("[INFO] streamRow about to stream row %d over GRPC (%s)", count, d.connectionCallId)
+	//}
 	d.outputChan <- resp
-	if d.Table.Name == "github_my_repository" {
-		streamRowMapLock.Lock()
-		streamRowMap[d.connectionCallId]++
-		streamRowMapLock.Unlock()
-
-		log.Printf("[INFO] streamRow streamed row %d (%s)", count, d.connectionCallId)
-	}
-
+	//if d.Table.Name == "github_my_repository" {
+	//	streamRowMapLock.Lock()
+	//	streamRowMap[d.connectionCallId]++
+	//	streamRowMapLock.Unlock()
+	//
+	//	log.Printf("[INFO] streamRow streamed row %d (%s)", count, d.connectionCallId)
+	//}
 }
 
 func (d *QueryData) streamError(err error) {

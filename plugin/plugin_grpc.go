@@ -184,7 +184,12 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	log.Printf("[INFO] Plugin execute table: %s  (%s)", req.Table, req.CallId)
+	// dedupe the call id
+	req.CallId = p.getUniqueCallId(req.CallId)
+	// when done, remove call id from map
+	defer p.clearCallId(req.CallId)
+
+	log.Printf("[INFO] Plugin execute table: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
 	// limit the plugin memory
@@ -197,11 +202,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	var outputWg sync.WaitGroup
 
-	// dedupe the call id
-	req.CallId = p.getUniqueCallId(req.CallId)
-	// when done, remove call id from map
-	defer p.clearCallId(req.CallId)
-
+	// TODO kai if cache disable, USE THE STREAM CONTEXT
 	// get a fresh context which includes telemetry data and logger
 	ctx := p.buildExecuteContext(context.Background(), req, logger)
 
