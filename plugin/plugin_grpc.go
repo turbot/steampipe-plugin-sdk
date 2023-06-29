@@ -178,6 +178,7 @@ func (p *Plugin) getSchema(connectionName string) (*grpc.PluginSchema, error) {
 //
 // This is the handler function for the execute GRPC function.
 func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+	ctx := stream.Context()
 	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
@@ -201,10 +202,6 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
 
 	var outputWg sync.WaitGroup
-
-	// TODO kai if cache disable, USE THE STREAM CONTEXT
-	// get a fresh context which includes telemetry data and logger
-	ctx := p.buildExecuteContext(context.Background(), req, logger)
 
 	// control how many connections are executed in parallel
 	maxConcurrentConnections := getMaxConcurrentConnections()
@@ -240,7 +237,8 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 			defer sem.Release(1)
 
-			if err := p.executeForConnection(ctx, stream.Context(), req, c, outputChan); err != nil {
+			// execute the scan fo rthisa connection
+			if err := p.executeForConnection(ctx, req, c, outputChan, logger); err != nil {
 				log.Printf("[WARN] executeForConnection %s returned error %s, writing to CHAN", c, err.Error())
 				//if !error_helpers.IsContextCancelledError(err) {
 				//}

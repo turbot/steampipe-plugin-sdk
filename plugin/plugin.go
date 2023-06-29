@@ -262,7 +262,7 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	return nil
 }
 
-func (p *Plugin) executeForConnection(ctx context.Context, streamContext context.Context, req *proto.ExecuteRequest, connectionName string, outputChan chan *proto.ExecuteResponse) (err error) {
+func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.ExecuteRequest, connectionName string, outputChan chan *proto.ExecuteResponse, logger hclog.Logger) (err error) {
 	const rowBufferSize = 10
 	var rowChan = make(chan *proto.Row, rowBufferSize)
 
@@ -306,6 +306,16 @@ func (p *Plugin) executeForConnection(ctx context.Context, streamContext context
 			log.Printf("[INFO] caching is disabled for table %s", table.Name)
 		}
 	}
+
+	//  if cache NOT disabled, create a fresh context for this scan
+	ctx := streamContext
+	var cancel context.CancelFunc
+	if cacheEnabled {
+		// get a fresh context which includes telemetry data and logger
+		ctx, cancel = context.WithCancel(context.Background())
+		ctx = p.buildExecuteContext(context.Background(), req, logger)
+	}
+
 	logging.LogTime("Start execute")
 
 	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL, table)
@@ -329,6 +339,10 @@ func (p *Plugin) executeForConnection(ctx context.Context, streamContext context
 	if err != nil {
 		return err
 	}
+
+	// set the cancel func on the query data
+	// (this is only used if the cache is enabled - if a set request has no subscribers)
+	queryData.cancel = cancel
 
 	// get the matrix item
 	log.Printf("[TRACE] GetMatrixItem")
@@ -376,7 +390,7 @@ func (p *Plugin) executeForConnection(ctx context.Context, streamContext context
 		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamRowFunc)
 		if cacheErr == nil {
 			// so we got a cached result - stream it out
-			log.Printf("[INFO] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
+			log.Printf("[WARN] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
 
 			// nothing more to do
 			return nil
@@ -389,12 +403,11 @@ func (p *Plugin) executeForConnection(ctx context.Context, streamContext context
 
 		// so the cache call failed, with either a cache-miss or other error
 		if !query_cache.IsCacheMiss(cacheErr) {
-			// TODO KAI CHECK THIS - new behaviour - fail if cache Get fails
 			log.Printf("[WARN] queryCacheGet returned err %s", cacheErr.Error())
 			return cacheErr
 		}
 		// otherwise just log the cache miss error
-		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
+		log.Printf("[WARN] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 	} else {
 		log.Printf("[INFO] Cache DISABLED (%s)", connectionCallId)
 	}

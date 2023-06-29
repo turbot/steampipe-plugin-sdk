@@ -18,7 +18,7 @@ type CacheRequest struct {
 
 	resultKeyRoot string
 	pageCount     int64
-	rowCount      int64
+	rowCount      int
 	StreamContext context.Context
 }
 

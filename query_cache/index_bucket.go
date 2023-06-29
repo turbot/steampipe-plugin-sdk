@@ -1,6 +1,7 @@
 package query_cache
 
 import (
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"log"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -23,18 +24,18 @@ func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {
 
 // Get finds an index item which satisfies all columns
 func (b *IndexBucket) Get(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) *IndexItem {
-	log.Printf("[INFO] IndexBucket.Get %d items", len(b.Items))
+	log.Printf("[WARN] IndexBucket.Get %d items", len(b.Items))
 	for _, item := range b.Items {
 		log.Printf("[INFO] IndexBucket.Get key %s limit %d (%s)", item.Key, item.Limit, req.CallId)
 		if item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns) && item.satisfiesTtl(req.TtlSeconds) {
 			return item
 		}
 	}
-	//log.Printf("[WARN] IndexBucket.Get CACHE MISS %d items", len(b.Items))
-	//log.Printf("[WARN] req QUALS: %s", grpc.QualMapToLogLine(req.QualMap))
-	//for _, item := range b.Items {
-	//	log.Printf("[WARN] item QUALS: %s", grpc.QualMapToLogLine(item.Quals))
-	//}
+	log.Printf("[WARN] IndexBucket.Get CACHE MISS %d items", len(b.Items))
+	log.Printf("[WARN] req QUALS: %s", grpc.QualMapToLogLine(req.QualMap))
+	for _, item := range b.Items {
+		log.Printf("[WARN] item QUALS: %s", grpc.QualMapToLogLine(item.Quals))
+	}
 
 	return nil
 }

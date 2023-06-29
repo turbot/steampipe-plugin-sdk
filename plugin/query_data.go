@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"golang.org/x/exp/maps"
 	"log"
 	"runtime/debug"
@@ -130,6 +131,9 @@ type QueryData struct {
 	// temp dir for the connection
 	tempDir         string
 	reservedColumns map[string]struct{}
+	// cancel the execution context
+	// (this is only used if the cache is enabled - if a set request has no subscribers)
+	cancel context.CancelFunc
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -704,7 +708,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			return err
 		case row := <-rowChan:
 
-			// TODO KAI SHOULD WE STREAM NIL ROW???
 			// nil row means we are done streaming
 			if row == nil {
 				log.Printf("[INFO] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
@@ -716,7 +719,17 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				if d.Table.Name == "github_my_repository" {
 					log.Printf("[INFO] streamRows calling iterate set")
 				}
-				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
+				err := d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
+
+				// if there are no subscribers to the setRequest, cancel the scan and abort the set request
+				// (this deletes already-cached pages)
+				if _, noSubscribers := err.(query_cache.NoSubscribersError); noSubscribers {
+					log.Printf("[INFO] streamRows - set request has no subscribers, cancelling the scan (%s)", d.connectionCallId)
+					d.cancel()
+					// abort the set operation
+					d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
+					return ctx.Err()
+				}
 				if d.Table.Name == "github_my_repository" {
 					log.Printf("[INFO] streamRows AFTER iterate set")
 				}

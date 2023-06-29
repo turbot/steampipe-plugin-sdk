@@ -1,8 +1,8 @@
 package query_cache
 
 import (
+	"context"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
 	"sync"
@@ -19,13 +19,15 @@ type setRequest struct {
 	// index within the page buffer
 	bufferIndex int
 	err         error
+	cache       *QueryCache
 }
 
-func newSetRequest(req *CacheRequest) *setRequest {
+func newSetRequest(req *CacheRequest, cache *QueryCache) *setRequest {
 	return &setRequest{
 		CacheRequest: req,
 		subscribers:  make(map[*setRequestSubscriber]struct{}),
 		pageBuffer:   make([]*sdkproto.Row, rowBufferSize),
+		cache:        cache,
 	}
 }
 
@@ -37,48 +39,6 @@ func (req *setRequest) subscribe(subscriber *setRequestSubscriber) {
 func (req *setRequest) unsubscribe(subscriber *setRequestSubscriber) {
 	// note: requestLock must be locked when this is called
 	delete(req.subscribers, subscriber)
-}
-
-func (req *setRequest) streamToSubscribers(row *sdkproto.Row) {
-	// TODO KAI
-	if req.Table == "github_my_repository" {
-		log.Printf("[WARN] streamToSubscribers (%s)", req.CallId)
-	}
-
-	for subscriber := range req.subscribers {
-		// check if subscriber is still waiting to complete streamining previous rows
-		// (maybe it's channel is blocked...)
-		// if this is NOT the final row (i.e. row is not nil) skip for now - we will try again when the next row is set
-		// if this is IS the final row (i.e. row is nil) wait for it
-		if row == nil {
-			subscriber.streamLock.Lock()
-		} else if !subscriber.streamLock.TryLock() {
-			log.Printf("[WARN] FAILED TO acquire stream lock for %s (%s)", subscriber.callId, req.CallId)
-			continue
-		}
-
-		go func(s *setRequestSubscriber) {
-
-			defer s.streamLock.Unlock()
-
-			// TODO KAI FINISH THIS
-			// figure out how may rows we need to stream to the subscriber
-			// (it may be reading at a slower rate than the rows are being written so there may be a backlog)
-			//rowsToStream := req.rowCount() - subscriber.rowsStreamed
-
-			log.Printf("[WARN] STREAM TO subscriber %s (%s)", s.callId, req.CallId)
-			// stream the row
-			err := s.streamRowFunc(row)
-			// if this returns a context cancelled error, unsubscribe
-			if error_helpers.IsContextCancelledError(err) {
-				req.requestLock.Lock()
-				log.Printf("[WARN] subscriber %s returned context cancelled - unsubscribing (%s)", s.callId, req.CallId)
-				req.unsubscribe(s)
-				// TODO kai if we are the last subscriber, abort the request (???? or just get it all??) (maybe inside unsubscribe)
-				req.requestLock.Unlock()
-			}
-		}(subscriber)
-	}
 }
 
 // send error to subscribers
@@ -108,6 +68,118 @@ func (req *setRequest) getPrevPageResultKeys() []string {
 		res = append(res, getPageKey(req.resultKeyRoot, int(req.pageCount-1)))
 	}
 	return res
+}
+
+// return all rows available aftyer the given row count
+func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int) ([]*sdkproto.Row, error) {
+
+	/*
+
+		[0,1,2,3,4] [0,1,2,3,4] [0,1,2,x,x]
+
+		req.rowCount = 13
+		req.bufferIndex = 3
+		req.pageCount = 2
+
+
+		CASE 1:	rowsAlreadyStreamed = 0
+
+		startPage = 0    -> rowsAlreadyStreamed / bufferSize
+		startOffset = 0  -> rowsAlreadyStreamed % bufferSize
+
+		CASE 2:	rowsAlreadyStreamed = 3
+
+		startPage = 0
+		startOffset = 0  -> rowsAlreadyStreamed % bufferSize
+
+		CASE 3:	rowsAlreadyStreamed = 5
+
+		startPage = 1
+		startOffset = 0  -> rowsAlreadyStreamed % bufferSize
+
+		CASE 4:	rowsAlreadyStreamed = 8
+
+		startPage = 1
+		startOffset = 3  -> rowsAlreadyStreamed % bufferSize
+
+		CASE 5:	rowsAlreadyStreamed = 10
+
+		startPage = (2) -> i.e. no cache page as this is not yet cached
+		startOffset = 0  -> rowsAlreadyStreamed % bufferSize
+
+
+		CASE 5:	rowsAlreadyStreamed = 12
+
+		startPage = (2) -> i.e. no cache page as this is not yet cached
+		startOffset = 2  -> rowsAlreadyStreamed % bufferSize
+
+	*/
+
+	startPage := rowsAlreadyStreamed / rowBufferSize
+	startOffset := rowsAlreadyStreamed % rowBufferSize
+	log.Printf("[INFO] setRequest getRowsSince rowsAlreadyStreamed: %d, req.pageCount: %d, req.bufferIndex: %d, startPage: %d startOffset: %d, ",
+		rowsAlreadyStreamed,
+		req.pageCount,
+		req.bufferIndex,
+		startPage,
+		startOffset)
+
+	// if start page is the current page, this means we do not need any data written to the cache
+	// just return rows from page buffer
+	if startPage == int(req.pageCount) {
+		log.Printf("[INFO] setRequest getRowsSince returning %d from buffer", req.bufferIndex-startOffset)
+
+		return req.pageBuffer[startOffset:req.bufferIndex], nil
+	}
+
+	// so we must load some data from the cache
+
+	// build result rows
+	var res = make([]*sdkproto.Row, 0, req.rowCount-rowsAlreadyStreamed)
+
+	// load previously cache pages
+	for pageIdx := startPage; pageIdx < int(req.pageCount); pageIdx++ {
+		cachedResult := sdkproto.QueryResult{}
+
+		pageKey := getPageKey(req.resultKeyRoot, pageIdx)
+		if err := doGet[*sdkproto.QueryResult](ctx, pageKey, req.cache.cache, &cachedResult); err != nil {
+			return nil, err
+		}
+
+		// copy rows into result - taking into account start offset if this is the first page
+		idx := 0
+		if pageIdx == startPage {
+			idx = startOffset
+		}
+		res = append(res, cachedResult.Rows[idx:]...)
+	}
+
+	// now add any rows from the page buffer
+	res = append(res, req.getBufferedRows()...)
+
+	log.Printf("[INFO] setRequest getRowsSince returning %d", len(res))
+	return res, nil
+}
+
+func (req *setRequest) waitForSubscribers(ctx context.Context) {
+	log.Printf("[INFO] setRequest waitForSubscribers (%s)", req.CallId)
+
+	doneChan := make(chan struct{})
+	go func() {
+		for subscriber := range req.subscribers {
+			log.Printf("[INFO] waiting for subscriber %s (%s)", subscriber.callId, req.CallId)
+			// TODO THINK ABOUT ERROR
+			subscriber.waitUntilDone()
+			log.Printf("[INFO] subscriber %s done (%s)", subscriber.callId, req.CallId)
+		}
+		close(doneChan)
+	}()
+
+	// TODO timeout?
+	select {
+	case <-ctx.Done():
+	case <-doneChan:
+	}
 }
 
 func getPageKey(resultKeyRoot string, pageIdx int) string {
