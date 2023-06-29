@@ -38,7 +38,7 @@ func (i IndexItem) satisfiesRequest(columns []string, limit int64, qualMap map[s
 	satisfiesLimit := i.satisfiesLimit(limit)
 	satisfiesQuals := i.satisfiesQuals(qualMap, keyColumns)
 
-	log.Printf("[WARN] IndexItem satisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v", satisfiedColumns, satisfiesLimit, satisfiesQuals)
+	log.Printf("[INFO] IndexItem satisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v", satisfiedColumns, satisfiesLimit, satisfiesQuals)
 	return satisfiedColumns && satisfiesLimit && satisfiesQuals
 }
 

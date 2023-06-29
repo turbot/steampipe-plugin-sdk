@@ -346,7 +346,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setRequest) error {
 	// get the index bucket for this table and connection
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
-	log.Printf("[TRACE] QueryCache EndSet indexBucketKey %s", indexBucketKey)
+	log.Printf("[WARN] QueryCache EndSet indexBucketKey %s", indexBucketKey)
 
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
@@ -357,7 +357,7 @@ func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setReq
 			return nil
 		}
 
-		log.Printf("[TRACE] getCachedIndexBucket returned cache miss (%s)", callId)
+		log.Printf("[WARN] getCachedIndexBucket returned cache miss (%s)", callId)
 	}
 
 	indexItem := NewIndexItem(req.CacheRequest)
@@ -366,7 +366,7 @@ func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setReq
 		indexBucket = newIndexBucket()
 	}
 	indexBucket.Append(indexItem)
-	log.Printf("[INFO] QueryCache EndSet - Added index item to bucket , row count %d,  table %s quals %s (%s)", req.rowCount, req.Table, grpc.QualMapToLogLine(req.QualMap), callId)
+	log.Printf("[WARN] QueryCache EndSet - Added index item to bucket, row count: %d, table: %s, quals: %s, bucket items: %d (%s)", req.rowCount, req.Table, grpc.QualMapToLogLine(req.QualMap), len(indexBucket.Items), callId)
 
 	// write index bucket back to cache
 	err = c.cacheSetIndexBucket(ctx, indexBucketKey, indexBucket, req.CacheRequest)
@@ -390,7 +390,7 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	if !ok {
 		return
 	}
-	log.Printf("[INFO] QueryCache AbortSet - aborting request")
+	log.Printf("[WARNq] QueryCache AbortSet - aborting request")
 	// tell request to send error to all it's subscribers
 	req.sendErrorToSubscribers(err)
 
@@ -458,13 +458,13 @@ func (c *QueryCache) getCachedIndexBucket(ctx context.Context, key string) (*Ind
 }
 
 func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
-	log.Printf("[INFO] QueryCache getCachedQueryResult - table %s, connectionName %s (%s)", req.Table, req.ConnectionName, req.CallId)
+	log.Printf("[WARN] QueryCache getCachedQueryResult - table %s, connectionName %s (%s)", req.Table, req.ConnectionName, req.CallId)
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
 
-	log.Printf("[INFO] index bucket key: %s ttlSeconds %d limit: %d (%s)", indexBucketKey, req.TtlSeconds, req.Limit, req.CallId)
+	log.Printf("[WARN] index bucket key: %s ttlSeconds %d limit: %d (%s)", indexBucketKey, req.TtlSeconds, req.Limit, req.CallId)
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
-		log.Printf("[INFO] getCachedQueryResult found no index bucket for table %s (%s)", req.Table, req.CallId)
+		log.Printf("[WARN] getCachedQueryResult found no index bucket for table %s (%s)", req.Table, req.CallId)
 		return err
 	}
 
