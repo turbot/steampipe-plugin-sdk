@@ -62,12 +62,13 @@ func (c *QueryCache) getPendingItemResolvedByRequest(indexBucketKey string, req 
 
 func (c *QueryCache) addPendingResult(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *proto.Row)) {
 	// NOTE: this must be calling inside  c.pendingDataLock.Lock()
-	// call start set to add the request to the setRequest map and subscribe the the data
+
+	// call startSet to add a setRequest to the setRequest map and subscribe to the data
 	setRequest := c.startSet(ctx, req, streamRowFunc)
 
 	log.Printf("[TRACE] addPendingResult (%s) indexBucketKey %s, columns %v, limit %d", req.CallId, indexBucketKey, req.Columns, req.Limit)
 
-	// do we have a pending bucket
+	// do we have a pending bucket?
 	pendingIndexBucket, ok := c.pendingData[indexBucketKey]
 	if !ok {
 		log.Printf("[TRACE] no index bucket found - creating one")
@@ -76,6 +77,7 @@ func (c *QueryCache) addPendingResult(ctx context.Context, indexBucketKey string
 	// use the root result key to key the pending item map
 	resultKeyRoot := req.resultKeyRoot
 
+	// create pending index item
 	item := NewPendingIndexItem(setRequest)
 	pendingIndexBucket.Items[resultKeyRoot] = item
 

@@ -43,21 +43,27 @@ func (s *setRequestSubscriber) readRowsAsync(ctx context.Context) {
 	go func() {
 		log.Printf("[INFO] setRequestSubscriber readRowsAsync publisher %s (%s)", s.publisher.CallId, s.callId)
 		defer func() {
+			// indicate this subscriber has finished
 			close(s.doneChan)
 			log.Printf("[INFO] setRequestSubscriber readRowsAsync goroutine returning - doneChan CLOSED - publisher %s (%s)", s.publisher.CallId, s.callId)
 		}()
+
+		// channel to indicate all rows have been streamed
 		var streamChan = make(chan struct{})
+		var errChan = make(chan error, 1)
 
 		baseRetryInterval := 1 * time.Millisecond
 		maxRetryInterval := 50 * time.Millisecond
 		backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
 
+		// internal goroutine to read all rows from the publisher and stream them
 		go func() {
 			defer close(streamChan)
 			for {
 
 				var rowsTostream []*sdkproto.Row
 
+				// get rows available to stream - retry with backoff
 				err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 					var getRowsErr error
 					log.Printf("[INFO] readRowsAsync getting rowsTostream (%s)", s.callId)
@@ -66,13 +72,17 @@ func (s *setRequestSubscriber) readRowsAsync(ctx context.Context) {
 					return getRowsErr
 				})
 
-				// getRowsToStream will keep retrying as long as there are still rows to stream (or there is an error)
+				// getRowsToStream will keep retrying as long as there are still rows to stream or there is an error
 				if len(rowsTostream) == 0 {
+					// either there is an error, or we are done... check which it is
 					if err != nil {
-						// TODO KAI HOW TO RAISE?
-						log.Printf("[WARN] readRowsAsync failed to read previous rows from cache: %s", err)
+						log.Printf("[WARN] readRowsAsync failed to read previous rows from cache: %s publisher %s (%s)", err, s.publisher.CallId, s.callId)
+						errChan <- err
+					} else {
+						log.Printf("[INFO] readRowsAsync no more rows to stream - publisher %s (%s)", s.publisher.CallId, s.callId)
 					}
-					log.Printf("[INFO] readRowsAsync no more rows to stream - publisher %s (%s)", s.publisher.CallId, s.callId)
+					// to get here, publisdher has no more rows
+					// exit the goroutine
 					return
 				}
 
@@ -106,34 +116,33 @@ func (s *setRequestSubscriber) readRowsAsync(ctx context.Context) {
 		case <-streamChan:
 			log.Printf("[INFO] readRowsAsync finished streaming - publisher %s (%s)", s.publisher.CallId, s.callId)
 		// was there an error
-		case <-s.errChan:
-			log.Printf("[INFO] readRowsAsync error received - publisher %s (%s)", s.publisher.CallId, s.callId)
+		case err := <-errChan:
+			log.Printf("[INFO] readRowsAsync error received: %s - publisher %s (%s)", err.Error(), s.publisher.CallId, s.callId)
+			s.errChan <- err
 		}
 	}()
 }
 
 func (s *setRequestSubscriber) getRowsToStream(ctx context.Context) ([]*sdkproto.Row, error) {
-	log.Printf("[INFO] setRequestSubscriber getting lock (%s)", s.callId)
 	s.publisher.requestLock.RLock()
-	log.Printf("[INFO] setRequestSubscriber got lock (%s)", s.callId)
 	rowsTostream, err := s.publisher.getRowsSince(ctx, s.rowsStreamed)
-
 	s.publisher.requestLock.RUnlock()
-	log.Printf("[INFO] setRequestSubscriber released lock (%s)", s.callId)
 
 	if err != nil {
 		return nil, err
 	}
 
 	if len(rowsTostream) == 0 {
-		if s.publisher.complete {
+		if s.publisher.complete.Load() {
 			log.Printf("[INFO] getRowsToStream - publisher %s complete - returning (%s)", s.publisher.CallId, s.callId)
 			return nil, nil
 		}
 		// if no rows are available, retry
+		// (this is called from within a retry.Do)
 		return nil, retry.RetryableError(fmt.Errorf("no rows available to stream"))
 	}
 
+	log.Printf("[INFO] getRowsToStream returning %d (%s)", len(rowsTostream), s.callId)
 	// ok we have rows
 	return rowsTostream, nil
 }
@@ -150,4 +159,21 @@ func (s *setRequestSubscriber) waitUntilDone() error {
 		log.Printf("[WARN] setRequestSubscriber received an error from setRequest %s: %s (%s)", s.publisher.CallId, err.Error(), s.callId)
 		return err
 	}
+}
+
+// wait until this subscriber
+func (s *setRequestSubscriber) waitUntilAvailableRowsStreamed(ctx context.Context, availableRows int) {
+	log.Printf("[INFO] waitUntilAvailableRowsStreamed (%s)", s.callId)
+	defer log.Printf("[INFO] waitUntilAvailableRowsStreamed done(%s)", s.callId)
+	baseRetryInterval := 1 * time.Millisecond
+	maxRetryInterval := 50 * time.Millisecond
+	backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
+
+	// we know this cannot return an error
+	_ = retry.Do(ctx, backoff, func(ctx context.Context) error {
+		if s.rowsStreamed < availableRows {
+			return retry.RetryableError(fmt.Errorf("not all available rows streamed"))
+		}
+		return nil
+	})
 }

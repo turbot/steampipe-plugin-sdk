@@ -6,6 +6,7 @@ import (
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
 	"sync"
+	"sync/atomic"
 )
 
 type setRequest struct {
@@ -13,8 +14,8 @@ type setRequest struct {
 	// other cache requests who are subscribing to this data
 	subscribers map[*setRequestSubscriber]struct{}
 	requestLock sync.RWMutex
-	// TODO KAI THINK ABOUT THIS
-	complete   bool
+	// flag used by sunscribers when getting rows to stream
+	complete   atomic.Bool
 	pageBuffer []*sdkproto.Row
 	// index within the page buffer
 	bufferIndex int
@@ -90,7 +91,7 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 		CASE 2:	rowsAlreadyStreamed = 3
 
 		startPage = 0
-		startOffset = 0  -> rowsAlreadyStreamed % bufferSize
+		startOffset = 3  -> rowsAlreadyStreamed % bufferSize
 
 		CASE 3:	rowsAlreadyStreamed = 5
 
@@ -117,6 +118,7 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 
 	startPage := rowsAlreadyStreamed / rowBufferSize
 	startOffset := rowsAlreadyStreamed % rowBufferSize
+
 	log.Printf("[INFO] setRequest getRowsSince rowsAlreadyStreamed: %d, req.pageCount: %d, req.bufferIndex: %d, startPage: %d startOffset: %d, ",
 		rowsAlreadyStreamed,
 		req.pageCount,
@@ -128,8 +130,9 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 	// just return rows from page buffer
 	if startPage == int(req.pageCount) {
 		log.Printf("[INFO] setRequest getRowsSince returning %d from buffer", req.bufferIndex-startOffset)
-
-		return req.pageBuffer[startOffset:req.bufferIndex], nil
+		bufferedRows := req.getBufferedRows()
+		// apply the start offset
+		return bufferedRows[startOffset:], nil
 	}
 
 	// so we must load some data from the cache
@@ -137,7 +140,7 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 	// build result rows
 	var res = make([]*sdkproto.Row, 0, req.rowCount-rowsAlreadyStreamed)
 
-	// load previously cache pages
+	// load previously cache pages`
 	for pageIdx := startPage; pageIdx < int(req.pageCount); pageIdx++ {
 		cachedResult := sdkproto.QueryResult{}
 
@@ -168,7 +171,7 @@ func (req *setRequest) waitForSubscribers(ctx context.Context) {
 	go func() {
 		for subscriber := range req.subscribers {
 			log.Printf("[INFO] waiting for subscriber %s (%s)", subscriber.callId, req.CallId)
-			// TODO THINK ABOUT ERROR
+			// TODO KAI THINK ABOUT ERROR - return error
 			subscriber.waitUntilDone()
 			log.Printf("[INFO] subscriber %s done (%s)", subscriber.callId, req.CallId)
 		}
@@ -180,6 +183,36 @@ func (req *setRequest) waitForSubscribers(ctx context.Context) {
 	case <-ctx.Done():
 	case <-doneChan:
 	}
+}
+
+func (req *setRequest) addRow(row *sdkproto.Row) error {
+	req.requestLock.Lock()
+	defer func() {
+		req.requestLock.Unlock()
+	}()
+
+	// if the request has no subscribers, cancel this scan
+	if len(req.subscribers) == 0 {
+		// lock access to set request
+
+		log.Printf("[INFO] IterateSet NO SUBSCRIBERS! (%s)", req.CallId)
+		return NoSubscribersError{}
+	}
+
+	// was there an error in a previous iterate
+	if req.err != nil {
+		log.Printf("[INFO] IterateSet request is in error: %s (%s)", req.err.Error(), req.CallId)
+		return req.err
+	}
+
+	// set row
+	req.pageBuffer[req.bufferIndex] = row
+	// update counts
+	req.bufferIndex++
+	req.rowCount++
+
+	return nil
+
 }
 
 func getPageKey(resultKeyRoot string, pageIdx int) string {
