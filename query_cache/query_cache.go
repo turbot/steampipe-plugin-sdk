@@ -406,6 +406,7 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest) erro
 
 	// ask the request for it's currently buffered rows
 	rows := req.getBufferedRows()
+
 	// reset the row buffer index and increment the page count
 	// (BEFORE building pageKey)
 	req.bufferIndex = 0

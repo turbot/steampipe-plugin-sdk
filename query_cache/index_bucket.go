@@ -26,7 +26,12 @@ func (b *IndexBucket) Get(req *CacheRequest, keyColumns map[string]*proto.KeyCol
 	log.Printf("[INFO] IndexBucket.Get %d items", len(b.Items))
 	for _, item := range b.Items {
 		//log.Printf("[INFO] IndexBucket.Get key %s limit %d (%s)", item.Key, item.Limit, req.CallId)
-		if item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns) && item.satisfiesTtl(req.TtlSeconds) {
+		satisfiedRequest := item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns)
+		satisfiesTtl := item.satisfiesTtl(req.TtlSeconds)
+
+		log.Printf("[INFO] satisfiedRequest: %v, satisfiesTtl: %v ttlSec: %d (%s)", satisfiedRequest, satisfiesTtl, req.TtlSeconds, req.CallId)
+
+		if satisfiedRequest && satisfiesTtl {
 			//log.Printf("[INFO] IndexBucket.Get CACHE HIT %d items", len(b.Items))
 			return item
 		}

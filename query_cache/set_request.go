@@ -73,8 +73,22 @@ func (req *setRequest) getPrevPageResultKeys() []string {
 
 // return all rows available aftyer the given row count
 func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int) ([]*sdkproto.Row, error) {
-
 	/*
+
+		[0,1,2,3,4]
+		req.rowCount = 5
+		req.bufferIndex = 1
+		req.pageCount = 0
+
+		CASE 1:	rowsAlreadyStreamed = 0
+		startPage = 0    -> rowsAlreadyStreamed / bufferSize
+		startOffset = 0  -> rowsAlreadyStreamed % bufferSize
+
+		CASE 2:	rowsAlreadyStreamed = 5
+		startPage = 1    -> i.e. all rows already streamedm as startOffset > pakeCOunt
+		startOffset = 0 -> rowsAlreadyStreamed % bufferSize
+
+
 
 		[0,1,2,3,4] [0,1,2,3,4] [0,1,2,x,x]
 
@@ -126,6 +140,11 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 		startPage,
 		startOffset)
 
+	// if startPage > pageCount this must mean that the buffer is full, but we have already written it all
+	// so do nothing
+	if startPage > int(req.pageCount) {
+		return nil, nil
+	}
 	// if start page is the current page, this means we do not need any data written to the cache
 	// just return rows from page buffer
 	if startPage == int(req.pageCount) {
