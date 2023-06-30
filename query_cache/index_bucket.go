@@ -23,10 +23,11 @@ func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {
 
 // Get finds an index item which satisfies all columns
 func (b *IndexBucket) Get(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) *IndexItem {
-	log.Printf("[WARN] IndexBucket.Get %d items", len(b.Items))
+	log.Printf("[INFO] IndexBucket.Get %d items", len(b.Items))
 	for _, item := range b.Items {
-		log.Printf("[INFO] IndexBucket.Get key %s limit %d (%s)", item.Key, item.Limit, req.CallId)
+		//log.Printf("[INFO] IndexBucket.Get key %s limit %d (%s)", item.Key, item.Limit, req.CallId)
 		if item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns) && item.satisfiesTtl(req.TtlSeconds) {
+			//log.Printf("[INFO] IndexBucket.Get CACHE HIT %d items", len(b.Items))
 			return item
 		}
 	}

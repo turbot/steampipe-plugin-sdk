@@ -93,9 +93,7 @@ func (c *QueryCache) createCacheStore(maxCacheStorageMb int, maxTtl time.Duratio
 	return bigcacheStore, nil
 }
 
-func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
-	// TODO KAI timing result wrongly reporting cache hits - checkout
-
+func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamUncachedRowFunc, streamCachedRowFunc func(row *sdkproto.Row)) error {
 	cacheHit := false
 	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", req.Table)
 	defer func() {
@@ -113,7 +111,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	// do we have a cached result?
 	// note: if we find one, this function wil block until all data is streamed
 	// TODO KAI consider moving wait until done to here
-	err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamRowFunc)
+	err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamCachedRowFunc)
 	if err == nil {
 		// only set cache hit if there was no error
 		cacheHit = true
@@ -129,7 +127,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	// there was no cached result - is there data fetch in progress?
 	// If so, subscribe to it (will return a subscriber - or a subscription error if it failed)
 	// If not, create one and subscribe to it (will return a cache miss error)
-	subscriber, err := c.findAndSubscribeToPendingRequest(ctx, indexBucketKey, req, streamRowFunc)
+	subscriber, err := c.findAndSubscribeToPendingRequest(ctx, indexBucketKey, req, streamUncachedRowFunc, streamCachedRowFunc)
 	if err == nil {
 		log.Printf("[INFO] subscribed to pending request")
 		cacheHit = true
@@ -146,7 +144,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamRowFunc f
 	return err
 }
 
-func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (subscriber *setRequestSubscriber, err error) {
+func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, indexBucketKey string, req *CacheRequest, streamUncachedRowFunc, streamCachedRowFunc func(row *sdkproto.Row)) (subscriber *setRequestSubscriber, err error) {
 	log.Printf("[INFO] getCachedQueryResult returned CACHE MISS - checking for pending transfers (%s)", req.CallId)
 
 	// try to get pending item within a read lock
@@ -157,7 +155,7 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 	if pendingItem != nil {
 		// so we have a pending item - subscribe to it
 		log.Printf("[INFO] found pending item [%s] - subscribing to its data (%s)", pendingItem.callId, req.CallId)
-		return c.subscribeToPendingRequest(ctx, pendingItem.pendingSetRequest, req, streamRowFunc)
+		return c.subscribeToPendingRequest(ctx, pendingItem.pendingSetRequest, req, streamCachedRowFunc)
 	}
 
 	// get a write lock in preparation for adding a pending item
@@ -171,13 +169,14 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 		c.pendingDataLock.Unlock()
 
 		// ok NOW there is a pending item - just subscribe to it, returning any error
-		return c.subscribeToPendingRequest(ctx, pendingItem.pendingSetRequest, req, streamRowFunc)
+		return c.subscribeToPendingRequest(ctx, pendingItem.pendingSetRequest, req, streamCachedRowFunc)
 	}
 
 	// so there is still no pending item :(
 
 	// add a pending result so anyone else asking for this data will wait the fetch to complete
-	c.addPendingResult(ctx, indexBucketKey, req, streamRowFunc)
+	// NOTE: pass streamUncachedRowFunc so we do not count these in cached results
+	c.addPendingResult(ctx, indexBucketKey, req, streamUncachedRowFunc)
 
 	// unlock the write lock
 	c.pendingDataLock.Unlock()
@@ -276,7 +275,6 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 
 	// ensure we delete set request from map
 	defer func() {
-		log.Printf("[TRACE] EndSet DEFER (%s) table %s", callId, req.Table)
 		if r := recover(); r != nil {
 			log.Printf("[WARN] QueryCache EndSet suffered a panic: %v", helpers.ToError(r))
 			err = helpers.ToError(r)
@@ -297,6 +295,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 		// wait for all subscribers to complete
 		// this about errors
 		req.waitForSubscribers(ctx)
+		log.Printf("[INFO] EndSet table %s %d rows (%s)", req.Table, req.rowCount, callId)
 	}()
 
 	log.Printf("[TRACE] EndSet (%s) table %s root key %s, pages: %d", callId, req.Table, req.resultKeyRoot, req.pageCount)
@@ -306,8 +305,6 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	if err != nil {
 		log.Printf("[WARN] QueryCache EndSet - result Set failed: %v", err)
 		return err
-	} else {
-		log.Printf("[TRACE] QueryCache EndSet - result written")
 	}
 
 	// mark the request as complete
@@ -325,7 +322,7 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setRequest) error {
 	// get the index bucket for this table and connection
 	indexBucketKey := c.buildIndexKey(req.ConnectionName, req.Table)
-	log.Printf("[WARN] QueryCache EndSet indexBucketKey %s", indexBucketKey)
+	log.Printf("[INFO] QueryCache EndSet UpdateIndex indexBucketKey %s", indexBucketKey)
 
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
@@ -336,7 +333,7 @@ func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setReq
 			return nil
 		}
 
-		log.Printf("[WARN] getCachedIndexBucket returned cache miss (%s)", callId)
+		log.Printf("[INFO] getCachedIndexBucket returned cache miss (%s)", callId)
 	}
 
 	indexItem := NewIndexItem(req.CacheRequest)
@@ -453,13 +450,13 @@ func (c *QueryCache) getCachedIndexBucket(ctx context.Context, key string) (*Ind
 }
 
 func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
-	log.Printf("[WARN] QueryCache getCachedQueryResult - table %s, connectionName %s (%s)", req.Table, req.ConnectionName, req.CallId)
+	log.Printf("[INFO] QueryCache getCachedQueryResult - table %s, connectionName %s (%s)", req.Table, req.ConnectionName, req.CallId)
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
 
-	log.Printf("[WARN] index bucket key: %s ttlSeconds %d limit: %d (%s)", indexBucketKey, req.TtlSeconds, req.Limit, req.CallId)
+	log.Printf("[INFO] index bucket key: %s ttlSeconds %d limit: %d (%s)", indexBucketKey, req.TtlSeconds, req.Limit, req.CallId)
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
-		log.Printf("[WARN] getCachedQueryResult found no index bucket for table %s (%s)", req.Table, req.CallId)
+		log.Printf("[INFO] getCachedQueryResult found no index bucket for table %s (%s)", req.Table, req.CallId)
 		return err
 	}
 

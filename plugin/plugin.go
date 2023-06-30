@@ -377,17 +377,18 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 		log.Printf("[INFO] cacheEnabled, trying cache get (%s)", connectionCallId)
 
 		// create a function to increment cachedRowsFetched and stream a row
-		streamRowFunc := func(row *proto.Row) {
+		streamUncachedRowFunc := queryData.streamRow
+		streamCachedRowFunc := func(row *proto.Row) {
 			// if row is not nil (indicating completion), increment cachedRowsFetched
 			if row != nil {
 				atomic.AddInt64(&queryData.queryStatus.cachedRowsFetched, 1)
 			}
-			queryData.streamRow(row)
+			streamUncachedRowFunc(row)
 		}
 
 		start := time.Now()
 		// try to fetch this data from the query cache
-		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamRowFunc)
+		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamUncachedRowFunc, streamCachedRowFunc)
 		if cacheErr == nil {
 			// so we got a cached result - stream it out
 			log.Printf("[WARN] queryCacheGet returned CACHE HIT (%s)", connectionCallId)

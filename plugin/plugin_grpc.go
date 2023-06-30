@@ -237,7 +237,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 			defer sem.Release(1)
 
-			// execute the scan fo rthisa connection
+			// execute the scan for this connection
 			if err := p.executeForConnection(ctx, req, c, outputChan, logger); err != nil {
 				log.Printf("[WARN] executeForConnection %s returned error %s, writing to CHAN", c, err.Error())
 				//if !error_helpers.IsContextCancelledError(err) {
