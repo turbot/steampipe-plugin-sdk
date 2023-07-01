@@ -13,12 +13,10 @@ import (
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"go.opentelemetry.io/otel/attribute"
-	"golang.org/x/sync/semaphore"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -109,13 +107,18 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamUncachedR
 	log.Printf("[INFO] QueryCache Get - indexBucketKey %s, quals: %s (%s)", indexBucketKey, req.CallId, grpc.QualMapToLogLine(req.QualMap))
 
 	// do we have a cached result?
-	// note: if we find one, this function wil block until all data is streamed
-	// TODO KAI consider moving wait until done to here
-	err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamCachedRowFunc)
+	resultSubscriber, err := c.getCachedQueryResult(ctx, indexBucketKey, req, streamCachedRowFunc)
 	if err == nil {
-		// only set cache hit if there was no error
-		cacheHit = true
-		return nil
+		log.Printf("[INFO] subscribed to cache result request")
+		// wait for all rows to be streamed (or an error)
+		err = resultSubscriber.waitUntilDone(ctx)
+		if err != nil {
+			log.Printf("[WARN] waiting for all cached data failed: %s (%s)", err.Error(), req.CallId)
+		} else {
+			log.Printf("[INFO] All rows streamed (%s)", req.CallId)
+			cacheHit = true
+		}
+		// fall through to return error
 	}
 
 	// if this is not a cache miss, just return the error
@@ -124,19 +127,20 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamUncachedR
 	}
 
 	// so we have a cache miss
+
 	// there was no cached result - is there data fetch in progress?
 	// If so, subscribe to it (will return a subscriber - or a subscription error if it failed)
 	// If not, create one and subscribe to it (will return a cache miss error)
 	subscriber, err := c.findAndSubscribeToPendingRequest(ctx, indexBucketKey, req, streamUncachedRowFunc, streamCachedRowFunc)
 	if err == nil {
 		log.Printf("[INFO] subscribed to pending request")
-		cacheHit = true
 		// wait for all rows to be streamed (or an error)
 		err = subscriber.waitUntilDone()
 		if err != nil {
 			log.Printf("[WARN] waiting for all subscription data failed: %s (%s)", err.Error(), req.CallId)
 		} else {
 			log.Printf("[INFO] All rows streamed (%s)", req.CallId)
+			cacheHit = true
 		}
 		// fall through to return error
 	}
@@ -450,7 +454,7 @@ func (c *QueryCache) getCachedIndexBucket(ctx context.Context, key string) (*Ind
 	return res, nil
 }
 
-func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
+func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey string, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (*cacheResultSubscriber, error) {
 	log.Printf("[INFO] QueryCache getCachedQueryResult - table %s, connectionName %s (%s)", req.Table, req.ConnectionName, req.CallId)
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)
 
@@ -458,7 +462,7 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 	indexBucket, err := c.getCachedIndexBucket(ctx, indexBucketKey)
 	if err != nil {
 		log.Printf("[INFO] getCachedQueryResult found no index bucket for table %s (%s)", req.Table, req.CallId)
-		return err
+		return nil, err
 	}
 
 	// now check whether we have a cache entry that covers the required quals and columns - check the index
@@ -470,107 +474,10 @@ func (c *QueryCache) getCachedQueryResult(ctx context.Context, indexBucketKey st
 		}
 		c.Stats.Misses++
 		log.Printf("[INFO] getCachedQueryResult found no index item- no cached data covers columns %v, limit %s (%s)", req.Columns, limitString, req.CallId)
-		return new(CacheMissError)
+		return nil, new(CacheMissError)
 	}
 
-	return c.getCachedQueryResultFromIndexItem(ctx, indexItem, req, streamRowFunc)
-}
-
-func (c *QueryCache) getCachedQueryResultFromIndexItem(ctx context.Context, indexItem *IndexItem, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) error {
-	// so we have a cache index, retrieve the item
-	log.Printf("[INFO] got an index item - try to retrieve rows from cache (%s)", req.CallId)
-
-	cacheHit := true
-	var errors []error
-	errorChan := make(chan (error), indexItem.PageCount)
-	var wg sync.WaitGroup
-	const maxReadThreads = 5
-	var maxReadSem = semaphore.NewWeighted(maxReadThreads)
-	log.Printf("[INFO] %d pages", indexItem.PageCount)
-
-	// define streaming function
-	streamRows := func(cacheResult *sdkproto.QueryResult) {
-		for _, r := range cacheResult.Rows {
-			// check for context cancellation
-			if error_helpers.IsContextCancelledError(ctx.Err()) {
-				log.Printf("[INFO] getCachedQueryResult context cancelled - returning (%s)", req.CallId)
-				return
-			}
-			streamRowFunc(r)
-		}
-	}
-	// ok so we have an index item - we now stream
-	// ensure the first page exists (evictions start with oldest item so if first page exists, they all exist)
-	pageIdx := 0
-	pageKey := getPageKey(indexItem.Key, pageIdx)
-	var cacheResult = &sdkproto.QueryResult{}
-	if err := doGet[*sdkproto.QueryResult](ctx, pageKey, c.cache, cacheResult); err != nil {
-		return err
-	}
-	// ok it's there, stream rows
-	streamRows(cacheResult)
-	// update page index
-	pageIdx++
-
-	// now fetch the rest (if any), in parallel maxReadThreads at a time
-	for ; pageIdx < int(indexItem.PageCount); pageIdx++ {
-		maxReadSem.Acquire(ctx, 1)
-		wg.Add(1)
-		// construct the page key, _using the index item key as the root_
-		p := getPageKey(indexItem.Key, pageIdx)
-
-		go func(pageKey string) {
-			defer wg.Done()
-			defer maxReadSem.Release(1)
-
-			log.Printf("[TRACE] fetching key: %s", pageKey)
-			var cacheResult = &sdkproto.QueryResult{}
-			if err := doGet[*sdkproto.QueryResult](ctx, pageKey, c.cache, cacheResult); err != nil {
-				if IsCacheMiss(err) {
-					// This is not expected
-					log.Printf("[WARN] getCachedQueryResult - no item retrieved for cache key %s (%s)", pageKey, req.CallId)
-				} else {
-					log.Printf("[WARN] cacheGetResult Get failed %v (%s)", err, req.CallId)
-				}
-				errorChan <- err
-				return
-			}
-
-			log.Printf("[TRACE] got result: %d rows", len(cacheResult.Rows))
-
-			streamRows(cacheResult)
-		}(p)
-	}
-	doneChan := make(chan bool)
-	go func() {
-		wg.Wait()
-		close(doneChan)
-	}()
-
-	for {
-		select {
-		case err := <-errorChan:
-			log.Printf("[WARN] getCachedQueryResult received error: %s (%s)", err.Error(), req.CallId)
-			if IsCacheMiss(err) {
-				cacheHit = false
-			} else {
-				errors = append(errors, err)
-			}
-		case <-doneChan:
-			// any real errors return them
-			if len(errors) > 0 {
-				return helpers.CombineErrors(errors...)
-			}
-			if cacheHit {
-				// this was a hit - return
-				c.Stats.Hits++
-				return nil
-			} else {
-				c.Stats.Misses++
-				return CacheMissError{}
-			}
-		}
-	}
+	return newCacheResultSubscriber(c, indexItem, req, streamRowFunc), nil
 }
 
 func (c *QueryCache) buildIndexKey(connectionName, table string) string {
