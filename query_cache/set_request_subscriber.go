@@ -84,20 +84,20 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 		backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
 
 		for {
-			log.Printf("[INFO] readRowsAsync internal goroutine to read all rows from the publisher and stream them (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
+			//log.Printf("[INFO] readRowsAsync internal goroutine to read all rows from the publisher and stream them (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
 
 			var rowsTostream []*sdkproto.Row
 
 			// get rows available to stream - retry with backoff
 			err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 				var getRowsErr error
-				log.Printf("[INFO] readRowsAsync getting rowsTostream (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
+				//log.Printf("[INFO] readRowsAsync getting rowsTostream (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
 				rowsTostream, getRowsErr = s.getRowsToStream(ctx)
-				log.Printf("[INFO] readRowsAsync rowsTostream %d (%s)", len(rowsTostream), s.callId)
+				//log.Printf("[INFO] readRowsAsync rowsTostream %d (%s)", len(rowsTostream), s.callId)
 				return getRowsErr
 			})
 
-			log.Printf("[INFO] readRowsAsync retry returned %d rows to stream (%s)", len(rowsTostream), s.callId)
+			//log.Printf("[INFO] readRowsAsync retry returned %d rows to stream (%s)", len(rowsTostream), s.callId)
 
 			// getRowsToStream will keep retrying as long as there are still rows to stream or there is an error
 			if len(rowsTostream) == 0 {
@@ -105,15 +105,16 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 				if err != nil {
 					log.Printf("[WARN] readRowsAsync failed to read previous rows from cache: %s publisher %s (%s)", err, s.publisher.CallId, s.callId)
 					errChan <- err
-				} else {
-					log.Printf("[INFO] readRowsAsync no more rows to stream - publisher %s (%s)", s.publisher.CallId, s.callId)
 				}
+				//else {
+				//log.Printf("[INFO] readRowsAsync no more rows to stream - publisher %s (%s)", s.publisher.CallId, s.callId)
+				//}
 				// to get here, publisdher has no more rows
 				// exit the goroutine
 				return
 			}
 
-			log.Printf("[INFO] readRowsAsync about to stream %d (rows streamed %d) (%s)", len(rowsTostream), s.rowsStreamed, s.callId)
+			//log.Printf("[INFO] readRowsAsync about to stream %d (rows streamed %d) (%s)", len(rowsTostream), s.rowsStreamed, s.callId)
 
 			for _, row := range rowsTostream {
 
@@ -152,7 +153,7 @@ func (s *setRequestSubscriber) getRowsToStream(ctx context.Context) ([]*sdkproto
 		return nil, retry.RetryableError(fmt.Errorf("no rows available to stream"))
 	}
 
-	log.Printf("[INFO] getRowsToStream returning %d (%s)", len(rowsTostream), s.callId)
+	//log.Printf("[INFO] getRowsToStream returning %d (%s)", len(rowsTostream), s.callId)
 	// ok we have rows
 	return rowsTostream, nil
 }

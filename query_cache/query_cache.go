@@ -112,16 +112,18 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamUncachedR
 		log.Printf("[INFO] subscribed to cache result request")
 		// wait for all rows to be streamed (or an error)
 		err = resultSubscriber.waitUntilDone(ctx)
-		if err != nil {
-			log.Printf("[WARN] waiting for all cached data failed: %s (%s)", err.Error(), req.CallId)
-		} else {
+		if err == nil {
+			// Success!
 			log.Printf("[INFO] All rows streamed (%s)", req.CallId)
 			cacheHit = true
+			return nil
 		}
+
 		// fall through to return error
+		log.Printf("[WARN] waiting for all cached data failed: %s (%s)", err.Error(), req.CallId)
 	}
 
-	// if this is not a cache miss, just return the error
+	// if there IS an error which is NOT a cache miss, just return the error
 	if !IsCacheMiss(err) {
 		return err
 	}
@@ -253,7 +255,7 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 		return err
 	}
 
-	log.Printf("[INFO] IterateSet rowCount %d", req.rowCount)
+	//log.Printf("[INFO] IterateSet rowCount %d", req.rowCount)
 
 	// if we have buffered a page, write to cache
 	if req.bufferIndex == rowBufferSize {

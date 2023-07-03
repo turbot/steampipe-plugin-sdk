@@ -165,8 +165,8 @@ func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 
 		return row, nil
 	case <-time.After(hydrateTimeout):
-		log.Printf("[WARN] waitForHydrateCallsToComplete timed out after %ds (%s)", hydrateTimeout.Seconds(), r.queryData.connectionCallId)
-		return nil, fmt.Errorf("waitForHydrateCallsToComplete timed out after %ss", hydrateTimeout.Seconds())
+		log.Printf("[WARN] waitForHydrateCallsToComplete timed out after %fs (%s)", hydrateTimeout.Seconds(), r.queryData.connectionCallId)
+		return nil, fmt.Errorf("waitForHydrateCallsToComplete timed out after %fs", hydrateTimeout.Seconds())
 	}
 }
 

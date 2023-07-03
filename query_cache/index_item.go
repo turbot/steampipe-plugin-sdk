@@ -2,7 +2,6 @@ package query_cache
 
 import (
 	"log"
-	"strings"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
@@ -38,7 +37,7 @@ func (i IndexItem) satisfiesRequest(columns []string, limit int64, qualMap map[s
 	satisfiesLimit := i.satisfiesLimit(limit)
 	satisfiesQuals := i.satisfiesQuals(qualMap, keyColumns)
 
-	log.Printf("[INFO] IndexItem satisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v", satisfiedColumns, satisfiesLimit, satisfiesQuals)
+	//log.Printf("[INFO] IndexItem satisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v", satisfiedColumns, satisfiesLimit, satisfiesQuals)
 	return satisfiedColumns && satisfiesLimit && satisfiesQuals
 }
 
@@ -53,7 +52,7 @@ func (i IndexItem) satisfiedByRequest(req *CacheRequest, keyColumns map[string]*
 func (i IndexItem) satisfiesColumns(columns []string) bool {
 	for _, c := range columns {
 		if !helpers.StringSliceContains(i.Columns, c) {
-			log.Printf("[INFO] satisfiesColumns returning false - %s missing from %s", c, strings.Join(i.Columns, ","))
+			//log.Printf("[INFO] satisfiesColumns returning false - %s missing from %s", c, strings.Join(i.Columns, ","))
 			return false
 		}
 	}
@@ -65,7 +64,7 @@ func (i IndexItem) satisfiesColumns(columns []string) bool {
 func (i IndexItem) satisfiesLimit(limit int64) bool {
 	// if index item has is no limit, it will be -1
 	if i.Limit == -1 {
-		log.Printf("[INFO] satisfiesLimit limit %d, no item limit - satisfied", limit)
+		//log.Printf("[INFO] satisfiesLimit limit %d, no item limit - satisfied", limit)
 		return true
 	}
 	log.Printf("[TRACE] satisfiesLimit limit %d, item limit %d ", limit, i.Limit)
@@ -99,30 +98,30 @@ func (i IndexItem) satisfiesLimit(limit int64) bool {
 func (i IndexItem) satisfiesQuals(checkQualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
 	qualsString := grpc.QualMapToLogLine(i.Quals)
 
-	log.Printf("[INFO] satisfiesQuals, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
+	//log.Printf("[INFO] satisfiesQuals, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 
 	if i.Limit != -1 {
 		res := grpc.QualMapsEqual(checkQualMap, i.Quals)
-		log.Printf("[INFO] there is a limit so quals must be identical to satisfy - result: %v", res)
+		//log.Printf("[INFO] there is a limit so quals must be identical to satisfy - result: %v", res)
 		return res
 	}
 
 	for col, indexQuals := range i.Quals {
-		log.Printf("[INFO] col %s", col)
+		//log.Printf("[INFO] col %s", col)
 		// if we have quals the check quals do not, we DO NOT satisfy
 		checkQuals, ok := checkQualMap[col]
 		var isSubset bool
 		if ok {
 			isSubset = checkQuals.IsASubsetOf(indexQuals)
 			// isSubset means all data returned by check quals is returned by index quals
-			log.Printf("[INFO] satisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
-			log.Printf("[INFO] indexQuals %+v, checkQuals %+v, isSubset %v", indexQuals, checkQuals, isSubset)
+			//log.Printf("[INFO] satisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
+			//log.Printf("[INFO] indexQuals %+v, checkQuals %+v, isSubset %v", indexQuals, checkQuals, isSubset)
 		} else {
-			log.Printf("[INFO] satisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED", col)
+			//log.Printf("[INFO] satisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED", col)
 		}
-		log.Printf("[INFO] get check qual %v, isSubset %v", ok, isSubset)
+		//log.Printf("[INFO] get check qual %v, isSubset %v", ok, isSubset)
 		if !ok || !isSubset {
-			log.Printf("[INFO] satisfiesQuals FALSE, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
+			//log.Printf("[INFO] satisfiesQuals FALSE, limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 			return false
 		}
 	}
@@ -133,7 +132,7 @@ func (i IndexItem) satisfiesQuals(checkQualMap map[string]*proto.Quals, keyColum
 		if keyColumn, ok := keyColumns[col]; ok && keyColumn.CacheMatch == CacheMatchExact {
 			quals, ok := i.Quals[col]
 			if !ok || !quals.Equals(checkQuals) {
-				log.Printf("[INFO] satisfiesQuals FALSE, same qual does not exist in cached data - limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
+				//log.Printf("[INFO] satisfiesQuals FALSE, same qual does not exist in cached data - limit %d, columns %v, quals %s", i.Limit, i.Columns, qualsString)
 				return false
 			}
 		}
