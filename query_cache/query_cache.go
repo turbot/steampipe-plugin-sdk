@@ -135,7 +135,7 @@ func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamUncachedR
 	// If not, create one and subscribe to it (will return a cache miss error)
 	subscriber, err := c.findAndSubscribeToPendingRequest(ctx, indexBucketKey, req, streamUncachedRowFunc, streamCachedRowFunc)
 	if err == nil {
-		log.Printf("[INFO] subscribed to pending request")
+		log.Printf("[TRACE] subscribed to pending request")
 		// wait for all rows to be streamed (or an error)
 		err = subscriber.waitUntilDone()
 		if err != nil {
@@ -193,7 +193,7 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 }
 
 func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingSetRequest *setRequest, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (subscriber *setRequestSubscriber, err error) {
-	log.Printf("[INFO] subscribeToPendingRequest table %s (%s)", req.Table, req.CallId)
+	log.Printf("[TRACE] subscribeToPendingRequest table %s (%s)", req.Table, req.CallId)
 
 	// create a subscriber
 	subscriber = newSetRequestSubscriber(streamRowFunc, req.CallId, req.StreamContext, pendingSetRequest)
@@ -221,7 +221,6 @@ func (c *QueryCache) startSet(ctx context.Context, req *CacheRequest, streamRowF
 	setRequest := newSetRequest(req, c)
 
 	// now subscribe to the set request so data streamed to the request is also send back to client
-	log.Printf("[INFO] calling subscribeToPendingRequest (%s)", req.CallId)
 	// NOTE: ignore error as subscribeToPendingRequest can only fail when
 	// the set request has buffered data already which we fail to copy
 	// that cannot happen in this case
@@ -231,7 +230,6 @@ func (c *QueryCache) startSet(ctx context.Context, req *CacheRequest, streamRowF
 	// decouple the reading of the data (by Postgres) and the writing if the scan rows into the cache
 	// if we do not do this, writing to the cache can be blocked if postgres stops reading rows for the initial scan
 	_, _ = c.subscribeToPendingRequest(ctx, setRequest, req, streamRowFunc)
-	log.Printf("[INFO] done subscribeToPendingRequest (%s)", req.CallId)
 
 	// lock the set request map
 	c.setRequestMapLock.Lock()
@@ -255,7 +253,7 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 		return err
 	}
 
-	//log.Printf("[INFO] IterateSet rowCount %d", req.rowCount)
+	log.Printf("[TRACE] IterateSet rowCount %d", req.rowCount)
 
 	// if we have buffered a page, write to cache
 	if req.bufferIndex == rowBufferSize {
@@ -348,7 +346,7 @@ func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setReq
 		indexBucket = newIndexBucket()
 	}
 	indexBucket.Append(indexItem)
-	log.Printf("[WARN] QueryCache EndSet - Added index item to bucket, row count: %d, table: %s, quals: %s, bucket items: %d (%s)", req.rowCount, req.Table, grpc.QualMapToLogLine(req.QualMap), len(indexBucket.Items), callId)
+	log.Printf("[INFO] QueryCache EndSet - Added index item to bucket, row count: %d, table: %s, quals: %s, bucket items: %d (%s)", req.rowCount, req.Table, grpc.QualMapToLogLine(req.QualMap), len(indexBucket.Items), callId)
 
 	// write index bucket back to cache
 	err = c.cacheSetIndexBucket(ctx, indexBucketKey, indexBucket, req.CacheRequest)

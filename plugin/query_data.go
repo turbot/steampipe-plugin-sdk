@@ -716,9 +716,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// if we are caching stream this row to the cache - this will stream it to all subscribers
 			// (including ourselves)
 			if d.cacheEnabled {
-				if d.Table.Name == "github_my_repository" {
-					log.Printf("[INFO] streamRows calling iterate set")
-				}
 				err := d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
 
 				// if there are no subscribers to the setRequest, cancel the scan and abort the set request
@@ -729,9 +726,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 					// abort the set operation
 					d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
 					return ctx.Err()
-				}
-				if d.Table.Name == "github_my_repository" {
-					log.Printf("[INFO] streamRows AFTER iterate set")
 				}
 			} else {
 				// if cache is disabled just stream the row across GRPC

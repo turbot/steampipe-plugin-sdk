@@ -154,15 +154,6 @@ func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 		log.Printf("[WARN] hydrate error chan select: %s (%s)", r.queryData.connectionCallId, err)
 		return nil, err
 	case <-r.waitChan:
-		//if r.queryData.Table.Name == "github_my_repository" {
-		//	rl2.Lock()
-		//	//if rowmap[r.queryData.connectionCallId]%10 == 0 {
-		//	//}
-		//	rowmap2[r.queryData.connectionCallId]++
-		//	//log.Printf("[INFO] waitForHydrateCallsToComplete hydrate complete for %dth row (%s)", rowmap2[r.queryData.connectionCallId], r.queryData.connectionCallId)
-		//	rl2.Unlock()
-		//}
-
 		return row, nil
 	case <-time.After(hydrateTimeout):
 		log.Printf("[WARN] waitForHydrateCallsToComplete timed out after %fs (%s)", hydrateTimeout.Seconds(), r.queryData.connectionCallId)

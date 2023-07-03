@@ -432,7 +432,6 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	queryData.buildRowsAsync(ctx, rowChan, doneChan)
 
 	//  stream rows either into cache (if enabled) or back across GRPC (if not)
-	log.Printf("[INFO] streamRows (%s)", connectionCallId)
 	logging.LogTime("Calling streamRows")
 
 	err = queryData.streamRows(ctx, rowChan, doneChan)

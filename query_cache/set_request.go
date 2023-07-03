@@ -133,12 +133,12 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 	startPage := rowsAlreadyStreamed / rowBufferSize
 	startOffset := rowsAlreadyStreamed % rowBufferSize
 
-	//log.Printf("[INFO] setRequest getRowsSince rowsAlreadyStreamed: %d, req.pageCount: %d, req.bufferIndex: %d, startPage: %d startOffset: %d, ",
-	//	rowsAlreadyStreamed,
-	//	req.pageCount,
-	//	req.bufferIndex,
-	//	startPage,
-	//	startOffset)
+	log.Printf("[TRACE] setRequest getRowsSince rowsAlreadyStreamed: %d, req.pageCount: %d, req.bufferIndex: %d, startPage: %d startOffset: %d, ",
+		rowsAlreadyStreamed,
+		req.pageCount,
+		req.bufferIndex,
+		startPage,
+		startOffset)
 
 	// if startPage > pageCount this must mean that the buffer is full, but we have already written it all
 	// so do nothing
@@ -148,7 +148,7 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 	// if start page is the current page, this means we do not need any data written to the cache
 	// just return rows from page buffer
 	if startPage == int(req.pageCount) {
-		//log.Printf("[INFO] setRequest getRowsSince returning %d from buffer", req.bufferIndex-startOffset)
+		log.Printf("[TRACE] setRequest getRowsSince returning %d from buffer", req.bufferIndex-startOffset)
 		bufferedRows := req.getBufferedRows()
 		// apply the start offset
 		return bufferedRows[startOffset:], nil
@@ -179,7 +179,7 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 	// now add any rows from the page buffer
 	res = append(res, req.getBufferedRows()...)
 
-	//log.Printf("[INFO] setRequest getRowsSince returning %d", len(res))
+	log.Printf("[TRACE] setRequest getRowsSince returning %d", len(res))
 	return res, nil
 }
 
