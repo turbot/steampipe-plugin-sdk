@@ -313,8 +313,8 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	if cacheEnabled {
 		// get a fresh context which includes telemetry data and logger
 		ctx, cancel = context.WithCancel(context.Background())
-		ctx = p.buildExecuteContext(context.Background(), req, logger)
 	}
+	ctx = p.buildExecuteContext(ctx, req, logger)
 
 	logging.LogTime("Start execute")
 

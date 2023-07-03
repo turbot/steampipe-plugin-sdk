@@ -687,9 +687,9 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
 				if cacheErr != nil {
 					// just log error, do not fail
-					log.Printf("[WARN] cache set failed: %v", cacheErr)
+					log.Printf("[WARN] cache EndSet failed: %v", cacheErr)
 				} else {
-					log.Printf("[TRACE] cache set succeeded")
+					log.Printf("[TRACE] cache EndSet succeeded")
 				}
 			}
 		}
