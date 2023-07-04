@@ -1,3 +1,8 @@
+## v5.6.0 [tbd]
+_Bug fixes_
+* Fix cache deadlock caused when the same table is scanned multiple times, and Postgres does not iterate the first scan. 
+Update the query cache to make all scans a subscriber of the cache request, and decouple the reading ands writing of cached data . ([#586](https://github.com/turbot/steampipe-plugin-sdk/issues/586))
+
 ## v5.5.0 [2023-06-16]
 _What's new_
 * Update cache pending item implementation. ([#564](https://github.com/turbot/steampipe-plugin-sdk/issues/564),[#566](https://github.com/turbot/steampipe-plugin-sdk/issues/566)) 
