@@ -73,13 +73,6 @@ func (r *rowData) getRow(ctx context.Context) (*proto.Row, error) {
 
 // keep looping round hydrate functions until they are all started
 func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData *QueryData) error {
-
-	//if r.queryData.Table.Name == "github_my_repository" && len(r.queryData.hydrateCalls) > 0 {
-	//	log.Printf("[WARN] startAllHydrateCalls %s", r.queryData.Table.Name)
-	//	for _, h := range r.queryData.hydrateCalls {
-	//		log.Printf("[WARN] %s", h.Name)
-	//	}
-	//}
 	// make a map of started hydrate calls for this row - this is used to determine which calls have not started yet
 	var callsStarted = map[string]bool{}
 
@@ -141,12 +134,6 @@ func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 		}
 		close(r.waitChan)
 	}()
-
-	//if r.queryData.Table.Name == "github_my_repository" {
-	//	rl2.Lock()
-	//	log.Printf("[INFO] waitForHydrateCallsToComplete waiting %dth row (%s)", rowmap2[r.queryData.connectionCallId]+1, r.queryData.connectionCallId)
-	//	rl2.Unlock()
-	//}
 
 	// select both wait chan and error chan
 	select {

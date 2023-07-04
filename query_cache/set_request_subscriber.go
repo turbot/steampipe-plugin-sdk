@@ -156,7 +156,7 @@ func (s *setRequestSubscriber) getRowsToStream(ctx context.Context) ([]*sdkproto
 }
 
 func (s *setRequestSubscriber) waitUntilDone() error {
-	// TODO KAI this crash causes plugin manager to shutdown????
+	// TODO [pending_cache] this crash causes plugin manager to shutdown????
 	//log.Printf("[WARN] waitUntilDone received an error from setRequest %s: %s (%s)", s.publisher.CallId, err.Error(), s.callId)
 	log.Printf("[INFO] waitUntilDone  (%s)", s.callId)
 	select {

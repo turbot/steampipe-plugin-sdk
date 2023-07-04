@@ -359,8 +359,7 @@ func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setReq
 }
 
 func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
-	// TODO KAI do we need to set complete
-
+	// TODO [pending_cache] do we need to set complete
 	c.setRequestMapLock.Lock()
 	// get the ongoing request
 	req, ok := c.setRequests[callId]
