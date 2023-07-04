@@ -18,6 +18,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )
 
@@ -130,6 +131,9 @@ type QueryData struct {
 	// temp dir for the connection
 	tempDir         string
 	reservedColumns map[string]struct{}
+	// cancel the execution context
+	// (this is only used if the cache is enabled - if a set request has no subscribers)
+	cancel context.CancelFunc
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -625,11 +629,11 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 				logging.LogTime("got rowData - calling getRow")
 				// is there any more data?
 				if rowData == nil {
-					log.Printf("[TRACE] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
+					log.Printf("[INFO] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
 					// now we know there will be no more items, close row chan when the wait group is complete
 					// this allows time for all hydrate goroutines to complete
 					d.waitForRowsToComplete(&rowWg, rowChan)
-					log.Printf("[TRACE] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
+					log.Printf("[INFO] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
 					return
 				}
@@ -641,18 +645,17 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 	}()
 }
 
-// read rows from rowChan and stream back across GRPC
-// (also return the rows so we can cache them when complete)
+// read rows from rowChan and stream either intop the cache (if enabled) or back across GRPC if not
 func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, doneChan chan bool) (err error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "QueryData.streamRows (%s)", d.Table.Name)
 	defer span.End()
 
-	log.Printf("[TRACE] QueryData streamRows (%s)", d.connectionCallId)
+	log.Printf("[INFO] QueryData streamRows (%s)", d.connectionCallId)
 
 	defer func() {
 		// tell the concurrency manage we are done (it may log the concurrency stats)
 		d.concurrencyManager.Close()
-		log.Printf("[TRACE] QueryData streamRows DONE (%s)", d.connectionCallId)
+		log.Printf("[INFO] QueryData streamRows DONE (%s)", d.connectionCallId)
 
 		// if there is an error or cancellation, abort the pending set
 		// if the context is cancelled and the parent callId is in the list of completed executions,
@@ -662,11 +665,12 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// use the context error instead
 			err = ctx.Err()
 		}
+		// now recheck error
 		if err != nil {
 			if error_helpers.IsContextCancelledError(err) {
-				log.Printf("[TRACE] streamRows for %s - execution has been cancelled - calling queryCache.AbortSet", d.connectionCallId)
+				log.Printf("[INFO] streamRows execution has been cancelled - calling queryCache.AbortSet (%s)", d.connectionCallId)
 			} else {
-				log.Printf("[WARN] streamRows for %s - execution has failed (%s) - calling queryCache.AbortSet", d.connectionCallId, err.Error())
+				log.Printf("[WARN] streamRows execution has failed: %s - calling queryCache.AbortSet (%s)", d.connectionCallId, err.Error())
 			}
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
 		} else {
@@ -675,9 +679,9 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
 				if cacheErr != nil {
 					// just log error, do not fail
-					log.Printf("[WARN] cache set failed: %v", cacheErr)
+					log.Printf("[WARN] cache EndSet failed: %v", cacheErr)
 				} else {
-					log.Printf("[TRACE] cache set succeeded")
+					log.Printf("[TRACE] cache EndSet succeeded")
 				}
 			}
 		}
@@ -695,27 +699,37 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// return what we have sent
 			return err
 		case row := <-rowChan:
-			//log.Printf("[WARN] got row")
-
-			// stream row (even if it is nil)
-			//d.streamRow(row)
 
 			// nil row means we are done streaming
 			if row == nil {
-				log.Printf("[TRACE] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
+				log.Printf("[INFO] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
 				return nil
 			}
-			// if we are caching stream this row to the cache as well
+			// if we are caching stream this row to the cache - this will stream it to all subscribers
+			// (including ourselves)
 			if d.cacheEnabled {
-				d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
-			}
+				err := d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
 
-			// stream row
-			d.streamRow(row)
+				// if there are no subscribers to the setRequest, cancel the scan and abort the set request
+				// (this deletes already-cached pages)
+				if _, noSubscribers := err.(query_cache.NoSubscribersError); noSubscribers {
+					log.Printf("[INFO] streamRows - set request has no subscribers, cancelling the scan (%s)", d.connectionCallId)
+					d.cancel()
+					// abort the set operation
+					d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
+					return ctx.Err()
+				}
+			} else {
+				// if cache is disabled just stream the row across GRPC
+				// stream row
+				d.streamRow(row)
+			}
 		}
 	}
-
 }
+
+var streamRowMap = make(map[string]int)
+var streamRowMapLock = sync.Mutex{}
 
 func (d *QueryData) streamRow(row *proto.Row) {
 	resp := &proto.ExecuteResponse{
@@ -728,6 +742,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 		},
 		Connection: d.Connection.Name,
 	}
+
 	d.outputChan <- resp
 }
 
@@ -736,17 +751,24 @@ func (d *QueryData) streamError(err error) {
 	d.errorChan <- err
 }
 
+var buildRowMap = make(map[string]int)
+var buildRowMapLock = sync.Mutex{}
+
 // execute necessary hydrate calls to populate row data
 func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
+				log.Printf("[INFO] buildRowAsync recovered panic %v (%s)", r, d.connectionCallId)
 				d.streamError(helpers.ToError(r))
 			}
 			wg.Done()
+			buildRowMapLock.Lock()
+			buildRowMap[d.connectionCallId]++
+			buildRowMapLock.Unlock()
 		}()
 		if rowData == nil {
-			log.Printf("[TRACE] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
+			log.Printf("[INFO] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
 			rowChan <- nil
 			return
 		}

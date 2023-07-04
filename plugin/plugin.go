@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -21,7 +20,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
@@ -264,7 +262,7 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	return nil
 }
 
-func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteRequest, connectionName string, outputChan chan *proto.ExecuteResponse) (err error) {
+func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.ExecuteRequest, connectionName string, outputChan chan *proto.ExecuteResponse, logger hclog.Logger) (err error) {
 	const rowBufferSize = 10
 	var rowChan = make(chan *proto.Row, rowBufferSize)
 
@@ -272,20 +270,16 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 
 	// build callId for this connection (this is necessary is the plugin Execute call may be for an aggregator connection)
 	connectionCallId := p.getConnectionCallId(req.CallId, connectionName)
-	// when done, remove call id from map
-	defer p.clearCallId(connectionCallId)
 
 	log.Printf("[INFO] executeForConnection callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 
 	defer func() {
-		log.Printf("[TRACE] executeForConnection DEFER (%s) ", connectionCallId)
 		if r := recover(); r != nil {
-			log.Printf("[WARN] Execute recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
+			log.Printf("[WARN] executeForConnection recover from panic: callId: %s table: %s error: %v", connectionCallId, req.Table, r)
 			err = helpers.ToError(r)
 			return
 		}
-
-		log.Printf("[TRACE] Execute complete callId: %s table: %s ", connectionCallId, req.Table)
+		log.Printf("[INFO] executeForConnection COMPLETE callId: %s, connectionCallId: %s, connection: %s table: %s cols: %s ", req.CallId, connectionCallId, connectionName, req.Table, strings.Join(req.QueryContext.Columns, ","))
 	}()
 
 	// the connection property must be set already
@@ -312,6 +306,16 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 			log.Printf("[INFO] caching is disabled for table %s", table.Name)
 		}
 	}
+
+	//  if cache NOT disabled, create a fresh context for this scan
+	ctx := streamContext
+	var cancel context.CancelFunc
+	if cacheEnabled {
+		// get a fresh context which includes telemetry data and logger
+		ctx, cancel = context.WithCancel(context.Background())
+	}
+	ctx = p.buildExecuteContext(ctx, req, logger)
+
 	logging.LogTime("Start execute")
 
 	queryContext := NewQueryContext(req.QueryContext, limitParam, cacheEnabled, cacheTTL, table)
@@ -335,6 +339,10 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 	if err != nil {
 		return err
 	}
+
+	// set the cancel func on the query data
+	// (this is only used if the cache is enabled - if a set request has no subscribers)
+	queryData.cancel = cancel
 
 	// get the matrix item
 	log.Printf("[TRACE] GetMatrixItem")
@@ -362,23 +370,25 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		ConnectionName: connectionName,
 		TtlSeconds:     queryContext.CacheTTL,
 		CallId:         connectionCallId,
+		StreamContext:  streamContext,
 	}
 	// can we satisfy this request from the cache?
 	if cacheEnabled {
 		log.Printf("[INFO] cacheEnabled, trying cache get (%s)", connectionCallId)
 
 		// create a function to increment cachedRowsFetched and stream a row
-		streamRowFunc := func(row *proto.Row) {
+		streamUncachedRowFunc := queryData.streamRow
+		streamCachedRowFunc := func(row *proto.Row) {
 			// if row is not nil (indicating completion), increment cachedRowsFetched
 			if row != nil {
 				atomic.AddInt64(&queryData.queryStatus.cachedRowsFetched, 1)
 			}
-			queryData.streamRow(row)
+			streamUncachedRowFunc(row)
 		}
 
 		start := time.Now()
 		// try to fetch this data from the query cache
-		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamRowFunc)
+		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamUncachedRowFunc, streamCachedRowFunc)
 		if cacheErr == nil {
 			// so we got a cached result - stream it out
 			log.Printf("[INFO] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
@@ -393,45 +403,40 @@ func (p *Plugin) executeForConnection(ctx context.Context, req *proto.ExecuteReq
 		}
 
 		// so the cache call failed, with either a cache-miss or other error
-		if query_cache.IsCacheMiss(cacheErr) {
-			log.Printf("[TRACE] cache MISS")
-		} else if errors.Is(cacheErr, error_helpers.QueryError{}) {
-			// if this is a QueryError, this means the pending item we were waitign for failed
-			// > we also fail
+		if !query_cache.IsCacheMiss(cacheErr) {
+			log.Printf("[WARN] queryCacheGet returned err %s", cacheErr.Error())
 			return cacheErr
-		} else {
-			// otherwise just log the cache error
-			log.Printf("[TRACE] queryCacheGet returned err %s", cacheErr.Error())
 		}
-
+		// otherwise just log the cache miss error
 		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 	} else {
-		log.Printf("[INFO] Cache DISABLED connectionCallId: %s", connectionCallId)
+		log.Printf("[INFO] Cache DISABLED (%s)", connectionCallId)
 	}
 
+	// so we need to fetch the data
+
 	// asyncronously fetch items
-	log.Printf("[TRACE] calling fetchItems, table: %s, matrixItem: %v, limit: %d,  connectionCallId: %s\"", table.Name, queryData.Matrix, limit, connectionCallId)
+	log.Printf("[INFO] calling fetchItems, table: %s, matrixItem: %v, limit: %d  (%s)", table.Name, queryData.Matrix, limit, connectionCallId)
 	if err := table.fetchItems(ctx, queryData); err != nil {
 		log.Printf("[WARN] fetchItems returned an error, table: %s, error: %v", table.Name, err)
 		return err
 
 	}
-	logging.LogTime("Calling build Rows")
-
-	log.Printf("[TRACE] buildRowsAsync connectionCallId: %s", connectionCallId)
 
 	// asyncronously build rows
+	logging.LogTime("Calling build Rows")
+	log.Printf("[TRACE] buildRowsAsync (%s)", connectionCallId)
+
 	// channel used by streamRows when it receives an error to tell buildRowsAsync to stop
 	doneChan := make(chan bool)
 	queryData.buildRowsAsync(ctx, rowChan, doneChan)
 
-	log.Printf("[TRACE] streamRows connectionCallId: %s", connectionCallId)
-
+	//  stream rows either into cache (if enabled) or back across GRPC (if not)
 	logging.LogTime("Calling streamRows")
 
-	//  stream rows across GRPC
 	err = queryData.streamRows(ctx, rowChan, doneChan)
 	if err != nil {
+		log.Printf("[WARN] queryData.streamRows returned error: %s", err.Error())
 		return err
 	}
 
@@ -569,26 +574,25 @@ func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
 	return res
 }
 
-func (p *Plugin) getConnectionCallId(callId string, connectionName string) string {
-	// add connection name onto call id
-	connectionCallId := grpc.BuildConnectionCallId(callId, connectionName)
+// ensure callId is unique fo rthis plugin instance - important as it is used to key set requests
+func (p *Plugin) getUniqueCallId(callId string) string {
 	// store as orig as we may mutate connectionCallId to dedupe
-	orig := connectionCallId
+	orig := callId
 	// check if it unique - this is crucial as it is used to key 'set requests` in the query cache
 	idx := 0
 	p.callIdLookupMut.RLock()
 	for {
-		if _, callIdExists := p.callIdLookup[connectionCallId]; !callIdExists {
+		if _, callIdExists := p.callIdLookup[callId]; !callIdExists {
 			// release read lock and get a write lock
 			p.callIdLookupMut.RUnlock()
 			p.callIdLookupMut.Lock()
 
 			// recheck as ther eis a race condition to acquire a write lockm
-			if _, callIdExists := p.callIdLookup[connectionCallId]; !callIdExists {
+			if _, callIdExists := p.callIdLookup[callId]; !callIdExists {
 				// store in map
-				p.callIdLookup[connectionCallId] = struct{}{}
+				p.callIdLookup[callId] = struct{}{}
 				p.callIdLookupMut.Unlock()
-				return connectionCallId
+				return callId
 			}
 
 			// someone must have got in there before us - downgrade lock again
@@ -596,15 +600,21 @@ func (p *Plugin) getConnectionCallId(callId string, connectionName string) strin
 			p.callIdLookupMut.RLock()
 		}
 		// so the id exists already - add a suffix
-		log.Printf("[WARN] getConnectionCallId duplicate call id %s - adding suffix", connectionCallId)
-		connectionCallId = fmt.Sprintf("%s%d", orig, idx)
+		log.Printf("[WARN] getUniqueCallId duplicate call id %s - adding suffix", callId)
+		callId = fmt.Sprintf("%s%d", orig, idx)
 		idx++
 
 	}
 	p.callIdLookupMut.RUnlock()
-	return connectionCallId
+	return callId
 }
 
+func (p *Plugin) getConnectionCallId(callId string, connectionName string) string {
+	// add connection name onto call id
+	return grpc.BuildConnectionCallId(callId, connectionName)
+}
+
+// remove callId from callIdLookup
 func (p *Plugin) clearCallId(connectionCallId string) {
 	p.callIdLookupMut.Lock()
 	delete(p.callIdLookup, connectionCallId)

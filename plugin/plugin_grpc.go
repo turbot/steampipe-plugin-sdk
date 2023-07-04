@@ -178,13 +178,19 @@ func (p *Plugin) getSchema(connectionName string) (*grpc.PluginSchema, error) {
 //
 // This is the handler function for the execute GRPC function.
 func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+	ctx := stream.Context()
 	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
 
-	log.Printf("[INFO] Plugin execute table: %s  (%s)", req.Table, req.CallId)
+	// dedupe the call id
+	req.CallId = p.getUniqueCallId(req.CallId)
+	// when done, remove call id from map
+	defer p.clearCallId(req.CallId)
+
+	log.Printf("[INFO] Plugin execute table: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
 	// limit the plugin memory
@@ -194,11 +200,8 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
-	//doneChan := make(chan bool)
-	var outputWg sync.WaitGroup
 
-	// get a context which includes telemetry data and logger
-	ctx := p.buildExecuteContext(stream.Context(), req, logger)
+	var outputWg sync.WaitGroup
 
 	// control how many connections are executed in parallel
 	maxConcurrentConnections := getMaxConcurrentConnections()
@@ -234,10 +237,9 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			}
 			defer sem.Release(1)
 
-			if err := p.executeForConnection(ctx, req, c, outputChan); err != nil {
-				if !error_helpers.IsContextCancelledError(err) {
-					log.Printf("[WARN] executeForConnection %s returned error %s", c, err.Error())
-				}
+			// execute the scan for this connection
+			if err := p.executeForConnection(ctx, req, c, outputChan, logger); err != nil {
+				log.Printf("[WARN] executeForConnection %s returned error %s, writing to CHAN", c, err.Error())
 				errorChan <- err
 			}
 			log.Printf("[TRACE] executeForConnection %s returned", c)
@@ -280,6 +282,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 	}
 
+	log.Printf("[INFO] Plugin execute table: %s closing error chan and output chan  (%s)", req.Table, req.CallId)
 	close(outputChan)
 	close(errorChan)
 

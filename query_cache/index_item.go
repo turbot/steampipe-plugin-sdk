@@ -32,19 +32,19 @@ func NewIndexItem(req *CacheRequest) *IndexItem {
 	}
 }
 
-func (i IndexItem) SatisfiesRequest(columns []string, limit int64, qualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
+func (i IndexItem) satisfiesRequest(columns []string, limit int64, qualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
 	satisfiedColumns := i.satisfiesColumns(columns)
 	satisfiesLimit := i.satisfiesLimit(limit)
 	satisfiesQuals := i.satisfiesQuals(qualMap, keyColumns)
 
-	log.Printf("[TRACE] IndexItem) SatisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v", satisfiedColumns, satisfiesLimit, satisfiesQuals)
+	log.Printf("[TRACE] IndexItem satisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v", satisfiedColumns, satisfiesLimit, satisfiesQuals)
 	return satisfiedColumns && satisfiesLimit && satisfiesQuals
 }
 
-func (i IndexItem) SatisfiedByRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
+func (i IndexItem) satisfiedByRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
 	// make an index item for the request
 	requestIndexItem := NewIndexItem(req)
-	return requestIndexItem.SatisfiesRequest(i.Columns, i.Limit, i.Quals, keyColumns)
+	return requestIndexItem.satisfiesRequest(i.Columns, i.Limit, i.Quals, keyColumns)
 }
 
 // satisfiesColumns returns whether this index item satisfies the given columns
@@ -107,15 +107,14 @@ func (i IndexItem) satisfiesQuals(checkQualMap map[string]*proto.Quals, keyColum
 	}
 
 	for col, indexQuals := range i.Quals {
-		log.Printf("[TRACE] col %s", col)
 		// if we have quals the check quals do not, we DO NOT satisfy
 		checkQuals, ok := checkQualMap[col]
 		var isSubset bool
 		if ok {
-			log.Printf("[TRACE] satisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
-			log.Printf("[TRACE] indexQuals %+v, checkQuals %+v", indexQuals, checkQuals)
 			// isSubset means all data returned by check quals is returned by index quals
 			isSubset = checkQuals.IsASubsetOf(indexQuals)
+			log.Printf("[TRACE] satisfiesQuals index item has quals for %s which check quals also have - check if our quals for this colummn are a subset of the check quals", col)
+			log.Printf("[TRACE] indexQuals %+v, checkQuals %+v, isSubset %v", indexQuals, checkQuals, isSubset)
 		} else {
 			log.Printf("[TRACE] satisfiesQuals index item has qual for %s which check quals do not - NOT SATISFIED", col)
 		}

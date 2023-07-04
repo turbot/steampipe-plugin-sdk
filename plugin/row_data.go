@@ -73,7 +73,6 @@ func (r *rowData) getRow(ctx context.Context) (*proto.Row, error) {
 
 // keep looping round hydrate functions until they are all started
 func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData *QueryData) error {
-
 	// make a map of started hydrate calls for this row - this is used to determine which calls have not started yet
 	var callsStarted = map[string]bool{}
 
@@ -114,6 +113,7 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 
 // wait for all hydrate calls to complete
 func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*proto.Row, error) {
+	hydrateTimeout := 30 * time.Second
 	var row *proto.Row
 
 	// start a go routine which signals via the wait chan when all calls are complete
@@ -135,11 +135,13 @@ func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 	// select both wait chan and error chan
 	select {
 	case err := <-r.errorChan:
-		log.Println("[WARN] hydrate error chan select", "error", err)
+		log.Printf("[WARN] hydrate error chan select: %s (%s)", r.queryData.connectionCallId, err)
 		return nil, err
 	case <-r.waitChan:
-		logging.LogTime("send a row")
 		return row, nil
+	case <-time.After(hydrateTimeout):
+		log.Printf("[WARN] waitForHydrateCallsToComplete timed out after %fs (%s)", hydrateTimeout.Seconds(), r.queryData.connectionCallId)
+		return nil, fmt.Errorf("waitForHydrateCallsToComplete timed out after %fs", hydrateTimeout.Seconds())
 	}
 }
 

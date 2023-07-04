@@ -23,12 +23,26 @@ func (b *IndexBucket) Append(item *IndexItem) *IndexBucket {
 
 // Get finds an index item which satisfies all columns
 func (b *IndexBucket) Get(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) *IndexItem {
+	log.Printf("[TRACE] IndexBucket.Get %d items", len(b.Items))
 	for _, item := range b.Items {
-		log.Printf("[TRACE] IndexBucket.Get key %s limit %d", item.Key, item.Limit)
-		if item.SatisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns) && item.satisfiesTtl(req.TtlSeconds) {
+		log.Printf("[TRACE] IndexBucket.Get key %s limit %d (%s)", item.Key, item.Limit, req.CallId)
+		satisfiedRequest := item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns)
+		satisfiesTtl := item.satisfiesTtl(req.TtlSeconds)
+
+		log.Printf("[TRACE] satisfiedRequest: %v, satisfiesTtl: %v ttlSec: %d (%s)", satisfiedRequest, satisfiesTtl, req.TtlSeconds, req.CallId)
+
+		if satisfiedRequest && satisfiesTtl {
+			log.Printf("[TRACE] IndexBucket.Get CACHE HIT %d items", len(b.Items))
 			return item
 		}
 	}
+	// quals debug
+	//log.Printf("[TRACE] IndexBucket.Get CACHE MISS %d items", len(b.Items))
+	//log.Printf("[TRACE] req QUALS: %s", grpc.QualMapToLogLine(req.QualMap))
+	//for _, item := range b.Items {
+	//	log.Printf("[TRACE] item QUALS: %s", grpc.QualMapToLogLine(item.Quals))
+	//}
+
 	return nil
 }
 
