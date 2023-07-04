@@ -60,7 +60,7 @@ func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSch
 	if err := queryCache.createCache(opts.MaxSizeMb, opts.Ttl); err != nil {
 		return nil, err
 	}
-	log.Printf("[INFO] query cache created")
+	log.Printf("[INFO] query cache created, max size %dMb", opts.MaxSizeMb)
 	return queryCache, nil
 }
 
@@ -84,7 +84,7 @@ func (c *QueryCache) createCacheStore(maxCacheStorageMb int, maxTtl time.Duratio
 		}
 	}
 	config.HardMaxCacheSize = maxCacheStorageMb
-	log.Printf("[TRACE] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
+	log.Printf("[INFO] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
 
 	bigcacheClient, _ := bigcache.NewBigCache(config)
 	bigcacheStore := store.NewBigcache(bigcacheClient)
@@ -258,7 +258,7 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 	// if we have buffered a page, write to cache
 	if req.bufferIndex == rowBufferSize {
 		// reset index and update page count
-		log.Printf("[TRACE] IterateSet written 1 page of %d rows. Page count %d (%s)", rowBufferSize, req.pageCount, req.CallId)
+		log.Printf("[TRACE] IterateSet writing 1 page of %d rows. Page count %d (%s)", rowBufferSize, req.pageCount, req.CallId)
 		req.err = c.writePageToCache(ctx, req)
 	}
 
@@ -421,7 +421,7 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest) erro
 	// build a cache key for this page
 	pageKey := req.getPageResultKey()
 
-	log.Printf("[TRACE] QueryCache writePageToCache: %d rows, pageCount %d, page key %s", len(rows), req.pageCount, pageKey)
+	log.Printf("[TRACE] QueryCache writePageToCache: %d rows, pageCount %d, page key %s (%s)", len(rows), req.pageCount, pageKey, req.CallId)
 	// write to cache - construct result key
 	result := &sdkproto.QueryResult{Rows: rows}
 
@@ -429,9 +429,9 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest) erro
 	tags := []string{req.ConnectionName}
 	err := doSet(ctx, pageKey, result, req.ttl(), c.cache, tags)
 	if err != nil {
-		log.Printf("[WARN] writePageToCache cache Set failed: %v", err)
+		log.Printf("[WARN] writePageToCache cache Set failed: %v - page key %s (%s)", err, pageKey, req.CallId)
 	} else {
-		log.Printf("[TRACE] writePageToCache Set - result written")
+		log.Printf("[TRACE] writePageToCache Set - result written (%s)", req.CallId)
 	}
 
 	return err

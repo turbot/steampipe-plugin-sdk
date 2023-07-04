@@ -3,10 +3,13 @@ package query_cache
 import (
 	"context"
 	"fmt"
+	"github.com/gertd/go-pluralize"
+	"github.com/sethvargo/go-retry"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type setRequest struct {
@@ -161,14 +164,13 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 
 	// load previously cache pages`
 	for pageIdx := startPage; pageIdx < int(req.pageCount); pageIdx++ {
-		cachedResult := sdkproto.QueryResult{}
-
-		pageKey := getPageKey(req.resultKeyRoot, pageIdx)
-		if err := doGet[*sdkproto.QueryResult](ctx, pageKey, req.cache.cache, &cachedResult); err != nil {
-			return nil, err
+		// sometimes the cached page is not available to read immediately - retry if needed
+		cachedResult, cacheErr := req.readPageFromCacheWithRetries(ctx, pageIdx)
+		if cacheErr != nil {
+			return nil, cacheErr
 		}
 
-		// copy rows into result - taking into account start offset if this is the first page
+		// copy cached rows into res - taking into account start offset if this is the first page
 		idx := 0
 		if pageIdx == startPage {
 			idx = startOffset
@@ -183,6 +185,51 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 	return res, nil
 }
 
+func (req *setRequest) readPageFromCacheWithRetries(ctx context.Context, pageIdx int) (*sdkproto.QueryResult, error) {
+	pageKey := getPageKey(req.resultKeyRoot, pageIdx)
+	log.Printf("[TRACE] getRowsSince reading page %d key %s", pageIdx, pageKey)
+
+	var cachedResult = &sdkproto.QueryResult{}
+	var maxRetries uint64 = 10
+	retryBackoff := retry.WithMaxRetries(
+		maxRetries,
+		retry.NewExponential(10*time.Millisecond),
+	)
+
+	retries := 0
+
+	cacheErr := retry.Do(ctx, retryBackoff, func(ctx context.Context) error {
+		err := doGet[*sdkproto.QueryResult](ctx, pageKey, req.cache.cache, cachedResult)
+		if err != nil {
+
+			if IsCacheMiss(err) {
+				retries++
+
+				log.Printf("[INFO] readPageFromCacheWithRetries got a cache miss - retrying (#%d) (%s)", retries, req.CallId)
+				err = retry.RetryableError(err)
+			} else {
+				log.Printf("[WARN] readPageFromCacheWithRetries got error: %s", err.Error())
+			}
+		}
+
+		return err
+	})
+
+	if cacheErr != nil {
+		log.Printf("[WARN] getRowsSince failed to read page %d key %s after %d retries: %s (%s)", pageIdx, pageKey, maxRetries, cacheErr.Error(), req.CallId)
+		return nil, cacheErr
+	}
+
+	log.Printf("[INFO] getRowsSince read page %d after %d %s  - key %s (%s)",
+		pageIdx,
+		retries,
+		pluralize.NewClient().Pluralize("retry", retries, false),
+		pageKey,
+		req.CallId)
+
+	return cachedResult, nil
+}
+
 func (req *setRequest) waitForSubscribers(ctx context.Context) {
 	log.Printf("[INFO] setRequest waitForSubscribers (%s)", req.CallId)
 
@@ -190,14 +237,16 @@ func (req *setRequest) waitForSubscribers(ctx context.Context) {
 	go func() {
 		for subscriber := range req.subscribers {
 			log.Printf("[INFO] waiting for subscriber %s (%s)", subscriber.callId, req.CallId)
-			// TODO KAI THINK ABOUT ERROR - return error
-			subscriber.waitUntilDone()
-			log.Printf("[INFO] subscriber %s done (%s)", subscriber.callId, req.CallId)
+			err := subscriber.waitUntilDone()
+			if err != nil {
+				log.Printf("[INFO] subscriber %s had error: %s (%s)", subscriber.callId, err.Error(), req.CallId)
+			} else {
+				log.Printf("[INFO] subscriber %s done (%s)", subscriber.callId, req.CallId)
+			}
 		}
 		close(doneChan)
 	}()
 
-	// TODO timeout?
 	select {
 	case <-ctx.Done():
 	case <-doneChan:
@@ -213,7 +262,6 @@ func (req *setRequest) addRow(row *sdkproto.Row) error {
 	// if the request has no subscribers, cancel this scan
 	if len(req.subscribers) == 0 {
 		// lock access to set request
-
 		log.Printf("[INFO] IterateSet NO SUBSCRIBERS! (%s)", req.CallId)
 		return NoSubscribersError{}
 	}

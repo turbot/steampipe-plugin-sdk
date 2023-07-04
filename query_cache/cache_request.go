@@ -7,10 +7,9 @@ import (
 )
 
 type CacheRequest struct {
-	CallId  string
-	Table   string
-	QualMap map[string]*sdkproto.Quals
-	// TODO KAI CHANGE TO LOOKUP
+	CallId         string
+	Table          string
+	QualMap        map[string]*sdkproto.Quals
 	Columns        []string
 	Limit          int64
 	ConnectionName string

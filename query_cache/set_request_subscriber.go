@@ -118,6 +118,7 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 				// check for contect cancellation
 				if s.streamContext.Err() != nil {
 					log.Printf("[INFO] readRowsAsync stream context cancelled (%s)", s.callId)
+					errChan <- s.streamContext.Err()
 					return
 				}
 			}
@@ -135,6 +136,7 @@ func (s *setRequestSubscriber) getRowsToStream(ctx context.Context) ([]*sdkproto
 	s.publisher.requestLock.RUnlock()
 
 	if err != nil {
+		log.Printf("[INFO] getRowsToStream getRowsSince returned error: %s (%s)", err.Error(), s.callId)
 		return nil, err
 	}
 
@@ -167,16 +169,23 @@ func (s *setRequestSubscriber) waitUntilDone() error {
 	}
 }
 
-// wait until this subscriber
+// wait until this subscriber has streamed all available rows
 func (s *setRequestSubscriber) waitUntilAvailableRowsStreamed(ctx context.Context, availableRows int) {
-	log.Printf("[INFO] waitUntilAvailableRowsStreamed (%s)", s.callId)
-	defer log.Printf("[INFO] waitUntilAvailableRowsStreamed done(%s)", s.callId)
+	log.Printf("[TRACE] waitUntilAvailableRowsStreamed (%s)", s.callId)
+	defer log.Printf("[TRACE] waitUntilAvailableRowsStreamed done(%s)", s.callId)
 	baseRetryInterval := 1 * time.Millisecond
 	maxRetryInterval := 50 * time.Millisecond
 	backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
 
 	// we know this cannot return an error
 	_ = retry.Do(ctx, backoff, func(ctx context.Context) error {
+		// if context is cancelled just return
+		if ctx.Err() != nil || s.streamContext.Err() != nil {
+			log.Printf("[INFO] waitUntilAvailableRowsStreamed context cancelled - returning (%s)", s.callId)
+
+			return nil
+		}
+
 		if s.rowsStreamed < availableRows {
 			return retry.RetryableError(fmt.Errorf("not all available rows streamed"))
 		}

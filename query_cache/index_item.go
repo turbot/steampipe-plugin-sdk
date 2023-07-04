@@ -13,7 +13,6 @@ import (
 // IndexItem stores the columns and cached index for a single cached query result
 // note - this index item it tied to a specific table and set of quals
 type IndexItem struct {
-	// TODO KAI CHANGE TO LOOKUP
 	Columns       []string
 	Key           string
 	Limit         int64
