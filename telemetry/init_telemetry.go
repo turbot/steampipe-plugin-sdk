@@ -9,21 +9,19 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
+	"google.golang.org/grpc"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/propagation"
-	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
-	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
-	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	"google.golang.org/grpc"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 )
 
 func Init(serviceName string) (func(), error) {
@@ -50,10 +48,11 @@ func Init(serviceName string) (func(), error) {
 	}
 
 	log.Printf("[TRACE] endpoint: %s", otelAgentAddr)
-	var pusher *controller.Controller
-	var traceExp *otlptrace.Exporter
+	var traceExp *otlp.Exporter
 	var tracerProvider *sdktrace.TracerProvider
 	var err error
+
+	var metrixExp *otlp.Exporter
 
 	if metricsEnabled {
 		pusher, err = initMetrics(ctx, otelAgentAddr)
@@ -96,37 +95,42 @@ func Init(serviceName string) (func(), error) {
 	return shutdown, nil
 }
 
-func initMetrics(ctx context.Context, otelAgentAddr string) (*controller.Controller, error) {
+func initMetrics(ctx context.Context, otelAgentAddr string) (otlp.Exporter, sdkmetric.MeterProvider, error) {
 	log.Printf("[TRACE] telemetry.initMetrics")
 
 	metricClient := otlpmetricgrpc.NewClient(
 		otlpmetricgrpc.WithInsecure(),
-		otlpmetricgrpc.WithEndpoint(otelAgentAddr))
+		otlpmetricgrpc.WithEndpoint(otelAgentAddr),
+	)
+
 	metricExp, err := otlpmetric.New(ctx, metricClient)
 	if err != nil {
 		log.Printf("[TRACE] initMetrics: failed to create the collector metric exporter: %s", err.Error())
 		return nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
 	}
-
-	pusher := controller.New(
-		processor.NewFactory(
-			simple.NewWithHistogramDistribution(),
-			metricExp,
-		),
-		controller.WithExporter(metricExp),
-		controller.WithCollectPeriod(2*time.Second),
+	provider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(metricExp),
 	)
-	global.SetMeterProvider(pusher)
 
-	if err := pusher.Start(ctx); err != nil {
-		log.Printf("[TRACE] initMetrics: failed to start metric pusher: %s", err.Error())
-		return nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
-	}
-	log.Printf("[TRACE] telemetry.initMetrics complete")
-	return pusher, nil
+	// pusher := controller.New(
+	// 	processor.NewFactory(
+	// 		simple.NewWithHistogramDistribution(),
+	// 		metricExp,
+	// 	),
+	// 	controller.WithExporter(metricExp),
+	// 	controller.WithCollectPeriod(2*time.Second),
+	// )
+	// global.SetMeterProvider(pusher)
+
+	// if err := pusher.Start(ctx); err != nil {
+	// 	log.Printf("[TRACE] initMetrics: failed to start metric pusher: %s", err.Error())
+	// 	return nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
+	// }
+	// log.Printf("[TRACE] telemetry.initMetrics complete")
+	// return pusher, nil
 }
 
-func initTracing(ctx context.Context, otelAgentAddr, serviceName string) (*otlptrace.Exporter, *sdktrace.TracerProvider, error) {
+func initTracing(ctx context.Context, otelAgentAddr, serviceName string) (*otlp.Exporter, *sdktrace.TracerProvider, error) {
 	traceClient := otlptracegrpc.NewClient(
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint(otelAgentAddr),
