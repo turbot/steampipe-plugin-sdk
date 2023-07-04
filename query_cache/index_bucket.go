@@ -36,10 +36,11 @@ func (b *IndexBucket) Get(req *CacheRequest, keyColumns map[string]*proto.KeyCol
 			return item
 		}
 	}
-	//log.Printf("[WARN] IndexBucket.Get CACHE MISS %d items", len(b.Items))
-	//log.Printf("[WARN] req QUALS: %s", grpc.QualMapToLogLine(req.QualMap))
+	// quals debug
+	//log.Printf("[TRACE] IndexBucket.Get CACHE MISS %d items", len(b.Items))
+	//log.Printf("[TRACE] req QUALS: %s", grpc.QualMapToLogLine(req.QualMap))
 	//for _, item := range b.Items {
-	//	log.Printf("[WARN] item QUALS: %s", grpc.QualMapToLogLine(item.Quals))
+	//	log.Printf("[TRACE] item QUALS: %s", grpc.QualMapToLogLine(item.Quals))
 	//}
 
 	return nil

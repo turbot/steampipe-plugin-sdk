@@ -74,7 +74,7 @@ func (req *setRequest) getPrevPageResultKeys() []string {
 	return res
 }
 
-// return all rows available aftyer the given row count
+// return all rows available after the given row count
 func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int) ([]*sdkproto.Row, error) {
 	/*
 

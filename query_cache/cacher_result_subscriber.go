@@ -37,7 +37,6 @@ func (s *cacheResultSubscriber) waitUntilDone(ctx context.Context) error {
 	var wg sync.WaitGroup
 	const maxReadThreads = 5
 	var maxReadSem = semaphore.NewWeighted(maxReadThreads)
-	log.Printf("[INFO] %d pages", s.indexItem.PageCount)
 
 	// define streaming function
 	streamRows := func(cacheResult *sdkproto.QueryResult) {
@@ -102,7 +101,7 @@ func (s *cacheResultSubscriber) waitUntilDone(ctx context.Context) error {
 	for {
 		select {
 		case err := <-errorChan:
-			log.Printf("[WARN] getCachedQueryResult received error: %s (%s)", err.Error(), s.req.CallId)
+			log.Printf("[WARN] cacheResultSubscriber waitUntilDone received error: %s (%s)", err.Error(), s.req.CallId)
 			if IsCacheMiss(err) {
 				cacheHit = false
 			} else {

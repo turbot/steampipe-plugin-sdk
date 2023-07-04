@@ -391,7 +391,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 		cacheErr := p.queryCache.Get(ctx, cacheRequest, streamUncachedRowFunc, streamCachedRowFunc)
 		if cacheErr == nil {
 			// so we got a cached result - stream it out
-			log.Printf("[WARN] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
+			log.Printf("[INFO] queryCacheGet returned CACHE HIT (%s)", connectionCallId)
 
 			// nothing more to do
 			return nil
@@ -408,7 +408,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 			return cacheErr
 		}
 		// otherwise just log the cache miss error
-		log.Printf("[WARN] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
+		log.Printf("[INFO] queryCacheGet returned CACHE MISS (%s)", connectionCallId)
 	} else {
 		log.Printf("[INFO] Cache DISABLED (%s)", connectionCallId)
 	}
@@ -425,7 +425,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 
 	// asyncronously build rows
 	logging.LogTime("Calling build Rows")
-	log.Printf("[INFO] buildRowsAsync (%s)", connectionCallId)
+	log.Printf("[TRACE] buildRowsAsync (%s)", connectionCallId)
 
 	// channel used by streamRows when it receives an error to tell buildRowsAsync to stop
 	doneChan := make(chan bool)

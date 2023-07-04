@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"golang.org/x/exp/maps"
 	"log"
 	"runtime/debug"
@@ -19,6 +18,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 )
 

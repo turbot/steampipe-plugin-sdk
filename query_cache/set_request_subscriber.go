@@ -112,7 +112,6 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 			}
 
 			for _, row := range rowsTostream {
-
 				s.streamRowFunc(row)
 				s.rowsStreamed++
 				// check for contect cancellation

@@ -240,9 +240,6 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 			// execute the scan for this connection
 			if err := p.executeForConnection(ctx, req, c, outputChan, logger); err != nil {
 				log.Printf("[WARN] executeForConnection %s returned error %s, writing to CHAN", c, err.Error())
-				//if !error_helpers.IsContextCancelledError(err) {
-				//}
-
 				errorChan <- err
 			}
 			log.Printf("[TRACE] executeForConnection %s returned", c)
@@ -266,7 +263,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		case row := <-outputChan:
 			// nil row means that one connection is done streaming
 			if row == nil {
-				log.Printf("[INFO] empty row on output channel - we are done ")
+				log.Printf("[TRACE] empty row on output channel - we are done ")
 				complete = true
 				break
 			}

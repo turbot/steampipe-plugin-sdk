@@ -220,15 +220,13 @@ func (c *QueryCache) startSet(ctx context.Context, req *CacheRequest, streamRowF
 	// create a set request
 	setRequest := newSetRequest(req, c)
 
-	// now subscribe to the set request so data streamed to the request is also send back to client
-	// NOTE: ignore error as subscribeToPendingRequest can only fail when
-	// the set request has buffered data already which we fail to copy
-	// that cannot happen in this case
-
 	// subscribe to the set request, so that all data streamed to cache is streamed to us
 	// NOTE: we subscribe to the cache rather than streaming the result directly to GRPC as we  need to
 	// decouple the reading of the data (by Postgres) and the writing if the scan rows into the cache
 	// if we do not do this, writing to the cache can be blocked if postgres stops reading rows for the initial scan
+	// NOTE: ignore error as subscribeToPendingRequest can only fail when
+	// the set request has buffered data already which we fail to copy
+	// that cannot happen in this case
 	_, _ = c.subscribeToPendingRequest(ctx, setRequest, req, streamRowFunc)
 
 	// lock the set request map
@@ -369,7 +367,7 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	if !ok {
 		return
 	}
-	log.Printf("[WARNq] QueryCache AbortSet - aborting request")
+	log.Printf("[WARN] QueryCache AbortSet - aborting request")
 	// tell request to send error to all it's subscribers
 	req.sendErrorToSubscribers(err)
 

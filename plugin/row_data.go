@@ -111,9 +111,6 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 	return nil
 }
 
-//var rowmap2 = make(map[string]int)
-//var rl2 = sync.Mutex{}
-
 // wait for all hydrate calls to complete
 func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*proto.Row, error) {
 	hydrateTimeout := 30 * time.Second
