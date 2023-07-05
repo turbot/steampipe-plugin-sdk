@@ -169,25 +169,6 @@ func (s *setRequestSubscriber) waitUntilDone() error {
 }
 
 // wait until this subscriber has streamed all available rows
-func (s *setRequestSubscriber) waitUntilAvailableRowsStreamed(ctx context.Context, availableRows int) {
-	log.Printf("[TRACE] waitUntilAvailableRowsStreamed (%s)", s.callId)
-	defer log.Printf("[TRACE] waitUntilAvailableRowsStreamed done(%s)", s.callId)
-	baseRetryInterval := 1 * time.Millisecond
-	maxRetryInterval := 50 * time.Millisecond
-	backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
-
-	// we know this cannot return an error
-	_ = retry.Do(ctx, backoff, func(ctx context.Context) error {
-		// if context is cancelled just return
-		if ctx.Err() != nil || s.streamContext.Err() != nil {
-			log.Printf("[INFO] waitUntilAvailableRowsStreamed context cancelled - returning (%s)", s.callId)
-
-			return nil
-		}
-
-		if s.rowsStreamed < availableRows {
-			return retry.RetryableError(fmt.Errorf("not all available rows streamed"))
-		}
-		return nil
-	})
+func (s *setRequestSubscriber) allAvailableRowsStreamed(availableRows int) bool {
+	return s.rowsStreamed == availableRows
 }

@@ -3,6 +3,7 @@ package query_cache
 import (
 	"context"
 	"fmt"
+	"github.com/sethvargo/go-retry"
 	"log"
 	"sort"
 	"strings"
@@ -391,16 +392,12 @@ func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName stri
 
 // write a page of rows to the cache
 func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest) error {
-	// NOTE: if there is just one subscriber, wait for it to write all available data
-	// before caching - this will avoid it needing to read back from the cache
-	if len(req.subscribers) == 1 {
-		// wait until the subscriber has written all available data before
-		var s *setRequestSubscriber
-		for s = range req.subscribers {
-			break
-		}
-		s.waitUntilAvailableRowsStreamed(ctx, req.rowCount)
-	}
+
+	// wait for at least one of our subscribers to have streamed all available rows
+	// this avoids the cache pulling data from the APIs too quickly,
+	// and also avoids at least one of the subscribers from
+	// having to read back data from the cache instead of just using the page buffer
+	c.waitForSubscribers(ctx, req)
 
 	// now lock the request
 	req.requestLock.Lock()
@@ -557,6 +554,35 @@ func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, indexBucketKey str
 	// put connection name in tags
 	tags := []string{req.ConnectionName}
 	return doSet(ctx, indexBucketKey, indexBucket.AsProto(), req.ttl(), c.cache, tags)
+}
+
+// wait for at least one of our subscribers to have streamed all available rows
+// this avoids tjhe cache pulling data from the APIs to quickly,
+func (c *QueryCache) waitForSubscribers(ctx context.Context, req *setRequest) error {
+	log.Printf("[TRACE] waitForSubscribers (%s)", req.CallId)
+	defer log.Printf("[TRACE] waitForSubscribers done(%s)", req.CallId)
+	baseRetryInterval := 1 * time.Millisecond
+	maxRetryInterval := 50 * time.Millisecond
+	backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
+
+	// we know this cannot return an error
+	return retry.Do(ctx, backoff, func(ctx context.Context) error {
+		// if context is cancelled just return
+		if ctx.Err() != nil || req.StreamContext.Err() != nil {
+			log.Printf("[INFO] allAvailableRowsStreamed context cancelled - returning (%s)", req.CallId)
+			return ctx.Err()
+		}
+
+		for s := range req.subscribers {
+			if s.allAvailableRowsStreamed(req.rowCount) {
+				return nil
+			}
+		}
+		log.Printf("[TRACE] waitForSubscribers not all available rows streamed (%s)", req.CallId)
+
+		return retry.RetryableError(fmt.Errorf("not all available rows streamed"))
+	})
+
 }
 
 func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]byte], target T) error {
