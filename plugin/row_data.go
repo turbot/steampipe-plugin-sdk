@@ -189,12 +189,6 @@ func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc Hyd
 func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
 	ctx, span := telemetry.StartSpan(ctx, r.table.Plugin.Name, "rowData.callHydrateWithRetries (%s)", r.table.Name)
 
-	// if the retry config has a GetDynamicRetryConfig function, call that and use that retry config
-	if retryConfig.GetDynamicRetryConfig != nil {
-		log.Printf("[INFO] fetching dynamic retry config")
-		retryConfig = retryConfig.GetDynamicRetryConfig(ctx, d)
-	}
-
 	span.SetAttributes(
 		attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
 	)

@@ -53,10 +53,6 @@ Retry errors that may occur in many HydrateFuncs:
 	},
 */
 type RetryConfig struct {
-	// return a retry config - used if the parameters may vary based on the connection
-	GetDynamicRetryConfig func(context.Context, *QueryData) *RetryConfig
-
-	// predicate function returnin gwhether to retry
 	ShouldRetryErrorFunc ErrorPredicateWithContext
 	// deprecated use ShouldRetryErrorFunc
 	ShouldRetryError ErrorPredicate
@@ -100,13 +96,6 @@ func (c *RetryConfig) validate(table *Table) []string {
 		res = append(res, fmt.Sprintf("%sBackoffAlgorithm value '%s' is not valid, it must be one of: %s", tablePrefix, c.BackoffAlgorithm, strings.Join(validBackoffAlgorithm, ",")))
 	}
 
-	// ensure if GetDynamicRetryConfig is provided no other params are set
-	if c.GetDynamicRetryConfig != nil {
-		if c.ShouldRetryErrorFunc != nil || c.MaxAttempts != 0 || c.RetryInterval != 0 || c.CappedDuration != 0 || c.MaxDuration != 0 || c.BackoffAlgorithm != "" {
-			res = append(res, fmt.Sprintf("%sif GetDynamicRetryConfig is set, all other parameters  must be empty", tablePrefix))
-		}
-	}
-
 	return res
 }
 
@@ -115,15 +104,10 @@ func (c *RetryConfig) DefaultTo(other *RetryConfig) {
 	if other == nil {
 		return
 	}
-	// if either ShouldIgnoreError,  ShouldRetryErrorFunc or GetDynamicRetryConfig are set, do not default to other
-	if c.ShouldRetryError != nil || c.ShouldRetryErrorFunc != nil || c.GetDynamicRetryConfig != nil {
+	// if either ShouldIgnoreError or ShouldRetryErrorFunc are set, do not default to other
+	if c.ShouldRetryError != nil || c.ShouldRetryErrorFunc != nil {
 		log.Printf("[TRACE] RetryConfig DefaultTo: config defines a should retry function so not defaulting to base")
 		return
-	}
-
-	if c.GetDynamicRetryConfig == nil && other.GetDynamicRetryConfig != nil {
-		log.Printf("[TRACE] RetryConfig DefaultTo: using base GetDynamicRetryConfig: %s", helpers.GetFunctionName(other.GetDynamicRetryConfig))
-		c.GetDynamicRetryConfig = other.GetDynamicRetryConfig
 	}
 
 	// legacy func
@@ -131,7 +115,6 @@ func (c *RetryConfig) DefaultTo(other *RetryConfig) {
 		log.Printf("[TRACE] RetryConfig DefaultTo: using base ShouldRetryError: %s", helpers.GetFunctionName(other.ShouldRetryError))
 		c.ShouldRetryError = other.ShouldRetryError
 	}
-
 	if c.ShouldRetryErrorFunc == nil && other.ShouldRetryErrorFunc != nil {
 		log.Printf("[TRACE] RetryConfig DefaultTo: using base ShouldRetryErrorFunc: %s", helpers.GetFunctionName(other.ShouldRetryErrorFunc))
 		c.ShouldRetryErrorFunc = other.ShouldRetryErrorFunc
