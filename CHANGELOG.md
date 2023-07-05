@@ -1,4 +1,8 @@
 ## v5.6.0 [tbd]
+_What's new_
+* Add support for JSONB operators in List hydrate functions ([#594](https://github.com/turbot/steampipe-plugin-sdk/issues/594))
+* Add `Type` to `ConnectionConfig` protobuf defintion and use to determine if a connection is an aggregator. ([#590](https://github.com/turbot/steampipe-plugin-sdk/issues/590))
+
 _Bug fixes_
 * Fix cache deadlock caused when the same table is scanned multiple times, and Postgres does not iterate the first scan. 
 Update the query cache to make all scans a subscriber of the cache request, and decouple the reading ands writing of cached data . ([#586](https://github.com/turbot/steampipe-plugin-sdk/issues/586))
