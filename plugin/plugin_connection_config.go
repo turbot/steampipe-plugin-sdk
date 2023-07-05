@@ -60,7 +60,7 @@ func (p *Plugin) addConnections(configs []*proto.ConnectionConfig, updateData *c
 	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))
 
 	for _, config := range configs {
-		if len(config.ChildConnections) > 0 {
+		if config.IsAggregator() {
 			log.Printf("[TRACE] connection %s is an aggregator - handle separately", config.Connection)
 			p.setAggregatorConnectionData(config)
 		} else {
