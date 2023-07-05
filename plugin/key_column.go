@@ -37,6 +37,14 @@ func GetValidOperators() []string {
 		quals.QualOperatorNotIRegex,
 		quals.QualOperatorIsNull,
 		quals.QualOperatorIsNotNull,
+
+		quals.QualOperatorJsonbContainsLeftRight,
+		quals.QualOperatorJsonbContainsRightLeft,
+		quals.QualOperatorJsonbExistsOne,
+		quals.QualOperatorJsonbExistsAny,
+		quals.QualOperatorJsonbExistsAll,
+		quals.QualOperatorJsonbPathExists,
+		quals.QualOperatorJsonbPathPredicate,
 	}
 }
 
@@ -46,7 +54,7 @@ func GetValidOperators() []string {
 //
 // # Operators
 //
-// This property specifies the accepted operators (from a possible set: "=", "<>", "<", "<=", ">", ">=", "~~", "!~~", "~~*", "!~~*", "~", "~*", "!~", "!~*")
+// This property specifies the accepted operators (from a possible set: "=", "<>", "<", "<=", ">", ">=", "~~", "!~~", "~~*", "!~~*", "~", "~*", "!~", "!~*", "@>", "<@", "?", "?|", "?&", "@?", "@@")
 //
 // # Require
 //
