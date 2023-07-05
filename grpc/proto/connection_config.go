@@ -27,3 +27,8 @@ func (x *ConnectionConfig) childConnectionsEqual(other *ConnectionConfig) bool {
 	}
 	return true
 }
+
+func (x *ConnectionConfig) IsAggregator() bool {
+	// keep len(d.config.ChildConnections) > 0 for legacy steampipe verisons which do not support type
+	return len(x.ChildConnections) > 0 || x.Type == "aggregator"
+}

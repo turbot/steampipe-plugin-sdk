@@ -337,5 +337,6 @@ func (d *ConnectionData) setSchema(tableMap map[string]*Table, schema *grpc.Plug
 }
 
 func (d *ConnectionData) isAggregator() bool {
-	return len(d.config.ChildConnections) > 0
+	return d.config.IsAggregator()
+
 }
