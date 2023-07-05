@@ -66,7 +66,6 @@ type Table struct {
 	DefaultShouldIgnoreError ErrorPredicate
 
 	// map of hydrate function name to columns it provides
-	//hydrateColumnMap map[string][]string
 	hydrateConfigMap map[string]*HydrateConfig
 
 	columnNameMap map[string]struct{}
