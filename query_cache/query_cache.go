@@ -13,7 +13,6 @@ import (
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
 	"github.com/gertd/go-pluralize"
-	"github.com/sethvargo/go-retry"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
@@ -260,11 +259,6 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 		// reset index and update page count
 		log.Printf("[TRACE] IterateSet writing 1 page of %d rows. Page count %d (%s)", rowBufferSize, req.pageCount, req.CallId)
 		req.err = c.writePageToCache(ctx, req, false)
-	} else {
-		// TACTICAL
-		// wait for at least one of our subscribers to have streamed all available rows
-		// this avoids the cache pulling data from the APIs too quickly,
-		c.waitForSubscribers(ctx, req)
 	}
 
 	return nil
@@ -402,7 +396,7 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest, fina
 	// this avoids the cache pulling data from the APIs too quickly,
 	// and also avoids at least one of the subscribers from
 	// having to read back data from the cache instead of just using the page buffer
-	c.waitForSubscribers(ctx, req)
+	//c.waitForSubscribers(ctx, req)
 
 	// now lock the request
 	req.requestLock.Lock()
@@ -567,32 +561,32 @@ func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, indexBucketKey str
 
 // wait for at least one of our subscribers to have streamed all available rows
 // this avoids tjhe cache pulling data from the APIs to quickly,
-func (c *QueryCache) waitForSubscribers(ctx context.Context, req *setRequest) error {
-	log.Printf("[TRACE] waitForSubscribers (%s)", req.CallId)
-	defer log.Printf("[TRACE] waitForSubscribers done(%s)", req.CallId)
-	baseRetryInterval := 1 * time.Millisecond
-	maxRetryInterval := 50 * time.Millisecond
-	backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
-
-	// we know this cannot return an error
-	return retry.Do(ctx, backoff, func(ctx context.Context) error {
-		// if context is cancelled just return
-		if ctx.Err() != nil || req.StreamContext.Err() != nil {
-			log.Printf("[INFO] allAvailableRowsStreamed context cancelled - returning (%s)", req.CallId)
-			return ctx.Err()
-		}
-
-		for s := range req.subscribers {
-			if s.allAvailableRowsStreamed(req.rowCount) {
-				return nil
-			}
-		}
-		log.Printf("[TRACE] waitForSubscribers not all available rows streamed (%s)", req.CallId)
-
-		return retry.RetryableError(fmt.Errorf("not all available rows streamed"))
-	})
-
-}
+//func (c *QueryCache) waitForSubscribers(ctx context.Context, req *setRequest) error {
+//	log.Printf("[TRACE] waitForSubscribers (%s)", req.CallId)
+//	defer log.Printf("[TRACE] waitForSubscribers done(%s)", req.CallId)
+//	baseRetryInterval := 1 * time.Millisecond
+//	maxRetryInterval := 50 * time.Millisecond
+//	backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
+//
+//	// we know this cannot return an error
+//	return retry.Do(ctx, backoff, func(ctx context.Context) error {
+//		// if context is cancelled just return
+//		if ctx.Err() != nil || req.StreamContext.Err() != nil {
+//			log.Printf("[INFO] allAvailableRowsStreamed context cancelled - returning (%s)", req.CallId)
+//			return ctx.Err()
+//		}
+//
+//		for s := range req.subscribers {
+//			if s.allAvailableRowsStreamed(req.rowCount) {
+//				return nil
+//			}
+//		}
+//		log.Printf("[TRACE] waitForSubscribers not all available rows streamed (%s)", req.CallId)
+//
+//		return retry.RetryableError(fmt.Errorf("not all available rows streamed"))
+//	})
+//
+//}
 
 func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]byte], target T) error {
 	// get the bytes from the cache
