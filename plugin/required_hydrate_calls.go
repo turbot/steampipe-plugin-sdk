@@ -19,7 +19,7 @@ func newRequiredHydrateCallBuilder(t *Table, fetchCallName string) *requiredHydr
 	}
 }
 
-func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
+func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc, callId string) {
 	hydrateName := helpers.GetFunctionName(hydrateFunc)
 
 	// if the resolved hydrate call is NOT the same as the fetch call, add to the map of hydrate functions to call
@@ -35,7 +35,7 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc) {
 
 		// now add dependencies (we have already checked for circular dependencies so recursion is fine
 		for _, dep := range config.Depends {
-			c.Add(dep)
+			c.Add(dep, callId)
 		}
 	}
 }
