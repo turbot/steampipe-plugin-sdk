@@ -709,15 +709,21 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// (including ourselves)
 			if d.cacheEnabled {
 				err := d.plugin.queryCache.IterateSet(ctx, row, d.connectionCallId)
+				if err != nil {
+					// if there are no subscribers to the setRequest, cancel the scan and abort the set request
+					// (this deletes already-cached pages)
+					if _, noSubscribers := err.(query_cache.NoSubscribersError); noSubscribers {
+						log.Printf("[INFO] streamRows - set request has no subscribers, cancelling the scan (%s)", d.connectionCallId)
+						d.cancel()
+						// abort the set operation
+						d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
+						// return the context state
+						return ctx.Err()
+					}
+					// otherwise this is some other error - just return  it - the set request mustr have already been aborted
+					//(can we get here?)
+					return err
 
-				// if there are no subscribers to the setRequest, cancel the scan and abort the set request
-				// (this deletes already-cached pages)
-				if _, noSubscribers := err.(query_cache.NoSubscribersError); noSubscribers {
-					log.Printf("[INFO] streamRows - set request has no subscribers, cancelling the scan (%s)", d.connectionCallId)
-					d.cancel()
-					// abort the set operation
-					d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
-					return ctx.Err()
 				}
 			} else {
 				// if cache is disabled just stream the row across GRPC
@@ -727,9 +733,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		}
 	}
 }
-
-var streamRowMap = make(map[string]int)
-var streamRowMapLock = sync.Mutex{}
 
 func (d *QueryData) streamRow(row *proto.Row) {
 	resp := &proto.ExecuteResponse{
@@ -751,9 +754,6 @@ func (d *QueryData) streamError(err error) {
 	d.errorChan <- err
 }
 
-var buildRowMap = make(map[string]int)
-var buildRowMapLock = sync.Mutex{}
-
 // execute necessary hydrate calls to populate row data
 func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
 	go func() {
@@ -763,9 +763,6 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 				d.streamError(helpers.ToError(r))
 			}
 			wg.Done()
-			buildRowMapLock.Lock()
-			buildRowMap[d.connectionCallId]++
-			buildRowMapLock.Unlock()
 		}()
 		if rowData == nil {
 			log.Printf("[INFO] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)

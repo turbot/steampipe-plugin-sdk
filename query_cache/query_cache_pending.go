@@ -78,7 +78,7 @@ func (c *QueryCache) addPendingResult(ctx context.Context, indexBucketKey string
 	resultKeyRoot := req.resultKeyRoot
 
 	// create pending index item
-	item := NewPendingIndexItem(setRequest)
+	item := newPendingIndexItem(setRequest)
 	pendingIndexBucket.Items[resultKeyRoot] = item
 
 	// now write back to pending data map

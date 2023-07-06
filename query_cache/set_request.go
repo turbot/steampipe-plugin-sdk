@@ -8,8 +8,15 @@ import (
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
 	"sync"
-	"sync/atomic"
 	"time"
+)
+
+type setRequestState int64
+
+const (
+	requestInProgress setRequestState = iota
+	requestComplete
+	requestError
 )
 
 type setRequest struct {
@@ -17,8 +24,8 @@ type setRequest struct {
 	// other cache requests who are subscribing to this data
 	subscribers map[*setRequestSubscriber]struct{}
 	requestLock sync.RWMutex
-	// flag used by sunscribers when getting rows to stream
-	complete   atomic.Bool
+	// flag used by subscribers when getting rows to stream
+	state      setRequestState
 	pageBuffer []*sdkproto.Row
 	// index within the page buffer
 	bufferIndex int
@@ -32,6 +39,7 @@ func newSetRequest(req *CacheRequest, cache *QueryCache) *setRequest {
 		subscribers:  make(map[*setRequestSubscriber]struct{}),
 		pageBuffer:   make([]*sdkproto.Row, rowBufferSize),
 		cache:        cache,
+		state:        requestInProgress,
 	}
 }
 
@@ -43,15 +51,6 @@ func (req *setRequest) subscribe(subscriber *setRequestSubscriber) {
 func (req *setRequest) unsubscribe(subscriber *setRequestSubscriber) {
 	// note: requestLock must be locked when this is called
 	delete(req.subscribers, subscriber)
-}
-
-// send error to subscribers
-func (req *setRequest) sendErrorToSubscribers(err error) {
-	log.Printf("[WARN] aborting set request with error: %s (%s)", err.Error(), req.CallId)
-	for subscriber := range req.subscribers {
-		subscriber.errChan <- err
-	}
-	log.Printf("[INFO] done aborting")
 }
 
 func (req *setRequest) getBufferedRows() []*sdkproto.Row {

@@ -60,13 +60,13 @@ func (s *setRequestSubscriber) readRowsAsync(ctx context.Context) {
 			s.publisher.requestLock.Lock()
 			s.publisher.unsubscribe(s)
 			s.publisher.requestLock.Unlock()
+		// was there an error
+		case err := <-errChan:
+			//	log.Printf("[INFO] readRowsAsync error received: %s - publisher %s (%s)", err.Error(), s.publisher.CallId, s.callId)
+			s.errChan <- err
 		// are we done streaming?
 		case <-streamChan:
 			log.Printf("[INFO] readRowsAsync finished streaming - publisher %s (%s)", s.publisher.CallId, s.callId)
-		// was there an error
-		case err := <-errChan:
-			log.Printf("[INFO] readRowsAsync error received: %s - publisher %s (%s)", err.Error(), s.publisher.CallId, s.callId)
-			s.errChan <- err
 		}
 	}()
 }
@@ -99,13 +99,15 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 
 			log.Printf("[TRACE] readRowsAsync retry returned %d rows to stream (%s)", len(rowsTostream), s.callId)
 
-			// getRowsToStream will keep retrying as long as there are still rows to stream or there is an error
+			// is there an error
+			if err != nil {
+				log.Printf("[WARN] readRowsAsync failed to read previous rows from cache: %s publisher %s (%s)", err, s.publisher.CallId, s.callId)
+				errChan <- err
+				return
+			}
+
+			// getRowsToStream will keep retrying as long as there are still rows to stream (or there is an error)
 			if len(rowsTostream) == 0 {
-				// either there is an error, or we are done... check which it is
-				if err != nil {
-					log.Printf("[WARN] readRowsAsync failed to read previous rows from cache: %s publisher %s (%s)", err, s.publisher.CallId, s.callId)
-					errChan <- err
-				}
 				// to get here, publisdher has no more rows
 				// exit the goroutine
 				return
@@ -131,27 +133,40 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 
 func (s *setRequestSubscriber) getRowsToStream(ctx context.Context) ([]*sdkproto.Row, error) {
 	s.publisher.requestLock.RLock()
-	rowsTostream, err := s.publisher.getRowsSince(ctx, s.rowsStreamed)
+
+	var rowsToStream []*sdkproto.Row
+	var err = s.publisher.err
+	requestState := s.publisher.state
+
+	if requestState == requestInProgress {
+		rowsToStream, err = s.publisher.getRowsSince(ctx, s.rowsStreamed)
+		if err != nil {
+			log.Printf("[INFO] getRowsToStream getRowsSince returned error: %s (%s)", err.Error(), s.callId)
+			return nil, err
+		}
+	}
 	s.publisher.requestLock.RUnlock()
 
-	if err != nil {
-		log.Printf("[INFO] getRowsToStream getRowsSince returned error: %s (%s)", err.Error(), s.callId)
-		return nil, err
+	// now we have unlocked, check for error or completion
+	if requestState == requestComplete {
+		// we are done!
+		log.Printf("[INFO] getRowsToStream - publisher %s complete - returning (%s)", s.publisher.CallId, s.callId)
+		return nil, nil
+	}
+	if requestState == requestError {
+		return nil, s.publisher.err
 	}
 
-	if len(rowsTostream) == 0 {
-		if s.publisher.complete.Load() {
-			log.Printf("[INFO] getRowsToStream - publisher %s complete - returning (%s)", s.publisher.CallId, s.callId)
-			return nil, nil
-		}
+	if len(rowsToStream) == 0 {
 		// if no rows are available, retry
+		// (NOTE: we have already checked for completiomn
 		// (this is called from within a retry.Do)
 		return nil, retry.RetryableError(fmt.Errorf("no rows available to stream"))
 	}
 
-	log.Printf("[TRACE] getRowsToStream returning %d (%s)", len(rowsTostream), s.callId)
+	log.Printf("[TRACE] getRowsToStream returning %d (%s)", len(rowsToStream), s.callId)
 	// ok we have rows
-	return rowsTostream, nil
+	return rowsToStream, nil
 }
 
 func (s *setRequestSubscriber) waitUntilDone() error {

@@ -3,7 +3,6 @@ package query_cache
 import (
 	"context"
 	"fmt"
-	"github.com/sethvargo/go-retry"
 	"log"
 	"sort"
 	"strings"
@@ -13,7 +12,8 @@ import (
 	"github.com/allegro/bigcache/v3"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
-	"github.com/turbot/go-kit/helpers"
+	"github.com/gertd/go-pluralize"
+	"github.com/sethvargo/go-retry"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
@@ -248,6 +248,7 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 		return fmt.Errorf("IterateSet called for callId %s but there is no in-progress 'set' operation", callId)
 	}
 
+	// add row to the request page buffer
 	if err := req.addRow(row); err != nil {
 		return err
 	}
@@ -258,7 +259,12 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 	if req.bufferIndex == rowBufferSize {
 		// reset index and update page count
 		log.Printf("[TRACE] IterateSet writing 1 page of %d rows. Page count %d (%s)", rowBufferSize, req.pageCount, req.CallId)
-		req.err = c.writePageToCache(ctx, req)
+		req.err = c.writePageToCache(ctx, req, false)
+	} else {
+		// TACTICAL
+		// wait for at least one of our subscribers to have streamed all available rows
+		// this avoids the cache pulling data from the APIs too quickly,
+		c.waitForSubscribers(ctx, req)
 	}
 
 	return nil
@@ -278,12 +284,6 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 
 	// ensure we delete set request from map
 	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("[WARN] QueryCache EndSet suffered a panic: %v", helpers.ToError(r))
-			err = helpers.ToError(r)
-			// set all subscribers to error
-			req.sendErrorToSubscribers(err)
-		}
 		// remove entry from the map
 		c.setRequestMapLock.Lock()
 		delete(c.setRequests, callId)
@@ -304,14 +304,11 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	log.Printf("[TRACE] EndSet (%s) table %s root key %s, pages: %d", callId, req.Table, req.resultKeyRoot, req.pageCount)
 
 	// write the remaining buffered rows to the cache
-	err = c.writePageToCache(ctx, req)
+	err = c.writePageToCache(ctx, req, true)
 	if err != nil {
 		log.Printf("[WARN] QueryCache EndSet - result Set failed: %v", err)
 		return err
 	}
-
-	// mark the request as complete
-	req.complete.Store(true)
 
 	// now update the cache index
 	err = c.updateIndex(ctx, callId, req)
@@ -320,6 +317,47 @@ func (c *QueryCache) EndSet(ctx context.Context, callId string) (err error) {
 	}
 
 	return err
+}
+
+func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
+	c.setRequestMapLock.Lock()
+	// get the ongoing request
+	req, ok := c.setRequests[callId]
+	// remove set request item
+	delete(c.setRequests, callId)
+	c.setRequestMapLock.Unlock()
+	if !ok {
+		return
+	}
+
+	// set request state to error - all subsctribers will see the state and give up
+	req.requestLock.Lock()
+	log.Printf("[WARN] QueryCache AbortSet - aborting request  with error %s (%d %s) (%s)",
+		err.Error(),
+		len(req.subscribers),
+		pluralize.NewClient().Pluralize("subscriber", len(req.subscribers), false),
+		req.CallId)
+
+	req.state = requestError
+	req.err = err
+	req.requestLock.Unlock()
+
+	log.Printf("[INFO] QueryCache AbortSet pendingItemComplete (%s)", req.CallId)
+	// clear the corresponding pending item
+	c.pendingItemComplete(req.CacheRequest)
+
+	log.Printf("[INFO] QueryCache AbortSet - deleting %d pages from the cache (%s)", req.pageCount, req.CallId)
+	// remove all pages that have already been written
+	for i := 0; i < int(req.pageCount); i++ {
+		pageKey := getPageKey(req.resultKeyRoot, i)
+		c.cache.Delete(ctx, pageKey)
+	}
+	log.Printf("[INFO] QueryCache AbortSet done (%s)", req.CallId)
+}
+
+// ClearForConnection removes all cache entries for the given connection
+func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) {
+	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
 }
 
 func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setRequest) error {
@@ -357,41 +395,8 @@ func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setReq
 	return err
 }
 
-func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
-	// TODO [pending_cache] do we need to set complete
-	c.setRequestMapLock.Lock()
-	// get the ongoing request
-	req, ok := c.setRequests[callId]
-	// remove set request item
-	delete(c.setRequests, callId)
-	c.setRequestMapLock.Unlock()
-	if !ok {
-		return
-	}
-	log.Printf("[WARN] QueryCache AbortSet - aborting request")
-	// tell request to send error to all it's subscribers
-	req.sendErrorToSubscribers(err)
-
-	log.Printf("[INFO] QueryCache AbortSet pendingItemComplete")
-	// clear the corresponding pending item
-	c.pendingItemComplete(req.CacheRequest)
-
-	log.Printf("[INFO] QueryCache AbortSet - deleting %d pages from the cache", req.pageCount)
-	// remove all pages that have already been written
-	for i := 0; i < int(req.pageCount); i++ {
-		pageKey := getPageKey(req.resultKeyRoot, i)
-		c.cache.Delete(ctx, pageKey)
-	}
-	log.Printf("[INFO] QueryCache AbortSet done")
-}
-
-// ClearForConnection removes all cache entries for the given connection
-func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) {
-	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
-}
-
 // write a page of rows to the cache
-func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest) error {
+func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest, finalPage bool) error {
 
 	// wait for at least one of our subscribers to have streamed all available rows
 	// this avoids the cache pulling data from the APIs too quickly,
@@ -410,6 +415,10 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest) erro
 	req.bufferIndex = 0
 	req.pageCount++
 
+	// set completion state if this is last page
+	if finalPage {
+		req.state = requestComplete
+	}
 	req.requestLock.Unlock()
 
 	// build a cache key for this page
