@@ -2,11 +2,18 @@ package plugin
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"golang.org/x/time/rate"
 	"log"
 	"strings"
 
 	"github.com/turbot/go-kit/helpers"
 )
+
+type RateLimitConfig struct {
+	Limit rate.Limit
+	Burst int
+}
 
 /*
 HydrateConfig defines how to run a [HydrateFunc]:
@@ -97,8 +104,8 @@ type HydrateConfig struct {
 	IgnoreConfig   *IgnoreConfig
 	// deprecated - use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-
-	Depends []HydrateFunc
+	Depends           []HydrateFunc
+	RateLimit         *RateLimitConfig
 }
 
 func (c *HydrateConfig) String() interface{} {
@@ -155,4 +162,20 @@ func (c *HydrateConfig) Validate(table *Table) []string {
 		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
 	return validationErrors
+}
+
+func (c *HydrateConfig) GetRateLimit() rate.Limit {
+	if c.RateLimit != nil {
+		return c.RateLimit.Limit
+	}
+	// TODO CHECK ENV
+	return rate_limiter.DefaultHydrateRate
+}
+
+func (c *HydrateConfig) GetRateLimitBurst() int {
+	if c.RateLimit != nil {
+		return c.RateLimit.Burst
+	}
+	// TODO CHECK ENV
+	return rate_limiter.DefaultHydrateBurstSize
 }

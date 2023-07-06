@@ -11,12 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gertd/go-pluralize"
-
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
@@ -26,6 +25,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"github.com/turbot/steampipe-plugin-sdk/v5/version"
 	"go.opentelemetry.io/otel/attribute"
@@ -107,6 +107,7 @@ type Plugin struct {
 	tempDir string
 	// stream used to send messages back to plugin manager
 	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
+	rateLimiters  *rate_limiter.MultiLimiter
 
 	// map of call ids to avoid duplicates
 	callIdLookup    map[string]struct{}
@@ -121,6 +122,10 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 
 	p.Logger = logger
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
+
+	p.rateLimiters = &rate_limiter.MultiLimiter{}
+	// add a plugin level (unscoped) rate limiter
+	p.rateLimiters.Add(rate_limiter.DefaultPluginRate, rate_limiter.DefaultPluginBurstSize, nil)
 
 	// default the schema mode to static
 	if p.SchemaMode == "" {
@@ -343,6 +348,16 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	// set the cancel func on the query data
 	// (this is only used if the cache is enabled - if a set request has no subscribers)
 	queryData.cancel = cancel
+
+	// add a rate limiter for this hydrate calls
+	for _, h := range queryData.hydrateCalls {
+		keys := rate_limiter.KeyMap{
+			rate_limiter.RateLimiterKeyHydrate:    h.Name,
+			rate_limiter.RateLimiterKeyConnection: queryData.Connection.Name,
+		}
+		// get rate params from the hydrate config - this will fall back on defaults if not specified
+		p.rateLimiters.Add(h.Config.GetRateLimit(), h.Config.GetRateLimitBurst(), keys)
+	}
 
 	// get the matrix item
 	log.Printf("[TRACE] GetMatrixItem")

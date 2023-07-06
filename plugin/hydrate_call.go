@@ -2,9 +2,11 @@ package plugin
 
 import (
 	"context"
-	"sync/atomic"
-
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"log"
+	"sync/atomic"
+	"time"
 )
 
 // hydrateCall struct encapsulates a hydrate call, its config and dependencies
@@ -16,7 +18,7 @@ type hydrateCall struct {
 	Name    string
 }
 
-func newHydrateCall( config *HydrateConfig) *hydrateCall {
+func newHydrateCall(config *HydrateConfig) *hydrateCall {
 	res := &hydrateCall{
 		Name:   helpers.GetFunctionName(config.Func),
 		Func:   config.Func,
@@ -48,6 +50,21 @@ func (h hydrateCall) canStart(rowData *rowData, name string, concurrencyManager 
 
 // Start starts a hydrate call
 func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concurrencyManager *concurrencyManager) {
+	t := time.Now()
+	log.Printf("[INFO] start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
+	// get the rate limiter
+	rateLimiter := d.plugin.rateLimiters
+
+	var rateLimiterKeys = rate_limiter.KeyMap{
+		rate_limiter.RateLimiterKeyHydrate:    h.Name,
+		rate_limiter.RateLimiterKeyConnection: d.Connection.Name,
+		// TODO add matrix quals if needed
+	}
+	// wait until we can execute
+	rateLimiter.Wait(ctx, rateLimiterKeys)
+
+	log.Printf("[INFO] ****** AFTER rate limiter %s (%dms) (%s)", h.Name, time.Since(t).Milliseconds(), d.connectionCallId)
+
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 	// update the hydrate count

@@ -213,6 +213,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		ConnectionManager: d.ConnectionManager,
 		ConnectionCache:   d.ConnectionCache,
 		Matrix:            d.Matrix,
+		connectionCallId:  d.connectionCallId,
 		plugin:            d.plugin,
 		cacheTtl:          d.cacheTtl,
 		cacheEnabled:      d.cacheEnabled,
@@ -317,7 +318,7 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 			hydrateName = helpers.GetFunctionName(hydrateFunc)
 			// if this column was requested in query, add the hydrate call to required calls
 			if helpers.StringSliceContains(colsUsed, column.Name) {
-				requiredCallBuilder.Add(hydrateFunc)
+				requiredCallBuilder.Add(hydrateFunc, d.connectionCallId)
 			}
 		}
 
