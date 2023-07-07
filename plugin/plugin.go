@@ -123,9 +123,7 @@ func (p *Plugin) initialise() {
 	p.Logger = p.setupLogger()
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 
-	p.rateLimiters = &rate_limiter.MultiLimiter{}
-	// add a plugin level (unscoped) rate limiter
-	p.rateLimiters.Add(rate_limiter.DefaultPluginRate, rate_limiter.DefaultPluginBurstSize, nil)
+	p.initialiseRateLimiter()
 
 	// default the schema mode to static
 	if p.SchemaMode == "" {
@@ -177,6 +175,12 @@ func (p *Plugin) initialise() {
 	p.tempDir = path.Join(os.TempDir(), p.Name)
 
 	p.callIdLookup = make(map[string]struct{})
+}
+
+func (p *Plugin) initialiseRateLimiter() {
+	p.rateLimiters = &rate_limiter.MultiLimiter{}
+	// add a plugin level (unscoped) rate limiter
+	p.rateLimiters.Add(rate_limiter.GetDefaultPluginRate(), rate_limiter.GetDefaultPluginBurstSize(), nil)
 }
 
 func (p *Plugin) shutdown() {

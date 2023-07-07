@@ -168,14 +168,13 @@ func (c *HydrateConfig) GetRateLimit() rate.Limit {
 	if c.RateLimit != nil {
 		return c.RateLimit.Limit
 	}
-	// TODO CHECK ENV
-	return rate_limiter.DefaultHydrateRate
+	return rate_limiter.GetDefaultHydrateRate()
 }
 
 func (c *HydrateConfig) GetRateLimitBurst() int {
 	if c.RateLimit != nil {
 		return c.RateLimit.Burst
 	}
-	// TODO CHECK ENV
-	return rate_limiter.DefaultHydrateBurstSize
+
+	return rate_limiter.GetDefaultHydrateBurstSize()
 }
