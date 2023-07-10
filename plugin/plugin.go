@@ -175,6 +175,18 @@ func (p *Plugin) initialise() {
 	p.tempDir = path.Join(os.TempDir(), p.Name)
 
 	p.callIdLookup = make(map[string]struct{})
+
+	log.Printf("[INFO] Rate limiting parameters")
+	log.Printf("[INFO] ========================")
+	log.Printf("[INFO] Max concurrent rows: %d", rate_limiter.GetMaxConcurrentRows())
+	log.Printf("[INFO] Rate limiting enabled: %v", rate_limiter.RateLimiterEnabled())
+	if rate_limiter.RateLimiterEnabled() {
+		log.Printf("[INFO] DefaultPluginRate: %d", int(rate_limiter.GetDefaultPluginRate()))
+		log.Printf("[INFO] DefaultPluginBurstSize: %d", rate_limiter.GetDefaultPluginBurstSize())
+		log.Printf("[INFO] DefaultHydrateRate: %d", int(rate_limiter.GetDefaultHydrateRate()))
+		log.Printf("[INFO] DefaultHydrateBurstSize: %d", rate_limiter.GetDefaultHydrateBurstSize())
+	}
+
 }
 
 func (p *Plugin) initialiseRateLimiter() {
