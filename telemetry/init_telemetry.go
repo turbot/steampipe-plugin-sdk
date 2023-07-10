@@ -49,9 +49,7 @@ func Init(serviceName string) (func(), error) {
 	}
 
 	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr)
-
 	if err != nil {
-		// return empty shutdown func
 		return nil, err
 	}
 
@@ -59,11 +57,11 @@ func Init(serviceName string) (func(), error) {
 	var traceExp *otlptrace.Exporter
 	var tracerProvider *sdktrace.TracerProvider
 
-	var metrixExp sdkmetric.Exporter
+	var metricExp sdkmetric.Exporter
 	var meterProvider *sdkmetric.MeterProvider
 
 	if metricsEnabled {
-		metrixExp, meterProvider, err = initMetrics(ctx, grpcConn, serviceName)
+		metricExp, meterProvider, err = initMetrics(ctx, grpcConn, serviceName)
 		if err != nil {
 			// return empty shutdown func
 			return nil, err
@@ -75,14 +73,17 @@ func Init(serviceName string) (func(), error) {
 			return nil, err
 		}
 	}
+
+	// create a callback function which can be called when telemetry needs to shut down
 	shutdown := func() {
 		log.Printf("[TRACE] shutdown telemetry ")
-		ctx, cancel := context.WithTimeout(ctx, time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		if tracingEnabled {
+		if tracerProvider != nil && traceExp != nil {
 			// flush batched data
-			if err := tracerProvider.ForceFlush(context.Background()); err != nil {
+			log.Printf("[TRACE] shutdown tracer")
+			if err := tracerProvider.ForceFlush(ctx); err != nil {
 				log.Printf("[TRACE] could not flush during telemetry shutdown: %s", err.Error())
 				otel.Handle(err)
 			}
@@ -90,22 +91,29 @@ func Init(serviceName string) (func(), error) {
 				log.Printf("[TRACE] error occurred during telemetry shutdown: %s", err.Error())
 				otel.Handle(err)
 			}
+			log.Printf("[TRACE] shutdown tracer complete")
 		}
-		if metricsEnabled {
+
+		if meterProvider != nil && metricExp != nil {
+			log.Printf("[TRACE] shutdown metrics")
 			// flush batched data
-			if err := meterProvider.ForceFlush(context.Background()); err != nil {
+			if err := meterProvider.ForceFlush(ctx); err != nil {
 				log.Printf("[TRACE] could not flush during telemetry shutdown: %s", err.Error())
 				otel.Handle(err)
 			}
 			// pushes any last exports to the receiver
-			if err := metrixExp.Shutdown(ctx); err != nil {
+			if err := metricExp.Shutdown(ctx); err != nil {
 				log.Printf("[TRACE] error occurred during telemetry shutdown: %s", err.Error())
 				otel.Handle(err)
 			}
+			log.Printf("[TRACE] shutdown metrics complete")
 		}
 
-		if tracingEnabled || metricsEnabled {
+		// close the GRPC connection
+		if grpcConn != nil {
+			log.Printf("[TRACE] shutdown grpc connection")
 			grpcConn.Close()
+			log.Printf("[TRACE] shutdown grpc connection complete")
 		}
 	}
 	log.Printf("[TRACE] init telemetry end")
@@ -131,6 +139,7 @@ func initMetrics(ctx context.Context, grpcConnection *grpc.ClientConn, serviceNa
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(
+			// create a metric reader which exports out to the GRPC connection every 60 seconds
 			sdkmetric.NewPeriodicReader(exporter),
 		),
 	)
