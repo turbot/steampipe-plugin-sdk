@@ -122,6 +122,13 @@ func GetQualValue(v *proto.QualValue) interface{} {
 			values = append(values, GetQualValue(l))
 		}
 		qv = values
+	default:
+		// not expected
+		qv = ""
 	}
 	return qv
+}
+
+func GetQualValueString(v *proto.QualValue) string {
+	return fmt.Sprintf("%v", GetQualValue(v))
 }

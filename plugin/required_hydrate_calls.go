@@ -8,12 +8,12 @@ import (
 type requiredHydrateCallBuilder struct {
 	fetchCallName        string
 	requiredHydrateCalls map[string]*hydrateCall
-	table                *Table
+	queryData            *QueryData
 }
 
-func newRequiredHydrateCallBuilder(t *Table, fetchCallName string) *requiredHydrateCallBuilder {
+func newRequiredHydrateCallBuilder(d *QueryData, fetchCallName string) *requiredHydrateCallBuilder {
 	return &requiredHydrateCallBuilder{
-		table:                t,
+		queryData:            d,
 		fetchCallName:        fetchCallName,
 		requiredHydrateCalls: make(map[string]*hydrateCall),
 	}
@@ -29,9 +29,9 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc, callId string) 
 		}
 
 		// get the config for this hydrate function
-		config := c.table.hydrateConfigMap[hydrateName]
+		config := c.queryData.Table.hydrateConfigMap[hydrateName]
 
-		c.requiredHydrateCalls[hydrateName] = newHydrateCall(config)
+		c.requiredHydrateCalls[hydrateName] = newHydrateCall(config, c.queryData)
 
 		// now add dependencies (we have already checked for circular dependencies so recursion is fine
 		for _, dep := range config.Depends {

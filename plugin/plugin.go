@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sync/semaphore"
 	"log"
 	"os"
 	"path"
@@ -69,12 +70,13 @@ type Plugin struct {
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	// NOTE: it must be NULL for plugins with dynamic schema
-	TableMap            map[string]*Table
-	TableMapFunc        TableMapFunc
-	DefaultTransform    *transform.ColumnTransforms
-	DefaultConcurrency  *DefaultConcurrencyConfig
-	DefaultRetryConfig  *RetryConfig
-	DefaultIgnoreConfig *IgnoreConfig
+	TableMap                 map[string]*Table
+	TableMapFunc             TableMapFunc
+	DefaultTransform         *transform.ColumnTransforms
+	DefaultConcurrency       *DefaultConcurrencyConfig
+	DefaultRetryConfig       *RetryConfig
+	DefaultIgnoreConfig      *IgnoreConfig
+	DefaultRateLimiterConfig *rate_limiter.Config
 
 	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
 	DefaultGetConfig *GetConfig
@@ -107,7 +109,9 @@ type Plugin struct {
 	tempDir string
 	// stream used to send messages back to plugin manager
 	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
-	rateLimiters  *rate_limiter.MultiLimiter
+	rateLimiters  *rate_limiter.LimiterMap
+	// semaphore controlling total hydrate calls
+	hydrateCallSemaphore *semaphore.Weighted
 
 	// map of call ids to avoid duplicates
 	callIdLookup    map[string]struct{}
@@ -123,7 +127,7 @@ func (p *Plugin) initialise() {
 	p.Logger = p.setupLogger()
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 
-	p.initialiseRateLimiter()
+	p.initialiseRateLimits()
 
 	// default the schema mode to static
 	if p.SchemaMode == "" {
@@ -179,20 +183,21 @@ func (p *Plugin) initialise() {
 	log.Printf("[INFO] Rate limiting parameters")
 	log.Printf("[INFO] ========================")
 	log.Printf("[INFO] Max concurrent rows: %d", rate_limiter.GetMaxConcurrentRows())
+	log.Printf("[INFO] Max concurrent hydrate calls: %d", rate_limiter.GetMaxConcurrentHydrateCalls())
 	log.Printf("[INFO] Rate limiting enabled: %v", rate_limiter.RateLimiterEnabled())
 	if rate_limiter.RateLimiterEnabled() {
-		log.Printf("[INFO] DefaultPluginRate: %d", int(rate_limiter.GetDefaultPluginRate()))
-		log.Printf("[INFO] DefaultPluginBurstSize: %d", rate_limiter.GetDefaultPluginBurstSize())
 		log.Printf("[INFO] DefaultHydrateRate: %d", int(rate_limiter.GetDefaultHydrateRate()))
 		log.Printf("[INFO] DefaultHydrateBurstSize: %d", rate_limiter.GetDefaultHydrateBurstSize())
 	}
 
 }
 
-func (p *Plugin) initialiseRateLimiter() {
-	p.rateLimiters = &rate_limiter.MultiLimiter{}
-	// add a plugin level (unscoped) rate limiter
-	p.rateLimiters.Add(rate_limiter.GetDefaultPluginRate(), rate_limiter.GetDefaultPluginBurstSize(), nil)
+func (p *Plugin) initialiseRateLimits() {
+	p.rateLimiters = rate_limiter.NewLimiterMap()
+
+	// get total max hydrate call concurrency
+	maxConcurrentHydrateCalls := rate_limiter.GetMaxConcurrentHydrateCalls()
+	p.hydrateCallSemaphore = semaphore.NewWeighted(int64(maxConcurrentHydrateCalls))
 }
 
 func (p *Plugin) shutdown() {
@@ -364,16 +369,6 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	// set the cancel func on the query data
 	// (this is only used if the cache is enabled - if a set request has no subscribers)
 	queryData.cancel = cancel
-
-	// add a rate limiter for this hydrate calls
-	for _, h := range queryData.hydrateCalls {
-		keys := rate_limiter.KeyMap{
-			rate_limiter.RateLimiterKeyHydrate:    h.Name,
-			rate_limiter.RateLimiterKeyConnection: queryData.Connection.Name,
-		}
-		// get rate params from the hydrate config - this will fall back on defaults if not specified
-		p.rateLimiters.Add(h.Config.GetRateLimit(), h.Config.GetRateLimitBurst(), keys)
-	}
 
 	// get the matrix item
 	log.Printf("[TRACE] GetMatrixItem")
