@@ -4,55 +4,76 @@ import (
 	"golang.org/x/time/rate"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
 	RateLimiterKeyHydrate    = "hydrate"
 	RateLimiterKeyConnection = "connection"
 
+	defaultRateLimiterEnabled = false
 	// rates are per second
-	DefaultPluginRate       rate.Limit = 5000
-	DefaultPluginBurstSize             = 50
-	DefaultHydrateRate                 = 15
-	DefaultHydrateBurstSize            = 5
+	defaultPluginRate        rate.Limit = 5000
+	defaultPluginBurstSize              = 50
+	defaultHydrateRate                  = 15
+	defaultHydrateBurstSize             = 5
+	defaultMaxConcurrentRows            = 10
 
-	EnvDefaultPluginRate       = "STEAMPIPE_DEFAULT_PLUGIN_RATE"
-	EnvDefaultPluginBurstSize  = "STEAMPIPE_DEFAULT_PLUGIN_BURST"
-	EnvDefaultHydrateRate      = "STEAMPIPE_DEFAULT_HYDRATE_RATE"
-	EnvDefaultHydrateBurstSize = "STEAMPIPE_DEFAULT_HYDRATE_BURST"
+	envHydrateRateLimitEnabled = "STEAMPIPE_RATE_LIMIT_HYDRATE"
+	envDefaultPluginRate       = "STEAMPIPE_DEFAULT_PLUGIN_RATE"
+	envDefaultPluginBurstSize  = "STEAMPIPE_DEFAULT_PLUGIN_BURST"
+	envDefaultHydrateRate      = "STEAMPIPE_DEFAULT_HYDRATE_RATE"
+	envDefaultHydrateBurstSize = "STEAMPIPE_DEFAULT_HYDRATE_BURST"
+	envMaxConcurrentRows       = "STEAMPIPE_MAX_CONCURRENT_ROWS"
 )
 
 func GetDefaultPluginRate() rate.Limit {
-	if envStr, ok := os.LookupEnv(EnvDefaultPluginRate); ok {
+	if envStr, ok := os.LookupEnv(envDefaultPluginRate); ok {
 		if r, err := strconv.Atoi(envStr); err == nil {
 			return rate.Limit(r)
 		}
 	}
-	return DefaultPluginRate
+	return defaultPluginRate
 }
 
 func GetDefaultPluginBurstSize() int {
-	if envStr, ok := os.LookupEnv(EnvDefaultPluginBurstSize); ok {
+	if envStr, ok := os.LookupEnv(envDefaultPluginBurstSize); ok {
 		if b, err := strconv.Atoi(envStr); err == nil {
 			return b
 		}
 	}
-	return DefaultPluginBurstSize
+	return defaultPluginBurstSize
 }
 func GetDefaultHydrateRate() rate.Limit {
-	if envStr, ok := os.LookupEnv(EnvDefaultHydrateRate); ok {
+	if envStr, ok := os.LookupEnv(envDefaultHydrateRate); ok {
 		if r, err := strconv.Atoi(envStr); err == nil {
 			return rate.Limit(r)
 		}
 	}
-	return DefaultHydrateRate
+	return defaultHydrateRate
 }
 
 func GetDefaultHydrateBurstSize() int {
-	if envStr, ok := os.LookupEnv(EnvDefaultHydrateBurstSize); ok {
+	if envStr, ok := os.LookupEnv(envDefaultHydrateBurstSize); ok {
 		if b, err := strconv.Atoi(envStr); err == nil {
 			return b
 		}
 	}
-	return DefaultHydrateBurstSize
+	return defaultHydrateBurstSize
+}
+
+func RateLimiterEnabled() bool {
+	if envStr, ok := os.LookupEnv(envHydrateRateLimitEnabled); ok {
+		return strings.ToLower(envStr) == "true" || strings.ToLower(envStr) == "on"
+	}
+	return defaultRateLimiterEnabled
+}
+
+func GetMaxConcurrentRows() int {
+	if envStr, ok := os.LookupEnv(envMaxConcurrentRows); ok {
+		if b, err := strconv.Atoi(envStr); err == nil {
+			return b
+		}
+	}
+	return defaultMaxConcurrentRows
 }

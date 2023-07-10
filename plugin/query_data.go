@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"golang.org/x/exp/maps"
+	"golang.org/x/sync/semaphore"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -186,6 +188,7 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
+
 	return d, nil
 }
 
@@ -617,6 +620,11 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 	// we need to use a wait group for rows we cannot close the row channel when the item channel is closed
 	// as getRow is executing asyncronously
 	var rowWg sync.WaitGroup
+	maxConcurrentRows := rate_limiter.GetMaxConcurrentRows()
+	var rowSemaphore *semaphore.Weighted
+	if maxConcurrentRows > 0 {
+		rowSemaphore = semaphore.NewWeighted(int64(maxConcurrentRows))
+	}
 
 	// start goroutine to read items from item chan and generate row data
 	go func() {
@@ -638,9 +646,21 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 					// rowData channel closed - nothing more to do
 					return
 				}
-
+				if rowSemaphore != nil {
+					t := time.Now()
+					//log.Printf("[INFO] buildRowsAsync acquire semaphore (%s)", d.connectionCallId)
+					if err := rowSemaphore.Acquire(ctx, 1); err != nil {
+						log.Printf("[INFO] SEMAPHORE ERROR %s", err)
+						// TODO does this quit??
+						d.errorChan <- err
+						return
+					}
+					if time.Since(t) > 1*time.Millisecond {
+						log.Printf("[INFO] buildRowsAsync waited %dms to hydrate row (%s)", time.Since(t).Milliseconds(), d.connectionCallId)
+					}
+				}
 				rowWg.Add(1)
-				d.buildRowAsync(ctx, rowData, rowChan, &rowWg)
+				d.buildRowAsync(ctx, rowData, rowChan, &rowWg, rowSemaphore)
 			}
 		}
 	}()
@@ -756,7 +776,7 @@ func (d *QueryData) streamError(err error) {
 }
 
 // execute necessary hydrate calls to populate row data
-func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
+func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup, sem *semaphore.Weighted) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -764,6 +784,7 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 				d.streamError(helpers.ToError(r))
 			}
 			wg.Done()
+			sem.Release(1)
 		}()
 		if rowData == nil {
 			log.Printf("[INFO] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
