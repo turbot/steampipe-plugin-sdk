@@ -136,6 +136,10 @@ type QueryData struct {
 	// cancel the execution context
 	// (this is only used if the cache is enabled - if a set request has no subscribers)
 	cancel context.CancelFunc
+
+	// auto populated tags used to resolve a rate limiter for each hydrate call
+	// (hydrate-call specific tags will be added when we resolve the limiter)
+	rateLimiterTags map[string]string
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -189,6 +193,8 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
 
+	// build the base set of tag values used to resolve a rate limiter
+	d.populateRateLimitTags()
 	return d, nil
 }
 
@@ -298,7 +304,7 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 
 	// initialise hydrateColumnMap
 	d.hydrateColumnMap = make(map[string][]string)
-	requiredCallBuilder := newRequiredHydrateCallBuilder(t, fetchCallName)
+	requiredCallBuilder := newRequiredHydrateCallBuilder(d, fetchCallName)
 
 	// populate a map keyed by function name to ensure we only store each hydrate function once
 	for _, column := range t.Columns {
@@ -361,9 +367,9 @@ func (d *QueryData) addColumnsForHydrate(hydrateName string) {
 func (d *QueryData) updateQualsWithMatrixItem(matrixItem map[string]interface{}) {
 	for col, value := range matrixItem {
 		qualValue := proto.NewQualValue(value)
-		// replace any existing entry for both Quals and KeyColumnQuals
+		// replace any existing entry for both Quals and EqualsQuals
 		d.EqualsQuals[col] = qualValue
-		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Value: qualValue}}}
+		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Operator: quals.QualOperatorEqual, Value: qualValue}}}
 	}
 }
 
@@ -842,5 +848,29 @@ func (d *QueryData) getColumnNames() []string {
 func (d *QueryData) removeReservedColumns(row *proto.Row) {
 	for c := range d.reservedColumns {
 		delete(row.Columns, c)
+	}
+}
+
+/*
+	build the base set of tag values used to resolve a rate limiter
+
+this will  consist of:
+-connection name
+- quals (with value as string)
+*/
+func (d *QueryData) populateRateLimitTags() {
+	d.rateLimiterTags = make(map[string]string)
+
+	// add the connection
+	d.rateLimiterTags[rate_limiter.RateLimiterKeyConnection] = d.Connection.Name
+
+	// add the equals quals
+	for column, qualsForColumn := range d.Quals {
+		for _, qual := range qualsForColumn.Quals {
+			if qual.Operator == quals.QualOperatorEqual {
+				qualValueString := grpc.GetQualValueString(qual.Value)
+				d.rateLimiterTags[column] = qualValueString
+			}
+		}
 	}
 }
