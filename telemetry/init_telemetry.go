@@ -59,7 +59,6 @@ func Init(serviceName string) (func(), error) {
 	if metricsEnabled {
 		metricReader, meterProvider, err = initMetrics(ctx, grpcConn, serviceName)
 		if err != nil {
-			// return empty shutdown func
 			return nil, err
 		}
 	}
@@ -73,6 +72,8 @@ func Init(serviceName string) (func(), error) {
 	// create a callback function which can be called when telemetry needs to shut down
 	shutdown := func() {
 		log.Printf("[TRACE] shutdown telemetry ")
+		// we are giving a timeout of 2 seconds here. this is inline with the timeout that
+		// the grpc plugin library uses during plugin shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
