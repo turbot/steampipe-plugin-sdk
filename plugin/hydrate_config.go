@@ -3,17 +3,17 @@ package plugin
 import (
 	"fmt"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
-	"golang.org/x/time/rate"
 	"log"
 	"strings"
 
 	"github.com/turbot/go-kit/helpers"
 )
 
-type RateLimitConfig struct {
-	Limit rate.Limit
-	Burst int
-}
+//
+//type RateLimiterConfig struct {
+//	Limit rate.Limit
+//	Burst int
+//}
 
 /*
 HydrateConfig defines how to run a [HydrateFunc]:
@@ -105,7 +105,22 @@ type HydrateConfig struct {
 	// deprecated - use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 	Depends           []HydrateFunc
-	RateLimit         *RateLimitConfig
+
+	// tags values used to resolve the rate limiter for this hydrate call
+	// for example:
+	// "service": "s3"
+	//
+	// when resolving a rate limiter for a hydrate call, a map of key values is automatically populated from:
+	// - the connection name
+	// - quals (with vales as string)
+	// - tag specified in the hydrate config
+	//
+	// this map is then used to find a rate limiter
+	Tags              map[string]string
+	RateLimiterConfig *rate_limiter.Config
+	// how expensive is this hydrate call
+	// roughly - how many API calls does it hit
+	Cost int
 }
 
 func (c *HydrateConfig) String() interface{} {
@@ -146,6 +161,11 @@ func (c *HydrateConfig) initialise(table *Table) {
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 
+	// if cost is not set, initialise to 1
+	if c.Cost == 0 {
+		log.Printf("[TRACE] Cost is not set - defaulting to 1")
+		c.Cost = 1
+	}
 	log.Printf("[TRACE] HydrateConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 
@@ -164,17 +184,17 @@ func (c *HydrateConfig) Validate(table *Table) []string {
 	return validationErrors
 }
 
-func (c *HydrateConfig) GetRateLimit() rate.Limit {
-	if c.RateLimit != nil {
-		return c.RateLimit.Limit
-	}
-	return rate_limiter.GetDefaultHydrateRate()
-}
-
-func (c *HydrateConfig) GetRateLimitBurst() int {
-	if c.RateLimit != nil {
-		return c.RateLimit.Burst
-	}
-
-	return rate_limiter.GetDefaultHydrateBurstSize()
-}
+//func (c *HydrateConfig) GetRateLimit() rate.Limit {
+//	if c.RateLimit != nil {
+//		return c.RateLimit.Limit
+//	}
+//	return rate_limiter.GetDefaultHydrateRate()
+//}
+//
+//func (c *HydrateConfig) GetRateLimitBurst() int {
+//	if c.RateLimit != nil {
+//		return c.RateLimit.Burst
+//	}
+//
+//	return rate_limiter.GetDefaultHydrateBurstSize()
+//}
