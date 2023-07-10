@@ -50,7 +50,28 @@ func (h hydrateCall) canStart(rowData *rowData, name string, concurrencyManager 
 
 // Start starts a hydrate call
 func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concurrencyManager *concurrencyManager) {
+	h.rateLimit(ctx, d)
+
+	// tell the rowdata to wait for this call to complete
+	r.wg.Add(1)
+	// update the hydrate count
+	atomic.AddInt64(&d.queryStatus.hydrateCalls, 1)
+
+	// call callHydrate async, ignoring return values
+	go func() {
+		r.callHydrate(ctx, d, h.Func, h.Name, h.Config)
+		// decrement number of hydrate functions running
+		concurrencyManager.Finished(h.Name)
+	}()
+}
+
+func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) {
+	if !rate_limiter.RateLimiterEnabled() {
+		log.Printf("[TRACE] start hydrate call, rate limiting disabled %s (%s)", h.Name, d.connectionCallId)
+		return
+	}
 	t := time.Now()
+
 	log.Printf("[INFO] start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
 	// get the rate limiter
 	rateLimiter := d.plugin.rateLimiters
@@ -64,16 +85,4 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concu
 	rateLimiter.Wait(ctx, rateLimiterKeys)
 
 	log.Printf("[INFO] ****** AFTER rate limiter %s (%dms) (%s)", h.Name, time.Since(t).Milliseconds(), d.connectionCallId)
-
-	// tell the rowdata to wait for this call to complete
-	r.wg.Add(1)
-	// update the hydrate count
-	atomic.AddInt64(&d.queryStatus.hydrateCalls, 1)
-
-	// call callHydrate async, ignoring return values
-	go func() {
-		r.callHydrate(ctx, d, h.Func, h.Name, h.Config)
-		// decrement number of hydrate functions running
-		concurrencyManager.Finished(h.Name)
-	}()
 }
