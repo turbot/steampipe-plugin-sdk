@@ -9,11 +9,7 @@ import (
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
-	"google.golang.org/grpc"
-
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -21,11 +17,16 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"google.golang.org/grpc"
 )
 
 func Init(serviceName string) (func(), error) {
 	ctx := context.Background()
+
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		log.Println("[TRACE] Otel handled error", err)
+	}))
 
 	// is telemetry enabled
 	telemetryEnvStr := strings.ToLower(os.Getenv(EnvOtelLevel))
@@ -47,47 +48,64 @@ func Init(serviceName string) (func(), error) {
 		otelAgentAddr = "localhost:4317"
 	}
 
-	log.Printf("[TRACE] endpoint: %s", otelAgentAddr)
-	var traceExp *otlp.Exporter
-	var tracerProvider *sdktrace.TracerProvider
-	var err error
+	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr)
 
-	var metrixExp *otlp.Exporter
+	if err != nil {
+		// return empty shutdown func
+		return nil, err
+	}
+
+	log.Printf("[TRACE] endpoint: %s", otelAgentAddr)
+	var traceExp *otlptrace.Exporter
+	var tracerProvider *sdktrace.TracerProvider
+
+	var metrixExp sdkmetric.Exporter
+	var meterProvider *sdkmetric.MeterProvider
 
 	if metricsEnabled {
-		pusher, err = initMetrics(ctx, otelAgentAddr)
+		metrixExp, meterProvider, err = initMetrics(ctx, grpcConn, serviceName)
 		if err != nil {
 			// return empty shutdown func
 			return nil, err
 		}
 	}
-	log.Printf("[TRACE] create client")
-
 	if tracingEnabled {
-		traceExp, tracerProvider, err = initTracing(ctx, otelAgentAddr, serviceName)
+		traceExp, tracerProvider, err = initTracing(ctx, grpcConn, serviceName)
 		if err != nil {
 			return nil, err
 		}
 	}
 	shutdown := func() {
 		log.Printf("[TRACE] shutdown telemetry ")
-		cxt, cancel := context.WithTimeout(ctx, time.Second)
+		ctx, cancel := context.WithTimeout(ctx, time.Second)
 		defer cancel()
 
 		if tracingEnabled {
-			// not sure why this is necessary - maybe because of batching?
-			tracerProvider.ForceFlush(context.Background())
-			if err := traceExp.Shutdown(cxt); err != nil {
+			// flush batched data
+			if err := tracerProvider.ForceFlush(context.Background()); err != nil {
+				log.Printf("[TRACE] could not flush during telemetry shutdown: %s", err.Error())
+				otel.Handle(err)
+			}
+			if err := traceExp.Shutdown(ctx); err != nil {
 				log.Printf("[TRACE] error occurred during telemetry shutdown: %s", err.Error())
 				otel.Handle(err)
 			}
 		}
 		if metricsEnabled {
+			// flush batched data
+			if err := meterProvider.ForceFlush(context.Background()); err != nil {
+				log.Printf("[TRACE] could not flush during telemetry shutdown: %s", err.Error())
+				otel.Handle(err)
+			}
 			// pushes any last exports to the receiver
-			if err := pusher.Stop(cxt); err != nil {
+			if err := metrixExp.Shutdown(ctx); err != nil {
 				log.Printf("[TRACE] error occurred during telemetry shutdown: %s", err.Error())
 				otel.Handle(err)
 			}
+		}
+
+		if tracingEnabled || metricsEnabled {
+			grpcConn.Close()
 		}
 	}
 	log.Printf("[TRACE] init telemetry end")
@@ -95,73 +113,46 @@ func Init(serviceName string) (func(), error) {
 	return shutdown, nil
 }
 
-func initMetrics(ctx context.Context, otelAgentAddr string) (otlp.Exporter, sdkmetric.MeterProvider, error) {
+func initMetrics(ctx context.Context, grpcConnection *grpc.ClientConn, serviceName string) (sdkmetric.Exporter, *sdkmetric.MeterProvider, error) {
 	log.Printf("[TRACE] telemetry.initMetrics")
-
-	metricClient := otlpmetricgrpc.NewClient(
-		otlpmetricgrpc.WithInsecure(),
-		otlpmetricgrpc.WithEndpoint(otelAgentAddr),
-	)
-
-	metricExp, err := otlpmetric.New(ctx, metricClient)
-	if err != nil {
-		log.Printf("[TRACE] initMetrics: failed to create the collector metric exporter: %s", err.Error())
-		return nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
-	}
-	provider := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(metricExp),
-	)
-
-	// pusher := controller.New(
-	// 	processor.NewFactory(
-	// 		simple.NewWithHistogramDistribution(),
-	// 		metricExp,
-	// 	),
-	// 	controller.WithExporter(metricExp),
-	// 	controller.WithCollectPeriod(2*time.Second),
-	// )
-	// global.SetMeterProvider(pusher)
-
-	// if err := pusher.Start(ctx); err != nil {
-	// 	log.Printf("[TRACE] initMetrics: failed to start metric pusher: %s", err.Error())
-	// 	return nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
-	// }
-	// log.Printf("[TRACE] telemetry.initMetrics complete")
-	// return pusher, nil
-}
-
-func initTracing(ctx context.Context, otelAgentAddr, serviceName string) (*otlp.Exporter, *sdktrace.TracerProvider, error) {
-	traceClient := otlptracegrpc.NewClient(
-		otlptracegrpc.WithInsecure(),
-		otlptracegrpc.WithEndpoint(otelAgentAddr),
-		otlptracegrpc.WithDialOption(grpc.WithBlock(), grpc.WithTimeout(5*time.Second)),
-	)
-	traceExp, err := otlptrace.New(ctx, traceClient)
-	if err != nil {
-		log.Printf("[TRACE] initTracing: error creating trace exporter: %v", err)
-		if strings.LastIndex(err.Error(), "context deadline exceeded") != -1 {
-			err = fmt.Errorf("timeout connecting to listener at %s", otelAgentAddr)
-		}
-		return nil, nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
-	}
-
-	log.Printf("[TRACE] got exporter")
-
-	res, err := resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithProcess(),
-		resource.WithTelemetrySDK(),
-		resource.WithHost(),
-		resource.WithAttributes(
-			// the service name used to display traces in backends
-			semconv.ServiceNameKey.String(serviceName),
-		),
-	)
+	res, err := getResource(ctx, serviceName)
 	if err != nil {
 		log.Printf("[TRACE] initTracing: failed to create resource: %s", err.Error())
 		return nil, nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
 	}
 	log.Printf("[TRACE] got resource")
+
+	exporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(grpcConnection))
+	if err != nil {
+		log.Printf("[TRACE] initMetrics: failed to create the collector metric exporter: %s", err.Error())
+		return nil, nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
+	}
+
+	provider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(res),
+		sdkmetric.WithReader(
+			sdkmetric.NewPeriodicReader(exporter),
+		),
+	)
+
+	otel.SetMeterProvider(provider)
+
+	return exporter, provider, nil
+}
+
+func initTracing(ctx context.Context, grpcConn *grpc.ClientConn, serviceName string) (*otlptrace.Exporter, *sdktrace.TracerProvider, error) {
+	res, err := getResource(ctx, serviceName)
+	if err != nil {
+		log.Printf("[TRACE] initTracing: failed to create resource: %s", err.Error())
+		return nil, nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
+	}
+	log.Printf("[TRACE] got resource")
+
+	traceExp, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(grpcConn))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialise Open Telemetry: %s", err.Error())
+	}
+	log.Printf("[TRACE] got exporter")
 
 	bsp := sdktrace.NewBatchSpanProcessor(traceExp)
 	tracerProvider := sdktrace.NewTracerProvider(
@@ -176,4 +167,17 @@ func initTracing(ctx context.Context, otelAgentAddr, serviceName string) (*otlp.
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	otel.SetTracerProvider(tracerProvider)
 	return traceExp, tracerProvider, nil
+}
+
+func getResource(ctx context.Context, serviceName string) (*resource.Resource, error) {
+	return resource.New(ctx,
+		resource.WithFromEnv(),
+		resource.WithProcess(),
+		resource.WithTelemetrySDK(),
+		resource.WithHost(),
+		resource.WithAttributes(
+			// the service name used to display traces in backends
+			semconv.ServiceNameKey.String(serviceName),
+		),
+	)
 }
