@@ -13,37 +13,19 @@ const (
 
 	defaultRateLimiterEnabled = false
 	// rates are per second
-	defaultPluginRate        rate.Limit = 5000
-	defaultPluginBurstSize              = 50
-	defaultHydrateRate                  = 15
-	defaultHydrateBurstSize             = 5
-	defaultMaxConcurrentRows            = 10
+	defaultHydrateRate      = 150
+	defaultHydrateBurstSize = 10
 
-	envHydrateRateLimitEnabled = "STEAMPIPE_RATE_LIMIT_HYDRATE"
-	envDefaultPluginRate       = "STEAMPIPE_DEFAULT_PLUGIN_RATE"
-	envDefaultPluginBurstSize  = "STEAMPIPE_DEFAULT_PLUGIN_BURST"
-	envDefaultHydrateRate      = "STEAMPIPE_DEFAULT_HYDRATE_RATE"
-	envDefaultHydrateBurstSize = "STEAMPIPE_DEFAULT_HYDRATE_BURST"
-	envMaxConcurrentRows       = "STEAMPIPE_MAX_CONCURRENT_ROWS"
+	defaultMaxConcurrentRows         = 500
+	defaultMaxConcurrentHydrateCalls = 5000
+
+	envHydrateRateLimitEnabled   = "STEAMPIPE_RATE_LIMIT_HYDRATE"
+	envDefaultHydrateRate        = "STEAMPIPE_DEFAULT_HYDRATE_RATE"
+	envDefaultHydrateBurstSize   = "STEAMPIPE_DEFAULT_HYDRATE_BURST"
+	envMaxConcurrentRows         = "STEAMPIPE_MAX_CONCURRENT_ROWS"
+	envMaxConcurrentHydrateCalls = "STEAMPIPE_MAX_CONCURRENT_HYDRATE_CALLS"
 )
 
-func GetDefaultPluginRate() rate.Limit {
-	if envStr, ok := os.LookupEnv(envDefaultPluginRate); ok {
-		if r, err := strconv.Atoi(envStr); err == nil {
-			return rate.Limit(r)
-		}
-	}
-	return defaultPluginRate
-}
-
-func GetDefaultPluginBurstSize() int {
-	if envStr, ok := os.LookupEnv(envDefaultPluginBurstSize); ok {
-		if b, err := strconv.Atoi(envStr); err == nil {
-			return b
-		}
-	}
-	return defaultPluginBurstSize
-}
 func GetDefaultHydrateRate() rate.Limit {
 	if envStr, ok := os.LookupEnv(envDefaultHydrateRate); ok {
 		if r, err := strconv.Atoi(envStr); err == nil {
@@ -76,4 +58,22 @@ func GetMaxConcurrentRows() int {
 		}
 	}
 	return defaultMaxConcurrentRows
+}
+
+func GetMaxConcurrentHydrateCalls() int {
+	if envStr, ok := os.LookupEnv(envMaxConcurrentHydrateCalls); ok {
+		if b, err := strconv.Atoi(envStr); err == nil {
+			return b
+		}
+	}
+	return defaultMaxConcurrentHydrateCalls
+}
+
+// DefaultConfig returns a config for a default rate limit config providing
+// a single rate limiter for all calls to the plugin
+func DefaultConfig() *Config {
+	return &Config{
+		Limit:     GetDefaultHydrateRate(),
+		BurstSize: GetDefaultHydrateBurstSize(),
+	}
 }
