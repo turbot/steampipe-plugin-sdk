@@ -24,10 +24,6 @@ import (
 func Init(serviceName string) (func(), error) {
 	ctx := context.Background()
 
-	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
-		log.Println("[TRACE] Otel handled error", err)
-	}))
-
 	// is telemetry enabled
 	telemetryEnvStr := strings.ToLower(os.Getenv(EnvOtelLevel))
 	tracingEnabled := helpers.StringSliceContains([]string{OtelAll, OtelTrace}, telemetryEnvStr)
