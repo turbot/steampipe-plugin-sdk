@@ -14,19 +14,20 @@ import (
 // tags: {"connection": "aws1", "region": "us-east-1"}
 // key: hash("{\"connection\": \"aws1\", \"region\": \"us-east-1\"})
 type LimiterMap struct {
-	limiters map[string]*rate.Limiter
+	limiters map[string]*Limiter
 	mut      sync.RWMutex
 }
 
 func NewLimiterMap() *LimiterMap {
 	return &LimiterMap{
-		limiters: make(map[string]*rate.Limiter),
+		limiters: make(map[string]*Limiter),
 	}
 }
 
 // GetOrCreate checks the map for a limiter with the specified key values - if none exists it creates it
-func (m *LimiterMap) GetOrCreate(tags map[string]string, config *Config) (*rate.Limiter, error) {
-	key, err := m.buildKey(tags)
+func (m *LimiterMap) GetOrCreate(l *definition, tagValues map[string]string) (*Limiter, error) {
+	// build the key from the tag values
+	key, err := buildLimiterKey(tagValues)
 	if err != nil {
 		return nil, err
 	}
@@ -51,21 +52,30 @@ func (m *LimiterMap) GetOrCreate(tags map[string]string, config *Config) (*rate.
 		return limiter, nil
 	}
 
-	limiter = rate.NewLimiter(config.Limit, config.BurstSize)
-
+	// ok we need to create one
+	limiter = &Limiter{
+		Limiter:   rate.NewLimiter(l.Limit, l.BurstSize),
+		tagValues: tagValues,
+	}
+	// put it in the map
 	m.limiters[key] = limiter
 	return limiter, nil
 }
 
-// map key is the hash of the tag values as json
-func (*LimiterMap) buildKey(tags map[string]string) (string, error) {
-	jsonString, err := json.Marshal(tags)
+func buildLimiterKey(values map[string]string) (string, error) {
+	// build the key for this rate limiter
+
+	// map key is the hash of the tag values as json
+
+	// json marsjall sorts the array so the same keys in different order will produce the same key
+	jsonString, err := json.Marshal(values)
 	if err != nil {
 		return "", err
 	}
 
 	// return hash of JSON representaiton
-	hash := md5.Sum([]byte(jsonString))
-	return hex.EncodeToString(hash[:]), nil
+	hash := md5.Sum(jsonString)
+	key := hex.EncodeToString(hash[:])
 
+	return key, nil
 }

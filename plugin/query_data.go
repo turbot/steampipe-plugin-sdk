@@ -139,7 +139,7 @@ type QueryData struct {
 
 	// auto populated tags used to resolve a rate limiter for each hydrate call
 	// (hydrate-call specific tags will be added when we resolve the limiter)
-	rateLimiterTags map[string]string
+	rateLimiterTagValues map[string]string
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -184,6 +184,9 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 
 	queryContext.ensureColumns(table)
 
+	// build the base set of tag values used to resolve a rate limiter
+	d.populateRateLimitTags()
+
 	// build list of required hydrate calls, based on requested columns
 	d.populateRequiredHydrateCalls()
 	// build list of all columns returned by these hydrate calls (and the fetch call)
@@ -193,8 +196,6 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
 
-	// build the base set of tag values used to resolve a rate limiter
-	d.populateRateLimitTags()
 	return d, nil
 }
 
@@ -338,7 +339,6 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 
 	// now we have all the hydrate calls, build a list of all the columns that will be returned by the hydrate functions.
 	// these will be used for the cache
-
 }
 
 // build list of all columns returned by the fetch call and required hydrate calls
@@ -859,17 +859,23 @@ this will  consist of:
 - quals (with value as string)
 */
 func (d *QueryData) populateRateLimitTags() {
-	d.rateLimiterTags = make(map[string]string)
+	d.rateLimiterTagValues = make(map[string]string)
 
+	// static tags
 	// add the connection
-	d.rateLimiterTags[rate_limiter.RateLimiterKeyConnection] = d.Connection.Name
+	d.rateLimiterTagValues[rate_limiter.RateLimiterKeyConnection] = d.Connection.Name
+	// add plugin
+	d.rateLimiterTagValues[rate_limiter.RateLimiterKeyPlugin] = d.plugin.Name
+	// add table
+	d.rateLimiterTagValues[rate_limiter.RateLimiterKeyTable] = d.Table.Name
+	// TODO add hydrate callname - do elsewhere
 
 	// add the equals quals
 	for column, qualsForColumn := range d.Quals {
 		for _, qual := range qualsForColumn.Quals {
 			if qual.Operator == quals.QualOperatorEqual {
 				qualValueString := grpc.GetQualValueString(qual.Value)
-				d.rateLimiterTags[column] = qualValueString
+				d.rateLimiterTagValues[column] = qualValueString
 			}
 		}
 	}
