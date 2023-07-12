@@ -62,17 +62,16 @@ func Init(serviceName string) (func(), error) {
 			return nil, err
 		}
 	}
-	if metricsEnabled {
-		// disabling this for now, since we don't have any exported method which exposes
-		// the metric side of OpenTelemetry.
-		//
-		// We can reenable this when we tackle https://github.com/turbot/steampipe-plugin-sdk/issues/604
-		//
-		// metricReader, meterProvider, err = initMetrics(ctx, grpcConn, serviceName)
-		// if err != nil {
-		// 	return nil, err
-		// }
-	}
+	// disabling metrics init for now, since we don't have any exported method which exposes
+	// the metric side of OpenTelemetry.
+	//
+	// We can reenable this when we tackle https://github.com/turbot/steampipe-plugin-sdk/issues/604
+	// if metricsEnabled {
+	// 	metricReader, meterProvider, err = initMetrics(ctx, grpcConn, serviceName)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	// create a callback function which can be called when telemetry needs to shut down
 	shutdown := func() {
@@ -125,6 +124,9 @@ func Init(serviceName string) (func(), error) {
 	return shutdown, nil
 }
 
+// initMetrics initializes OpenTelemetry metrics SDK and exporters which push data over the given GRPC connection
+// Note: This is not called at the moment. Keeping this function around so that this can be easily enabled when tackling
+// https://github.com/turbot/steampipe-plugin-sdk/issues/604
 func initMetrics(ctx context.Context, grpcConnection *grpc.ClientConn, serviceName string) (sdkmetric.Reader, *sdkmetric.MeterProvider, error) {
 	log.Printf("[TRACE] telemetry.initMetrics")
 	res, err := getResource(ctx, serviceName)
@@ -153,6 +155,7 @@ func initMetrics(ctx context.Context, grpcConnection *grpc.ClientConn, serviceNa
 	return reader, provider, nil
 }
 
+// initTracing initializes the OpenTelemetry tracing/span SDK and exporters which push data over the given GRPC connection
 func initTracing(ctx context.Context, grpcConn *grpc.ClientConn, serviceName string) (*otlptrace.Exporter, *sdktrace.TracerProvider, error) {
 	res, err := getResource(ctx, serviceName)
 	if err != nil {
@@ -182,6 +185,7 @@ func initTracing(ctx context.Context, grpcConn *grpc.ClientConn, serviceName str
 	return traceExp, tracerProvider, nil
 }
 
+// getResource creates a resource that we can set to the TracerProvider and MeterProvider
 func getResource(ctx context.Context, serviceName string) (*resource.Resource, error) {
 	return resource.New(ctx,
 		resource.WithFromEnv(),
