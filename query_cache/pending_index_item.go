@@ -72,7 +72,7 @@ type pendingIndexItem struct {
 	pendingSetRequest *setRequest
 }
 
-func NewPendingIndexItem(pendingSetRequest *setRequest) *pendingIndexItem {
+func newPendingIndexItem(pendingSetRequest *setRequest) *pendingIndexItem {
 	return &pendingIndexItem{
 		item:              NewIndexItem(pendingSetRequest.CacheRequest),
 		callId:            pendingSetRequest.CallId,
