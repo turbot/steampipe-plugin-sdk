@@ -70,13 +70,15 @@ type Plugin struct {
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	// NOTE: it must be NULL for plugins with dynamic schema
-	TableMap                 map[string]*Table
-	TableMapFunc             TableMapFunc
-	DefaultTransform         *transform.ColumnTransforms
-	DefaultConcurrency       *DefaultConcurrencyConfig
-	DefaultRetryConfig       *RetryConfig
-	DefaultIgnoreConfig      *IgnoreConfig
-	DefaultRateLimiterConfig *rate_limiter.Config
+	TableMap            map[string]*Table
+	TableMapFunc        TableMapFunc
+	DefaultTransform    *transform.ColumnTransforms
+	DefaultConcurrency  *DefaultConcurrencyConfig
+	DefaultRetryConfig  *RetryConfig
+	DefaultIgnoreConfig *IgnoreConfig
+
+	// rate limiter definitions
+	RateLimiterConfig *rate_limiter.Config
 
 	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
 	DefaultGetConfig *GetConfig
@@ -198,6 +200,13 @@ func (p *Plugin) initialiseRateLimits() {
 	// get total max hydrate call concurrency
 	maxConcurrentHydrateCalls := rate_limiter.GetMaxConcurrentHydrateCalls()
 	p.hydrateCallSemaphore = semaphore.NewWeighted(int64(maxConcurrentHydrateCalls))
+
+	// initialise all limiter definitions
+	// (this populates all limiter Key properties)
+	if p.RateLimiterConfig != nil {
+		p.RateLimiterConfig.Initialise()
+	}
+	return
 }
 
 func (p *Plugin) shutdown() {
