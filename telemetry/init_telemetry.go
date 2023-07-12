@@ -63,10 +63,15 @@ func Init(serviceName string) (func(), error) {
 		}
 	}
 	if metricsEnabled {
-		metricReader, meterProvider, err = initMetrics(ctx, grpcConn, serviceName)
-		if err != nil {
-			return nil, err
-		}
+		// disabling this for now, since we don't have any exported method which exposes
+		// the metric side of OpenTelemetry.
+		//
+		// We can reenable this when we tackle https://github.com/turbot/steampipe-plugin-sdk/issues/604
+		//
+		// metricReader, meterProvider, err = initMetrics(ctx, grpcConn, serviceName)
+		// if err != nil {
+		// 	return nil, err
+		// }
 	}
 
 	// create a callback function which can be called when telemetry needs to shut down
