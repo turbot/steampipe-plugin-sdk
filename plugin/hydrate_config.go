@@ -116,7 +116,8 @@ type HydrateConfig struct {
 	// - tag specified in the hydrate config
 	//
 	// this map is then used to find a rate limiter
-	Tags              map[string]string
+	RateLimiterTagValues map[string]string
+	// the hydrate config can define additional rate limiters which apply to this call
 	RateLimiterConfig *rate_limiter.Config
 	// how expensive is this hydrate call
 	// roughly - how many API calls does it hit
