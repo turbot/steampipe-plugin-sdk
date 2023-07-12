@@ -19,14 +19,12 @@ const (
 	defaultHydrateRate      = 150
 	defaultHydrateBurstSize = 10
 
-	defaultMaxConcurrentRows         = 500
-	defaultMaxConcurrentHydrateCalls = 5000
+	defaultMaxConcurrentRows = 500
 
-	envHydrateRateLimitEnabled   = "STEAMPIPE_RATE_LIMIT_HYDRATE"
-	envDefaultHydrateRate        = "STEAMPIPE_DEFAULT_HYDRATE_RATE"
-	envDefaultHydrateBurstSize   = "STEAMPIPE_DEFAULT_HYDRATE_BURST"
-	envMaxConcurrentRows         = "STEAMPIPE_MAX_CONCURRENT_ROWS"
-	envMaxConcurrentHydrateCalls = "STEAMPIPE_MAX_CONCURRENT_HYDRATE_CALLS"
+	envHydrateRateLimitEnabled = "STEAMPIPE_RATE_LIMIT_HYDRATE"
+	envDefaultHydrateRate      = "STEAMPIPE_DEFAULT_HYDRATE_RATE"
+	envDefaultHydrateBurstSize = "STEAMPIPE_DEFAULT_HYDRATE_BURST"
+	envMaxConcurrentRows       = "STEAMPIPE_MAX_CONCURRENT_ROWS"
 )
 
 func GetDefaultHydrateRate() rate.Limit {
@@ -61,15 +59,6 @@ func GetMaxConcurrentRows() int {
 		}
 	}
 	return defaultMaxConcurrentRows
-}
-
-func GetMaxConcurrentHydrateCalls() int {
-	if envStr, ok := os.LookupEnv(envMaxConcurrentHydrateCalls); ok {
-		if b, err := strconv.Atoi(envStr); err == nil {
-			return b
-		}
-	}
-	return defaultMaxConcurrentHydrateCalls
 }
 
 // DefaultConfig returns a config for a default rate limit config providing
