@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/semaphore"
 	"log"
 	"os"
 	"path"
@@ -112,8 +111,6 @@ type Plugin struct {
 	// stream used to send messages back to plugin manager
 	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
 	rateLimiters  *rate_limiter.LimiterMap
-	// semaphore controlling total hydrate calls
-	hydrateCallSemaphore *semaphore.Weighted
 
 	// map of call ids to avoid duplicates
 	callIdLookup    map[string]struct{}
@@ -185,7 +182,6 @@ func (p *Plugin) initialise() {
 	log.Printf("[INFO] Rate limiting parameters")
 	log.Printf("[INFO] ========================")
 	log.Printf("[INFO] Max concurrent rows: %d", rate_limiter.GetMaxConcurrentRows())
-	log.Printf("[INFO] Max concurrent hydrate calls: %d", rate_limiter.GetMaxConcurrentHydrateCalls())
 	log.Printf("[INFO] Rate limiting enabled: %v", rate_limiter.RateLimiterEnabled())
 	if rate_limiter.RateLimiterEnabled() {
 		log.Printf("[INFO] DefaultHydrateRate: %d", int(rate_limiter.GetDefaultHydrateRate()))
@@ -195,10 +191,6 @@ func (p *Plugin) initialise() {
 
 func (p *Plugin) initialiseRateLimits() {
 	p.rateLimiters = rate_limiter.NewLimiterMap()
-
-	// get total max hydrate call concurrency
-	maxConcurrentHydrateCalls := rate_limiter.GetMaxConcurrentHydrateCalls()
-	p.hydrateCallSemaphore = semaphore.NewWeighted(int64(maxConcurrentHydrateCalls))
 
 	// initialise all limiter definitions
 	// (this populates all limiter Key properties)
