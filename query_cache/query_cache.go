@@ -391,13 +391,6 @@ func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setReq
 
 // write a page of rows to the cache
 func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest, finalPage bool) error {
-
-	// wait for at least one of our subscribers to have streamed all available rows
-	// this avoids the cache pulling data from the APIs too quickly,
-	// and also avoids at least one of the subscribers from
-	// having to read back data from the cache instead of just using the page buffer
-	//c.waitForSubscribers(ctx, req)
-
 	// now lock the request
 	req.requestLock.Lock()
 
@@ -558,35 +551,6 @@ func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, indexBucketKey str
 	tags := []string{req.ConnectionName}
 	return doSet(ctx, indexBucketKey, indexBucket.AsProto(), req.ttl(), c.cache, tags)
 }
-
-// wait for at least one of our subscribers to have streamed all available rows
-// this avoids tjhe cache pulling data from the APIs to quickly,
-//func (c *QueryCache) waitForSubscribers(ctx context.Context, req *setRequest) error {
-//	log.Printf("[TRACE] waitForSubscribers (%s)", req.CallId)
-//	defer log.Printf("[TRACE] waitForSubscribers done(%s)", req.CallId)
-//	baseRetryInterval := 1 * time.Millisecond
-//	maxRetryInterval := 50 * time.Millisecond
-//	backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
-//
-//	// we know this cannot return an error
-//	return retry.Do(ctx, backoff, func(ctx context.Context) error {
-//		// if context is cancelled just return
-//		if ctx.Err() != nil || req.StreamContext.Err() != nil {
-//			log.Printf("[INFO] allAvailableRowsStreamed context cancelled - returning (%s)", req.CallId)
-//			return ctx.Err()
-//		}
-//
-//		for s := range req.subscribers {
-//			if s.allAvailableRowsStreamed(req.rowCount) {
-//				return nil
-//			}
-//		}
-//		log.Printf("[TRACE] waitForSubscribers not all available rows streamed (%s)", req.CallId)
-//
-//		return retry.RetryableError(fmt.Errorf("not all available rows streamed"))
-//	})
-//
-//}
 
 func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]byte], target T) error {
 	// get the bytes from the cache
