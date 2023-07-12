@@ -9,12 +9,6 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-//
-//type RateLimiterConfig struct {
-//	Limit rate.Limit
-//	Burst int
-//}
-
 /*
 HydrateConfig defines how to run a [HydrateFunc]:
 
@@ -184,18 +178,3 @@ func (c *HydrateConfig) Validate(table *Table) []string {
 	}
 	return validationErrors
 }
-
-//func (c *HydrateConfig) GetRateLimit() rate.Limit {
-//	if c.RateLimit != nil {
-//		return c.RateLimit.Limit
-//	}
-//	return rate_limiter.GetDefaultHydrateRate()
-//}
-//
-//func (c *HydrateConfig) GetRateLimitBurst() int {
-//	if c.RateLimit != nil {
-//		return c.RateLimit.Burst
-//	}
-//
-//	return rate_limiter.GetDefaultHydrateBurstSize()
-//}
