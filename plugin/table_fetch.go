@@ -338,7 +338,6 @@ func buildSingleError(errors []error) error {
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	// TODO KAI RATE LIMIT
-
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
 

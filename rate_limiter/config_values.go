@@ -14,7 +14,7 @@ const (
 	RateLimiterKeyPlugin     = "plugin"
 	RateLimiterKeyTable      = "table"
 
-	defaultRateLimiterEnabled = false
+	defaultRateLimiterEnabled = true
 	// rates are per second
 	defaultHydrateRate      = 150
 	defaultHydrateBurstSize = 10
