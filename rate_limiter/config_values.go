@@ -8,8 +8,11 @@ import (
 )
 
 const (
+	// todo should these be more unique to avoid clash
 	RateLimiterKeyHydrate    = "hydrate"
 	RateLimiterKeyConnection = "connection"
+	RateLimiterKeyPlugin     = "plugin"
+	RateLimiterKeyTable      = "table"
 
 	defaultRateLimiterEnabled = false
 	// rates are per second
@@ -73,7 +76,11 @@ func GetMaxConcurrentHydrateCalls() int {
 // a single rate limiter for all calls to the plugin
 func DefaultConfig() *Config {
 	return &Config{
-		Limit:     GetDefaultHydrateRate(),
-		BurstSize: GetDefaultHydrateBurstSize(),
+		Limiters: []*definition{
+			{
+				Limit:     GetDefaultHydrateRate(),
+				BurstSize: GetDefaultHydrateBurstSize(),
+				TagNames:  []string{RateLimiterKeyPlugin},
+			}},
 	}
 }
