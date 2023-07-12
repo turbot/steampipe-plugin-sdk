@@ -138,7 +138,7 @@ func (s *setRequestSubscriber) getRowsToStream(ctx context.Context) ([]*sdkproto
 	var err = s.publisher.err
 	requestState := s.publisher.state
 
-	if requestState == requestInProgress {
+	if requestState != requestError {
 		rowsToStream, err = s.publisher.getRowsSince(ctx, s.rowsStreamed)
 		if err != nil {
 			log.Printf("[INFO] getRowsToStream getRowsSince returned error: %s (%s)", err.Error(), s.callId)
@@ -147,17 +147,17 @@ func (s *setRequestSubscriber) getRowsToStream(ctx context.Context) ([]*sdkproto
 	}
 	s.publisher.requestLock.RUnlock()
 
-	// now we have unlocked, check for error or completion
-	if requestState == requestComplete {
-		// we are done!
-		log.Printf("[INFO] getRowsToStream - publisher %s complete - returning (%s)", s.publisher.CallId, s.callId)
-		return nil, nil
-	}
 	if requestState == requestError {
 		return nil, s.publisher.err
 	}
 
 	if len(rowsToStream) == 0 {
+		if requestState == requestComplete {
+			// we are done!
+			log.Printf("[INFO] getRowsToStream - publisher %s complete - returning (%s)", s.publisher.CallId, s.callId)
+			return nil, nil
+		}
+
 		// if no rows are available, retry
 		// (NOTE: we have already checked for completiomn
 		// (this is called from within a retry.Do)
