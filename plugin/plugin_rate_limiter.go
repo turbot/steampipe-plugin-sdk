@@ -72,7 +72,5 @@ func (p *Plugin) resolveRateLimiterConfig(hydrateCallRateLimitConfigs *rate_limi
 		}
 	}
 
-	log.Printf("[INFO] hydrateCall %s resolved rate limiter config: %s ", res)
-
 	return res
 }
