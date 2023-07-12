@@ -2,7 +2,9 @@ package rate_limiter
 
 import (
 	"fmt"
+	"github.com/gertd/go-pluralize"
 	"golang.org/x/time/rate"
+	"sort"
 	"strings"
 )
 
@@ -23,37 +25,79 @@ differantiate between column tags and static tags
 */
 
 type Config struct {
+	Limiters []*definition
+	// if set, do not look for further rate limiters for this call
+	FinalLimiter bool
+
+	limiterMap map[string]*definition
+}
+
+// Merge adds all limiters from other config (unless we already have a limiter with same tags)
+func (c *Config) Merge(other *Config) {
+	if other == nil {
+		return
+	}
+	for _, l := range other.Limiters {
+		if _, gotLimiterWithTags := c.limiterMap[l.tagsString]; !gotLimiterWithTags {
+			// if we DO NOT already have a limiter with these tags, add
+			c.Limiters = append(c.Limiters, l)
+		}
+	}
+}
+
+func (c *Config) Initialise() {
+	c.limiterMap = make(map[string]*definition)
+	for _, l := range c.Limiters {
+		// initialise the defintion to build its tags string
+		l.Initialise()
+
+		// add to our map
+		c.limiterMap[l.tagsString] = l
+	}
+}
+
+func (c *Config) String() string {
+	var strs = make([]string, len(c.Limiters))
+	for i, d := range c.Limiters {
+		strs[i] = d.String()
+	}
+	return fmt.Sprintf("%d %s:\n%s \n(FinalLimiter: %v)",
+		len(c.Limiters),
+		pluralize.NewClient().Pluralize("limiter", len(c.Limiters), false),
+		strings.Join(strs, "\n"))
+}
+
+type definition struct {
 	Limit     rate.Limit
 	BurstSize int
 	// the tags which identify this limiter instance
 	// one limiter instance will be created for each combination of tags which is encountered
-	Tags []string
+	TagNames []string
+	// a string representation of the sorted tag list
+	tagsString string
 }
 
-// CombineConfigs creates a new Confg by combining the provided config,
-// starting with the first and only using values from subsequent configs if they have not already been set
-// This is to allow building of a config from a base coinfig, overriding specific values by child configs
-func CombineConfigs(configs []*Config) *Config {
-	res := &Config{}
-	for _, c := range configs {
-		if c == nil {
-			// not expected
-			continue
+func (d *definition) String() string {
+	return fmt.Sprintf("Limit(/s): %v, Burst: %d, Tags: %s", d.Limit, d.BurstSize, strings.Join(d.TagNames, ","))
+}
+
+func (d *definition) Initialise() {
+	// convert tags into a string for easy comparison
+	sort.Strings(d.TagNames)
+	d.tagsString = strings.Join(d.TagNames, ",")
+}
+
+// GetRequiredTagValues determines whether we haver a value for all tags specified by the definition
+// and if so returns a map of just the required tag values
+// NOTE: if we do not have all required tags, RETURN NIL
+func (d *definition) GetRequiredTagValues(allTagValues map[string]string) map[string]string {
+	tagValues := make(map[string]string)
+	for _, tag := range d.TagNames {
+		value, gotValue := allTagValues[tag]
+		if !gotValue {
+			return nil
 		}
-		if res.Limit == 0 && c.Limit != 0 {
-			c.Limit = res.Limit
-		}
-		if res.BurstSize == 0 && c.BurstSize != 0 {
-			c.BurstSize = res.BurstSize
-		}
-		if len(res.Tags) == 0 && len(res.Tags) != 0 {
-			c.Tags = res.Tags
-		}
+		tagValues[tag] = value
 	}
-	return res
-
-}
-
-func (c *Config) String() string {
-	return fmt.Sprintf("Limit(/s): %v, Burst: %d, Tags: %s", c.Limit, c.BurstSize, strings.Join(c.Tags, ","))
+	return tagValues
 }
