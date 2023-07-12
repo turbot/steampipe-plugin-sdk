@@ -191,7 +191,6 @@ func (p *Plugin) initialise() {
 		log.Printf("[INFO] DefaultHydrateRate: %d", int(rate_limiter.GetDefaultHydrateRate()))
 		log.Printf("[INFO] DefaultHydrateBurstSize: %d", rate_limiter.GetDefaultHydrateBurstSize())
 	}
-
 }
 
 func (p *Plugin) initialiseRateLimits() {
