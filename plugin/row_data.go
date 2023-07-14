@@ -76,6 +76,7 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 	// make a map of started hydrate calls for this row - this is used to determine which calls have not started yet
 	var callsStarted = map[string]bool{}
 
+	// TODO use retry.DO
 	for {
 		var allStarted = true
 		for _, call := range r.queryData.hydrateCalls {

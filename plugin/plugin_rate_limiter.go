@@ -5,7 +5,7 @@ import (
 	"log"
 )
 
-func (p *Plugin) getHydrateCallRateLimiter(hydrateCallRateLimitConfig *rate_limiter.Config, hydrateCallRateLimiterTagValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
+func (p *Plugin) getHydrateCallRateLimiter(hydrateCallDefs *rate_limiter.Definitions, hydrateCallRateLimiterTagValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
 	log.Printf("[INFO] getHydrateCallRateLimiter")
 
 	// first resolve the rate limiter config by building the list of rate limiter definitions from the various sources
@@ -13,7 +13,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallRateLimitConfig *rate_limi
 	// - hydrate config rate limiter defs
 	// - plugin level rate limiter defs
 	// - default rate limiter
-	resolvedRateLimiterConfig := p.resolveRateLimiterConfig(hydrateCallRateLimitConfig)
+	resolvedRateLimiterConfig := p.resolveRateLimiterConfig(hydrateCallDefs, queryData.Table.RateLimit)
 
 	log.Printf("[INFO] resolvedRateLimiterConfig: %s", resolvedRateLimiterConfig)
 
@@ -37,7 +37,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallRateLimitConfig *rate_limi
 	return res, nil
 }
 
-func (p *Plugin) getRateLimitersForTagValues(resolvedRateLimiterConfig *rate_limiter.Config, rateLimiterTagValues map[string]string) ([]*rate_limiter.Limiter, error) {
+func (p *Plugin) getRateLimitersForTagValues(resolvedRateLimiterConfig *rate_limiter.Definitions, rateLimiterTagValues map[string]string) ([]*rate_limiter.Limiter, error) {
 	var limiters []*rate_limiter.Limiter
 	for _, l := range resolvedRateLimiterConfig.Limiters {
 		// build a filtered map of just the tag values required fopr this limiter
@@ -56,15 +56,16 @@ func (p *Plugin) getRateLimitersForTagValues(resolvedRateLimiterConfig *rate_lim
 	return limiters, nil
 }
 
-func (p *Plugin) resolveRateLimiterConfig(hydrateCallRateLimitConfigs *rate_limiter.Config) *rate_limiter.Config {
+func (p *Plugin) resolveRateLimiterConfig(hydrateCallDefs, tableDefs *rate_limiter.Definitions) *rate_limiter.Definitions {
 	// build list of source limiter configs we will merge
-	sourceConfigs := []*rate_limiter.Config{
-		hydrateCallRateLimitConfigs,
-		p.RateLimiterConfig,
+	sourceConfigs := []*rate_limiter.Definitions{
+		hydrateCallDefs,
+		tableDefs,
+		p.RateLimiters,
 		rate_limiter.DefaultConfig(),
 	}
 	// build an array of rate limiter configs to combine, in order of precedence
-	var res = &rate_limiter.Config{}
+	var res = &rate_limiter.Definitions{}
 	for _, c := range sourceConfigs {
 		res.Merge(c)
 		if res.FinalLimiter {

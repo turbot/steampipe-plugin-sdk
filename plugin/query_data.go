@@ -90,6 +90,7 @@ type QueryData struct {
 	StreamLeafListItem func(context.Context, ...interface{})
 
 	// internal
+
 	// the status of the in-progress query
 	queryStatus *queryStatus
 	// the callId for this connection
@@ -97,6 +98,8 @@ type QueryData struct {
 	plugin           *Plugin
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
 	hydrateCalls []*hydrateCall
+	// the rate limiter(s) which apply to the fetch call
+	fetchLimiters *fetchCallRateLimiters
 
 	// all the columns that will be returned by this query
 	columns            map[string]*QueryColumn
@@ -180,15 +183,22 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	d.StreamListItem = d.streamListItem
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
 	d.StreamLeafListItem = d.streamLeafListItem
-	d.setFetchType(table)
 
-	queryContext.ensureColumns(table)
+	// is this a get or a list fetch?
+	d.setFetchType(table)
 
 	// build the base set of tag values used to resolve a rate limiter
 	d.populateRateLimitTags()
 
+	// populate the rate limiters for the fetch call(s)
+	d.resolveFetchRateLimiters()
+
+	// for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
+	queryContext.ensureColumns(table)
+
 	// build list of required hydrate calls, based on requested columns
 	d.populateRequiredHydrateCalls()
+
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
 	d.concurrencyManager = newConcurrencyManager(table)
@@ -228,6 +238,7 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		cacheTtl:          d.cacheTtl,
 		cacheEnabled:      d.cacheEnabled,
 
+		fetchLimiters:      d.fetchLimiters,
 		filteredMatrix:     d.filteredMatrix,
 		hydrateCalls:       d.hydrateCalls,
 		concurrencyManager: d.concurrencyManager,
@@ -376,6 +387,7 @@ func (d *QueryData) updateQualsWithMatrixItem(matrixItem map[string]interface{})
 // setFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
 func (d *QueryData) setFetchType(table *Table) {
 	log.Printf("[TRACE] setFetchType %v", d.QueryContext.UnsafeQuals)
+
 	if table.Get != nil {
 		// default to get, even before checking the quals
 		// this handles the case of a get call only
@@ -387,9 +399,7 @@ func (d *QueryData) setFetchType(table *Table) {
 		if unsatisfiedColumns := qualMap.GetUnsatisfiedKeyColumns(table.Get.KeyColumns); len(unsatisfiedColumns) == 0 {
 			// so this IS a get call - all quals are satisfied
 			log.Printf("[TRACE] Set fetchType to fetchTypeGet")
-			d.EqualsQuals = qualMap.ToEqualsQualValueMap()
-			d.Quals = qualMap
-			d.logQualMaps()
+			d.setQuals(qualMap)
 			return
 		}
 	}
@@ -401,13 +411,17 @@ func (d *QueryData) setFetchType(table *Table) {
 		if len(table.List.KeyColumns) > 0 {
 			// build a qual map from List key columns
 			qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.List.KeyColumns)
-			// assign to the map of all key column quals
-			d.Quals = qualMap
-			// convert to a map of equals quals to populate legacy `KeyColumnQuals` map
-			d.EqualsQuals = d.Quals.ToEqualsQualValueMap()
+			d.setQuals(qualMap)
 		}
-		d.logQualMaps()
 	}
+}
+
+func (d *QueryData) setQuals(qualMap KeyColumnQualMap) {
+	// convert to a map of equals quals to populate legacy `KeyColumnQuals` map
+	d.EqualsQuals = qualMap.ToEqualsQualValueMap()
+	// assign to the map of all key column quals
+	d.Quals = qualMap
+	d.logQualMaps()
 }
 
 func (d *QueryData) filterMatrixItems() {
@@ -532,9 +546,12 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 	if helpers.IsNil(parentItem) {
 		return
 	}
+
+	// wait for any configured child ListCall rate limiters
+	d.fetchLimiters.childListWait(ctx)
+
 	callingFunction := helpers.GetCallingFunction(1)
 	d.listWg.Add(1)
-
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -552,7 +569,7 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
 		childQueryData.parentItem = parentItem
-		// now call the parent list
+		// now call the child list
 		_, err := d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: parentItem})
 		if err != nil {
 			d.streamError(err)
@@ -848,35 +865,5 @@ func (d *QueryData) getColumnNames() []string {
 func (d *QueryData) removeReservedColumns(row *proto.Row) {
 	for c := range d.reservedColumns {
 		delete(row.Columns, c)
-	}
-}
-
-/*
-	build the base set of tag values used to resolve a rate limiter
-
-this will  consist of:
--connection name
-- quals (with value as string)
-*/
-func (d *QueryData) populateRateLimitTags() {
-	d.rateLimiterTagValues = make(map[string]string)
-
-	// static tags
-	// add the connection
-	d.rateLimiterTagValues[rate_limiter.RateLimiterKeyConnection] = d.Connection.Name
-	// add plugin
-	d.rateLimiterTagValues[rate_limiter.RateLimiterKeyPlugin] = d.plugin.Name
-	// add table
-	d.rateLimiterTagValues[rate_limiter.RateLimiterKeyTable] = d.Table.Name
-	// TODO add hydrate callname - do elsewhere
-
-	// add the equals quals
-	for column, qualsForColumn := range d.Quals {
-		for _, qual := range qualsForColumn.Quals {
-			if qual.Operator == quals.QualOperatorEqual {
-				qualValueString := grpc.GetQualValueString(qual.Value)
-				d.rateLimiterTagValues[column] = qualValueString
-			}
-		}
 	}
 }
