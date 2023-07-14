@@ -13,6 +13,7 @@ type Limiter struct {
 	*rate.Limiter
 	tagValues map[string]string
 }
+
 type MultiLimiter struct {
 	Limiters []*Limiter
 }
@@ -59,7 +60,7 @@ func (m *MultiLimiter) String() string {
 		tagsStr := FormatStringMap(l.tagValues)
 		strs = append(strs, fmt.Sprintf("Limit: %d, Burst: %d, Tags: %s", int(l.Limiter.Limit()), l.Limiter.Burst(), tagsStr))
 	}
-	return strings.Join(strs, ", ")
+	return strings.Join(strs, "\n")
 }
 
 func FormatStringMap(stringMap map[string]string) string {

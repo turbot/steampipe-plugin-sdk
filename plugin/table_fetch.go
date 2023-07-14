@@ -51,7 +51,8 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 
 // execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
-	// TODO KAI RATE LIMIT
+	// wait for any configured 'get' rate limiters
+	queryData.fetchLimiters.wait(ctx)
 
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
@@ -337,7 +338,9 @@ func buildSingleError(errors []error) error {
 }
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
-	// TODO KAI RATE LIMIT
+	// wait for any configured 'list' rate limiters
+	queryData.fetchLimiters.wait(ctx)
+
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
 
