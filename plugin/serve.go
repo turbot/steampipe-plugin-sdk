@@ -2,16 +2,15 @@ package plugin
 
 import (
 	"context"
-	"log"
-	"net/http"
-	_ "net/http/pprof"
-	"os"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
 )
 
 // ServeOpts are the configurations to serve a plugin.

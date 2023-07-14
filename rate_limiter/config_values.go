@@ -14,14 +14,14 @@ const (
 	RateLimiterKeyPlugin     = "plugin"
 	RateLimiterKeyTable      = "table"
 
-	defaultRateLimiterEnabled = true
+	defaultRateLimiterEnabled = false
 	// rates are per second
-	defaultHydrateRate      = 150
-	defaultHydrateBurstSize = 10
+	defaultHydrateRate      = 50
+	defaultHydrateBurstSize = 5
 
 	defaultMaxConcurrentRows = 500
 
-	envHydrateRateLimitEnabled = "STEAMPIPE_RATE_LIMIT_HYDRATE"
+	envRateLimitEnabled        = "STEAMPIPE_RATE_LIMIT_ENABLED"
 	envDefaultHydrateRate      = "STEAMPIPE_DEFAULT_HYDRATE_RATE"
 	envDefaultHydrateBurstSize = "STEAMPIPE_DEFAULT_HYDRATE_BURST"
 	envMaxConcurrentRows       = "STEAMPIPE_MAX_CONCURRENT_ROWS"
@@ -46,7 +46,7 @@ func GetDefaultHydrateBurstSize() int {
 }
 
 func RateLimiterEnabled() bool {
-	if envStr, ok := os.LookupEnv(envHydrateRateLimitEnabled); ok {
+	if envStr, ok := os.LookupEnv(envRateLimitEnabled); ok {
 		return strings.ToLower(envStr) == "true" || strings.ToLower(envStr) == "on"
 	}
 	return defaultRateLimiterEnabled
@@ -63,9 +63,9 @@ func GetMaxConcurrentRows() int {
 
 // DefaultConfig returns a config for a default rate limit config providing
 // a single rate limiter for all calls to the plugin
-func DefaultConfig() *Config {
-	return &Config{
-		Limiters: []*definition{
+func DefaultConfig() *Definitions {
+	return &Definitions{
+		Limiters: []*Definition{
 			{
 				Limit:     GetDefaultHydrateRate(),
 				BurstSize: GetDefaultHydrateBurstSize(),

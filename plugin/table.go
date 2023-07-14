@@ -5,6 +5,7 @@ import (
 
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 )
 
 /*
@@ -19,6 +20,7 @@ type TableCacheOptions struct {
 }
 
 /*
+|
 Table defines the properties of a plugin table:
 
   - The columns that are returned: [plugin.Table.Columns].
@@ -61,6 +63,9 @@ type Table struct {
 	HydrateConfig []HydrateConfig
 	// cache options - allows disabling of cache for this table
 	Cache *TableCacheOptions
+
+	// table scoped rate limiter definitions
+	RateLimit *rate_limiter.Definitions
 
 	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
@@ -174,7 +179,13 @@ func (t *Table) buildHydrateConfigMap() {
 			ShouldIgnoreError: get.ShouldIgnoreError,
 			IgnoreConfig:      get.IgnoreConfig,
 			RetryConfig:       get.RetryConfig,
-			MaxConcurrency:    get.MaxConcurrency,
+			RateLimit: &HydrateRateLimiterConfig{
+				TagValues:      nil,
+				Definitions:    nil,
+				Cost:           0,
+				MaxConcurrency: get.RateLimit.MaxConcurrency,
+			},
+			MaxConcurrency: get.MaxConcurrency,
 		}
 	}
 

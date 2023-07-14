@@ -25,7 +25,7 @@ func NewLimiterMap() *LimiterMap {
 }
 
 // GetOrCreate checks the map for a limiter with the specified key values - if none exists it creates it
-func (m *LimiterMap) GetOrCreate(l *definition, tagValues map[string]string) (*Limiter, error) {
+func (m *LimiterMap) GetOrCreate(l *Definition, tagValues map[string]string) (*Limiter, error) {
 	// build the key from the tag values
 	key, err := buildLimiterKey(tagValues)
 	if err != nil {
