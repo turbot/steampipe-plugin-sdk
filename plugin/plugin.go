@@ -77,7 +77,7 @@ type Plugin struct {
 	DefaultIgnoreConfig *IgnoreConfig
 
 	// rate limiter definitions
-	RateLimiterConfig *rate_limiter.Config
+	RateLimiters *rate_limiter.Definitions
 
 	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
 	DefaultGetConfig *GetConfig
@@ -194,8 +194,8 @@ func (p *Plugin) initialiseRateLimits() {
 
 	// initialise all limiter definitions
 	// (this populates all limiter Key properties)
-	if p.RateLimiterConfig != nil {
-		p.RateLimiterConfig.Initialise()
+	if p.RateLimiters != nil {
+		p.RateLimiters.Initialise()
 	}
 	return
 }

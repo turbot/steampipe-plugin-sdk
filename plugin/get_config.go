@@ -61,17 +61,20 @@ Plugin examples:
 [when the get call is used as a column hydrate func]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14-L35
 */
 type GetConfig struct {
-	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
-	KeyColumns KeyColumnSlice
 	// the hydrate function which is called first when performing a 'get' call.
 	// if this returns 'not found', no further hydrate functions are called
 	Hydrate HydrateFunc
+	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
+	KeyColumns KeyColumnSlice
 	// a function which will return whenther to ignore a given error
-	// deprecated - use IgnoreConfig
+	IgnoreConfig *IgnoreConfig
+	// a function which will return whenther to retry the call if an error is returned
+	RetryConfig *RetryConfig
+	RateLimit   *HydrateRateLimiterConfig
+
+	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-	IgnoreConfig      *IgnoreConfig
-	RetryConfig       *RetryConfig
-	// max concurrency - this applies when the get function is ALSO used as a column hydrate function
+	// Deprecated: use RateLimit.MaxConcurrency
 	MaxConcurrency int
 }
 
@@ -96,10 +99,28 @@ func (c *GetConfig) initialise(table *Table) {
 	if c.IgnoreConfig == nil {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
+
+	// create empty RateLimiter config if needed
+	if c.RateLimit == nil {
+		c.RateLimit = &HydrateRateLimiterConfig{}
+	}
+	// initialise the rate limit config
+	// this adds the hydrate name into the tag map
+	c.RateLimit.initialise(c.Hydrate)
+
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
 	}
+
+	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
+	if c.MaxConcurrency != 0 && c.RateLimit.MaxConcurrency == 0 {
+		c.RateLimit.MaxConcurrency = c.MaxConcurrency
+		// if we the config DOES NOT define both the new and deprected property, clear the deprectaed property
+		// this way - the validation will not raise an error if ONLY the deprecated property is set
+		c.MaxConcurrency = 0
+	}
+	// if both are set, leave both set - we will get a validation error
 
 	// if a table was passed (i.e. this is NOT the plugin default)
 	// default ignore and retry configs
@@ -150,6 +171,12 @@ func (c *GetConfig) Validate(table *Table) []string {
 				pluralize.NewClient().Pluralize("dependency", numDeps, false)))
 			break
 		}
+	}
+
+	validationErrors = append(validationErrors, c.RateLimit.validate()...)
+
+	if c.MaxConcurrency != 0 && c.RateLimit.MaxConcurrency != 0 {
+		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig contains both deprecated 'MaxConcurrency' and the replacement 'RateLimit.MaxConcurrency", table.Name))
 	}
 
 	return validationErrors

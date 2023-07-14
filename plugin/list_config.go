@@ -36,15 +36,22 @@ Examples:
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L14
 */
 type ListConfig struct {
-	KeyColumns KeyColumnSlice
 	// the list function, this should stream the list results back using the QueryData object and return nil
 	Hydrate HydrateFunc
+	// key or keys which are used to uniquely identify rows - used to optimise the list call
+	KeyColumns KeyColumnSlice
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
 	ParentHydrate HydrateFunc
-	// deprecated - use IgnoreConfig
+	// a function which will return whenther to ignore a given error
+	IgnoreConfig *IgnoreConfig
+	// a function which will return whenther to retry the call if an error is returned
+	RetryConfig *RetryConfig
+
+	RateLimit       *HydrateRateLimiterConfig
+	ParentRateLimit *HydrateRateLimiterConfig
+
+	// Deprecated: Use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-	IgnoreConfig      *IgnoreConfig
-	RetryConfig       *RetryConfig
 }
 
 func (c *ListConfig) initialise(table *Table) {
@@ -59,6 +66,19 @@ func (c *ListConfig) initialise(table *Table) {
 	if c.IgnoreConfig == nil {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
+
+	// create empty RateLimiter config if needed
+	if c.RateLimit == nil {
+		c.RateLimit = &HydrateRateLimiterConfig{}
+	}
+	// initialise the rate limit config
+	// this adds the hydrate name into the tag map
+	c.RateLimit.initialise(c.Hydrate)
+
+	if c.ParentHydrate != nil && c.ParentRateLimit == nil {
+		c.ParentRateLimit = &HydrateRateLimiterConfig{}
+	}
+
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
@@ -104,5 +124,6 @@ func (c *ListConfig) Validate(table *Table) []string {
 		}
 	}
 
+	validationErrors = append(validationErrors, c.RateLimit.validate()...)
 	return validationErrors
 }
