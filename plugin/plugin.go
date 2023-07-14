@@ -115,11 +115,11 @@ type Plugin struct {
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
-func (p *Plugin) initialise() {
+func (p *Plugin) initialise(logger hclog.Logger) {
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
 
-	p.Logger = p.setupLogger()
+	p.Logger = logger
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 
 	// default the schema mode to static
@@ -526,15 +526,6 @@ func logValidationWarning(connection *Connection, warnings []string) {
 	for _, w := range warnings {
 		log.Printf("[WARN] %s", w)
 	}
-}
-
-func (p *Plugin) setupLogger() hclog.Logger {
-	// time will be provided by the plugin manager logger
-	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true})
-	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
-	log.SetPrefix("")
-	log.SetFlags(0)
-	return logger
 }
 
 // if query cache does not exist, create
