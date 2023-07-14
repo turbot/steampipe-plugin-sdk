@@ -459,7 +459,7 @@ var testCasesValidate = map[string]validateTest{
 
 func TestValidate(t *testing.T) {
 	for name, test := range testCasesValidate {
-		test.plugin.initialise()
+		test.plugin.initialise(nil)
 		test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
 
 		_, validationErrors := test.plugin.validate(test.plugin.TableMap)

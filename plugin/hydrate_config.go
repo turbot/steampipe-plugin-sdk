@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 	"strings"
 
@@ -92,30 +91,18 @@ Examples:
 [oci]: https://github.com/turbot/steampipe-plugin-oci/blob/27ddf689f7606009cf26b2716e1634fc91d53585/oci/table_oci_identity_tenancy.go#L23-L27
 */
 type HydrateConfig struct {
-	Func           HydrateFunc
-	MaxConcurrency int
-	RetryConfig    *RetryConfig
-	IgnoreConfig   *IgnoreConfig
-	// deprecated - use IgnoreConfig
-	ShouldIgnoreError ErrorPredicate
-	Depends           []HydrateFunc
+	Func HydrateFunc
+	// a function which will return whenther to ignore a given error
+	IgnoreConfig *IgnoreConfig
+	// a function which will return whenther to retry the call if an error is returned
+	RetryConfig *RetryConfig
+	Depends     []HydrateFunc
+	RateLimit   *HydrateRateLimiterConfig
 
-	// tags values used to resolve the rate limiter for this hydrate call
-	// for example:
-	// "service": "s3"
-	//
-	// when resolving a rate limiter for a hydrate call, a map of key values is automatically populated from:
-	// - the connection name
-	// - quals (with vales as string)
-	// - tag specified in the hydrate config
-	//
-	// this map is then used to find a rate limiter
-	RateLimiterTagValues map[string]string
-	// the hydrate config can define additional rate limiters which apply to this call
-	RateLimiterConfig *rate_limiter.Config
-	// how expensive is this hydrate call
-	// roughly - how many API calls does it hit
-	Cost int
+	// Deprecated: use IgnoreConfig
+	ShouldIgnoreError ErrorPredicate
+	// Deprecated: use RateLimit.MaxConcurrency
+	MaxConcurrency int
 }
 
 func (c *HydrateConfig) String() interface{} {
@@ -123,16 +110,18 @@ func (c *HydrateConfig) String() interface{} {
 	for i, dep := range c.Depends {
 		dependsStrings[i] = helpers.GetFunctionName(dep)
 	}
-	return fmt.Sprintf(`Func: %s
-MaxConcurrency: %d
+	str := fmt.Sprintf(`Func: %s
 RetryConfig: %s
 IgnoreConfig: %s
-Depends: %s`,
+Depends: %s
+Rate Limit: %s`,
 		helpers.GetFunctionName(c.Func),
-		c.MaxConcurrency,
-		c.RetryConfig.String(),
-		c.IgnoreConfig.String(),
-		strings.Join(dependsStrings, ","))
+		c.RetryConfig,
+		c.IgnoreConfig,
+		strings.Join(dependsStrings, ","),
+		c.RateLimit)
+
+	return str
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
@@ -147,20 +136,33 @@ func (c *HydrateConfig) initialise(table *Table) {
 	if c.IgnoreConfig == nil {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
+
+	// create empty RateLimiter config if needed
+	if c.RateLimit == nil {
+		c.RateLimit = &HydrateRateLimiterConfig{}
+	}
+	// initialise the rate limit config
+	// this adds the hydrate name into the tag map and initializes cost
+	c.RateLimit.initialise(c.Func)
+
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
 	}
 
+	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
+	if c.MaxConcurrency != 0 && c.RateLimit.MaxConcurrency == 0 {
+		c.RateLimit.MaxConcurrency = c.MaxConcurrency
+		// if we the config DOES NOT define both the new and deprected property, clear the deprectaed property
+		// this way - the validation will not raise an error if ONLY the deprecated property is set
+		c.MaxConcurrency = 0
+	}
+	// if both are set, leave both set - we will get a validation error
+
 	// default ignore and retry configs to table defaults
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 
-	// if cost is not set, initialise to 1
-	if c.Cost == 0 {
-		log.Printf("[TRACE] Cost is not set - defaulting to 1")
-		c.Cost = 1
-	}
 	log.Printf("[TRACE] HydrateConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 
@@ -176,5 +178,11 @@ func (c *HydrateConfig) Validate(table *Table) []string {
 	if c.IgnoreConfig != nil {
 		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
+	validationErrors = append(validationErrors, c.RateLimit.validate()...)
+
+	if c.MaxConcurrency != 0 && c.RateLimit.MaxConcurrency != 0 {
+		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' HydrateConfig contains both deprecated 'MaxConcurrency' and the replacement 'RateLimit.MaxConcurrency", table.Name))
+	}
+
 	return validationErrors
 }
