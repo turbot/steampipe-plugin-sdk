@@ -7,7 +7,7 @@ import (
 
 // a struct defining the rate limiting config the for fetch (list/get) call
 type fetchCallRateLimiters struct {
-	// rate limiter for the get/list call
+	// rate limiter for the get/single-level-list/parent-list call
 	rateLimiter *rate_limiter.MultiLimiter
 	cost        int
 

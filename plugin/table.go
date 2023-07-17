@@ -176,16 +176,11 @@ func (t *Table) buildHydrateConfigMap() {
 		hydrateName := helpers.GetFunctionName(get.Hydrate)
 		t.hydrateConfigMap[hydrateName] = &HydrateConfig{
 			Func:              get.Hydrate,
-			ShouldIgnoreError: get.ShouldIgnoreError,
 			IgnoreConfig:      get.IgnoreConfig,
 			RetryConfig:       get.RetryConfig,
-			RateLimit: &HydrateRateLimiterConfig{
-				TagValues:      nil,
-				Definitions:    nil,
-				Cost:           0,
-				MaxConcurrency: get.RateLimit.MaxConcurrency,
-			},
-			MaxConcurrency: get.MaxConcurrency,
+			RateLimit:         get.RateLimit,
+			ShouldIgnoreError: get.ShouldIgnoreError,
+			MaxConcurrency:    get.MaxConcurrency,
 		}
 	}
 

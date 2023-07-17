@@ -69,7 +69,9 @@ func DefaultConfig() *Definitions {
 			{
 				Limit:     GetDefaultHydrateRate(),
 				BurstSize: GetDefaultHydrateBurstSize(),
-				TagNames:  []string{RateLimiterKeyPlugin},
+				Scopes: Scopes{
+					StaticScopes: []string{RateLimiterKeyPlugin},
+				},
 			}},
 	}
 }

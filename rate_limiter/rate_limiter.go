@@ -3,6 +3,7 @@ package rate_limiter
 import (
 	"context"
 	"fmt"
+	"github.com/turbot/go-kit/helpers"
 	"golang.org/x/time/rate"
 	"log"
 	"strings"
@@ -11,7 +12,7 @@ import (
 
 type Limiter struct {
 	*rate.Limiter
-	tagValues map[string]string
+	scopeValues *ScopeValues
 }
 
 type MultiLimiter struct {
@@ -19,6 +20,11 @@ type MultiLimiter struct {
 }
 
 func (m *MultiLimiter) Wait(ctx context.Context, cost int) {
+	// short circuit if we have no limiters
+	if len(m.Limiters) == 0 {
+		return
+	}
+
 	var maxDelay time.Duration
 	var reservations []*rate.Reservation
 
@@ -57,16 +63,17 @@ func (m *MultiLimiter) String() string {
 	var strs []string
 
 	for _, l := range m.Limiters {
-		tagsStr := FormatStringMap(l.tagValues)
-		strs = append(strs, fmt.Sprintf("Limit: %d, Burst: %d, Tags: %s", int(l.Limiter.Limit()), l.Limiter.Burst(), tagsStr))
+		strs = append(strs, fmt.Sprintf("Limit: %d, Burst: %d, Tags: %s", int(l.Limiter.Limit()), l.Limiter.Burst(), l.scopeValues))
 	}
 	return strings.Join(strs, "\n")
 }
 
+// FormatStringMap orders the map keys and returns a string containing all map keys and values
 func FormatStringMap(stringMap map[string]string) string {
 	var strs []string
-	for k, v := range stringMap {
-		strs = append(strs, fmt.Sprintf("%s=%s", k, v))
+
+	for _, k := range helpers.SortedMapKeys(stringMap) {
+		strs = append(strs, fmt.Sprintf("%s=%s", k, stringMap[k]))
 	}
 
 	return strings.Join(strs, ",")
