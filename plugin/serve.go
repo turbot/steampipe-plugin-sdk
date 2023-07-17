@@ -78,7 +78,7 @@ func Serve(opts *ServeOpts) {
 
 func setupLogger() hclog.Logger {
 	// time will be provided by the plugin manager logger
-	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: false, JSONFormat: true})
+	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true, JSONFormat: true})
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
