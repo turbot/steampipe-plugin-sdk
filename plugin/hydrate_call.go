@@ -39,13 +39,15 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 	return res, nil
 }
 
-// resolve the rate limiter config and the tags values which apply
+// identify any rate limiters which apply to this hydrate call
 func (h *hydrateCall) initialiseRateLimiter() error {
 	log.Printf("[INFO] hydrateCall %s initialiseRateLimiter (%s)", h.Name, h.queryData.connectionCallId)
 
 	// ask plugin to build a rate limiter for us
 	p := h.queryData.plugin
-	rateLimiter, err := p.getHydrateCallRateLimiter(h.Config.RateLimit.Definitions, h.Config.RateLimit.TagValues, h.queryData)
+
+	// now try to construct a multi rate limiter for this call
+	rateLimiter, err := p.getHydrateCallRateLimiter(h.Config.RateLimit.Definitions, h.Config.RateLimit.StaticScopeValues, h.queryData)
 	if err != nil {
 		log.Printf("[WARN] hydrateCall %s getHydrateCallRateLimiter failed: %s (%s)", h.Name, err.Error(), h.queryData.connectionCallId)
 		return err

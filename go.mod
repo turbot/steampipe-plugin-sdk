@@ -2,6 +2,8 @@ module github.com/turbot/steampipe-plugin-sdk/v5
 
 go 1.19
 
+replace github.com/turbot/go-kit => /Users/kai/Dev/github/turbot/go-kit
+
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1
