@@ -142,7 +142,7 @@ type QueryData struct {
 
 	// auto populated tags used to resolve a rate limiter for each hydrate call
 	// (hydrate-call specific tags will be added when we resolve the limiter)
-	rateLimiterTagValues map[string]string
+	rateLimiterScopeValues *rate_limiter.ScopeValues
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -187,10 +187,10 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	// is this a get or a list fetch?
 	d.setFetchType(table)
 
-	// build the base set of tag values used to resolve a rate limiter
-	d.populateRateLimitTags()
+	// build the base set of scope values used to resolve a rate limiter
+	d.populateRateLimitScopeValues()
 
-	// populate the rate limiters for the fetch call(s)
+	// populate the rate limiters for the fetch call(s) (get/list/parent-list)
 	d.resolveFetchRateLimiters()
 
 	// for count(*) queries, there will be no columns - add in 1 column so that we have some data to return

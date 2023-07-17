@@ -75,8 +75,10 @@ func (c *ListConfig) initialise(table *Table) {
 	// this adds the hydrate name into the tag map
 	c.RateLimit.initialise(c.Hydrate)
 
+	// if there is a parent hydrate, create (if needed) and initialise the ParentRateLimit config]
 	if c.ParentHydrate != nil && c.ParentRateLimit == nil {
 		c.ParentRateLimit = &HydrateRateLimiterConfig{}
+		c.ParentRateLimit.initialise(c.Hydrate)
 	}
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config

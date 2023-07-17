@@ -61,7 +61,7 @@ Plugin examples:
 */
 type IgnoreConfig struct {
 	ShouldIgnoreErrorFunc ErrorPredicateWithContext
-	// deprecated, used ShouldIgnoreErrorFunc
+	// Deprecated: used ShouldIgnoreErrorFunc
 	ShouldIgnoreError ErrorPredicate
 }
 

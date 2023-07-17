@@ -3,7 +3,6 @@ package rate_limiter
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"golang.org/x/time/rate"
 	"sync"
 )
@@ -25,9 +24,9 @@ func NewLimiterMap() *LimiterMap {
 }
 
 // GetOrCreate checks the map for a limiter with the specified key values - if none exists it creates it
-func (m *LimiterMap) GetOrCreate(l *Definition, tagValues map[string]string) (*Limiter, error) {
-	// build the key from the tag values
-	key, err := buildLimiterKey(tagValues)
+func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues *ScopeValues) (*Limiter, error) {
+	// build the key from the scope values
+	key, err := buildLimiterKey(scopeValues)
 	if err != nil {
 		return nil, err
 	}
@@ -54,27 +53,18 @@ func (m *LimiterMap) GetOrCreate(l *Definition, tagValues map[string]string) (*L
 
 	// ok we need to create one
 	limiter = &Limiter{
-		Limiter:   rate.NewLimiter(l.Limit, l.BurstSize),
-		tagValues: tagValues,
+		Limiter:     rate.NewLimiter(l.Limit, l.BurstSize),
+		scopeValues: scopeValues,
 	}
 	// put it in the map
 	m.limiters[key] = limiter
 	return limiter, nil
 }
 
-func buildLimiterKey(values map[string]string) (string, error) {
+func buildLimiterKey(values *ScopeValues) (string, error) {
 	// build the key for this rate limiter
-
-	// map key is the hash of the tag values as json
-
-	// json marsjall sorts the array so the same keys in different order will produce the same key
-	jsonString, err := json.Marshal(values)
-	if err != nil {
-		return "", err
-	}
-
-	// return hash of JSON representaiton
-	hash := md5.Sum(jsonString)
+	// map key is the hash of the string representation of the value map
+	hash := md5.Sum([]byte(values.String()))
 	key := hex.EncodeToString(hash[:])
 
 	return key, nil
