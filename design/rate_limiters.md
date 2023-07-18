@@ -205,11 +205,6 @@ NOTE: This overrides the plugin default rate limiter explicitly (by setting `Fin
 
 #### Plugin definition
 ```go
-// custom scopes
-const (
-	rateLimiterScopeService = "service"
-	rateLimiterScopeRegion = "region"
-)
 
 func Plugin(_ context.Context) *plugin.Plugin {
 	p := &plugin.Plugin{
@@ -222,9 +217,11 @@ func Plugin(_ context.Context) *plugin.Plugin {
 					BurstSize: 10,
 					Scopes: rate_limiter.Scopes{
 						StaticScopes: []string{
-							rate_limiter.RateLimiterScopeConnection,
-							rateLimiterScopeService,
-							rateLimiterScopeRegion,
+							"connection",
+							"service"
+						},
+						ColumnScopes: []string{
+							"region",
 						},
 					},
 				},
@@ -244,8 +241,6 @@ and `service` must be defined as a custom scope value for tables or hydrate call
 #### 3a. Table definition which defines a "region" key column and sets the "service" scope value for all hydrate calls
 
 ```go
-const serviceS3  = "s3"
-
 func tableAwsS3AccessPoint(_ context.Context) *plugin.Table {
 	return &plugin.Table{
         Name: "aws_s3_access_point",
@@ -260,7 +255,7 @@ func tableAwsS3AccessPoint(_ context.Context) *plugin.Table {
 		// set "service" scope to "s3" for all hydrate calls
 		RateLimit: &plugin.TableRateLimiterConfig{
 			ScopeValues: map[string]string{
-				rateLimiterScopeService: serviceS3,
+				"service": "s3",
 			},
 		},
 		Columns: awsRegionalColumns([]*plugin.Column{...}),
@@ -272,8 +267,6 @@ func tableAwsS3AccessPoint(_ context.Context) *plugin.Table {
 
 
 ```go
-const serviceS3  = "s3"
-
 func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
 	return &plugin.Table{
 		Name: "aws_s3_account_settings",
@@ -285,7 +278,7 @@ func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
 						// set the "service" scope value for this hydrate call
 				RateLimit: &plugin.HydrateRateLimiterConfig{
 					ScopeValues: map[string]string{
-						rateLimiterScopeService: serviceS3,
+						"service": "s3",
 					},
 				},
 			},
@@ -303,23 +296,16 @@ NOTE: This overrides the plugin default rate limiter explicitly (by setting `Fin
 
 
 ```go
-// custom scopes
-const (
-	rateLimiterScopeService = "service"
-	rateLimiterScopeRegion = "region"
-
-	serviceS3  = "s3"
-	serviceEC2  = "ec2"
-
-)
 
 // scopes used for all rate limiters
 var rateLimiterScopes=rate_limiter.Scopes{
-	StaticScopes:[]string{
-		rate_limiter.RateLimiterScopeConnection,
-		rateLimiterScopeRegion,
-		rateLimiterScopeService,
+    StaticScopes:[]string{
+		"connection",
+		"service",
 	},
+    QualScopes:[]string{
+        "region",
+    }
 }
 
 func Plugin(_ context.Context) *plugin.Plugin {
@@ -335,7 +321,7 @@ func Plugin(_ context.Context) *plugin.Plugin {
 					Scopes: rateLimiterScopes,
 					Filters: []rate_limiter.ScopeFilter{
 						{
-							StaticFilterValues: map[string]string{rateLimiterScopeService: serviceS3},
+							StaticFilterValues: map[string]string{"service": "s3"},
 						},
 					},
 				},
@@ -346,7 +332,7 @@ func Plugin(_ context.Context) *plugin.Plugin {
 					Scopes: rateLimiterScopes,
 					Filters: []rate_limiter.ScopeFilter{
 						{
-							StaticFilterValues: map[string]string{rateLimiterScopeService: serviceEC2},
+							StaticFilterValues: map[string]string{"service": "ec2"},
 						},
 					},
 				},
@@ -372,26 +358,27 @@ func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
 	return &plugin.Table{
 		Name:        "aws_s3_account_settings",
 		Description: "AWS S3 Account Block Public Access Settings",
-		List: &plugin.ListConfig{...},
-
+		List:        &plugin.ListConfig{...},
+		Columns: awsGlobalRegionColumns([]*plugin.Column{...}),
 		RateLimit: &plugin.TableRateLimiterConfig{
-			Definitions:&rate_limiter.Definitions{
+			Definitions: &rate_limiter.Definitions{
 				Limiters: []*rate_limiter.Definition{
 					{
 						Limit:     50,
 						BurstSize: 10,
-						Scopes:    rate_limiter.Scopes{
-							StaticScopes: []string{
-								rate_limiter.RateLimiterScopeConnection,
-								rate_limiter.RateLimiterScopeHydrate,
-								rateLimiterScopeRegion,
+						Scopes: rate_limiter.Scopes{
+							StaticScopes: map[string]string{
+								"connection",
+								"hydrate",
+							},
+							ColumnScopes: []string{
+								"region",
 							},
 						},
 					},
 				},
 			},
 		},
-		Columns: awsGlobalRegionColumns([]*plugin.Column{...}),
 	}
 }
 ```
@@ -401,21 +388,22 @@ func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
 	return &plugin.Table{
 		Name:        "aws_s3_account_settings",
 		Description: "AWS S3 Account Block Public Access Settings",
-		List: &plugin.ListConfig{...},
+		List:        &plugin.ListConfig{...},
+		Columns:     awsGlobalRegionColumns([]*plugin.Column{...}),
 		HydrateConfig: []plugin.HydrateConfig{
-			{
-				Func:    getAccountBucketPublicAccessBlock,
-				RateLimit: &plugin.HydrateRateLimiterConfig{
-					Definitions:&rate_limiter.Definitions{
-						Limiters: []*rate_limiter.Definition{
-							{
-								Limit:     50,
-								BurstSize: 10,
-								Scopes:    rate_limiter.Scopes{
-									StaticScopes: []string{
-										rate_limiter.RateLimiterScopeConnection,
-										rateLimiterScopeRegion,
-									},
+			Func: getAccountBucketPublicAccessBlock,
+			RateLimit: &plugin.HydrateRateLimiterConfig{
+				Definitions: &rate_limiter.Definitions{
+					Limiters: []*rate_limiter.Definition{
+						{
+							Limit:     50,
+							BurstSize: 10,
+							Scopes: rate_limiter.Scopes{
+								StaticScopes: map[string]string{
+									"connection",
+								},
+								ColumnScopes: []string{
+									"region",
 								},
 							},
 						},
@@ -423,7 +411,6 @@ func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
 				},
 			},
 		},
-		Columns: awsGlobalRegionColumns([]*plugin.Column{...}),
 	}
 }
 ```
