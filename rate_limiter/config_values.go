@@ -9,10 +9,9 @@ import (
 
 const (
 	// todo should these be more unique to avoid clash
-	RateLimiterKeyHydrate    = "hydrate"
-	RateLimiterKeyConnection = "connection"
-	RateLimiterKeyPlugin     = "plugin"
-	RateLimiterKeyTable      = "table"
+	RateLimiterScopeHydrate    = "hydrate"
+	RateLimiterScopeConnection = "connection"
+	RateLimiterScopeTable      = "table"
 
 	defaultRateLimiterEnabled = false
 	// rates are per second
@@ -69,9 +68,7 @@ func DefaultConfig() *Definitions {
 			{
 				Limit:     GetDefaultHydrateRate(),
 				BurstSize: GetDefaultHydrateBurstSize(),
-				Scopes: Scopes{
-					StaticScopes: []string{RateLimiterKeyPlugin},
-				},
+				// no scope defined, i.e. plugin scoped
 			}},
 	}
 }

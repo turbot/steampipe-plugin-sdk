@@ -14,7 +14,7 @@ type Scopes struct {
 	scopesString string
 }
 
-func (s Scopes) String() string {
+func (s *Scopes) String() string {
 	// lazily populate the scopes string
 	if s.scopesString == "" {
 		s.initializeScopeString()
@@ -22,7 +22,7 @@ func (s Scopes) String() string {
 	return s.scopesString
 }
 
-func (s Scopes) GetRequiredValues(values *ScopeValues) (*ScopeValues, bool) {
+func (s *Scopes) GetRequiredValues(values *ScopeValues) (*ScopeValues, bool) {
 	requiredValues := NewRateLimiterScopeValues()
 	requiredValues.StaticValues = helpers.FilterMap(values.StaticValues, s.StaticScopes)
 	requiredValues.ColumnValues = helpers.FilterMap(values.ColumnValues, s.ColumnScopes)
@@ -32,7 +32,7 @@ func (s Scopes) GetRequiredValues(values *ScopeValues) (*ScopeValues, bool) {
 	return requiredValues, gotAllRequiredScopeValues
 }
 
-func (s Scopes) initializeScopeString() {
+func (s *Scopes) initializeScopeString() {
 	if s.count() == 0 {
 		s.scopesString = "empty"
 	}
@@ -51,6 +51,6 @@ func (s Scopes) initializeScopeString() {
 	s.scopesString = strings.Join(scopesStrs, " ")
 }
 
-func (s Scopes) count() int {
+func (s *Scopes) count() int {
 	return len(s.StaticScopes) + len(s.ColumnScopes)
 }

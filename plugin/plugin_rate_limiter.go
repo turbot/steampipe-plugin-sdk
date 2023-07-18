@@ -14,7 +14,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallDefs *rate_limiter.Definit
 	// - hydrate config rate limiter defs
 	// - plugin level rate limiter defs
 	// - default rate limiter
-	rateLimiterDefs := p.resolveRateLimiterConfig(hydrateCallDefs, queryData.Table.RateLimit)
+	rateLimiterDefs := p.resolveRateLimiterConfig(hydrateCallDefs, queryData.Table.RateLimit.Definitions)
 	// short circuit if there ar eno defs
 	if len(rateLimiterDefs.Limiters) == 0 {
 		log.Printf("[INFO] resolvedRateLimiterConfig: no rate limiters (%s)", queryData.connectionCallId)

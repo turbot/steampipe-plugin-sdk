@@ -5,7 +5,6 @@ import (
 
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 )
 
 /*
@@ -65,7 +64,7 @@ type Table struct {
 	Cache *TableCacheOptions
 
 	// table scoped rate limiter definitions
-	RateLimit *rate_limiter.Definitions
+	RateLimit *TableRateLimiterConfig
 
 	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
@@ -93,6 +92,14 @@ func (t *Table) initialise(p *Plugin) {
 		log.Printf("[TRACE] no DefaultIgnoreConfig defined - creating empty")
 		t.DefaultIgnoreConfig = &IgnoreConfig{}
 	}
+
+	// create RateLimit if needed
+	if t.RateLimit == nil{
+		t.RateLimit =&TableRateLimiterConfig{}
+	}
+	// initialialise, passing table
+	t.RateLimit.initialise(t)
+
 
 	if t.DefaultShouldIgnoreError != nil && t.DefaultIgnoreConfig.ShouldIgnoreError == nil {
 		// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
