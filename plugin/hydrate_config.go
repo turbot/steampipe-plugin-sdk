@@ -115,7 +115,6 @@ RetryConfig: %s
 IgnoreConfig: %s
 Depends: %s
 Rate Limit: %s`,
-		helpers.GetFunctionName(c.Func),
 		c.RetryConfig,
 		c.IgnoreConfig,
 		strings.Join(dependsStrings, ","),
