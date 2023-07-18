@@ -5,12 +5,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-/*
-TODO multi limiter release all but longest limiter
-support specifying limiters in plugin config (somehow)
-differentiate between column tags and static tags
-*/
-
 type Definition struct {
 	// the actual limiter config
 	Limit     rate.Limit
@@ -43,7 +37,7 @@ func (d *Definition) validate() []string {
 func (d *Definition) SatisfiesFilters(scopeValues *ScopeValues) bool {
 	// do we satisfy any of the filters
 	for _, f := range d.Filters {
-		if f.Satisfied(scopeValues) {
+		if f.satisfied(scopeValues) {
 			return true
 		}
 	}
