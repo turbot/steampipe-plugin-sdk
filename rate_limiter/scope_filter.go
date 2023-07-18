@@ -5,7 +5,7 @@ type ScopeFilter struct {
 	ColumnFilterValues map[string]string
 }
 
-func (f ScopeFilter) Satisfied(scopeValues *ScopeValues) bool {
+func (f ScopeFilter) satisfied(scopeValues *ScopeValues) bool {
 	// all filter values must be satisfied
 	// (it is fine if there are scope values with no corresponding filter values)
 	for k, filterVal := range f.StaticFilterValues {
