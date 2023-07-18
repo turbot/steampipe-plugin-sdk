@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
@@ -370,7 +371,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 
 func TestRequiredHydrateCalls(t *testing.T) {
 	plugin := &Plugin{}
-	plugin.initialise()
+	plugin.initialise(hclog.NewNullLogger())
 	for name, test := range testCasesRequiredHydrateCalls {
 		test.table.initialise(plugin)
 
@@ -396,7 +397,7 @@ func newTestQueryData(plugin *Plugin, queryContext *QueryContext, table *Table, 
 		Quals:       make(KeyColumnQualMap),
 		FetchType:   fetchType,
 		plugin:      plugin,
-		columns:        make(map[string]*QueryColumn),
+		columns:     make(map[string]*QueryColumn),
 
 		// asyncronously read items using the 'get' or 'list' API
 		// items are streamed on rowDataChan, errors returned on errorChan
@@ -795,7 +796,7 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 
 func TestGetHydrateConfig(t *testing.T) {
 	for name, test := range testCasesGetHydrateConfig {
-		test.table.Plugin.initialise()
+		test.table.Plugin.initialise(hclog.NewNullLogger())
 		test.table.initialise(test.table.Plugin)
 
 		result := test.table.hydrateConfigMap[test.funcName]
