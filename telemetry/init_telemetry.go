@@ -21,7 +21,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-func Init(ctx context.Context, serviceName string) (func(), error) {
+func Init(serviceName string) (func(), error) {
+
+	ctx := context.Background()
+
 	// is telemetry enabled
 	telemetryEnvStr := strings.ToLower(os.Getenv(EnvOtelLevel))
 	tracingEnabled := helpers.StringSliceContains([]string{OtelAll, OtelTrace}, telemetryEnvStr)
