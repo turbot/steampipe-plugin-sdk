@@ -47,8 +47,10 @@ type ListConfig struct {
 	// a function which will return whenther to retry the call if an error is returned
 	RetryConfig *RetryConfig
 
-	RateLimit       *HydrateRateLimiterConfig
-	ParentRateLimit *HydrateRateLimiterConfig
+	ScopeValues       map[string]string
+	ParentScopeValues map[string]string
+	Cost              int
+	ParentCost        int
 
 	// Deprecated: Use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
@@ -67,18 +69,19 @@ func (c *ListConfig) initialise(table *Table) {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
 
-	// create empty RateLimiter config if needed
-	if c.RateLimit == nil {
-		c.RateLimit = &HydrateRateLimiterConfig{}
+	if c.ScopeValues == nil {
+		c.ScopeValues = map[string]string{}
 	}
-	// initialise the rate limit config
-	// this adds the hydrate name into the tag map
-	c.RateLimit.initialise(c.Hydrate)
+	if c.ParentScopeValues == nil {
+		c.ParentScopeValues = map[string]string{}
+	}
 
-	// if there is a parent hydrate, create (if needed) and initialise the ParentRateLimit config]
-	if c.ParentHydrate != nil && c.ParentRateLimit == nil {
-		c.ParentRateLimit = &HydrateRateLimiterConfig{}
-		c.ParentRateLimit.initialise(c.Hydrate)
+	// if cost is not set, initialise to 1
+	if c.Cost == 0 {
+		c.Cost = 1
+	}
+	if c.ParentCost == 0 {
+		c.ParentCost = 1
 	}
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
@@ -126,6 +129,5 @@ func (c *ListConfig) Validate(table *Table) []string {
 		}
 	}
 
-	validationErrors = append(validationErrors, c.RateLimit.validate()...)
 	return validationErrors
 }

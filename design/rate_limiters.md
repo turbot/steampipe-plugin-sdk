@@ -1,6 +1,16 @@
 
 # Rate Limiting
 
+CHANGES
+- flat scopes - only matrix quals allowed (warn is a static scope defined with same name as matrix key)
+- only limiter defs at top level
+- no `hydrate` scope
+- hcl override
+- (hcl defintion of plugin limiters - embedded and parsed?)
+- rate limiter def introspection table
+- rate limit metadata in _ctx
+
+
 ## Overview
 
 Rate limiting can be applied to all `Get`, `List` and column `Hydrate` calls.

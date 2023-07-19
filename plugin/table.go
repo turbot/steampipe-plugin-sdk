@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 
 	"github.com/turbot/go-kit/helpers"
@@ -63,8 +64,10 @@ type Table struct {
 	// cache options - allows disabling of cache for this table
 	Cache *TableCacheOptions
 
-	// table scoped rate limiter definitions
-	RateLimit *TableRateLimiterConfig
+	// scope values used to resolve the rate limiter for this table
+	// for example:
+	// "service": "s3"
+	ScopeValues map[string]string
 
 	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
@@ -94,12 +97,11 @@ func (t *Table) initialise(p *Plugin) {
 	}
 
 	// create RateLimit if needed
-	if t.RateLimit == nil{
-		t.RateLimit =&TableRateLimiterConfig{}
+	if t.ScopeValues == nil {
+		t.ScopeValues = make(map[string]string)
 	}
-	// initialialise, passing table
-	t.RateLimit.initialise(t)
-
+	// populate scope values with table name
+	t.ScopeValues[rate_limiter.RateLimiterScopeTable] = t.Name
 
 	if t.DefaultShouldIgnoreError != nil && t.DefaultIgnoreConfig.ShouldIgnoreError == nil {
 		// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
@@ -185,7 +187,8 @@ func (t *Table) buildHydrateConfigMap() {
 			Func:              get.Hydrate,
 			IgnoreConfig:      get.IgnoreConfig,
 			RetryConfig:       get.RetryConfig,
-			RateLimit:         get.RateLimit,
+			ScopeValues:       get.ScopeValues,
+			Cost:              get.Cost,
 			ShouldIgnoreError: get.ShouldIgnoreError,
 			MaxConcurrency:    get.MaxConcurrency,
 		}

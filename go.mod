@@ -30,12 +30,15 @@ require (
 	github.com/eko/gocache/v3 v3.1.2
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/hashicorp/go-getter v1.7.2
+	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.39.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.16.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.16.0
 	go.opentelemetry.io/otel/sdk v1.16.0
 	go.opentelemetry.io/otel/sdk/metric v0.39.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
+	golang.org/x/sync v0.1.0
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/sync v0.3.0
 )
 

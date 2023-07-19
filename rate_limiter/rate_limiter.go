@@ -12,7 +12,7 @@ import (
 
 type Limiter struct {
 	*rate.Limiter
-	scopeValues *ScopeValues
+	scopeValues map[string]string
 }
 
 type MultiLimiter struct {
