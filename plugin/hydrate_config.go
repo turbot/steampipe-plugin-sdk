@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 	"strings"
 
@@ -97,15 +98,27 @@ type HydrateConfig struct {
 	// a function which will return whenther to retry the call if an error is returned
 	RetryConfig *RetryConfig
 	Depends     []HydrateFunc
-	RateLimit   *HydrateRateLimiterConfig
+	// static scope values used to resolve the rate limiter for this hydrate call
+	// for example:
+	// "service": "s3"
+	//
+	// when resolving a rate limiter for a hydrate call, a map of scope values is automatically populated:
+	// - the plugin, table, connection and hydrate func name
+	// - values specified in the hydrate config
+	// - quals (with values as string)
+	// this map is then used to find a rate limiter
+	ScopeValues map[string]string
+	// how expensive is this hydrate call
+	// roughly - how many API calls does it hit
+	Cost int
+
+	MaxConcurrency int
 
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-	// Deprecated: use RateLimit.MaxConcurrency
-	MaxConcurrency int
 }
 
-func (c *HydrateConfig) String() interface{} {
+func (c *HydrateConfig) String() string {
 	var dependsStrings = make([]string, len(c.Depends))
 	for i, dep := range c.Depends {
 		dependsStrings[i] = helpers.GetFunctionName(dep)
@@ -114,11 +127,14 @@ func (c *HydrateConfig) String() interface{} {
 RetryConfig: %s
 IgnoreConfig: %s
 Depends: %s
-Rate Limit: %s`,
+ScopeValues: %s
+Cost: %d`,
+		helpers.GetFunctionName(c.Func),
 		c.RetryConfig,
 		c.IgnoreConfig,
 		strings.Join(dependsStrings, ","),
-		c.RateLimit)
+		rate_limiter.FormatStringMap(c.ScopeValues),
+		c.Cost)
 
 	return str
 }
@@ -137,26 +153,18 @@ func (c *HydrateConfig) initialise(table *Table) {
 	}
 
 	// create empty RateLimiter config if needed
-	if c.RateLimit == nil {
-		c.RateLimit = &HydrateRateLimiterConfig{}
+	if c.ScopeValues == nil {
+		c.ScopeValues = map[string]string{}
 	}
-	// initialise the rate limit config
-	// this adds the hydrate name into the tag map and initializes cost
-	c.RateLimit.initialise(c.Func)
-
+	// if cost is not set, initialise to 1
+	if c.Cost == 0 {
+		log.Printf("[TRACE] HydrateConfig initialise - cost is not set - defaulting to 1")
+		c.Cost = 1
+	}
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
 	}
-
-	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
-	if c.MaxConcurrency != 0 && c.RateLimit.MaxConcurrency == 0 {
-		c.RateLimit.MaxConcurrency = c.MaxConcurrency
-		// if we the config DOES NOT define both the new and deprected property, clear the deprectaed property
-		// this way - the validation will not raise an error if ONLY the deprecated property is set
-		c.MaxConcurrency = 0
-	}
-	// if both are set, leave both set - we will get a validation error
 
 	// default ignore and retry configs to table defaults
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
@@ -176,11 +184,6 @@ func (c *HydrateConfig) Validate(table *Table) []string {
 	}
 	if c.IgnoreConfig != nil {
 		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
-	}
-	validationErrors = append(validationErrors, c.RateLimit.validate()...)
-
-	if c.MaxConcurrency != 0 && c.RateLimit.MaxConcurrency != 0 {
-		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' HydrateConfig contains both deprecated 'MaxConcurrency' and the replacement 'RateLimit.MaxConcurrency", table.Name))
 	}
 
 	return validationErrors

@@ -142,7 +142,7 @@ type QueryData struct {
 
 	// auto populated tags used to resolve a rate limiter for each hydrate call
 	// (hydrate-call specific tags will be added when we resolve the limiter)
-	rateLimiterScopeValues *rate_limiter.ScopeValues
+	rateLimiterScopeValues map[string]string
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {

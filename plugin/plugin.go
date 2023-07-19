@@ -77,7 +77,7 @@ type Plugin struct {
 	DefaultIgnoreConfig *IgnoreConfig
 
 	// rate limiter definitions
-	RateLimiters *rate_limiter.Definitions
+	RateLimiters []*rate_limiter.Definition
 
 	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
 	DefaultGetConfig *GetConfig
@@ -178,25 +178,10 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 	p.tempDir = path.Join(os.TempDir(), p.Name)
 
 	p.callIdLookup = make(map[string]struct{})
-
-	log.Printf("[INFO] Rate limiting parameters")
-	log.Printf("[INFO] ========================")
-	log.Printf("[INFO] Max concurrent rows: %d", rate_limiter.GetMaxConcurrentRows())
-	log.Printf("[INFO] Rate limiting enabled: %v", rate_limiter.RateLimiterEnabled())
-	if rate_limiter.RateLimiterEnabled() {
-		log.Printf("[INFO] DefaultHydrateRate: %d", int(rate_limiter.GetDefaultHydrateRate()))
-		log.Printf("[INFO] DefaultHydrateBurstSize: %d", rate_limiter.GetDefaultHydrateBurstSize())
-	}
 }
 
 func (p *Plugin) initialiseRateLimits() {
 	p.rateLimiters = rate_limiter.NewLimiterMap()
-
-	// initialise all limiter definitions
-	// (this populates all limiter Key properties)
-	if p.RateLimiters != nil {
-		p.RateLimiters.Initialise()
-	}
 	return
 }
 

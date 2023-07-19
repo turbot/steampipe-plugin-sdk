@@ -18,29 +18,21 @@ func (d *QueryData) WaitForListRateLimit(ctx context.Context) {
 }
 
 // resolve the scope values for a given hydrate call
-func (d *QueryData) resolveRateLimiterScopeValues(hydrateCallScopeValues *rate_limiter.ScopeValues) *rate_limiter.ScopeValues {
-	// make a new map to populate
-	res := rate_limiter.NewRateLimiterScopeValues()
-
-	tableScopeValues := rate_limiter.NewRateLimiterScopeValues()
-	tableScopeValues.StaticValues = d.Table.RateLimit.ScopeValues
+func (d *QueryData) resolveRateLimiterScopeValues(hydrateCallScopeValues map[string]string) map[string]string {
 
 	// build list of source value maps which we will merge
 	// this is in order of DECREASING precedence, i.e. highest first
-	scopeValueList := []*rate_limiter.ScopeValues{
+	scopeValueList := []map[string]string{
 		// static scope values defined by hydrate config
 		hydrateCallScopeValues,
 		// static scope values defined by table config
-		tableScopeValues,
+		d.Table.ScopeValues,
 		// scope values for this scan (static and column values)
 		d.rateLimiterScopeValues,
 	}
 
-	for _, scopeValues := range scopeValueList {
-		// add any scope values which are not already set
-		res.Merge(scopeValues)
-	}
-	return res
+	// merge these in precedence order
+	return rate_limiter.MergeScopeValues(scopeValueList)
 }
 
 /*
@@ -51,17 +43,18 @@ this will consist of:
 - quals (with value as string)
 */
 func (d *QueryData) populateRateLimitScopeValues() {
-	d.rateLimiterScopeValues = rate_limiter.NewRateLimiterScopeValues()
+	d.rateLimiterScopeValues = map[string]string{}
 
-	// add the connection to static scope values
-	d.rateLimiterScopeValues.StaticValues[rate_limiter.RateLimiterScopeConnection] = d.Connection.Name
+	// add the connection
+	d.rateLimiterScopeValues[rate_limiter.RateLimiterScopeConnection] = d.Connection.Name
 
-	// dynamic scope values (qual values)
+	// add matrix quals
+	// TODO KAI ONLY ADD MATRIX QUALS
 	for column, qualsForColumn := range d.Quals {
 		for _, qual := range qualsForColumn.Quals {
 			if qual.Operator == quals.QualOperatorEqual {
 				qualValueString := grpc.GetQualValueString(qual.Value)
-				d.rateLimiterScopeValues.ColumnValues[column] = qualValueString
+				d.rateLimiterScopeValues[column] = qualValueString
 			}
 		}
 	}
@@ -87,56 +80,53 @@ func (d *QueryData) resolveFetchRateLimiters() error {
 }
 
 func (d *QueryData) resolveGetRateLimiters() error {
-	rateLimiterConfig := d.Table.Get.RateLimit
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
-	getLimiter, err := d.plugin.getHydrateCallRateLimiter(rateLimiterConfig.Definitions, rateLimiterConfig.ScopeValues, d)
+	getLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.Get.ScopeValues, d)
 	if err != nil {
 		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.Get.Hydrate), err.Error(), d.connectionCallId)
 		return err
 	}
 
 	d.fetchLimiters.rateLimiter = getLimiter
-	d.fetchLimiters.cost = rateLimiterConfig.Cost
+	d.fetchLimiters.cost = d.Table.Get.Cost
 
 	return nil
 }
 
 func (d *QueryData) resolveParentChildRateLimiters() error {
-	parentRateLimitConfig := d.Table.List.ParentRateLimit
-	childRateLimitConfig := d.Table.List.RateLimit
+
 	// NOTE: RateLimit and ParentRateLimit cannot be nil as they are initialized to an empty struct if needed
 
 	// resolve the parent hydrate rate limiter
-	parentRateLimiter, err := d.plugin.getHydrateCallRateLimiter(parentRateLimitConfig.Definitions, parentRateLimitConfig.ScopeValues, d)
+	parentRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ParentScopeValues, d)
 	if err != nil {
 		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.List.ParentHydrate), err.Error(), d.connectionCallId)
 		return err
 	}
 	// assign the parent rate limiter to d.fetchLimiters
 	d.fetchLimiters.rateLimiter = parentRateLimiter
-	d.fetchLimiters.cost = parentRateLimitConfig.Cost
+	d.fetchLimiters.cost = d.Table.List.ParentCost
 
 	// resolve the child  hydrate rate limiter
-	childRateLimiter, err := d.plugin.getHydrateCallRateLimiter(childRateLimitConfig.Definitions, childRateLimitConfig.ScopeValues, d)
+	childRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ScopeValues, d)
 	if err != nil {
 		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.List.Hydrate), err.Error(), d.connectionCallId)
 		return err
 	}
 	d.fetchLimiters.childListRateLimiter = childRateLimiter
-	d.fetchLimiters.childListCost = childRateLimitConfig.Cost
+	d.fetchLimiters.childListCost = d.Table.List.Cost
 
 	return nil
 }
 
 func (d *QueryData) resolveListRateLimiters() error {
-	rateLimiterConfig := d.Table.List.RateLimit
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
-	listLimiter, err := d.plugin.getHydrateCallRateLimiter(rateLimiterConfig.Definitions, rateLimiterConfig.ScopeValues, d)
+	listLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ScopeValues, d)
 	if err != nil {
 		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.Get.Hydrate), err.Error(), d.connectionCallId)
 		return err
 	}
 	d.fetchLimiters.rateLimiter = listLimiter
-	d.fetchLimiters.cost = rateLimiterConfig.Cost
+	d.fetchLimiters.cost = d.Table.List.Cost
 	return nil
 }

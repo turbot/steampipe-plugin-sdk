@@ -69,7 +69,7 @@ type RetryConfig struct {
 	MaxDuration int64
 }
 
-func (c *RetryConfig) String() interface{} {
+func (c *RetryConfig) String() string {
 	if c.ShouldRetryError != nil {
 		return fmt.Sprintf("ShouldRetryError: %s", helpers.GetFunctionName(c.ShouldRetryError))
 	}
