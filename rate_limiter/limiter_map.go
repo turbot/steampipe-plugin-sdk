@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// LimiterMap is a struct encapsulatring a map of rate limiters
+// LimiterMap is a struct encapsulating a map of rate limiters
 // map key is built from the limiter tag values,
 // e.g.
 // tags: {"connection": "aws1", "region": "us-east-1"}
@@ -24,7 +24,7 @@ func NewLimiterMap() *LimiterMap {
 }
 
 // GetOrCreate checks the map for a limiter with the specified key values - if none exists it creates it
-func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues *ScopeValues) (*Limiter, error) {
+func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues map[string]string) (*Limiter, error) {
 	// build the key from the scope values
 	key, err := buildLimiterKey(scopeValues)
 	if err != nil {
@@ -61,10 +61,10 @@ func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues *ScopeValues) (*Limi
 	return limiter, nil
 }
 
-func buildLimiterKey(values *ScopeValues) (string, error) {
+func buildLimiterKey(values map[string]string) (string, error) {
 	// build the key for this rate limiter
 	// map key is the hash of the string representation of the value map
-	hash := md5.Sum([]byte(values.String()))
+	hash := md5.Sum([]byte(ScopeValuesString(values)))
 	key := hex.EncodeToString(hash[:])
 
 	return key, nil

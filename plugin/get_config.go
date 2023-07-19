@@ -70,7 +70,8 @@ type GetConfig struct {
 	IgnoreConfig *IgnoreConfig
 	// a function which will return whenther to retry the call if an error is returned
 	RetryConfig *RetryConfig
-	RateLimit   *HydrateRateLimiterConfig
+	ScopeValues map[string]string
+	Cost        int
 
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
@@ -100,27 +101,20 @@ func (c *GetConfig) initialise(table *Table) {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
 
-	// create empty RateLimiter config if needed
-	if c.RateLimit == nil {
-		c.RateLimit = &HydrateRateLimiterConfig{}
+	// create empty scope values if needed
+	if c.ScopeValues == nil {
+		c.ScopeValues = map[string]string{}
 	}
-	// initialise the rate limit config
-	// this adds the hydrate name into the tag map
-	c.RateLimit.initialise(c.Hydrate)
+
+	// if cost is not set, initialise to 1
+	if c.Cost == 0 {
+		c.Cost = 1
+	}
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
 	}
-
-	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
-	if c.MaxConcurrency != 0 && c.RateLimit.MaxConcurrency == 0 {
-		c.RateLimit.MaxConcurrency = c.MaxConcurrency
-		// if we the config DOES NOT define both the new and deprected property, clear the deprectaed property
-		// this way - the validation will not raise an error if ONLY the deprecated property is set
-		c.MaxConcurrency = 0
-	}
-	// if both are set, leave both set - we will get a validation error
 
 	// if a table was passed (i.e. this is NOT the plugin default)
 	// default ignore and retry configs
@@ -171,12 +165,6 @@ func (c *GetConfig) Validate(table *Table) []string {
 				pluralize.NewClient().Pluralize("dependency", numDeps, false)))
 			break
 		}
-	}
-
-	validationErrors = append(validationErrors, c.RateLimit.validate()...)
-
-	if c.MaxConcurrency != 0 && c.RateLimit.MaxConcurrency != 0 {
-		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' GetConfig contains both deprecated 'MaxConcurrency' and the replacement 'RateLimit.MaxConcurrency", table.Name))
 	}
 
 	return validationErrors
