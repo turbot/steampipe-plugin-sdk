@@ -47,7 +47,7 @@ func (h *hydrateCall) initialiseRateLimiter() error {
 	p := h.queryData.plugin
 
 	// now try to construct a multi rate limiter for this call
-	rateLimiter, err := p.getHydrateCallRateLimiter(h.Config.RateLimit.Definitions, h.Config.RateLimit.ScopeValues, h.queryData)
+	rateLimiter, err := p.getHydrateCallRateLimiter(h.Config.ScopeValues, h.queryData)
 	if err != nil {
 		log.Printf("[WARN] hydrateCall %s getHydrateCallRateLimiter failed: %s (%s)", h.Name, err.Error(), h.queryData.connectionCallId)
 		return err
@@ -73,7 +73,7 @@ func (h *hydrateCall) canStart(rowData *rowData, name string, concurrencyManager
 	// and increments the counters
 	// it may seem more logical to do this in the Start() function below, but we need to check and increment the counters
 	// within the same mutex lock to ensure another call does not start between checking and starting
-	return concurrencyManager.StartIfAllowed(name, h.Config.RateLimit.MaxConcurrency)
+	return concurrencyManager.StartIfAllowed(name, h.Config.MaxConcurrency)
 }
 
 // Start starts a hydrate call
@@ -94,16 +94,12 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concu
 }
 
 func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) {
-	if !rate_limiter.RateLimiterEnabled() {
-		log.Printf("[TRACE] start hydrate call, rate limiting disabled %s (%s)", h.Name, d.connectionCallId)
-		return
-	}
 	t := time.Now()
 
 	log.Printf("[INFO] ****** start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
 
 	// wait until we can execute
-	h.rateLimiter.Wait(ctx, h.Config.RateLimit.Cost)
+	h.rateLimiter.Wait(ctx, h.Config.Cost)
 
 	log.Printf("[INFO] ****** AFTER rate limiter %s (%dms) (%s)", h.Name, time.Since(t).Milliseconds(), d.connectionCallId)
 }

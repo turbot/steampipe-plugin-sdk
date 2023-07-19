@@ -1,31 +1,23 @@
 package plugin
 
 import (
+	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 )
 
-func (p *Plugin) getHydrateCallRateLimiter(hydrateCallDefs *rate_limiter.Definitions, hydrateCallStaticScopeValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
+func (p *Plugin) getHydrateCallRateLimiter(hydrateCallStaticScopeValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
 	log.Printf("[INFO] getHydrateCallRateLimiter")
 
 	res := &rate_limiter.MultiLimiter{}
-	// first resolve the rate limiter definitions by building the list of rate limiter definitions from the various sources
-	// - plugin config file (coming soon)
-	// - hydrate config rate limiter defs
-	// - plugin level rate limiter defs
-	// - default rate limiter
-	rateLimiterDefs := p.resolveRateLimiterConfig(hydrateCallDefs, queryData.Table.RateLimit.Definitions)
 	// short circuit if there ar eno defs
-	if len(rateLimiterDefs.Limiters) == 0 {
+	if len(p.RateLimiters) == 0 {
 		log.Printf("[INFO] resolvedRateLimiterConfig: no rate limiters (%s)", queryData.connectionCallId)
 		return res, nil
 	}
 
-	log.Printf("[INFO] resolvedRateLimiterConfig: %s (%s)", rateLimiterDefs, queryData.connectionCallId)
-
 	// wrape static scope values in a ScopeValues struct
-	hydrateCallScopeValues := rate_limiter.NewRateLimiterScopeValues()
-	hydrateCallScopeValues.StaticValues = hydrateCallStaticScopeValues
+	hydrateCallScopeValues := map[string]string{}
 
 	// now build the set of all tag values which applies to this call
 	rateLimiterScopeValues := queryData.resolveRateLimiterScopeValues(hydrateCallScopeValues)
@@ -33,7 +25,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallDefs *rate_limiter.Definit
 	log.Printf("[INFO] rateLimiterTagValues: %s", rateLimiterScopeValues)
 
 	// build a list of all the limiters which match these tags
-	limiters, err := p.getRateLimitersForScopeValues(rateLimiterDefs, rateLimiterScopeValues)
+	limiters, err := p.getRateLimitersForScopeValues(rateLimiterScopeValues)
 	if err != nil {
 		return nil, err
 	}
@@ -46,14 +38,14 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallDefs *rate_limiter.Definit
 	return res, nil
 }
 
-func (p *Plugin) getRateLimitersForScopeValues(defs *rate_limiter.Definitions, scopeValues *rate_limiter.ScopeValues) ([]*rate_limiter.Limiter, error) {
+func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([]*rate_limiter.Limiter, error) {
 	var limiters []*rate_limiter.Limiter
 
-	for _, l := range defs.Limiters {
+	for _, l := range p.RateLimiters {
 		// build a filtered map of just the scope values required for this limiter
-		requiredScopeValues, gotAllValues := l.Scopes.GetRequiredValues(scopeValues)
+		requiredScopeValues := helpers.FilterMap(scopeValues, l.Scopes)
 		// do we have all the required values?
-		if !gotAllValues {
+		if len(requiredScopeValues) < len(l.Scopes) {
 			// this rate limiter does not apply
 			continue
 		}
@@ -71,24 +63,4 @@ func (p *Plugin) getRateLimitersForScopeValues(defs *rate_limiter.Definitions, s
 		limiters = append(limiters, limiter)
 	}
 	return limiters, nil
-}
-
-func (p *Plugin) resolveRateLimiterConfig(hydrateCallDefs, tableDefs *rate_limiter.Definitions) *rate_limiter.Definitions {
-	// build list of source limiter configs we will merge
-	sourceConfigs := []*rate_limiter.Definitions{
-		hydrateCallDefs,
-		tableDefs,
-		p.RateLimiters,
-		rate_limiter.DefaultConfig(),
-	}
-	// build an array of rate limiter configs to combine, in order of precedence
-	var res = &rate_limiter.Definitions{}
-	for _, c := range sourceConfigs {
-		res.Merge(c)
-		if res.FinalLimiter {
-			return res
-		}
-	}
-
-	return res
 }

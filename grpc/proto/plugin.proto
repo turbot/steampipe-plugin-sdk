@@ -12,6 +12,7 @@ service WrapperPlugin {
   rpc UpdateConnectionConfigs(UpdateConnectionConfigsRequest) returns (UpdateConnectionConfigsResponse);
   rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
   rpc SetCacheOptions(SetCacheOptionsRequest) returns (SetCacheOptionsResponse);
+  rpc SetRateLimiters(SetRateLimitersRequest) returns (SetRateLimitersResponse);
 }
 
 message EstablishMessageStreamRequest{
@@ -297,4 +298,19 @@ message SetCacheOptionsRequest {
 }
 
 message SetCacheOptionsResponse {
+}
+
+message SetRateLimitersRequest {
+  repeated RateLimiterDefinition definitions = 1;
+}
+
+message RateLimiterDefinition {
+  string name = 1;
+  float limit = 2;
+  int64 burst_size = 3;
+  repeated string scopes = 4;
+  string filter = 5;
+}
+
+message SetRateLimitersResponse {
 }

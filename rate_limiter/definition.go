@@ -6,20 +6,22 @@ import (
 )
 
 type Definition struct {
+	// the limiter name
+	Name string
 	// the actual limiter config
 	Limit     rate.Limit
 	BurstSize int
 
 	// the scopes which identify this limiter instance
 	// one limiter instance will be created for each combination of scopes which is encountered
-	Scopes Scopes
+	Scopes []string
 
-	// this limiter only applies to these these scope values
-	Filters []ScopeFilter
+	// filter used to target the limiter
+	Filter string
 }
 
 func (d *Definition) String() string {
-	return fmt.Sprintf("Limit(/s): %v, Burst: %d, Scopes: %s", d.Limit, d.BurstSize, d.Scopes)
+	return fmt.Sprintf("Limit(/s): %v, Burst: %d, Scopes: %s, Filter: %s", d.Limit, d.BurstSize, d.Scopes, d.Filter)
 }
 
 func (d *Definition) validate() []string {
@@ -34,12 +36,12 @@ func (d *Definition) validate() []string {
 }
 
 // SatisfiesFilters returns whethe rthe given values satisfy ANY of our filters
-func (d *Definition) SatisfiesFilters(scopeValues *ScopeValues) bool {
-	// do we satisfy any of the filters
-	for _, f := range d.Filters {
-		if f.satisfied(scopeValues) {
-			return true
-		}
-	}
+func (d *Definition) SatisfiesFilters(scopeValues map[string]string) bool {
+	//// do we satisfy any of the filters
+	//for _, f := range d.Filter {
+	//	if f.satisfied(scopeValues) {
+	//		return true
+	//	}
+	//}
 	return false
 }
