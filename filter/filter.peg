@@ -1,0 +1,478 @@
+{
+
+  package filter
+
+  import (
+    "fmt"
+    "strconv"
+    "strings"
+  )
+
+  type ComparisonNode struct {
+    Type string
+    Operator CodeNode
+    Values interface{}
+  }
+
+  type CodeNode struct {
+    Type string
+    Source string
+    Value string
+    JsonbSelector []CodeNode
+  }
+
+  type FunctionNode struct {
+    Name string
+    Function CodeNode
+    Args []CodeNode
+  }
+
+  func toIfaceSlice(v interface{}) []interface{} {
+    if v == nil {
+      return nil
+    }
+    return v.([]interface{})
+  }
+
+  func eval(first, rest interface{}) []interface{} {
+    exprs := []interface{}{}
+    exprs = append(exprs, first)
+    restSl := toIfaceSlice(rest)
+    for _, v := range restSl {
+      restStmt := toIfaceSlice(v)
+      exprs = append(exprs, restStmt[3])
+    }
+    return exprs
+  }
+
+}
+
+Input <- _ i:OrComparison _ EOF {
+  return i, nil
+}
+
+OrComparison <- first:AndComparison rest:( _ Or _ AndComparison )* {
+  exprs := eval(first, rest)
+  if len(exprs) <= 1 {
+    return first, nil
+  }
+  n := ComparisonNode{
+    Type: "or",
+    Values: exprs,
+  }
+  return n, nil
+}
+
+AndComparison <- first:Comparison rest:( _ And _ Comparison )* {
+  exprs := eval(first, rest)
+  if len(exprs) <= 1 {
+    return first, nil
+  }
+  n := ComparisonNode{
+    Type: "and",
+    Values: exprs,
+  }
+  return n, nil
+}
+
+
+//
+// Comparisons
+//
+
+Comparison <-  MultiComparison / NotComparison / LeftRightComparison / LikeComparison / IsComparison / InComparison / IdentifierComparison
+
+MultiComparison <- '(' _ expr:OrComparison _ ')' {
+  return expr, nil
+}
+
+NotComparison <- op:Not _ right:Comparison {
+  n := ComparisonNode{
+    Type: "not",
+    Operator: op.(CodeNode),
+    Values: []ComparisonNode{right.(ComparisonNode)},
+  }
+  return n, nil
+}
+
+LeftRightComparison <- left:Value _ op:CompareOperator _ right:Value {
+  n := ComparisonNode{
+    Type: "compare",
+    Operator: op.(CodeNode),
+    Values: []CodeNode{left.(CodeNode), right.(CodeNode)},
+  }
+  return n, nil
+}
+
+LikeComparison <- left:(Identifier) _ op:Like _ right:(String) {
+  n := ComparisonNode{
+    Type: "like",
+    Operator: op.(CodeNode),
+    Values: []CodeNode{left.(CodeNode), right.(CodeNode)},
+  }
+  return n, nil
+}
+
+IsComparison <- left:(Identifier / Null / Bool) _ op:Is _ right:(Null / Bool) {
+  n := ComparisonNode{
+    Type: "is",
+    Operator: op.(CodeNode),
+    Values: []CodeNode{left.(CodeNode), right.(CodeNode)},
+  }
+  return n, nil
+}
+
+InComparison <- first:Value _ op:In _ rest:InList {
+  exprs := []CodeNode{first.(CodeNode)}
+  resti := toIfaceSlice(rest)
+  for _, v := range resti {
+    exprs = append(exprs, v.(CodeNode))
+  }
+  n := ComparisonNode{
+    Type: "in",
+    Operator: op.(CodeNode),
+    Values: exprs,
+  }
+  return n, nil
+}
+
+IdentifierComparison <- i:Identifier {
+  n := ComparisonNode{
+    Type: "identifier",
+    Values: []CodeNode{i.(CodeNode)},
+  }
+  return n, nil
+}
+
+
+//
+// In List
+//
+
+InList <- EmptyInList / NonEmptyInList
+
+EmptyInList <- '(' _ ')' {
+  return []interface{}{}, nil
+}
+
+NonEmptyInList <- '(' _ first:UnbracketedValue rest:( _ ',' _ UnbracketedValue)* _ ')' {
+  exprs := eval(first, rest)
+  return exprs, nil
+}
+
+
+//
+// Values
+//
+
+Value <- BracketedValue / UnbracketedValue
+
+BracketedValue <- '(' _ i:Value _ ')' {
+  return i, nil
+}
+
+UnbracketedValue <- TimeCalculation / Constant / Jsonb / Identifier
+
+
+//
+// Identifiers
+//
+
+Identifier <- Jsonb / ColumnIdentifier
+
+ColumnIdentifier <- QuotedIdentifier / UnquotedIdentifier
+
+QuotedIdentifier <- `"` (`""` / [^"])* `"` {
+  src := string(c.text)
+  value := strings.ReplaceAll(src[1:len(src)-1], `""`, `"`)
+  n := CodeNode{
+    Type: "quoted_identifier",
+    Source: src,
+    Value: value,
+  }
+  return n, nil
+}
+
+UnquotedIdentifier <- [A-Za-z_][A-Za-z0-9_]* {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "unquoted_identifier",
+    Source: src,
+    Value: strings.ToLower(src),
+  }
+  return n, nil
+}
+
+Jsonb <- i:ColumnIdentifier _ op:JsonbOperator _ first:JsonbField rest:(_ JsonbOperator _ JsonbField)* {
+  n := i.(CodeNode)
+  n.JsonbSelector = []CodeNode{op.(CodeNode), first.(CodeNode)}
+  resti := toIfaceSlice(rest)
+  for _, e := range resti {
+    ei := toIfaceSlice(e)
+    n.JsonbSelector = append(n.JsonbSelector, ei[1].(CodeNode), ei[3].(CodeNode))
+  }
+  return n, nil
+}
+
+JsonbField <- String / Integer
+
+JsonbOperator <- "->" '>'? {
+  s := string(c.text)
+  n := CodeNode{
+    Type: "operator",
+    Source: s,
+    Value: s,
+  }
+  return n, nil
+}
+
+
+//
+// Operators
+//
+
+// Order of the operators here is important for matching
+CompareOperator <- ("<=" / "<>" / ">=" / "!=" / "<" / "=" / ">") {
+  s := string(c.text)
+  n := CodeNode{
+    Type: "operator",
+    Source: s,
+    Value: s,
+  }
+  return n, nil
+}
+
+And <- "and"i {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "operator",
+    Source: src,
+    Value: "and",
+  }
+  return n, nil
+}
+
+Or <- "or"i {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "operator",
+    Source: src,
+    Value: "or",
+  }
+  return n, nil
+}
+
+Not <- "not"i {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "operator",
+    Source: src,
+    Value: "not",
+  }
+  return n, nil
+}
+
+In <- not:("not"i _)? "in"i {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "operator",
+    Source: src,
+    Value: "in",
+  }
+  if not != nil {
+    n.Value = "not in"
+  }
+  return n, nil
+}
+
+Like <- not:("not"i _)? like:LikeOrIlike {
+  src := string(c.text)
+  likeStr := strings.ToLower(like.(string))
+  n := CodeNode{
+    Type: "operator",
+    Source: src,
+    Value: likeStr,
+  }
+  if not != nil {
+    n.Value = "not " + likeStr
+  }
+  return n, nil
+}
+
+LikeOrIlike <- ("like"i / "ilike"i) {
+  src := string(c.text)
+  return src, nil
+}
+
+Is <- "is"i not:(_ "not"i)? {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "operator",
+    Source: src,
+    Value: "is",
+  }
+  if not != nil {
+    n.Value = "is not"
+  }
+  return n, nil
+}
+
+
+//
+// Functions
+//
+// Specific set of supported Postgres functions.
+//
+
+TimeCalculation <- now:NoArgsFunction interval:(_ Add _ StringOperatorFunction)? {
+  n := CodeNode{
+    Type: "time_calculation",
+    Source: string(c.text),
+    Value: "now()",
+  }
+  if interval != nil {
+    intervalSlice := toIfaceSlice(interval)
+    addOp := intervalSlice[1].(CodeNode).Value
+    intervalString, _ := CodeToSQL(intervalSlice[3].(FunctionNode).Args[0])
+    n.Value += fmt.Sprintf(" %s interval %s", addOp, intervalString)
+  }
+  return n, nil
+}
+
+Add <- ('+' / '-') {
+  s := string(c.text)
+  n := CodeNode{
+    Type: "operator",
+    Source: s,
+    Value: s,
+  }
+  return n, nil
+}
+
+Function <- StringOperatorFunction / NoArgsFunction
+
+NoArgsFunction <- NoArgsFunctionName `()` {
+  src := string(c.text)
+  fnName := src[:len(src)-2]
+  n := FunctionNode{
+    Name: "function",
+    Function: CodeNode{
+      Type: "function_name",
+      Source: fnName,
+      Value: strings.ToLower(fnName),
+    },
+    Args: []CodeNode{},
+  }
+  return n, nil
+}
+
+NoArgsFunctionName <- "now"i
+
+StringOperatorFunction <- fn:StringOperatorFunctionName _ s:String {
+  src := string(c.text)
+  fnName := src[:len(src)-2]
+  n := FunctionNode{
+    Name: "function",
+    Function: CodeNode{
+      Type: "function_name",
+      Source: fnName,
+      Value: strings.ToLower(fnName),
+    },
+    Args: []CodeNode{s.(CodeNode)},
+  }
+  return n, nil
+}
+
+StringOperatorFunctionName <- "interval"i
+
+
+//
+// Constants
+//
+
+Constant <- Bool / Number / String
+
+String <- `'` (`''` / [^'])* `'` {
+  src := string(c.text)
+  value := strings.ReplaceAll(src[1:len(src)-1], "''", "'")
+  n := CodeNode{
+    Type: "string",
+    Source: src,
+    Value: value,
+  }
+  return n, nil
+}
+
+Number <- '-'? Integer ( '.' DecimalDigit+ )? Exponent? {
+  // JSON numbers have the same syntax as Go's, and are parseable using
+  // strconv.
+  src := string(c.text)
+  n := CodeNode{
+    Type: "number",
+    Source: src,
+    Value: src,
+  }
+  return n, nil
+}
+
+Integer <- ('0' / NonZeroDecimalDigit DecimalDigit*) {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "number",
+    Source: src,
+    Value: src,
+  }
+  return n, nil
+}
+
+Exponent <- 'e'i [+-]? DecimalDigit+
+
+DecimalDigit <- [0-9]
+
+NonZeroDecimalDigit <- [1-9]
+
+Bool <- ("true"i / "false"i) {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "bool",
+    Source: src,
+    Value: strings.ToLower(src),
+  }
+  return n, nil
+}
+
+Null <- "null"i {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "null",
+    Source: src,
+    Value: strings.ToLower(src),
+  }
+  return n, nil
+}
+
+
+//
+// Layout
+//
+
+
+// Whitespace
+_ <- [ \n\t\r]* {
+  src := string(c.text)
+  n := CodeNode{
+    Type: "whitespace",
+    Source: src,
+  }
+  if len(src) > 0 { n.Value = " " }
+  return n, nil
+}
+
+EOF <- !. {
+  n := CodeNode{
+    Type: "eof",
+    Source: "",
+    Value: "",
+  }
+  return n, nil
+}
