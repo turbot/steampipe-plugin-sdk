@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestWhereSatisfied(t *testing.T) {
+func TestScopeFilterSatisfied(t *testing.T) {
 	testCases := []struct {
 		filter   string
 		values   map[string]string
@@ -58,7 +58,7 @@ func TestWhereSatisfied(t *testing.T) {
 		},
 	}
 	for _, testCase := range testCases {
-		whereExpr, err := parseWhere(testCase.filter)
+		scopeFilter, err := newScopeFilter(testCase.filter)
 		if testCase.err != "" {
 			if err == nil || err.Error() != testCase.err {
 				t.Errorf("parseWhere(%v) err: %v, want %s", testCase.filter, err, testCase.err)
@@ -69,10 +69,10 @@ func TestWhereSatisfied(t *testing.T) {
 			t.Error(err)
 		}
 
-		satisfiesFilter := whereSatisfied(*whereExpr, testCase.values)
+		satisfiesFilter := scopeFilter.satisfied(testCase.values)
 
 		if satisfiesFilter != testCase.expected {
-			t.Errorf("whereSatisfied(%v, %v) want %v, got %v", testCase.filter, testCase.values, testCase.expected, satisfiesFilter)
+			t.Errorf("scopeFilterSatisfied(%v, %v) want %v, got %v", testCase.filter, testCase.values, testCase.expected, satisfiesFilter)
 		}
 
 	}
