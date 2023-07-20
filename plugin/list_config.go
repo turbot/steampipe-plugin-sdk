@@ -2,10 +2,9 @@ package plugin
 
 import (
 	"fmt"
-	"log"
-
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
+	"log"
 )
 
 /*

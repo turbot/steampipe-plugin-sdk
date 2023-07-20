@@ -12,7 +12,7 @@ func ScopeValuesString(sv map[string]string) string {
 	for i, k := range keys {
 		strs[i] = fmt.Sprintf("%s=%s", k, sv[k])
 	}
-	return strings.Join(keys, ",")
+	return strings.Join(strs, ",")
 }
 
 // MergeScopeValues combines a set of scope values in order of precedence
