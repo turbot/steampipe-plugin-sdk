@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-func (p *Plugin) getHydrateCallRateLimiter(hydrateCallStaticScopeValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
+func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
 	log.Printf("[INFO] getHydrateCallRateLimiter")
 
 	res := &rate_limiter.MultiLimiter{}
@@ -15,9 +15,6 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallStaticScopeValues map[stri
 		log.Printf("[INFO] resolvedRateLimiterConfig: no rate limiters (%s)", queryData.connectionCallId)
 		return res, nil
 	}
-
-	// wrape static scope values in a ScopeValues struct
-	hydrateCallScopeValues := map[string]string{}
 
 	// now build the set of all tag values which applies to this call
 	rateLimiterScopeValues := queryData.resolveRateLimiterScopeValues(hydrateCallScopeValues)
