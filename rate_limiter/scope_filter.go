@@ -2,7 +2,9 @@ package rate_limiter
 
 import (
 	"fmt"
+	"github.com/danwakefield/fnmatch"
 	"github.com/turbot/steampipe-plugin-sdk/v5/filter"
+	"strings"
 )
 
 type scopeFilter struct {
@@ -38,8 +40,40 @@ func (f *scopeFilter) satisfied(values map[string]string) bool {
 func scopeFilterSatisfied(c filter.ComparisonNode, values map[string]string) (bool, error) {
 	switch c.Type {
 	case "identifier":
+		// not sure when wthis would be used
+		return false, invalidScopeOperatorError(c.Operator.Value)
 	case "is":
+		// is is not (currently) supported
+		return false, invalidScopeOperatorError(c.Operator.Value)
 	case "like": // (also ilike?)
+		codeNodes, ok := c.Values.([]filter.CodeNode)
+		if !ok {
+			return false, fmt.Errorf("failed to parse filter")
+		}
+		if len(codeNodes) != 2 {
+			return false, fmt.Errorf("failed to parse filter")
+		}
+
+		// dereference the value from the map
+		lval := values[codeNodes[0].Value]
+		pattern := codeNodes[1].Value
+
+		switch c.Operator.Value {
+		case "like":
+			res := evaluateLike(lval, pattern, 0)
+			return res, nil
+		case "not like":
+			res := !evaluateLike(lval, pattern, 0)
+			return res, nil
+		case "ilike":
+			res := evaluateLike(lval, pattern, fnmatch.FNM_IGNORECASE)
+			return res, nil
+		case "not ilike":
+			res := !evaluateLike(lval, pattern, fnmatch.FNM_IGNORECASE)
+			return res, nil
+		default:
+			return false, invalidScopeOperatorError(c.Operator.Value)
+		}
 	case "compare":
 		codeNodes, ok := c.Values.([]filter.CodeNode)
 		if !ok {
@@ -60,7 +94,7 @@ func scopeFilterSatisfied(c filter.ComparisonNode, values map[string]string) (bo
 			return lval != rval, nil
 		// as we (currently) only suport string scopes, < and > are not supported
 		case "<=", ">=", "<", ">":
-			return false, fmt.Errorf("invalid scope filter operator %s", c.Operator.Value)
+			return false, invalidScopeOperatorError(c.Operator.Value)
 		}
 	case "in":
 		codeNodes, ok := c.Values.([]filter.CodeNode)
@@ -90,6 +124,8 @@ func scopeFilterSatisfied(c filter.ComparisonNode, values map[string]string) (bo
 			return !rvalsContainValue, nil
 		}
 	case "not":
+		// TODO have not identified  queries which give a top level 'not'
+		return false, fmt.Errorf("unsupported location for 'not' operator")
 	case "or":
 		nodes, ok := c.Values.([]any)
 		if !ok {
@@ -135,4 +171,15 @@ func scopeFilterSatisfied(c filter.ComparisonNode, values map[string]string) (bo
 	}
 
 	return false, fmt.Errorf("failed to parse filter")
+}
+
+func evaluateLike(val, pattern string, flag int) bool {
+	pattern = strings.ReplaceAll(pattern, "_", "?")
+	pattern = strings.ReplaceAll(pattern, "%", "*")
+	return fnmatch.Match(pattern, val, flag)
+
+}
+
+func invalidScopeOperatorError(operator string) error {
+	return fmt.Errorf("invalid scope filter operator '%s'", operator)
 }
