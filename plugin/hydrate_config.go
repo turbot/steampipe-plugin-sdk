@@ -2,11 +2,11 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 	"strings"
 
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 )
 
 /*
@@ -152,7 +152,7 @@ func (c *HydrateConfig) initialise(table *Table) {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
 
-	// create empty RateLimiter config if needed
+	// create empty ScopeValues if needed
 	if c.ScopeValues == nil {
 		c.ScopeValues = map[string]string{}
 	}
