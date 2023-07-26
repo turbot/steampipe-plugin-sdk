@@ -323,6 +323,8 @@ func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) error {
 // clear current rate limiter definitions and instances and repopulate resolvedRateLimiterDefs using the
 // plugin defined rate limiters and any config defined rate limiters
 func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) error {
+	log.Printf("[INFO] setRateLimiters")
+
 	var errors []error
 	// clear all current rate limiters
 	p.rateLimiterDefsMut.Lock()
@@ -345,7 +347,7 @@ func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) error {
 		if _, ok := p.resolvedRateLimiterDefs[d.Name]; ok {
 			log.Printf("[INFO] overriding plugin defined rate limiter '%s' with one defined in config: %s", d.Name, d)
 		} else {
-			log.Printf("[INFO] adding rate limiter '%s' one defined in config: %s", d.Name, d)
+			log.Printf("[INFO] adding rate limiter '%s' defined in config: %s", d.Name, d)
 		}
 
 		// in any case, store to map
