@@ -47,14 +47,14 @@ func (d *QueryData) populateRateLimitScopeValues() {
 
 	// add the connection
 	d.rateLimiterScopeValues[rate_limiter.RateLimiterScopeConnection] = d.Connection.Name
-
 	// add matrix quals
-	// TODO KAI ONLY ADD MATRIX QUALS
 	for column, qualsForColumn := range d.Quals {
-		for _, qual := range qualsForColumn.Quals {
-			if qual.Operator == quals.QualOperatorEqual {
-				qualValueString := grpc.GetQualValueString(qual.Value)
-				d.rateLimiterScopeValues[column] = qualValueString
+		if _, isMatrixQual := d.matrixColLookup[column]; isMatrixQual {
+			for _, qual := range qualsForColumn.Quals {
+				if qual.Operator == quals.QualOperatorEqual {
+					qualValueString := grpc.GetQualValueString(qual.Value)
+					d.rateLimiterScopeValues[column] = qualValueString
+				}
 			}
 		}
 	}
