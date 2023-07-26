@@ -27,6 +27,7 @@ require (
 
 require (
 	github.com/allegro/bigcache/v3 v3.1.0
+	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964
 	github.com/eko/gocache/v3 v3.1.2
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/hashicorp/go-getter v1.7.2
@@ -37,9 +38,8 @@ require (
 	go.opentelemetry.io/otel/sdk v1.16.0
 	go.opentelemetry.io/otel/sdk/metric v0.39.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/sync v0.1.0
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/sync v0.3.0
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 )
 
 require (
@@ -58,7 +58,6 @@ require (
 	github.com/bradfitz/gomemcache v0.0.0-20221031212613-62deef7fc822 // indirect
 	github.com/btubbs/datetime v0.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
-	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
@@ -97,13 +96,6 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/tkrajina/go-reflector v0.5.6 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
-	go.opencensus.io v0.23.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.7.0 // indirect
-	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/oauth2 v0.6.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.16.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.39.0 // indirect
