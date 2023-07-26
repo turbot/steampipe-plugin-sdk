@@ -37,7 +37,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/hashicorp/go-getter v1.7.1
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/sync v0.1.0
+	golang.org/x/sync v0.3.0
 )
 
 require (
