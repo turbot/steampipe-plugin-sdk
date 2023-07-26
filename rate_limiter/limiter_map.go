@@ -53,12 +53,18 @@ func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues map[string]string) (
 
 	// ok we need to create one
 	limiter = &Limiter{
-		Limiter:     rate.NewLimiter(l.Limit, l.BurstSize),
+		Limiter:     rate.NewLimiter(l.FillRate, l.BucketSize),
 		scopeValues: scopeValues,
 	}
 	// put it in the map
 	m.limiters[key] = limiter
 	return limiter, nil
+}
+
+func (m *LimiterMap) Clear() {
+	m.mut.Lock()
+	m.limiters = make(map[string]*Limiter)
+	m.mut.Unlock()
 }
 
 func buildLimiterKey(values map[string]string) (string, error) {
