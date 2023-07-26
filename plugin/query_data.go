@@ -115,6 +115,8 @@ type QueryData struct {
 	filteredMatrix []map[string]interface{}
 	// column quals which were used to filter the matrix
 	filteredMatrixColumns []string
+	// lookup keyed by matrix property names
+	matrixColLookup map[string]struct{}
 
 	// ttl for the execute call
 	cacheTtl int64
@@ -177,7 +179,8 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 
 		// temporary dir for this connection
 		// this will only created if getSourceFiles is used
-		tempDir: getConnectionTempDir(p.tempDir, connectionData.Connection.Name),
+		tempDir:         getConnectionTempDir(p.tempDir, connectionData.Connection.Name),
+		matrixColLookup: make(map[string]struct{}),
 	}
 
 	d.StreamListItem = d.streamListItem
@@ -298,6 +301,70 @@ func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
 	// to exclude items which do not satisfy the quals
 	// this populates the property filteredMatrix
 	d.filterMatrixItems()
+	// build list of the matrix property names
+	d.populateMatrixPropertyNames()
+}
+
+func (d *QueryData) filterMatrixItems() {
+	if len(d.Matrix) == 0 {
+		return
+	}
+	log.Printf("[TRACE] filterMatrixItems - there are %d matrix items", len(d.Matrix))
+	log.Printf("[TRACE] unfiltered matrix: %v", d.Matrix)
+	var filteredMatrix []map[string]interface{}
+
+	// build a keycolumn slice from the matrix items
+	var matrixKeyColumns KeyColumnSlice
+	for column := range d.Matrix[0] {
+		matrixKeyColumns = append(matrixKeyColumns, &KeyColumn{
+			Name:      column,
+			Operators: []string{"="},
+		})
+	}
+	// now see which of these key columns are satisfied by the provided quals
+	matrixQualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, matrixKeyColumns)
+
+	for _, m := range d.Matrix {
+		log.Printf("[TRACE] matrix item %v", m)
+		// do all key columns which exist for this matrix item match the matrix values?
+		includeMatrixItem := true
+
+		for col, val := range m {
+			log.Printf("[TRACE] col %s val %s", col, val)
+			// is there a quals for this matrix column?
+
+			if matrixQuals, ok := matrixQualMap[col]; ok {
+				log.Printf("[TRACE] quals found for matrix column: %v", matrixQuals)
+				// if there IS a single equals qual which DOES NOT match this matrix item, exclude the matrix item
+				if matrixQuals.SingleEqualsQual() {
+					includeMatrixItem = d.shouldIncludeMatrixItem(matrixQuals, val)
+					// store this column - we will need this when building a cache key
+					if !includeMatrixItem {
+						d.filteredMatrixColumns = append(d.filteredMatrixColumns, col)
+					}
+				}
+			} else {
+				log.Printf("[TRACE] quals found for matrix column: %s", col)
+			}
+		}
+
+		if includeMatrixItem {
+			log.Printf("[TRACE] INCLUDE matrix item")
+			filteredMatrix = append(filteredMatrix, m)
+		} else {
+			log.Printf("[TRACE] EXCLUDE matrix item")
+		}
+	}
+	d.filteredMatrix = filteredMatrix
+	log.Printf("[TRACE] filtered matrix: %v", d.Matrix)
+}
+
+func (d *QueryData) populateMatrixPropertyNames() {
+	for _, m := range d.Matrix {
+		for prop := range m {
+			d.matrixColLookup[prop] = struct{}{}
+		}
+	}
 }
 
 // build a list of required hydrate function calls which must be executed, based on the columns which have been requested
@@ -422,61 +489,6 @@ func (d *QueryData) setQuals(qualMap KeyColumnQualMap) {
 	// assign to the map of all key column quals
 	d.Quals = qualMap
 	d.logQualMaps()
-}
-
-func (d *QueryData) filterMatrixItems() {
-	if len(d.Matrix) == 0 {
-		return
-	}
-	log.Printf("[TRACE] filterMatrixItems - there are %d matrix items", len(d.Matrix))
-	log.Printf("[TRACE] unfiltered matrix: %v", d.Matrix)
-	var filteredMatrix []map[string]interface{}
-
-	// build a keycolumn slice from the matrix items
-	var matrixKeyColumns KeyColumnSlice
-	for column := range d.Matrix[0] {
-		matrixKeyColumns = append(matrixKeyColumns, &KeyColumn{
-			Name:      column,
-			Operators: []string{"="},
-		})
-	}
-	// now see which of these key columns are satisfied by the provided quals
-	matrixQualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, matrixKeyColumns)
-
-	for _, m := range d.Matrix {
-		log.Printf("[TRACE] matrix item %v", m)
-		// do all key columns which exist for this matrix item match the matrix values?
-		includeMatrixItem := true
-
-		for col, val := range m {
-			log.Printf("[TRACE] col %s val %s", col, val)
-			// is there a quals for this matrix column?
-
-			if matrixQuals, ok := matrixQualMap[col]; ok {
-				log.Printf("[TRACE] quals found for matrix column: %v", matrixQuals)
-				// if there IS a single equals qual which DOES NOT match this matrix item, exclude the matrix item
-				if matrixQuals.SingleEqualsQual() {
-					includeMatrixItem = d.shouldIncludeMatrixItem(matrixQuals, val)
-					// store this column - we will need this when building a cache key
-					if !includeMatrixItem {
-						d.filteredMatrixColumns = append(d.filteredMatrixColumns, col)
-					}
-				}
-			} else {
-				log.Printf("[TRACE] quals found for matrix column: %s", col)
-			}
-		}
-
-		if includeMatrixItem {
-			log.Printf("[TRACE] INCLUDE matrix item")
-			filteredMatrix = append(filteredMatrix, m)
-		} else {
-			log.Printf("[TRACE] EXCLUDE matrix item")
-		}
-	}
-	d.filteredMatrix = filteredMatrix
-	log.Printf("[TRACE] filtered matrix: %v", d.Matrix)
-
 }
 
 func (d *QueryData) shouldIncludeMatrixItem(quals *KeyColumnQuals, matrixVal interface{}) bool {
@@ -867,3 +879,4 @@ func (d *QueryData) removeReservedColumns(row *proto.Row) {
 		delete(row.Columns, c)
 	}
 }
+
