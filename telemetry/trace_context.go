@@ -8,6 +8,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// TraceCtx is a struct which contains a span and the associated context
+// This is used by the FDW for persisting [`span`,`context`] tuples across PostreSQL callbacks
+type TraceCtx struct {
+	Ctx  context.Context
+	Span trace.Span
+}
+
 func GetTracer(service string) trace.Tracer {
 	return otel.GetTracerProvider().Tracer(service)
 }
