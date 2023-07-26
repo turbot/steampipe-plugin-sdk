@@ -1,3 +1,7 @@
+## v5.5.1 [2023-07-26]
+_What's new_
+* Upgrade opentelemetry SDK to v1.16.0. ([#570](https://github.com/turbot/steampipe-plugin-sdk/issues/570))
+
 ## v5.5.0 [2023-06-16]
 _What's new_
 * Update cache pending item implementation. ([#564](https://github.com/turbot/steampipe-plugin-sdk/issues/564),[#566](https://github.com/turbot/steampipe-plugin-sdk/issues/566)) 
