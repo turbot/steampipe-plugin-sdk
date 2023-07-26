@@ -113,4 +113,4 @@ require (
 	k8s.io/apimachinery v0.25.3 // indirect
 )
 
-replace github.com/hashicorp/go-plugin => github.com/binaek/go-plugin v1.4.11-rc.0
+replace github.com/hashicorp/go-plugin => github.com/binaek/go-plugin v1.14.10-steampipe.0
