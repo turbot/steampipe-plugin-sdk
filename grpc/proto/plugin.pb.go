@@ -1412,6 +1412,7 @@ func (*GetSupportedOperationsRequest) Descriptor() ([]byte, []int) {
 	return file_plugin_proto_rawDescGZIP(), []int{17}
 }
 
+// NOTE: this must be consistent with GetSupportedOperationsResponse in steampipe/pkg/pluginmanager_service/grpc/proto/plugin_manager.proto
 type GetSupportedOperationsResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
