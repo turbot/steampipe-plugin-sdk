@@ -29,6 +29,7 @@ type WrapperPluginServer interface {
 	UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
 	SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error)
+	SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error)
 	EstablishMessageStream(server proto.WrapperPlugin_EstablishMessageStreamServer) error
 }
 
@@ -40,6 +41,7 @@ type WrapperPluginClient interface {
 	UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
 	SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error)
+	SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error)
 	EstablishMessageStream() (proto.WrapperPlugin_EstablishMessageStreamClient, error)
 }
 
