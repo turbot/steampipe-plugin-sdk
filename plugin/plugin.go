@@ -76,7 +76,8 @@ type Plugin struct {
 	DefaultRetryConfig  *RetryConfig
 	DefaultIgnoreConfig *IgnoreConfig
 
-	// rate limiter definitions
+	// rate limiter definitions - these are (optionally) defined by the plugin author
+	// and do NOT include any config overrides
 	RateLimiters []*rate_limiter.Definition
 
 	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
@@ -110,8 +111,15 @@ type Plugin struct {
 	tempDir string
 	// stream used to send messages back to plugin manager
 	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
-	rateLimiters  *rate_limiter.LimiterMap
 
+	// map of rate limiter INSTANCES - these are lazy loaded
+	// keyed by stringified scope values
+	rateLimiterInstances *rate_limiter.LimiterMap
+	// map of rate limiter definitions, keyed by limiter name
+	// NOTE: this includes limiters defined/overridden in config
+	resolvedRateLimiterDefs map[string]*rate_limiter.Definition
+	// lock for this map
+	rateLimiterDefsMut sync.RWMutex
 	// map of call ids to avoid duplicates
 	callIdLookup    map[string]struct{}
 	callIdLookupMut sync.RWMutex
@@ -181,8 +189,22 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 }
 
 func (p *Plugin) initialiseRateLimits() {
-	p.rateLimiters = rate_limiter.NewLimiterMap()
+	p.rateLimiterInstances = rate_limiter.NewLimiterMap()
+	p.populatePluginRateLimiters()
 	return
+}
+
+// populate resolvedRateLimiterDefs map with plugin rate limiter definitions
+func (p *Plugin) populatePluginRateLimiters() {
+	p.resolvedRateLimiterDefs = make(map[string]*rate_limiter.Definition, len(p.RateLimiters))
+	for _, d := range p.RateLimiters {
+		// NOTE: we have not validated the limiter definitions yet
+		// (this is done from initialiseTables, after setting the connection config),
+		// so just ignore limiters with no name (validation will fail later if this occurs)
+		if d.Name != "" {
+			p.resolvedRateLimiterDefs[d.Name] = d
+		}
+	}
 }
 
 func (p *Plugin) shutdown() {
@@ -481,9 +503,10 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 	return ctx, span
 }
 
-// initialiseTables does 2 things:
+// initialiseTables does 3 things:
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
 // 2) call initialise on the table, passing the plugin pointer which the table stores
+// 3) validate the plugin
 func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (tableMap map[string]*Table, err error) {
 	log.Printf("[TRACE] Plugin %s initialiseTables", p.Name)
 
@@ -514,7 +537,7 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 		table.initialise(p)
 	}
 
-	// now validate the plugin
+	// NOW finally validate the plugin
 	// NOTE: must do this after calling TableMapFunc
 	validationWarnings, validationErrors := p.validate(tableMap)
 

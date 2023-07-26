@@ -72,7 +72,15 @@ func Serve(opts *ServeOpts) {
 	}
 	// TODO add context into all of these handlers
 
-	grpc.NewPluginServer(p.Name, p.setConnectionConfig, p.setAllConnectionConfigs, p.updateConnectionConfigs, p.getSchema, p.execute, p.establishMessageStream, p.setCacheOptions).Serve()
+	grpc.NewPluginServer(p.Name,
+		p.setConnectionConfig,
+		p.setAllConnectionConfigs,
+		p.updateConnectionConfigs,
+		p.getSchema,
+		p.execute,
+		p.establishMessageStream,
+		p.setCacheOptions,
+		p.setRateLimiters).Serve()
 }
 
 func setupLogger() hclog.Logger {

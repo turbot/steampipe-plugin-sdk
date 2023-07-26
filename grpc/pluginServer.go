@@ -15,6 +15,7 @@ type SetConnectionConfigFunc func(string, string) error
 type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) (map[string]error, error)
 type UpdateConnectionConfigsFunc func([]*proto.ConnectionConfig, []*proto.ConnectionConfig, []*proto.ConnectionConfig) (map[string]error, error)
 type SetCacheOptionsFunc func(*proto.SetCacheOptionsRequest) error
+type SetRateLimitersFunc func(*proto.SetRateLimitersRequest) error
 type EstablishMessageStreamFunc func(stream proto.WrapperPlugin_EstablishMessageStreamServer) error
 
 // PluginServer is the server for a single plugin
@@ -28,6 +29,7 @@ type PluginServer struct {
 	getSchemaFunc               GetSchemaFunc
 	establishMessageStreamFunc  EstablishMessageStreamFunc
 	setCacheOptionsFunc         SetCacheOptionsFunc
+	setRateLimitersFunc         SetRateLimitersFunc
 }
 
 func NewPluginServer(pluginName string,
@@ -38,6 +40,7 @@ func NewPluginServer(pluginName string,
 	executeFunc ExecuteFunc,
 	establishMessageStreamFunc EstablishMessageStreamFunc,
 	setCacheOptionsFunc SetCacheOptionsFunc,
+	setRateLimitersFunc SetRateLimitersFunc,
 ) *PluginServer {
 
 	return &PluginServer{
@@ -49,6 +52,7 @@ func NewPluginServer(pluginName string,
 		getSchemaFunc:               getSchemaFunc,
 		establishMessageStreamFunc:  establishMessageStreamFunc,
 		setCacheOptionsFunc:         setCacheOptionsFunc,
+		setRateLimitersFunc:         setRateLimitersFunc,
 	}
 }
 
@@ -148,11 +152,18 @@ func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsReques
 		MultipleConnections: true,
 		MessageStream:       true,
 		SetCacheOptions:     true,
+		SetRateLimiters:     true,
 	}, nil
 }
+
 func (s PluginServer) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error) {
 	err := s.setCacheOptionsFunc(req)
 	return &proto.SetCacheOptionsResponse{}, err
+}
+
+func (s PluginServer) SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error) {
+	err := s.setRateLimitersFunc(req)
+	return &proto.SetRateLimitersResponse{}, err
 }
 
 func (s PluginServer) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {

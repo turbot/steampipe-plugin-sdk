@@ -130,11 +130,13 @@ message GetSchemaResponse {
 
 message GetSupportedOperationsRequest{}
 
+// NOTE: this must be consistent with GetSupportedOperationsResponse in steampipe/pkg/pluginmanager_service/grpc/proto/plugin_manager.proto
 message GetSupportedOperationsResponse{
   bool query_cache = 1;
   bool multiple_connections = 2;
   bool message_stream = 3;
   bool set_cache_options = 4;
+  bool set_rate_limiters = 5;
 }
 
 message SetConnectionConfigRequest{
@@ -306,10 +308,10 @@ message SetRateLimitersRequest {
 
 message RateLimiterDefinition {
   string name = 1;
-  float limit = 2;
-  int64 burst_size = 3;
+  float fill_rate = 2;
+  int64 bucket_size = 3;
   repeated string scopes = 4;
-  string filter = 5;
+  string where = 5;
 }
 
 message SetRateLimitersResponse {

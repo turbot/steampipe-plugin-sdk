@@ -11,7 +11,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 
 	res := &rate_limiter.MultiLimiter{}
 	// short circuit if there ar eno defs
-	if len(p.RateLimiters) == 0 {
+	if len(p.resolvedRateLimiterDefs) == 0 {
 		log.Printf("[INFO] resolvedRateLimiterConfig: no rate limiters (%s)", queryData.connectionCallId)
 		return res, nil
 	}
@@ -37,8 +37,13 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 
 func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([]*rate_limiter.Limiter, error) {
 	var limiters []*rate_limiter.Limiter
+	// lock the map
+	p.rateLimiterDefsMut.RLock()
+	defer p.rateLimiterDefsMut.RUnlock()
 
-	for _, l := range p.RateLimiters {
+	// NOTE: use rateLimiterLookup NOT the public RateLimiter property.
+	// This is to ensure config overrides are respected
+	for _, l := range p.resolvedRateLimiterDefs {
 		// build a filtered map of just the scope values required for this limiter
 		requiredScopeValues := helpers.FilterMap(scopeValues, l.Scopes)
 		// do we have all the required values?
@@ -47,13 +52,13 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 			continue
 		}
 
-		// now check whether the tag valkues satisfy any filters the limiter definition has
+		// now check whether the tag values satisfy any filters the limiter definition has
 		if !l.SatisfiesFilters(requiredScopeValues) {
 			continue
 		}
 
 		// this limiter DOES apply to us, get or create a limiter instance
-		limiter, err := p.rateLimiters.GetOrCreate(l, requiredScopeValues)
+		limiter, err := p.rateLimiterInstances.GetOrCreate(l, requiredScopeValues)
 		if err != nil {
 			return nil, err
 		}
