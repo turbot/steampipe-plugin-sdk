@@ -138,7 +138,7 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, updateData *c
 func (p *Plugin) getConnectionSchema(c *Connection) (map[string]*Table, *grpc.PluginSchema, error) {
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 
-	// if the plugin defines a CreateTables func, call it now
+	// initialiseTables - if the plugin defines a TableMapFunc func, call it now
 	tableMap, err := p.initialiseTables(ctx, c)
 	if err != nil {
 		return nil, nil, err
