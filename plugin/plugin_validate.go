@@ -63,8 +63,11 @@ func (p *Plugin) validateTableNames() []string {
 func (p *Plugin) validateRateLimiters() []string {
 	log.Printf("[INFO] validateRateLimiters")
 	var validationErrors []string
+	// intialise and validate each limiter
+	// NOTE: we do not need to validate any limiters defined in config and set via SetRateLimiters GRPC call
+	// as these are validated when added
+	// So we can use RateLimiters property, not resolvedRateLimiterDefs
 	for _, l := range p.RateLimiters {
-		// intialise and validate each limiter
 		if err := l.Initialise(); err != nil {
 			validationErrors = append(validationErrors, err.Error())
 		} else {
