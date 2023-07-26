@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
@@ -459,7 +460,7 @@ var testCasesValidate = map[string]validateTest{
 
 func TestValidate(t *testing.T) {
 	for name, test := range testCasesValidate {
-		test.plugin.initialise()
+		test.plugin.initialise(hclog.NewNullLogger())
 		test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
 
 		_, validationErrors := test.plugin.validate(test.plugin.TableMap)
