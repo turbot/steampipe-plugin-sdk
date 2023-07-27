@@ -28,7 +28,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 	}
 
 	// finally package them into a multi-limiter
-	res.Limiters = limiters
+	res = rate_limiter.NewMultiLimiter(limiters, rateLimiterScopeValues)
 
 	log.Printf("[INFO] returning multi limiter: %s", res)
 
