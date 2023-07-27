@@ -145,6 +145,9 @@ type QueryData struct {
 	// auto populated tags used to resolve a rate limiter for each hydrate call
 	// (hydrate-call specific tags will be added when we resolve the limiter)
 	rateLimiterScopeValues map[string]string
+
+	fetchMetadata     *hydrateMetadata
+	childListMetadata *hydrateMetadata
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -560,7 +563,10 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 	}
 
 	// wait for any configured child ListCall rate limiters
-	d.fetchLimiters.childListWait(ctx)
+	rateLimitDelay := d.fetchLimiters.childListWait(ctx)
+
+	// populate delay in metadata
+	d.childListMetadata.DelayMs = rateLimitDelay.Milliseconds()
 
 	callingFunction := helpers.GetCallingFunction(1)
 	d.listWg.Add(1)
@@ -836,15 +842,20 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			// remove reserved columns
 			d.removeReservedColumns(row)
 			// NOTE: add the Steampipecontext data to the row
-			d.addContextData(row)
+			d.addContextData(row, rowData)
 
 			rowChan <- row
 		}
 	}()
 }
 
-func (d *QueryData) addContextData(row *proto.Row) {
-	jsonValue, _ := json.Marshal(map[string]string{"connection_name": d.Connection.Name})
+func (d *QueryData) addContextData(row *proto.Row, rowData *rowData) {
+	rowCtxData := newRowCtxData(d, rowData)
+	jsonValue, err := json.Marshal(rowCtxData)
+	if err != nil {
+		log.Printf("[WARN] failed to marshal JSON for row context data: %s", err.Error())
+		return
+	}
 
 	row.Columns[contextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
 }
@@ -879,4 +890,3 @@ func (d *QueryData) removeReservedColumns(row *proto.Row) {
 		delete(row.Columns, c)
 	}
 }
-

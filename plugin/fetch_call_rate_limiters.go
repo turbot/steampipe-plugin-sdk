@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"time"
 )
 
 // a struct defining the rate limiting config the for fetch (list/get) call
@@ -17,15 +18,17 @@ type fetchCallRateLimiters struct {
 }
 
 // if there is a fetch call rate limiter, wait for it
-func (l fetchCallRateLimiters) wait(ctx context.Context) {
+func (l fetchCallRateLimiters) wait(ctx context.Context) time.Duration {
 	if l.rateLimiter != nil {
-		l.rateLimiter.Wait(ctx, l.cost)
+		return l.rateLimiter.Wait(ctx, l.cost)
 	}
+	return 0
 }
 
 // if there is a 'childList' rate limiter, wait for it
-func (l fetchCallRateLimiters) childListWait(ctx context.Context) {
+func (l fetchCallRateLimiters) childListWait(ctx context.Context) time.Duration {
 	if l.childListRateLimiter != nil {
-		l.childListRateLimiter.Wait(ctx, l.childListCost)
+		return l.childListRateLimiter.Wait(ctx, l.childListCost)
 	}
+	return 0
 }

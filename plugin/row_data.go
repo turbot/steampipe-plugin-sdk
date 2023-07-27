@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/sethvargo/go-retry"
 	"log"
 	"sync"
 	"time"
@@ -22,16 +23,17 @@ type rowData struct {
 	// the output of the get/list call which is passed to all other hydrate calls
 	item interface{}
 	// if there was a parent-child list call, store the parent list item
-	parentItem     interface{}
-	matrixItem     map[string]interface{}
-	hydrateResults map[string]interface{}
-	hydrateErrors  map[string]error
-	mut            sync.RWMutex
-	waitChan       chan bool
-	wg             sync.WaitGroup
-	table          *Table
-	errorChan      chan error
-	queryData      *QueryData
+	parentItem      interface{}
+	matrixItem      map[string]interface{}
+	hydrateResults  map[string]interface{}
+	hydrateErrors   map[string]error
+	hydrateMetadata []*hydrateMetadata
+	mut             sync.RWMutex
+	waitChan        chan bool
+	wg              sync.WaitGroup
+	table           *Table
+	errorChan       chan error
+	queryData       *QueryData
 }
 
 // newRowData creates an empty rowData object
@@ -76,8 +78,7 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 	// make a map of started hydrate calls for this row - this is used to determine which calls have not started yet
 	var callsStarted = map[string]bool{}
 
-	// TODO use retry.DO
-	for {
+	err := retry.Constant(rowDataCtx, 10*time.Millisecond, func(ctx context.Context) error {
 		var allStarted = true
 		for _, call := range r.queryData.hydrateCalls {
 			hydrateFuncName := call.Name
@@ -89,7 +90,15 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 			// so call needs to start - can it?
 			if call.canStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
 				// execute the hydrate call asynchronously
-				call.start(rowDataCtx, r, rowQueryData, r.queryData.concurrencyManager)
+				rateLimitDelay := call.start(rowDataCtx, r, rowQueryData, r.queryData.concurrencyManager)
+				// store the call metadata
+				r.hydrateMetadata = append(r.hydrateMetadata, &hydrateMetadata{
+					FuncName:     hydrateFuncName,
+					ScopeValues:  call.rateLimiter.ScopeValues,
+					RateLimiters: call.rateLimiter.LimiterNames(),
+					DelayMs:      rateLimitDelay.Milliseconds(),
+				})
+
 				callsStarted[hydrateFuncName] = true
 			} else {
 				allStarted = false
@@ -103,13 +112,13 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 				return err
 			default:
 			}
+			if allStarted {
+				break
+			}
 		}
-		if allStarted {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	return nil
+		return nil
+	})
+	return err
 }
 
 // wait for all hydrate calls to complete

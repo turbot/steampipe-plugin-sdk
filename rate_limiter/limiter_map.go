@@ -54,6 +54,7 @@ func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues map[string]string) (
 	// ok we need to create one
 	limiter = &Limiter{
 		Limiter:     rate.NewLimiter(l.FillRate, l.BucketSize),
+		Name:        l.Name,
 		scopeValues: scopeValues,
 	}
 	// put it in the map

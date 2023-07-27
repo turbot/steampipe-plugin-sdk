@@ -77,8 +77,8 @@ func (h *hydrateCall) canStart(rowData *rowData, name string, concurrencyManager
 }
 
 // Start starts a hydrate call
-func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concurrencyManager *concurrencyManager) {
-	h.rateLimit(ctx, d)
+func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concurrencyManager *concurrencyManager) time.Duration {
+	rateLimitDelay := h.rateLimit(ctx, d)
 
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
@@ -91,15 +91,17 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concu
 		// decrement number of hydrate functions running
 		concurrencyManager.Finished(h.Name)
 	}()
+	return rateLimitDelay
 }
 
-func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) {
-	t := time.Now()
+func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration {
 
-	log.Printf("[INFO] ****** start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
+	log.Printf("[TRACE] ****** start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
 
 	// wait until we can execute
-	h.rateLimiter.Wait(ctx, h.Config.Cost)
+	delay := h.rateLimiter.Wait(ctx, h.Config.Cost)
 
-	log.Printf("[INFO] ****** AFTER rate limiter %s (%dms) (%s)", h.Name, time.Since(t).Milliseconds(), d.connectionCallId)
+	log.Printf("[TRACE] ****** AFTER rate limiter %s (%dms) (%s)", h.Name, delay.Milliseconds(), d.connectionCallId)
+
+	return delay
 }
