@@ -12,17 +12,23 @@ import (
 
 type Limiter struct {
 	*rate.Limiter
+	Name        string
 	scopeValues map[string]string
 }
 
 type MultiLimiter struct {
-	Limiters []*Limiter
+	Limiters    []*Limiter
+	ScopeValues map[string]string
 }
 
-func (m *MultiLimiter) Wait(ctx context.Context, cost int) {
+func NewMultiLimiter(limiters []*Limiter, scopeValues map[string]string) *MultiLimiter {
+	return &MultiLimiter{Limiters: limiters, ScopeValues: scopeValues}
+}
+
+func (m *MultiLimiter) Wait(ctx context.Context, cost int) time.Duration {
 	// short circuit if we have no limiters
 	if len(m.Limiters) == 0 {
-		return
+		return 0
 	}
 
 	var maxDelay time.Duration
@@ -40,7 +46,7 @@ func (m *MultiLimiter) Wait(ctx context.Context, cost int) {
 		}
 	}
 	if maxDelay == 0 {
-		return
+		return 0
 	}
 
 	log.Printf("[INFO] rate limiter waiting %dms", maxDelay.Milliseconds())
@@ -57,15 +63,23 @@ func (m *MultiLimiter) Wait(ctx context.Context, cost int) {
 			r.Cancel()
 		}
 	}
+	return maxDelay
 }
 
 func (m *MultiLimiter) String() string {
 	var strs []string
 
 	for _, l := range m.Limiters {
-		strs = append(strs, fmt.Sprintf("Limit: %d, Burst: %d, Tags: %s", int(l.Limiter.Limit()), l.Limiter.Burst(), l.scopeValues))
+		strs = append(strs, fmt.Sprintf("Name: %sm Limit: %d, Burst: %d, Tags: %s", l.Name, int(l.Limiter.Limit()), l.Limiter.Burst(), l.scopeValues))
 	}
 	return strings.Join(strs, "\n")
+}
+func (m *MultiLimiter) LimiterNames() []string {
+	var names = make([]string, len(m.Limiters))
+	for i, l := range m.Limiters {
+		names[i] = l.Name
+	}
+	return names
 }
 
 // FormatStringMap orders the map keys and returns a string containing all map keys and values

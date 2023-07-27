@@ -3,12 +3,6 @@
 
 CHANGES
 - flat scopes - only matrix quals allowed (warn is a static scope defined with same name as matrix key)
-- only limiter defs at top level
-- no `hydrate` scope
-- hcl override
-- (hcl defintion of plugin limiters - embedded and parsed?)
-- rate limiter def introspection table
-- rate limit metadata in _ctx
 
 
 ## Overview
@@ -25,41 +19,9 @@ determined and used to identify which limiters apply.
 
 ## Defining Rate Limiters
 
-Rate limiters may be defined in a number of places, in *decreasing* order of precedence:
-* *in the plugin options block (COMING SOON???)*
-* in the `HydrateConfig`/`GetConfig`/`ListConfig`
-* in the Table definition
-* in the Plugin Definition
-* the SDK default rate limiter (controlled by environment variables *for now??*)
+Rate limiters may be defined in the Plugin Definition (by the plugin author), or in HCL config (by the user) 
 
-Defining rate limiters at the hydrate/table level allows targeting of the rate limiter without having to use filters: 
-- Rate limiters defined in the `HydrateConfig`/`GetConfig`/`ListConfig` will apply **only to that hydrate call**
-- Rate limiters defined at the table level will apply for **all hydrate calls in that table** 
-(unless overridden by a hydrate config rate limiter) 
-
-NOTE: there is no point defining limiter with a scope of the same level or lower than we are defining it at. 
-e.g. If defining limiters in the table defintion, there is no point adding a `table` scope to the limiters
-- they are already implicitly table-scoped.     
-
-A set of rate limiters are defined using the `Definitions` struct:
-```go
-type Definitions struct {
-	Limiters []*Definition
-	// if set, do not look for further rate limiters for this call
-	FinalLimiter bool
-}
-```
-By default, all limiters defined at every precedence level are combined - resolution is additive by default.
-
-(Note that when adding a lower precedence rate limiter, it is not added if a limiter with the same scopes has already been added. i.e. higher precedence limiters are not overwritten by lower precedence ones)
-
-The `FinalLimiter` property *(NAME TBD)* controls whether to continue resolving lower precedence limiter definitions. 
-When true, this provides a way of only using limiters defined so far, and excluding lower level limiters. 
-For example, if a limiter was defined in *(AS YET NON-EXISTENT)* plugin config, if the `FinalLimiter` flag was set, no further limiters would be added
-
-Each rate limiter is defined using a `Definition`: 
-
-// TODO consider fluent syntax
+A rate limiters is defined using the `Definition` struct:
 ```go
 type Definition struct {
 	// the actual limiter config

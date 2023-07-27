@@ -1,21 +1,13 @@
 package plugin
 
 import (
-	"context"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
+	"time"
 )
-
-func (d *QueryData) WaitForListRateLimit(ctx context.Context) {
-	if d.Table.List.ParentHydrate != nil {
-		d.fetchLimiters.childListWait(ctx)
-	} else {
-		d.fetchLimiters.wait(ctx)
-	}
-}
 
 // resolve the scope values for a given hydrate call
 func (d *QueryData) resolveRateLimiterScopeValues(hydrateCallScopeValues map[string]string) map[string]string {
@@ -129,4 +121,18 @@ func (d *QueryData) resolveListRateLimiters() error {
 	d.fetchLimiters.rateLimiter = listLimiter
 	d.fetchLimiters.cost = d.Table.List.Cost
 	return nil
+}
+
+func (d *QueryData) setFetchLimiterMetadata(fetchDelay time.Duration, listHydrate HydrateFunc, childHydrate HydrateFunc) {
+	d.fetchMetadata = &hydrateMetadata{
+		FuncName:     helpers.GetFunctionName(listHydrate),
+		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
+		DelayMs:      fetchDelay.Milliseconds(),
+	}
+	if childHydrate != nil {
+		d.childListMetadata = &hydrateMetadata{
+			FuncName:     helpers.GetFunctionName(childHydrate),
+			RateLimiters: d.fetchLimiters.childListRateLimiter.LimiterNames(),
+		}
+	}
 }

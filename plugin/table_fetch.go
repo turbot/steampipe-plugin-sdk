@@ -3,10 +3,6 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"log"
-	"strings"
-	"sync"
-
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -17,6 +13,9 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"log"
+	"strings"
+	"sync"
 )
 
 type fetchType string
@@ -51,8 +50,12 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 
 // execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
+
 	// wait for any configured 'get' rate limiters
-	queryData.fetchLimiters.wait(ctx)
+	fetchDelay := queryData.fetchLimiters.wait(ctx)
+
+	// store metadata
+	queryData.setFetchLimiterMetadata(fetchDelay, t.Get.Hydrate, nil)
 
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
@@ -339,7 +342,7 @@ func buildSingleError(errors []error) error {
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	// wait for any configured 'list' rate limiters
-	queryData.fetchLimiters.wait(ctx)
+	fetchDelay := queryData.fetchLimiters.wait(ctx)
 
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
@@ -363,12 +366,17 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}
 
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
+	var childHydrate HydrateFunc = nil
 	listCall := t.List.Hydrate
 	// if there is a parent hydrate function, call that
 	// - the child 'Hydrate' function will be called by QueryData.StreamListItem,
 	if t.List.ParentHydrate != nil {
 		listCall = t.List.ParentHydrate
+		childHydrate = t.List.Hydrate
 	}
+
+	// store metadata
+	queryData.setFetchLimiterMetadata(fetchDelay, listCall, childHydrate)
 
 	// NOTE: if there is an IN qual, the qual value will be a list of values
 	// in this case we call list for each value
