@@ -1,10 +1,6 @@
 
 # Rate Limiting
 
-CHANGES
-- flat scopes - only matrix quals allowed (warn is a static scope defined with same name as matrix key)
-
-
 ## Overview
 
 Rate limiting can be applied to all `Get`, `List` and column `Hydrate` calls.
@@ -19,21 +15,24 @@ determined and used to identify which limiters apply.
 
 ## Defining Rate Limiters
 
-Rate limiters may be defined in the Plugin Definition (by the plugin author), or in HCL config (by the user) 
+Rate limiters may be defined in the plugin definition (by the plugin author), or in HCL config (by the user) 
 
+### Plugin Definition
 A rate limiters is defined using the `Definition` struct:
 ```go
 type Definition struct {
+	// the limiter name
+	Name string
 	// the actual limiter config
-	Limit     rate.Limit
-	BurstSize int
+	FillRate   rate.Limit
+	BucketSize int
 
 	// the scopes which identify this limiter instance
 	// one limiter instance will be created for each combination of scopes which is encountered
-	Scopes Scopes
+	Scopes []string
 
-	// this limiter only applies to these these scope values
-	Filters []ScopeFilter
+	// filter used to target the limiter
+	Where        string
 }
 ```
 `Scopes` is list of all the scopes which apply to the rate limiter. 
@@ -41,64 +40,38 @@ For example, if you want a rate limiter that applies to a single account, region
 [`connection`, `region`,`service`].
 (See below for details of predefined vs custom scope names)
 
-`Filters` is a set of scope value filters which allows a rate limiter to be targeted to spcific set of scope values, 
+`Where` is a SQL compatible where clause which allows a rate limiter to be targeted to spcific set of scope values, 
 for example to specify a rate limiter for a specific service only, the filter `"service"="s3` be used. 
-```go
-type ScopeFilter struct {
-	StaticFilterValues map[string]string
-	ColumnFilterValues map[string]string
-}
-```
-- For a filter to be satisfied by a set of scope values, all values defined in the filter must match.
-- When multiple filters are declared for a rate limiter defintion, **they are OR'ed together**  
 
-
-### Defining Scopes
-Scopes are defined using the `Scopes` struct:
+For example:
 ```go
-type Scopes struct {
-	StaticScopes []string
-	ColumnScopes []string
-}
+p := &plugin.Plugin{
+		Name: "aws",
+		TableMap: map[string]*plugin.Table{...}
+		RateLimiters: []*rate_limiter.Definition{
+			Name:       "connection-region-service",
+			BucketSize: 10,
+			FillRate:   50,
+			Scopes:     []string{"region", "connection", "servive"},
+			Where:      "service = 's3'",
+			},
+		},
 ```
 
-Scopes are defined in 3 ways:
-- `implicit` scopes, with values auto-populated. (Stored in `StaticScopes`)
-- `custom` scopes defined by the hydrate config. (Stored in `StaticScopes`)
-- `column` scopes, which are populated from `equals quals`. (Stored in `ColumnScopes`)
+### HCL Definition
+Rate limiters may be define in HCL in an `.spc` file in the config folder. 
+If a limiter has the same name as one defined in the plugin it will override it, if not, a new limiter is defined.
 
-#### Implicit Scopes
-There are a set of predefined scopes which the SDK defines. 
-When a query is executed, values for these scopes will be automatically populated:
-- **plugin** (the plugin name)
-- **table** (the table name)
-- **connection** (the steampipe conneciton name)
-- **hydrate** (the hydrate function name)
-
-#### Custom scopes
-A limiter definition may reference arbitrary custom scopes, e.g. `service`. 
-Values for these scopes can be provided by the hydrate call rate limiter configuration:
-
-```go
-type HydrateRateLimiterConfig struct {
-	// the hydrate config can define additional rate limiters which apply to this call
-	Definitions *rate_limiter.Definitions
-
-	// static scope values used to resolve the rate limiter for this hydrate call
-	// for example:
-	// "service": "s3"
-	StaticScopeValues map[string]string
-
-	// how expensive is this hydrate call
-	// roughly - how many API calls does it hit
-	Cost int
-}
 ```
+limiter "connection-region-service" {
+  plugin       = "aws"  
+  bucket_size  = 5
+  fill_rate    = 25
+  scope  = ["region", "connection", "servive"]
+  where  = "service = 's3'"
+}
 
-### Column scopes
-Finally, scopes can be derived from column values, specifically Key-Columns. 
-The scope values will be populated from the `Qual` values (specifically `equals` Quals).
-This will include matrix values, as these are converted into equals quals.
+```
 
 ## Resolving Rate Limiters
 
@@ -108,6 +81,12 @@ When executing a hydrate call the following steps are followed:
 3) Determine which limiter defintions are satisfied by the scope values (looking at both required scopes and the scope filters)
 4) Build a MultiLimiter from the resultant limiter defintions
 
+### Resolving Scope Values
+Scope values are popuylated from 3 sources:
+- *implicit* scope values populated automatically 
+  - `tabe`, `connection`
+- *matrix* scope values populated from matrix quals (e.g. `region`)
+- *custom* scope values (tags?) which may be defined in `Table` defintions, `HydrateConfig`, `GetConfig` and  `ListConfig`   
 
 ## Paged List Calls
 
@@ -138,33 +117,19 @@ If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, w
 
 ## Scenarios
 
-### 1. Plugin does not define any rate limiters
-
-In this case, the default rate limiter would apply. This is controlled by the following env vars:
-
-```
-STEAMPIPE_RATE_LIMIT_ENABLED        (default false)
-STEAMPIPE_DEFAULT_HYDRATE_RATE      (default 50)
-STEAMPIPE_DEFAULT_HYDRATE_BURST     (default 5
-```
-
-### 2. Plugin defines a single plugin scoped rate limiter
-NOTE: This overrides the default rate limiter implicitly (by redefining a limiter with the same scope ads the default)
+### 1. Plugin defines a single unscoped rate limiter
 
 ```go
 func Plugin(_ context.Context) *plugin.Plugin {
 	p := &plugin.Plugin{
-		Name:     pluginName,
+		Name:     "aws",
 		TableMap: map[string]*plugin.Table{...},
-		RateLimiters: &rate_limiter.Definitions{
-			Limiters: []*rate_limiter.Definition{
-				{
-					Limit:     50,
-					BurstSize: 10,
-					// this will override the default unscoped limiter
-				},
-			},
-		},
+		RateLimiters: []*rate_limiter.Definition{
+            {
+                Limit:     50,
+                BurstSize: 10,
+            },
+        },
 		...
 	}
 
@@ -172,8 +137,7 @@ func Plugin(_ context.Context) *plugin.Plugin {
 }
 ```
 
-### 3. Plugin defines a rate limiter scoped by implicit scope "connection", custom scope "service" and column scope "region"  
-NOTE: This overrides the plugin default rate limiter explicitly (by setting `FinalLimiter=true)`
+### 2. Plugin defines a rate limiter scoped by implicit scope "connection", custom scope "service" and matrix scope "region"  
 
 #### Plugin definition
 ```go
@@ -182,35 +146,27 @@ func Plugin(_ context.Context) *plugin.Plugin {
 	p := &plugin.Plugin{
 		Name:     pluginName,
 		TableMap: map[string]*plugin.Table{...},
-		RateLimiters: &rate_limiter.Definitions{
-			Limiters: []*rate_limiter.Definition{
-				{
-					Limit:     50,
-					BurstSize: 10,
-					Scopes: rate_limiter.Scopes{
-						StaticScopes: []string{
-							"connection",
-							"service"
-						},
-						ColumnScopes: []string{
-							"region",
-						},
-					},
-				},
-				// do not use the default rate limiter
-				FinalLimiter: true,
-			},
-		},
+		RateLimiters:[]*rate_limiter.Definition{
+            {
+                Limit:     50,
+                BurstSize: 10,
+                Scopes: []string{
+                        "connection",
+                        "service"
+                        "region",
+                },
+            },
+        },
 		...
 	}
 
 	return p
 }
 ```
-NOTE: `region` must be defined as a key column in order to use the columnScope value, 
+NOTE: `region` must be defined as a matrix qual in order to use the matrix scope value, 
 and `service` must be defined as a custom scope value for tables or hydrate calls which this limiter targets.    
 
-#### 3a. Table definition which defines a "region" key column and sets the "service" scope value for all hydrate calls
+#### 2a. Table definition which defines a "region" key column and sets the "service" scope value for all hydrate calls
 
 ```go
 func tableAwsS3AccessPoint(_ context.Context) *plugin.Table {
@@ -225,17 +181,15 @@ func tableAwsS3AccessPoint(_ context.Context) *plugin.Table {
 			Hydrate:    getS3AccessPoint,
 		},
 		// set "service" scope to "s3" for all hydrate calls
-		RateLimit: &plugin.TableRateLimiterConfig{
-			ScopeValues: map[string]string{
-				"service": "s3",
-			},
-		},
+        ScopeValues: map[string]string{
+            "service": "s3",
+        },
 		Columns: awsRegionalColumns([]*plugin.Column{...}),
 	}
 }
 
 ```
-#### 3b. Hydrate call definition which specifies the "service" scope value
+#### 2b. Hydrate call definition which specifies the "service" scope value
 
 
 ```go
@@ -246,12 +200,9 @@ func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
 		HydrateConfig: []plugin.HydrateConfig{
 			{
 				Func: getAccountBucketPublicAccessBlock,
-				// Use RateLimit block to define scope values only
-						// set the "service" scope value for this hydrate call
-				RateLimit: &plugin.HydrateRateLimiterConfig{
-					ScopeValues: map[string]string{
-						"service": "s3",
-					},
+                // set the "service" scope value for this hydrate call
+                ScopeValues: map[string]string{
+                    "service": "s3",
 				},
 			},
 		},
@@ -262,129 +213,44 @@ func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
 ```
 
 
-### 4. Plugin defines rate limiters for "s3" and "ec2" services and one for all other services
+### 3. Plugin defines rate limiters for "s3" and "ec2" services and one for all other services
 NOTE: also scoped by "connection" and "region"
-NOTE: This overrides the plugin default rate limiter explicitly (by setting `FinalLimiter=true`)
-
 
 ```go
 
 // scopes used for all rate limiters
-var rateLimiterScopes=rate_limiter.Scopes{
-    StaticScopes:[]string{
-		"connection",
-		"service",
-	},
-    QualScopes:[]string{
-        "region",
-    }
-}
+var rateLimiterScopes=[]string{"connection","service","region",}
 
 func Plugin(_ context.Context) *plugin.Plugin {
 	p := &plugin.Plugin{
 		Name: pluginName,
 		TableMap: map[string]*plugin.Table{ ...	},
-		RateLimiters: &rate_limiter.Definitions{
-			Limiters: []*rate_limiter.Definition{
-				// rate limiter for s3 service
-				{
-					Limit:     20,
-					BurstSize: 5,
-					Scopes: rateLimiterScopes,
-					Filters: []rate_limiter.ScopeFilter{
-						{
-							StaticFilterValues: map[string]string{"service": "s3"},
-						},
-					},
-				},
-				// rate limiter for ec2 service
-				{
-					Limit:     40,
-					BurstSize: 5,
-					Scopes: rateLimiterScopes,
-					Filters: []rate_limiter.ScopeFilter{
-						{
-							StaticFilterValues: map[string]string{"service": "ec2"},
-						},
-					},
-				},
-				// rate limiter for all other services
-				{
-					Limit:     75,
-					BurstSize: 10,
-					Scopes: rateLimiterScopes,
-				},
-			},
-		}
+		RateLimiters: []*rate_limiter.Definition{
+            // rate limiter for s3 service
+            {
+                Limit:     20,
+                BurstSize: 5,
+                Scopes: rateLimiterScopes,
+                Where: "service='s3'",
+                },
+            },
+            // rate limiter for ec2 service
+            {
+                Limit:     40,
+                BurstSize: 5,
+                Scopes: rateLimiterScopes,
+                Where: "service='ec2'",
+            },
+            // rate limiter for all other services
+            {
+                Limit:     75,
+                BurstSize: 10,
+                Where: "service not in ('s3,'ec2')",
+            },
+        },
 		...
 	}
 
 	return p
 }
 ```
-
-### 5. Table defines rate limiters for all child hydrate calls, scoped by "hydrate", "connection" and "region"
-
-```go
-func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
-	return &plugin.Table{
-		Name:        "aws_s3_account_settings",
-		Description: "AWS S3 Account Block Public Access Settings",
-		List:        &plugin.ListConfig{...},
-		Columns: awsGlobalRegionColumns([]*plugin.Column{...}),
-		RateLimit: &plugin.TableRateLimiterConfig{
-			Definitions: &rate_limiter.Definitions{
-				Limiters: []*rate_limiter.Definition{
-					{
-						Limit:     50,
-						BurstSize: 10,
-						Scopes: rate_limiter.Scopes{
-							StaticScopes: map[string]string{
-								"connection",
-								"hydrate",
-							},
-							ColumnScopes: []string{
-								"region",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-```
-### 6. Hydrate call defines limiter, scoped by "connection" and "region"
-```go
-func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
-	return &plugin.Table{
-		Name:        "aws_s3_account_settings",
-		Description: "AWS S3 Account Block Public Access Settings",
-		List:        &plugin.ListConfig{...},
-		Columns:     awsGlobalRegionColumns([]*plugin.Column{...}),
-		HydrateConfig: []plugin.HydrateConfig{
-			Func: getAccountBucketPublicAccessBlock,
-			RateLimit: &plugin.HydrateRateLimiterConfig{
-				Definitions: &rate_limiter.Definitions{
-					Limiters: []*rate_limiter.Definition{
-						{
-							Limit:     50,
-							BurstSize: 10,
-							Scopes: rate_limiter.Scopes{
-								StaticScopes: map[string]string{
-									"connection",
-								},
-								ColumnScopes: []string{
-									"region",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-```
-
-### 7. Plugin defines unscoped limiter and hydrate call limiter scoped by "connection" and "region"
