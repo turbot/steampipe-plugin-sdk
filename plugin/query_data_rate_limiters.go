@@ -118,16 +118,31 @@ func (d *QueryData) resolveListRateLimiters() error {
 	return nil
 }
 
-func (d *QueryData) setFetchLimiterMetadata(fetchDelay time.Duration, listHydrate HydrateFunc, childHydrate HydrateFunc) {
-	d.fetchMetadata = &hydrateMetadata{
+func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration, listHydrate HydrateFunc, childHydrate HydrateFunc) {
+	fetchMetadata := &hydrateMetadata{
 		FuncName:     helpers.GetFunctionName(listHydrate),
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
 		DelayMs:      fetchDelay.Milliseconds(),
 	}
-	if childHydrate != nil {
-		d.childListMetadata = &hydrateMetadata{
+	if childHydrate == nil {
+		fetchMetadata.Type = string(fetchTypeList)
+		d.fetchMetadata = fetchMetadata
+	} else {
+		d.fetchMetadata = &hydrateMetadata{
+			Type:         string(fetchTypeList),
 			FuncName:     helpers.GetFunctionName(childHydrate),
 			RateLimiters: d.fetchLimiters.childListRateLimiter.LimiterNames(),
 		}
+		fetchMetadata.Type = "parentHydrate"
+		d.parentHydrateMetadata = fetchMetadata
 	}
+}
+func (d *QueryData) setGetLimiterMetadata(fetchDelay time.Duration, listHydrate HydrateFunc) {
+	d.fetchMetadata = &hydrateMetadata{
+		Type:         string(fetchTypeGet),
+		FuncName:     helpers.GetFunctionName(listHydrate),
+		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
+		DelayMs:      fetchDelay.Milliseconds(),
+	}
+
 }

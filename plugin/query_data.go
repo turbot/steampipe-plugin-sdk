@@ -146,8 +146,8 @@ type QueryData struct {
 	// (hydrate-call specific tags will be added when we resolve the limiter)
 	rateLimiterScopeValues map[string]string
 
-	fetchMetadata     *hydrateMetadata
-	childListMetadata *hydrateMetadata
+	fetchMetadata *hydrateMetadata
+	parentHydrateMetadata *hydrateMetadata
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -566,7 +566,7 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 	rateLimitDelay := d.fetchLimiters.childListWait(ctx)
 
 	// populate delay in metadata
-	d.childListMetadata.DelayMs = rateLimitDelay.Milliseconds()
+	d.fetchMetadata.DelayMs = rateLimitDelay.Milliseconds()
 
 	callingFunction := helpers.GetCallingFunction(1)
 	d.listWg.Add(1)
