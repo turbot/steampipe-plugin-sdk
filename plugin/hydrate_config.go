@@ -108,9 +108,6 @@ type HydrateConfig struct {
 	// - quals (with values as string)
 	// this map is then used to find a rate limiter
 	ScopeValues map[string]string
-	// how expensive is this hydrate call
-	// roughly - how many API calls does it hit
-	Cost int
 
 	MaxConcurrency int
 
@@ -127,14 +124,12 @@ func (c *HydrateConfig) String() string {
 RetryConfig: %s
 IgnoreConfig: %s
 Depends: %s
-ScopeValues: %s
-Cost: %d`,
+ScopeValues: %s`,
 		helpers.GetFunctionName(c.Func),
 		c.RetryConfig,
 		c.IgnoreConfig,
 		strings.Join(dependsStrings, ","),
-		rate_limiter.FormatStringMap(c.ScopeValues),
-		c.Cost)
+		rate_limiter.FormatStringMap(c.ScopeValues))
 
 	return str
 }
@@ -156,11 +151,7 @@ func (c *HydrateConfig) initialise(table *Table) {
 	if c.ScopeValues == nil {
 		c.ScopeValues = map[string]string{}
 	}
-	// if cost is not set, initialise to 1
-	if c.Cost == 0 {
-		log.Printf("[TRACE] HydrateConfig initialise - cost is not set - defaulting to 1")
-		c.Cost = 1
-	}
+
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
