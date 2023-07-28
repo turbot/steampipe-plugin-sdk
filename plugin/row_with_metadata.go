@@ -1,26 +1,51 @@
 package plugin
 
+import (
+	"os"
+	"strings"
+)
+
+const (
+	EnvDiagnosticsLevel = "STEAMPIPE_DIAGNOSTICS_LEVEL"
+	DiagnosticsAll      = "ALL"
+	DiagnosticsNone     = "NONE"
+)
+
+var ValidDiagnosticsLevels = map[string]struct{}{
+	DiagnosticsAll:  {},
+	DiagnosticsNone: {},
+}
+
 type hydrateMetadata struct {
-	FuncName     string            `json:"func_name"`
+	Type         string            `json:"type"`
+	FuncName     string            `json:"function_name"`
 	ScopeValues  map[string]string `json:"scope_values,omitempty"`
 	RateLimiters []string          `json:"rate_limiters,omitempty"`
-	DelayMs      int64             `json:"rate_limiter_delay"`
+	DelayMs      int64             `json:"rate_limiter_delay,omitempty"`
 }
 
 type rowCtxData struct {
-	Connection    string             `json:"connection"`
-	FetchType     fetchType          `json:"fetch_type"`
-	FetchCall     *hydrateMetadata   `json:"fetch_call"`
-	ChildListCall *hydrateMetadata   `json:"child_list_call,omitempty"`
-	HydrateCalls  []*hydrateMetadata `json:"hydrate_calls,omitempty"`
+	Connection  string             `json:"connection"`
+	Diagnostics *rowCtxDiagnostics `json:"diagnostics,omitempty"`
+}
+type rowCtxDiagnostics struct {
+	Calls []*hydrateMetadata `json:"calls"`
 }
 
 func newRowCtxData(d *QueryData, rd *rowData) *rowCtxData {
-	return &rowCtxData{
-		Connection:    d.Connection.Name,
-		FetchType:     d.FetchType,
-		FetchCall:     d.fetchMetadata,
-		ChildListCall: d.childListMetadata,
-		HydrateCalls:  rd.hydrateMetadata,
+	res := &rowCtxData{
+		Connection: d.Connection.Name,
 	}
+
+	if strings.ToUpper(os.Getenv(EnvDiagnosticsLevel)) == DiagnosticsAll {
+		calls := append([]*hydrateMetadata{d.fetchMetadata}, rd.hydrateMetadata...)
+		if d.parentHydrateMetadata != nil {
+			calls = append([]*hydrateMetadata{d.parentHydrateMetadata}, calls...)
+		}
+
+		res.Diagnostics = &rowCtxDiagnostics{
+			Calls: calls,
+		}
+	}
+	return res
 }

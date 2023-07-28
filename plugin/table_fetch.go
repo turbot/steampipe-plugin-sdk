@@ -22,7 +22,7 @@ type fetchType string
 
 const (
 	fetchTypeList fetchType = "list"
-	fetchTypeGet            = "get"
+	fetchTypeGet  fetchType = "get"
 )
 
 // call either 'get' or 'list'.
@@ -55,7 +55,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 	fetchDelay := queryData.fetchLimiters.wait(ctx)
 
 	// store metadata
-	queryData.setFetchLimiterMetadata(fetchDelay, t.Get.Hydrate, nil)
+	queryData.setGetLimiterMetadata(fetchDelay, t.Get.Hydrate)
 
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
@@ -376,7 +376,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}
 
 	// store metadata
-	queryData.setFetchLimiterMetadata(fetchDelay, listCall, childHydrate)
+	queryData.setListLimiterMetadata(fetchDelay, listCall, childHydrate)
 
 	// NOTE: if there is an IN qual, the qual value will be a list of values
 	// in this case we call list for each value
