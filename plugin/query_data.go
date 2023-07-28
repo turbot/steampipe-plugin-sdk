@@ -146,7 +146,7 @@ type QueryData struct {
 	// (hydrate-call specific tags will be added when we resolve the limiter)
 	rateLimiterScopeValues map[string]string
 
-	fetchMetadata *hydrateMetadata
+	fetchMetadata         *hydrateMetadata
 	parentHydrateMetadata *hydrateMetadata
 }
 
