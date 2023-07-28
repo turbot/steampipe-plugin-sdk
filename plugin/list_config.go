@@ -48,8 +48,6 @@ type ListConfig struct {
 
 	ScopeValues       map[string]string
 	ParentScopeValues map[string]string
-	Cost              int
-	ParentCost        int
 
 	// Deprecated: Use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
@@ -73,14 +71,6 @@ func (c *ListConfig) initialise(table *Table) {
 	}
 	if c.ParentScopeValues == nil {
 		c.ParentScopeValues = map[string]string{}
-	}
-
-	// if cost is not set, initialise to 1
-	if c.Cost == 0 {
-		c.Cost = 1
-	}
-	if c.ParentCost == 0 {
-		c.ParentCost = 1
 	}
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config

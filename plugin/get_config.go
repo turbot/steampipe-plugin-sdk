@@ -71,7 +71,6 @@ type GetConfig struct {
 	// a function which will return whenther to retry the call if an error is returned
 	RetryConfig *RetryConfig
 	ScopeValues map[string]string
-	Cost        int
 
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
@@ -104,11 +103,6 @@ func (c *GetConfig) initialise(table *Table) {
 	// create empty scope values if needed
 	if c.ScopeValues == nil {
 		c.ScopeValues = map[string]string{}
-	}
-
-	// if cost is not set, initialise to 1
-	if c.Cost == 0 {
-		c.Cost = 1
 	}
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config

@@ -188,7 +188,6 @@ func (t *Table) buildHydrateConfigMap() {
 			IgnoreConfig:      get.IgnoreConfig,
 			RetryConfig:       get.RetryConfig,
 			ScopeValues:       get.ScopeValues,
-			Cost:              get.Cost,
 			ShouldIgnoreError: get.ShouldIgnoreError,
 			MaxConcurrency:    get.MaxConcurrency,
 		}
