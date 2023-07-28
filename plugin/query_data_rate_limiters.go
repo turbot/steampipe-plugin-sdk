@@ -80,8 +80,6 @@ func (d *QueryData) resolveGetRateLimiters() error {
 	}
 
 	d.fetchLimiters.rateLimiter = getLimiter
-	d.fetchLimiters.cost = d.Table.Get.Cost
-
 	return nil
 }
 
@@ -97,7 +95,6 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 	}
 	// assign the parent rate limiter to d.fetchLimiters
 	d.fetchLimiters.rateLimiter = parentRateLimiter
-	d.fetchLimiters.cost = d.Table.List.ParentCost
 
 	// resolve the child  hydrate rate limiter
 	childRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ScopeValues, d)
@@ -106,7 +103,6 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 		return err
 	}
 	d.fetchLimiters.childListRateLimiter = childRateLimiter
-	d.fetchLimiters.childListCost = d.Table.List.Cost
 
 	return nil
 }
@@ -119,7 +115,6 @@ func (d *QueryData) resolveListRateLimiters() error {
 		return err
 	}
 	d.fetchLimiters.rateLimiter = listLimiter
-	d.fetchLimiters.cost = d.Table.List.Cost
 	return nil
 }
 
