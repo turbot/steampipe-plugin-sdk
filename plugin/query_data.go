@@ -839,11 +839,12 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			log.Printf("[WARN] getRow failed with error %v", err)
 			d.streamError(err)
 		} else {
-			// remove reserved columns
-			d.removeReservedColumns(row)
-			// NOTE: add the Steampipecontext data to the row
-			d.addContextData(row, rowData)
-
+			if row != nil {
+				// remove reserved columns
+				d.removeReservedColumns(row)
+				// NOTE: add the Steampipecontext data to the row
+				d.addContextData(row, rowData)
+			}
 			rowChan <- row
 		}
 	}()
