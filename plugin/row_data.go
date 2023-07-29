@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/sethvargo/go-retry"
 	"log"
 	"sync"
 	"time"
@@ -78,7 +77,8 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 	// make a map of started hydrate calls for this row - this is used to determine which calls have not started yet
 	var callsStarted = map[string]bool{}
 
-	err := retry.Constant(rowDataCtx, 10*time.Millisecond, func(ctx context.Context) error {
+	// TODO use retry.DO
+	for {
 		var allStarted = true
 		for _, call := range r.queryData.hydrateCalls {
 			hydrateFuncName := call.Name
@@ -113,13 +113,13 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 				return err
 			default:
 			}
-			if allStarted {
-				break
-			}
 		}
-		return nil
-	})
-	return err
+		if allStarted {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return nil
 }
 
 // wait for all hydrate calls to complete
