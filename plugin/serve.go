@@ -77,8 +77,21 @@ func Serve(opts *ServeOpts) {
 }
 
 func setupLogger() hclog.Logger {
+	//
+	// go-plugin reads stderr output line-by-line from the plugin instances and sets the level
+	// based on the prefix. If there's no level in the prefix, it will set it to a default log level of DEBUG
+	// this is a problem for log lines containing "\n", since every line but the first become DEBUG
+	// log instead of being part of the actual log line
+	//
+	// We are using a custom writer here which intercepts the log lines and replaces any "\n" or "\r"
+	// with known tokens.
+	// The plugin manager on the other end applies a reverse mapping to get back the original log line
+	// https://github.com/turbot/steampipe/blob/742ae17870f7488e1b610bbaf3ddfa852a58bd3e/cmd/plugin_manager.go#L112
+	//
+	writer := logging.NewMappingWriter(os.Stderr, logging.LogMapping)
+
 	// time will be provided by the plugin manager logger
-	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true, JSONFormat: true})
+	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true, Output: writer})
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 	log.SetPrefix("")
 	log.SetFlags(0)
