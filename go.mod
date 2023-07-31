@@ -29,7 +29,7 @@ require (
 	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/eko/gocache/v3 v3.1.2
 	github.com/fsnotify/fsnotify v1.6.0
-	github.com/hashicorp/go-getter v1.7.1
+	github.com/hashicorp/go-getter v1.7.2
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.39.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.16.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.16.0
