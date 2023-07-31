@@ -112,5 +112,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/apimachinery v0.25.3 // indirect
 )
-
-replace github.com/hashicorp/go-plugin => github.com/binaek/go-plugin v1.14.10-steampipe.0
