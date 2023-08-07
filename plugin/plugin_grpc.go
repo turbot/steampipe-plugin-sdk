@@ -316,15 +316,30 @@ func (p *Plugin) establishMessageStream(stream proto.WrapperPlugin_EstablishMess
 	return nil
 }
 
-func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) error {
+func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("setCacheOptions experienced unhandled exception: %s", helpers.ToError(r).Error())
+			log.Println("[WARN]", msg)
+			err = fmt.Errorf(msg)
+		}
+	}()
+
 	return p.ensureCache(p.buildConnectionSchemaMap(), query_cache.NewQueryCacheOptions(request))
 }
 
 // clear current rate limiter definitions and instances and repopulate resolvedRateLimiterDefs using the
 // plugin defined rate limiters and any config defined rate limiters
-func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) error {
+func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) (err error) {
 	log.Printf("[INFO] setRateLimiters")
 
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("setRateLimiters experienced unhandled exception: %s", helpers.ToError(r).Error())
+			log.Println("[WARN]", msg)
+			err = fmt.Errorf(msg)
+		}
+	}()
 	var errors []error
 	// clear all current rate limiters
 	p.rateLimiterDefsMut.Lock()

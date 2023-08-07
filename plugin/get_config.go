@@ -74,8 +74,7 @@ type GetConfig struct {
 
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-	// Deprecated: use RateLimit.MaxConcurrency
-	MaxConcurrency int
+	MaxConcurrency    int
 }
 
 // initialise the GetConfig
@@ -100,7 +99,7 @@ func (c *GetConfig) initialise(table *Table) {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
 
-	// create empty scope values if needed
+	// create empty tags if needed
 	if c.Tags == nil {
 		c.Tags = map[string]string{}
 	}
