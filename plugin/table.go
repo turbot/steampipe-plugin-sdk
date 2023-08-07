@@ -64,10 +64,7 @@ type Table struct {
 	// cache options - allows disabling of cache for this table
 	Cache *TableCacheOptions
 
-	// scope values used to resolve the rate limiter for this table
-	// for example:
-	// "service": "s3"
-	ScopeValues map[string]string
+	Tags map[string]string
 
 	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
@@ -97,11 +94,11 @@ func (t *Table) initialise(p *Plugin) {
 	}
 
 	// create RateLimit if needed
-	if t.ScopeValues == nil {
-		t.ScopeValues = make(map[string]string)
+	if t.Tags == nil {
+		t.Tags = make(map[string]string)
 	}
 	// populate scope values with table name
-	t.ScopeValues[rate_limiter.RateLimiterScopeTable] = t.Name
+	t.Tags[rate_limiter.RateLimiterScopeTable] = t.Name
 
 	if t.DefaultShouldIgnoreError != nil && t.DefaultIgnoreConfig.ShouldIgnoreError == nil {
 		// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
@@ -187,7 +184,7 @@ func (t *Table) buildHydrateConfigMap() {
 			Func:              get.Hydrate,
 			IgnoreConfig:      get.IgnoreConfig,
 			RetryConfig:       get.RetryConfig,
-			ScopeValues:       get.ScopeValues,
+			Tags:              get.Tags,
 			ShouldIgnoreError: get.ShouldIgnoreError,
 			MaxConcurrency:    get.MaxConcurrency,
 		}
