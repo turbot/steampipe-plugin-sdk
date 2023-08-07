@@ -83,12 +83,12 @@ func setupLogger() hclog.Logger {
 	// this is a problem for log lines containing "\n", since every line but the first become DEBUG
 	// log instead of being part of the actual log line
 	//
-	// We are using a custom writer here which intercepts the log lines and replaces any "\n" or "\r"
-	// with known tokens.
+	// We are using a custom writer here which intercepts the log lines and adds an extra escape to "\n" characters
+	//
 	// The plugin manager on the other end applies a reverse mapping to get back the original log line
 	// https://github.com/turbot/steampipe/blob/742ae17870f7488e1b610bbaf3ddfa852a58bd3e/cmd/plugin_manager.go#L112
 	//
-	writer := logging.NewMappingWriter(os.Stderr, logging.LogMapping)
+	writer := logging.NewLineEscapeWriter(os.Stderr)
 
 	// time will be provided by the plugin manager logger
 	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true, Output: writer})

@@ -5,55 +5,47 @@ import (
 	"io"
 )
 
-type Mapper map[string]string
+type newLineEscapeWriter struct {
+	wr io.Writer
+}
 
-// Transposes
-// [k => v] becomes [v => k]
-func (m Mapper) Reverse() Mapper {
-	new := Mapper{}
-	for k, v := range m {
-		new[v] = k
+func NewLineEscapeWriter(writer io.Writer) newLineEscapeWriter {
+	return newLineEscapeWriter{
+		wr: writer,
 	}
-	return new
 }
 
-var LogMapping Mapper = Mapper{
-	"\n": "$$SPLF$$",
-	"\r": "$$SPCR$$",
-}
-
-type MappingWriter struct {
-	wr     io.Writer
-	mapper Mapper
-}
-
-// creates and returns an io.Writer which writes to the underlying io.Writer after replacing string tokens according to the given map
-func NewMappingWriter(writer io.Writer, mapper Mapper) MappingWriter {
-	wr := MappingWriter{
-		wr:     writer,
-		mapper: mapper,
+func (m newLineEscapeWriter) Write(in []byte) (n int, err error) {
+	hasSuffixNewLine := bytes.HasSuffix(in, []byte("\n"))
+	escaped := []byte{}
+	if hasSuffixNewLine {
+		escaped = bytes.TrimSuffix(in, []byte("\n"))
 	}
-	return wr
-}
-
-func (mwr MappingWriter) Write(p []byte) (n int, err error) {
-	mapped := make([]byte, len(p))
-	copy(mapped, p)
-	for old, new := range mwr.mapper {
-		replaceCount := bytes.Count(mapped, []byte(old))
-		if replaceCount > 0 && old == "\n" {
-			// if we are replaceing a newline, we can't replace the last one
-			// since the reader on the other end reads by line
-			replaceCount--
-		}
-
-		for bytes.Count(mapped, []byte(old)) > 1 {
-			mapped = bytes.Replace(mapped, []byte(old), []byte(new), replaceCount)
-		}
+	escaped = bytes.ReplaceAll(escaped, []byte("\n"), []byte("\\n"))
+	if hasSuffixNewLine {
+		escaped = append(escaped, '\n')
 	}
-	if _, err := mwr.wr.Write(mapped); err != nil {
+	if _, err := m.wr.Write(escaped); err != nil {
 		return 0, err
 	}
 	// send back the length of the sent in buffer
-	return len(p), nil
+	return len(in), nil
+}
+
+type newLineUnescapeWriter struct {
+	wr io.Writer
+}
+
+func NewLineUnescapeWriter(writer io.Writer) newLineUnescapeWriter {
+	return newLineUnescapeWriter{
+		wr: writer,
+	}
+}
+func (m newLineUnescapeWriter) Write(in []byte) (n int, err error) {
+	escaped := bytes.ReplaceAll(in, []byte("\\n"), []byte("\n"))
+	if _, err := m.wr.Write(escaped); err != nil {
+		return 0, err
+	}
+	// send back the length of the sent in buffer
+	return len(in), nil
 }
