@@ -88,9 +88,9 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 			}
 
 			// so call needs to start - can it?
-			if call.canStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
+			if call.canStart(r) {
 				// execute the hydrate call asynchronously
-				rateLimitDelay := call.start(rowDataCtx, r, rowQueryData, r.queryData.concurrencyManager)
+				rateLimitDelay := call.start(rowDataCtx, r, rowQueryData)
 				// store the call metadata
 				r.hydrateMetadata = append(r.hydrateMetadata, &hydrateMetadata{
 					Type:         "hydrate",

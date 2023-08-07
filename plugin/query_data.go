@@ -102,10 +102,9 @@ type QueryData struct {
 	fetchLimiters *fetchCallRateLimiters
 
 	// all the columns that will be returned by this query
-	columns            map[string]*QueryColumn
-	concurrencyManager *concurrencyManager
-	rowDataChan        chan *rowData
-	errorChan          chan error
+	columns     map[string]*QueryColumn
+	rowDataChan chan *rowData
+	errorChan   chan error
 	// channel to send results
 	outputChan chan *proto.ExecuteResponse
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
@@ -207,7 +206,6 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
-	d.concurrencyManager = newConcurrencyManager(table)
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
@@ -244,16 +242,15 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		cacheTtl:          d.cacheTtl,
 		cacheEnabled:      d.cacheEnabled,
 
-		fetchLimiters:      d.fetchLimiters,
-		filteredMatrix:     d.filteredMatrix,
-		hydrateCalls:       d.hydrateCalls,
-		concurrencyManager: d.concurrencyManager,
-		rowDataChan:        d.rowDataChan,
-		errorChan:          d.errorChan,
-		outputChan:         d.outputChan,
-		listWg:             d.listWg,
-		columns:            d.columns,
-		queryStatus:        d.queryStatus,
+		fetchLimiters:  d.fetchLimiters,
+		filteredMatrix: d.filteredMatrix,
+		hydrateCalls:   d.hydrateCalls,
+		rowDataChan:    d.rowDataChan,
+		errorChan:      d.errorChan,
+		outputChan:     d.outputChan,
+		listWg:         d.listWg,
+		columns:        d.columns,
+		queryStatus:    d.queryStatus,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
@@ -715,8 +712,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 	log.Printf("[INFO] QueryData streamRows (%s)", d.connectionCallId)
 
 	defer func() {
-		// tell the concurrency manage we are done (it may log the concurrency stats)
-		d.concurrencyManager.Close()
 		log.Printf("[INFO] QueryData streamRows DONE (%s)", d.connectionCallId)
 
 		// if there is an error or cancellation, abort the pending set

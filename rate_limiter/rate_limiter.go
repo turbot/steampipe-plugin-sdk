@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/turbot/go-kit/helpers"
+	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 	"log"
 	"strings"
@@ -12,17 +13,34 @@ import (
 
 type Limiter struct {
 	*rate.Limiter
-	Name        string
-	scopeValues map[string]string
+	Name           string
+	MaxConcurrency int64
+	scopeValues    map[string]string
 }
 
 type MultiLimiter struct {
 	Limiters    []*Limiter
 	ScopeValues map[string]string
+	sem         *semaphore.Weighted
 }
 
 func NewMultiLimiter(limiters []*Limiter, scopeValues map[string]string) *MultiLimiter {
-	return &MultiLimiter{Limiters: limiters, ScopeValues: scopeValues}
+	res := &MultiLimiter{
+		Limiters:    limiters,
+		ScopeValues: scopeValues,
+	}
+
+	var maxConcurrency int64 = 0
+	for _, l := range limiters {
+		if maxConcurrency == 0 && l.MaxConcurrency != 0 ||
+			l.MaxConcurrency != 0 && l.MaxConcurrency < maxConcurrency {
+			maxConcurrency = l.MaxConcurrency
+		}
+	}
+	if maxConcurrency != 0 {
+		res.sem = semaphore.NewWeighted(maxConcurrency)
+	}
+	return res
 }
 
 func (m *MultiLimiter) Wait(ctx context.Context, cost int) time.Duration {
@@ -80,6 +98,18 @@ func (m *MultiLimiter) LimiterNames() []string {
 		names[i] = l.Name
 	}
 	return names
+}
+
+func (m *MultiLimiter) TryToAcquireSemaphore() bool {
+	if m.sem == nil {
+		return true
+	}
+	return m.sem.TryAcquire(1)
+}
+func (m *MultiLimiter) ReleaseSemaphore() {
+	if m.sem != nil {
+		m.sem.Release(1)
+	}
 }
 
 // FormatStringMap orders the map keys and returns a string containing all map keys and values

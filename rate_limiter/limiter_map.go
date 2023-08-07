@@ -53,9 +53,10 @@ func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues map[string]string) (
 
 	// ok we need to create one
 	limiter = &Limiter{
-		Limiter:     rate.NewLimiter(l.FillRate, l.BucketSize),
-		Name:        l.Name,
-		scopeValues: scopeValues,
+		Limiter:        rate.NewLimiter(l.FillRate, int(l.BucketSize)),
+		Name:           l.Name,
+		MaxConcurrency: l.MaxConcurrency,
+		scopeValues:    scopeValues,
 	}
 	// put it in the map
 	m.limiters[key] = limiter

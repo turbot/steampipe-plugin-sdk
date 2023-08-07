@@ -12,10 +12,11 @@ type Definition struct {
 	Name string
 	// the actual limiter config
 	FillRate   rate.Limit
-	BucketSize int
+	BucketSize int64
 
-	// the scopes which identify this limiter instance
-	// one limiter instance will be created for each combination of scopes which is encountered
+	MaxConcurrency int64
+	// the scope properties which identify this limiter instance
+	// one limiter instance will be created for each combination of these properties which is encountered
 	Scope []string
 
 	// filter used to target the limiter
@@ -23,14 +24,15 @@ type Definition struct {
 	parsedFilter *scopeFilter
 }
 
-// DefintionsFromProto converts the proto format RateLimiterDefinition into a Defintion
+// DefinitionFromProto converts the proto format RateLimiterDefinition into a Defintion
 func DefinitionFromProto(p *proto.RateLimiterDefinition) (*Definition, error) {
 	var res = &Definition{
-		Name:       p.Name,
-		FillRate:   rate.Limit(p.FillRate),
-		BucketSize: int(p.BucketSize),
-		Scope:      p.Scope,
-		Where:      p.Where,
+		Name:           p.Name,
+		FillRate:       rate.Limit(p.FillRate),
+		BucketSize:     p.BucketSize,
+		MaxConcurrency: p.MaxConcurrency,
+		Scope:          p.Scope,
+		Where:          p.Where,
 	}
 	if err := res.Initialise(); err != nil {
 		return nil, err

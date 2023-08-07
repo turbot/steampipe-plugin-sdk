@@ -310,8 +310,9 @@ message RateLimiterDefinition {
   string name = 1;
   float fill_rate = 2;
   int64 bucket_size = 3;
-  repeated string scope = 4;
-  string where = 5;
+  int64 max_concurrency = 4;
+  repeated string scope = 5;
+  string where = 6;
 }
 
 message SetRateLimitersResponse {

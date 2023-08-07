@@ -69,9 +69,10 @@ type Plugin struct {
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	// NOTE: it must be NULL for plugins with dynamic schema
-	TableMap            map[string]*Table
-	TableMapFunc        TableMapFunc
-	DefaultTransform    *transform.ColumnTransforms
+	TableMap         map[string]*Table
+	TableMapFunc     TableMapFunc
+	DefaultTransform *transform.ColumnTransforms
+	// deprecated - use RateLimiters to control concurrency
 	DefaultConcurrency  *DefaultConcurrencyConfig
 	DefaultRetryConfig  *RetryConfig
 	DefaultIgnoreConfig *IgnoreConfig
@@ -120,6 +121,7 @@ type Plugin struct {
 	resolvedRateLimiterDefs map[string]*rate_limiter.Definition
 	// lock for this map
 	rateLimiterDefsMut sync.RWMutex
+
 	// map of call ids to avoid duplicates
 	callIdLookup    map[string]struct{}
 	callIdLookupMut sync.RWMutex
