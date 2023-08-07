@@ -692,7 +692,7 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 					//log.Printf("[INFO] buildRowsAsync acquire semaphore (%s)", d.connectionCallId)
 					if err := rowSemaphore.Acquire(ctx, 1); err != nil {
 						log.Printf("[INFO] SEMAPHORE ERROR %s", err)
-						// TODO does this quit??
+						// TODO KAI does this quit??
 						d.errorChan <- err
 						return
 					}
