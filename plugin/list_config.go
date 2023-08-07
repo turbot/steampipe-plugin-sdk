@@ -97,11 +97,13 @@ func (c *ListConfig) Validate(table *Table) []string {
 		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
 
-	// ensure there is no explicit hydrate config for the list config
+	// ensure that if there is an explicit hydrate config for the list hydrate, it does not declare dependencies
 	listHydrateName := helpers.GetFunctionName(table.List.Hydrate)
 	for _, h := range table.HydrateConfig {
 		if helpers.GetFunctionName(h.Func) == listHydrateName {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' also has an explicit hydrate config declared in `HydrateConfig`", table.Name, listHydrateName))
+			if len(h.Depends) > 0 {
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' defines depdendencies in its `HydrateConfig`", table.Name, listHydrateName))
+			}
 			break
 		}
 	}

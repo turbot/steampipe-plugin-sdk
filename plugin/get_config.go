@@ -139,14 +139,17 @@ func (c *GetConfig) Validate(table *Table) []string {
 	if c.IgnoreConfig != nil {
 		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
-	// ensure there is no explicit hydrate config for the get config
+	// ensure that if there is an explicit hydrate config for the get hydrate, it does not declare dependencies
 	getHydrateName := helpers.GetFunctionName(table.Get.Hydrate)
 	for _, h := range table.HydrateConfig {
 		if helpers.GetFunctionName(h.Func) == getHydrateName {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' also has an explicit hydrate config declared in `HydrateConfig`", table.Name, getHydrateName))
+			if len(h.Depends) > 0 {
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' defines dependendencies in its `HydrateConfig`", table.Name, getHydrateName))
+			}
 			break
 		}
 	}
+
 	// ensure there is no hydrate dependency declared for the get hydrate
 	for _, h := range table.HydrateDependencies {
 		if helpers.GetFunctionName(h.Func) == getHydrateName {
