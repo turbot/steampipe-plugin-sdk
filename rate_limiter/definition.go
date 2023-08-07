@@ -16,7 +16,7 @@ type Definition struct {
 
 	// the scopes which identify this limiter instance
 	// one limiter instance will be created for each combination of scopes which is encountered
-	Scopes []string
+	Scope []string
 
 	// filter used to target the limiter
 	Where        string
@@ -29,7 +29,7 @@ func DefinitionFromProto(p *proto.RateLimiterDefinition) (*Definition, error) {
 		Name:       p.Name,
 		FillRate:   rate.Limit(p.FillRate),
 		BucketSize: int(p.BucketSize),
-		Scopes:     p.Scopes,
+		Scope:      p.Scope,
 		Where:      p.Where,
 	}
 	if err := res.Initialise(); err != nil {
@@ -53,7 +53,7 @@ func (d *Definition) Initialise() error {
 }
 
 func (d *Definition) String() string {
-	return fmt.Sprintf("Limit(/s): %v, Burst: %d, Scopes: %s, Filter: %s", d.FillRate, d.BucketSize, d.Scopes, d.Where)
+	return fmt.Sprintf("Limit(/s): %v, Burst: %d, Scopes: %s, Filter: %s", d.FillRate, d.BucketSize, d.Scope, d.Where)
 }
 
 func (d *Definition) Validate() []string {
@@ -71,7 +71,7 @@ func (d *Definition) Validate() []string {
 	return validationErrors
 }
 
-// SatisfiesFilters returns whethe rthe given values satisfy ANY of our filters
+// SatisfiesFilters returns whether the given values satisfy ANY of our filters
 func (d *Definition) SatisfiesFilters(scopeValues map[string]string) bool {
 	if d.parsedFilter == nil {
 		return true

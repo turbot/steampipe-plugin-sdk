@@ -46,8 +46,8 @@ type ListConfig struct {
 	// a function which will return whenther to retry the call if an error is returned
 	RetryConfig *RetryConfig
 
-	ScopeValues       map[string]string
-	ParentScopeValues map[string]string
+	Tags       map[string]string
+	ParentTags map[string]string
 
 	// Deprecated: Use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
@@ -66,11 +66,11 @@ func (c *ListConfig) initialise(table *Table) {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
 
-	if c.ScopeValues == nil {
-		c.ScopeValues = map[string]string{}
+	if c.Tags == nil {
+		c.Tags = map[string]string{}
 	}
-	if c.ParentScopeValues == nil {
-		c.ParentScopeValues = map[string]string{}
+	if c.ParentTags == nil {
+		c.ParentTags = map[string]string{}
 	}
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config

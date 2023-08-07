@@ -107,7 +107,7 @@ type HydrateConfig struct {
 	// - values specified in the hydrate config
 	// - quals (with values as string)
 	// this map is then used to find a rate limiter
-	ScopeValues map[string]string
+	Tags map[string]string
 
 	MaxConcurrency int
 
@@ -129,7 +129,7 @@ ScopeValues: %s`,
 		c.RetryConfig,
 		c.IgnoreConfig,
 		strings.Join(dependsStrings, ","),
-		rate_limiter.FormatStringMap(c.ScopeValues))
+		rate_limiter.FormatStringMap(c.Tags))
 
 	return str
 }
@@ -147,9 +147,9 @@ func (c *HydrateConfig) initialise(table *Table) {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
 
-	// create empty ScopeValues if needed
-	if c.ScopeValues == nil {
-		c.ScopeValues = map[string]string{}
+	// create empty Tags if needed
+	if c.Tags == nil {
+		c.Tags = map[string]string{}
 	}
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config

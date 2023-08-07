@@ -181,7 +181,7 @@ func tableAwsS3AccessPoint(_ context.Context) *plugin.Table {
 			Hydrate:    getS3AccessPoint,
 		},
 		// set "service" scope to "s3" for all hydrate calls
-        ScopeValues: map[string]string{
+        Tags: map[string]string{
             "service": "s3",
         },
 		Columns: awsRegionalColumns([]*plugin.Column{...}),
@@ -201,7 +201,7 @@ func tableAwsS3AccountSettings(_ context.Context) *plugin.Table {
 			{
 				Func: getAccountBucketPublicAccessBlock,
                 // set the "service" scope value for this hydrate call
-                ScopeValues: map[string]string{
+                Tags: map[string]string{
                     "service": "s3",
 				},
 			},

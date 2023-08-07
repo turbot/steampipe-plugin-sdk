@@ -45,9 +45,9 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 	// This is to ensure config overrides are respected
 	for _, l := range p.resolvedRateLimiterDefs {
 		// build a filtered map of just the scope values required for this limiter
-		requiredScopeValues := helpers.FilterMap(scopeValues, l.Scopes)
+		requiredScopeValues := helpers.FilterMap(scopeValues, l.Scope)
 		// do we have all the required values?
-		if len(requiredScopeValues) < len(l.Scopes) {
+		if len(requiredScopeValues) < len(l.Scope) {
 			// this rate limiter does not apply
 			continue
 		}
