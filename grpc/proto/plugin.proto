@@ -310,7 +310,7 @@ message RateLimiterDefinition {
   string name = 1;
   float fill_rate = 2;
   int64 bucket_size = 3;
-  repeated string scopes = 4;
+  repeated string scope = 4;
   string where = 5;
 }
 

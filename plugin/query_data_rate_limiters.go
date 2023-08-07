@@ -18,7 +18,7 @@ func (d *QueryData) resolveRateLimiterScopeValues(hydrateCallScopeValues map[str
 		// static scope values defined by hydrate config
 		hydrateCallScopeValues,
 		// static scope values defined by table config
-		d.Table.ScopeValues,
+		d.Table.Tags,
 		// scope values for this scan (static and column values)
 		d.rateLimiterScopeValues,
 	}
@@ -73,7 +73,7 @@ func (d *QueryData) resolveFetchRateLimiters() error {
 
 func (d *QueryData) resolveGetRateLimiters() error {
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
-	getLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.Get.ScopeValues, d)
+	getLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.Get.Tags, d)
 	if err != nil {
 		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.Get.Hydrate), err.Error(), d.connectionCallId)
 		return err
@@ -88,7 +88,7 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 	// NOTE: RateLimit and ParentRateLimit cannot be nil as they are initialized to an empty struct if needed
 
 	// resolve the parent hydrate rate limiter
-	parentRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ParentScopeValues, d)
+	parentRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ParentTags, d)
 	if err != nil {
 		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.List.ParentHydrate), err.Error(), d.connectionCallId)
 		return err
@@ -97,7 +97,7 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 	d.fetchLimiters.rateLimiter = parentRateLimiter
 
 	// resolve the child  hydrate rate limiter
-	childRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ScopeValues, d)
+	childRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.Tags, d)
 	if err != nil {
 		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.List.Hydrate), err.Error(), d.connectionCallId)
 		return err
@@ -109,7 +109,7 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 
 func (d *QueryData) resolveListRateLimiters() error {
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
-	listLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ScopeValues, d)
+	listLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.Tags, d)
 	if err != nil {
 		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.Get.Hydrate), err.Error(), d.connectionCallId)
 		return err
