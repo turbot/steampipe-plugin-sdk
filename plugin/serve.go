@@ -6,8 +6,10 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"fmt"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
@@ -44,7 +46,22 @@ passing callback functions to implement each of the plugin interface functions:
 
     It is called from the main function of the plugin.
 */
+const (
+	UnrecognizedRemotePluginMessage       = "Unrecognized remote plugin message:"
+	UnrecognizedRemotePluginMessageSuffix = "\nThis usually means"
+	StartupPanicMessage                   = "Unhandled exception starting plugin: "
+)
+
 func Serve(opts *ServeOpts) {
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("%s%s", StartupPanicMessage, helpers.ToError(r).Error())
+			log.Println("[WARN]", msg)
+			// write to stdout so the plugin manager can extract the panic message
+			fmt.Println(msg)
+		}
+	}()
+
 	// create the logger
 	logger := setupLogger()
 
