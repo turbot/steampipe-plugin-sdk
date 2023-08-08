@@ -5,11 +5,14 @@ import (
 	"io"
 )
 
+// EscapeNewlineWriter represents a io.Writer that can escape newlines
 type EscapeNewlineWriter struct {
 	wr io.Writer
 }
 
-// NewEscapeNewlineWriter
+// NewEscapeNewlineWriter returns an object that conform to the io.Writer interface
+// and can be used to escape newline ('\n') with the string literal ("\n")
+// The param is the underlying io.Writer that this object will write to
 func NewEscapeNewlineWriter(writer io.Writer) EscapeNewlineWriter {
 	return EscapeNewlineWriter{
 		wr: writer,
