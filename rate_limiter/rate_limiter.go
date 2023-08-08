@@ -18,14 +18,23 @@ type Limiter struct {
 	sem         *semaphore.Weighted
 }
 
-func (l *Limiter) TryToAcquireSemaphore() bool {
+func newLimiter(l *Definition, scopeValues map[string]string) *Limiter {
+	return &Limiter{
+		Limiter:     rate.NewLimiter(l.FillRate, int(l.BucketSize)),
+		Name:        l.Name,
+		sem:         semaphore.NewWeighted(l.MaxConcurrency),
+		scopeValues: scopeValues,
+	}
+}
+
+func (l *Limiter) tryToAcquireSemaphore() bool {
 	if l.sem == nil {
 		return true
 	}
 	return l.sem.TryAcquire(1)
 }
 
-func (l *Limiter) ReleaseSemaphore() {
+func (l *Limiter) releaseSemaphore() {
 	if l.sem == nil {
 		return
 	}
@@ -111,7 +120,7 @@ func (m *MultiLimiter) TryToAcquireSemaphore() bool {
 	var acquired []*Limiter
 	for _, l := range m.Limiters {
 
-		if l.TryToAcquireSemaphore() {
+		if l.tryToAcquireSemaphore() {
 			acquired = append(acquired, l)
 
 		} else {
@@ -119,7 +128,7 @@ func (m *MultiLimiter) TryToAcquireSemaphore() bool {
 			// we failed to acquire the semaphore -
 			// we must release all acquired semaphores
 			for _, a := range acquired {
-				a.ReleaseSemaphore()
+				a.releaseSemaphore()
 			}
 			return false
 		}
@@ -130,7 +139,7 @@ func (m *MultiLimiter) TryToAcquireSemaphore() bool {
 
 func (m *MultiLimiter) ReleaseSemaphore() {
 	for _, l := range m.Limiters {
-		l.ReleaseSemaphore()
+		l.releaseSemaphore()
 	}
 }
 

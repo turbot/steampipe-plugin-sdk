@@ -3,7 +3,6 @@ package rate_limiter
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"golang.org/x/time/rate"
 	"sync"
 )
 
@@ -24,7 +23,7 @@ func NewLimiterMap() *LimiterMap {
 }
 
 // GetOrCreate checks the map for a limiter with the specified key values - if none exists it creates it
-func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues map[string]string) (*Limiter, error) {
+func (m *LimiterMap) GetOrCreate(def *Definition, scopeValues map[string]string) (*Limiter, error) {
 	// build the key from the scope values
 	key, err := buildLimiterKey(scopeValues)
 	if err != nil {
@@ -52,12 +51,8 @@ func (m *LimiterMap) GetOrCreate(l *Definition, scopeValues map[string]string) (
 	}
 
 	// ok we need to create one
-	limiter = &Limiter{
-		Limiter:        rate.NewLimiter(l.FillRate, int(l.BucketSize)),
-		Name:           l.Name,
-		MaxConcurrency: l.MaxConcurrency,
-		scopeValues:    scopeValues,
-	}
+	limiter = newLimiter(def, scopeValues)
+
 	// put it in the map
 	m.limiters[key] = limiter
 	return limiter, nil
