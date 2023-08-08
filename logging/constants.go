@@ -9,3 +9,6 @@ const (
 )
 
 var LegacyLogLevelEnvVars = []string{"SP_LOG", "STEAMPIPE_LOG"}
+
+var newLine = []byte("\n")
+var escapedNewLine = []byte("\\n")

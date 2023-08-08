@@ -88,7 +88,7 @@ func setupLogger() hclog.Logger {
 	// The plugin manager on the other end applies a reverse mapping to get back the original log line
 	// https://github.com/turbot/steampipe/blob/742ae17870f7488e1b610bbaf3ddfa852a58bd3e/cmd/plugin_manager.go#L112
 	//
-	writer := logging.NewLineEscapeWriter(os.Stderr)
+	writer := logging.NewEscapeNewlineWriter(os.Stderr)
 
 	// time will be provided by the plugin manager logger
 	logger := logging.NewLogger(&hclog.LoggerOptions{DisableTime: true, Output: writer})
