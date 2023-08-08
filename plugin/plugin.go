@@ -388,7 +388,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	if table.GetMatrixItemFunc != nil {
 		matrixItem = table.GetMatrixItemFunc(ctx, queryData)
 	}
-	queryData.setMatrixItem(matrixItem)
+	queryData.setMatrix(matrixItem)
 
 	log.Printf("[TRACE] creating query data")
 

@@ -9,9 +9,24 @@ import (
 	"time"
 )
 
+func (d *QueryData) initialiseRateLimiters() {
+	log.Printf("[INFO] initialiseRateLimiters for query data %p (%s)", d, d.connectionCallId)
+	// build the base set of scope values used to resolve a rate limiter
+	d.populateRateLimitScopeValues()
+
+	// populate the rate limiters for the fetch call(s) (get/list/parent-list)
+	d.resolveFetchRateLimiters()
+
+	// populate the rate limiters for the hydrate calls
+	d.resolveHydrateRateLimiters()
+}
+
 // resolve the scope values for a given hydrate call
 func (d *QueryData) resolveRateLimiterScopeValues(hydrateCallScopeValues map[string]string) map[string]string {
-
+	log.Printf("[INFO] resolveRateLimiterScopeValues (%s)", d.connectionCallId)
+	log.Printf("[INFO] hydrateCallScopeValues %v", hydrateCallScopeValues)
+	log.Printf("[INFO] d.Table.Tags %v", d.Table.Tags)
+	log.Printf("[INFO] d.rateLimiterScopeValues %v", d.rateLimiterScopeValues)
 	// build list of source value maps which we will merge
 	// this is in order of DECREASING precedence, i.e. highest first
 	scopeValueList := []map[string]string{
@@ -24,7 +39,9 @@ func (d *QueryData) resolveRateLimiterScopeValues(hydrateCallScopeValues map[str
 	}
 
 	// merge these in precedence order
-	return rate_limiter.MergeScopeValues(scopeValueList)
+	res := rate_limiter.MergeScopeValues(scopeValueList)
+	log.Printf("[INFO] merged scope values %v", res)
+	return res
 }
 
 /*
@@ -40,6 +57,8 @@ func (d *QueryData) populateRateLimitScopeValues() {
 	// add the connection
 	d.rateLimiterScopeValues[rate_limiter.RateLimiterScopeConnection] = d.Connection.Name
 	// add matrix quals
+
+
 	for column, qualsForColumn := range d.Quals {
 		if _, isMatrixQual := d.matrixColLookup[column]; isMatrixQual {
 			for _, qual := range qualsForColumn.Quals {
@@ -70,7 +89,6 @@ func (d *QueryData) resolveFetchRateLimiters() error {
 	// ok it's just a single level list hydrate
 	return d.resolveListRateLimiters()
 }
-
 func (d *QueryData) resolveGetRateLimiters() error {
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
 	getLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.Get.Tags, d)
@@ -118,31 +136,40 @@ func (d *QueryData) resolveListRateLimiters() error {
 	return nil
 }
 
-func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration, listHydrate HydrateFunc, childHydrate HydrateFunc) {
+func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 	fetchMetadata := &hydrateMetadata{
-		FuncName:     helpers.GetFunctionName(listHydrate),
+		FuncName:     helpers.GetFunctionName(d.listHydrate),
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
 		DelayMs:      fetchDelay.Milliseconds(),
 	}
-	if childHydrate == nil {
+	if d.childHydrate == nil {
 		fetchMetadata.Type = string(fetchTypeList)
 		d.fetchMetadata = fetchMetadata
 	} else {
 		d.fetchMetadata = &hydrateMetadata{
 			Type:         string(fetchTypeList),
-			FuncName:     helpers.GetFunctionName(childHydrate),
+			FuncName:     helpers.GetFunctionName(d.childHydrate),
 			RateLimiters: d.fetchLimiters.childListRateLimiter.LimiterNames(),
 		}
 		fetchMetadata.Type = "parentHydrate"
 		d.parentHydrateMetadata = fetchMetadata
 	}
 }
-func (d *QueryData) setGetLimiterMetadata(fetchDelay time.Duration, listHydrate HydrateFunc) {
+
+func (d *QueryData) setGetLimiterMetadata(fetchDelay time.Duration) {
 	d.fetchMetadata = &hydrateMetadata{
 		Type:         string(fetchTypeGet),
-		FuncName:     helpers.GetFunctionName(listHydrate),
+		FuncName:     helpers.GetFunctionName(d.Table.Get.Hydrate),
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
 		DelayMs:      fetchDelay.Milliseconds(),
 	}
+}
 
+func (d *QueryData) resolveHydrateRateLimiters() error {
+	for _, h := range d.hydrateCalls {
+		if err := h.initialiseRateLimiter(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

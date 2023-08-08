@@ -21,7 +21,7 @@ type hydrateMetadata struct {
 	FuncName     string            `json:"function_name"`
 	ScopeValues  map[string]string `json:"scope_values,omitempty"`
 	RateLimiters []string          `json:"rate_limiters,omitempty"`
-	DelayMs      int64             `json:"rate_limiter_delay,omitempty"`
+	DelayMs      int64             `json:"rate_limiter_delay_ms,omitempty"`
 }
 
 type rowCtxData struct {
@@ -32,7 +32,8 @@ type rowCtxDiagnostics struct {
 	Calls []*hydrateMetadata `json:"calls"`
 }
 
-func newRowCtxData(d *QueryData, rd *rowData) *rowCtxData {
+func newRowCtxData(rd *rowData) *rowCtxData {
+	d := rd.queryData
 	res := &rowCtxData{
 		Connection: d.Connection.Name,
 	}

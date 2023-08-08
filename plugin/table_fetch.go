@@ -50,13 +50,6 @@ func (t *Table) fetchItems(ctx context.Context, queryData *QueryData) error {
 
 // execute a get call for every value in the key column quals
 func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err error) {
-
-	// wait for any configured 'get' rate limiters
-	fetchDelay := queryData.fetchLimiters.wait(ctx)
-
-	// store metadata
-	queryData.setGetLimiterMetadata(fetchDelay, t.Get.Hydrate)
-
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeGetCall (%s)", t.Name)
 	defer span.End()
 
@@ -201,6 +194,13 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	var getItem interface{}
 
 	if len(queryData.Matrix) == 0 {
+		// now we know there is no matrix,  initialise the rate limiters for this query data
+		queryData.initialiseRateLimiters()
+		// now wait for any configured 'get' rate limiters
+		fetchDelay := queryData.fetchLimiters.wait(ctx)
+		// set the metadata
+		queryData.setGetLimiterMetadata(fetchDelay)
+
 		// just invoke callHydrateWithRetries()
 		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
@@ -271,7 +271,14 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *rowDat
 
 			// clone the query data and add the matrix properties to quals
 			matrixQueryData := queryData.ShallowCopy()
-			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
+			matrixQueryData.setMatrixItem(matrixItem)
+
+			// now we have set the matrix item, initialise the rate limiters for this query data
+			matrixQueryData.initialiseRateLimiters()
+			// now wait for any configured 'get' rate limiters
+			fetchDelay := matrixQueryData.fetchLimiters.wait(ctx)
+			// set the metadata
+			matrixQueryData.setGetLimiterMetadata(fetchDelay)
 
 			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
@@ -312,6 +319,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *rowDat
 			}
 			var item interface{}
 			if len(results) == 1 {
+				// TODO KAI what????
 				// set the matrix item on the row data
 				rd.matrixItem = results[0].matrixItem
 				item = results[0].item
@@ -341,8 +349,6 @@ func buildSingleError(errors []error) error {
 }
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
-	// wait for any configured 'list' rate limiters
-	fetchDelay := queryData.fetchLimiters.wait(ctx)
 
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
@@ -375,8 +381,8 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		childHydrate = t.List.Hydrate
 	}
 
-	// store metadata
-	queryData.setListLimiterMetadata(fetchDelay, listCall, childHydrate)
+	// store the list call and child hydrate call - these will be used later when we call setListLimiterMetadata
+	queryData.setListCalls(listCall, childHydrate)
 
 	// NOTE: if there is an IN qual, the qual value will be a list of values
 	// in this case we call list for each value
@@ -463,13 +469,21 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 
 	log.Printf("[TRACE] doList (%s)", queryData.connectionCallId)
 
+	// create rowData, purely so we can call callHydrateWithRetries
 	rd := newRowData(queryData, nil)
 
-	// if a matrix is defined, run listForEach
+	// if a matrix is defined, run listForEachMatrix
 	if queryData.Matrix != nil {
-		log.Printf("[TRACE] doList: matrix len %d - calling  listForEach", len(queryData.Matrix))
-		t.listForEach(ctx, queryData, listCall)
+		log.Printf("[TRACE] doList: matrix len %d - calling  listForEachMatrix", len(queryData.Matrix))
+		t.listForEachMatrix(ctx, queryData, listCall)
 	} else {
+		// now we know there is no matrix, initialise the rate limiters for this query data
+		queryData.initialiseRateLimiters()
+		// now wait for any configured 'list' rate limiters
+		fetchDelay := queryData.fetchLimiters.wait(ctx)
+		// set the metadata
+		queryData.setListLimiterMetadata(fetchDelay)
+
 		log.Printf("[TRACE] doList: no matrix item")
 
 		// we cannot retry errors in the list hydrate function after streaming has started
@@ -484,12 +498,12 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 
 // ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
-	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.listForEach (%s)", t.Name)
+func (t *Table) listForEachMatrix(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.listForEachMatrix (%s)", t.Name)
 	// TODO add matrix item to span
 	defer span.End()
 
-	log.Printf("[TRACE] listForEach: %v\n", queryData.Matrix)
+	log.Printf("[TRACE] listForEachMatrix: %v\n", queryData.Matrix)
 	var wg sync.WaitGroup
 	// NOTE - we use the filtered matrix - which means we may not actually run any hydrate calls
 	// if the quals have filtered out all matrix items (e.g. select where region = 'invalid')
@@ -506,11 +520,20 @@ func (t *Table) listForEach(ctx context.Context, queryData *QueryData, listCall 
 				}
 				wg.Done()
 			}()
+			// create rowData, purely so we can call callHydrateWithRetries
 			rd := newRowData(queryData, nil)
+			rd.matrixItem = matrixItem
 
 			// clone the query data and add the matrix properties to quals
 			matrixQueryData := queryData.ShallowCopy()
-			matrixQueryData.updateQualsWithMatrixItem(matrixItem)
+			matrixQueryData.setMatrixItem(matrixItem)
+
+			// now we have set the matrix item, initialise the rate limiters for this query data
+			matrixQueryData.initialiseRateLimiters()
+			// now wait for any configured 'list' rate limiters
+			fetchDelay := matrixQueryData.fetchLimiters.wait(ctx)
+			// set the metadata
+			matrixQueryData.setListLimiterMetadata(fetchDelay)
 
 			// we cannot retry errors in the list hydrate function after streaming has started
 			listRetryConfig := t.List.RetryConfig.GetListRetryConfig()

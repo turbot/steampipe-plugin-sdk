@@ -1,13 +1,14 @@
 package plugin
 
 import (
+	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 )
 
 func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
-	log.Printf("[INFO] getHydrateCallRateLimiter")
+	log.Printf("[INFO] getHydrateCallRateLimiter (%s)", queryData.connectionCallId)
 
 	res := &rate_limiter.MultiLimiter{}
 	// short circuit if there ar eno defs
@@ -26,6 +27,10 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("[INFO] found %d matching %s",
+		len(limiters),
+		pluralize.NewClient().Pluralize("limiter", len(limiters), false))
 
 	// finally package them into a multi-limiter
 	res = rate_limiter.NewMultiLimiter(limiters, rateLimiterScopeValues)

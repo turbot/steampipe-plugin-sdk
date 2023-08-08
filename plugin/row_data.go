@@ -57,14 +57,9 @@ func (r *rowData) getRow(ctx context.Context) (*proto.Row, error) {
 	// (this is a data structure containing fetch specific data, e.g. region)
 	// store this in the context for use by the transform functions
 	rowDataCtx := context.WithValue(ctx, context_key.MatrixItem, r.matrixItem)
-	// clone the query data and add the matrix properties to quals
-	rowQueryData := r.queryData.ShallowCopy()
-	rowQueryData.updateQualsWithMatrixItem(r.matrixItem)
-
 	// make any required hydrate function calls
 	// - these populate the row with data entries corresponding to the hydrate function name
-
-	if err := r.startAllHydrateCalls(rowDataCtx, rowQueryData); err != nil {
+	if err := r.startAllHydrateCalls(rowDataCtx, r.queryData); err != nil {
 		log.Printf("[WARN] startAllHydrateCalls failed with error %v", err)
 		return nil, err
 	}

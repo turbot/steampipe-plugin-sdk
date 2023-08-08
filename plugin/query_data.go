@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
-	"golang.org/x/exp/maps"
-	"golang.org/x/sync/semaphore"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -21,7 +18,10 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"golang.org/x/exp/maps"
+	"golang.org/x/sync/semaphore"
 )
 
 // how may rows do we cache in the rowdata channel
@@ -110,12 +110,15 @@ type QueryData struct {
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
-	parentItem     interface{}
+	parentItem interface{}
+
 	filteredMatrix []map[string]interface{}
 	// column quals which were used to filter the matrix
 	filteredMatrixColumns []string
-	// lookup keyed by matrix property names
+	// lookup keyed by matrix property names - used to add matrix quals to scope values
 	matrixColLookup map[string]struct{}
+	// the set of matrix vals we are executing for
+	matrixItem map[string]interface{}
 
 	// ttl for the execute call
 	cacheTtl int64
@@ -147,6 +150,8 @@ type QueryData struct {
 
 	fetchMetadata         *hydrateMetadata
 	parentHydrateMetadata *hydrateMetadata
+	listHydrate           HydrateFunc
+	childHydrate          HydrateFunc
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -192,12 +197,6 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	// is this a get or a list fetch?
 	d.setFetchType(table)
 
-	// build the base set of scope values used to resolve a rate limiter
-	d.populateRateLimitScopeValues()
-
-	// populate the rate limiters for the fetch call(s) (get/list/parent-list)
-	d.resolveFetchRateLimiters()
-
 	// for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	queryContext.ensureColumns(table)
 
@@ -227,7 +226,7 @@ func getReservedColumns(table *Table) map[string]struct{} {
 // ShallowCopy creates a shallow copy of the QueryData, i.e. most pointer properties are copied
 // this is used to pass different quals to multiple list/get calls, when an 'in' clause is specified
 func (d *QueryData) ShallowCopy() *QueryData {
-	clone := &QueryData{
+	copyQueryData := &QueryData{
 		Table:             d.Table,
 		EqualsQuals:       make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
@@ -244,28 +243,41 @@ func (d *QueryData) ShallowCopy() *QueryData {
 
 		fetchLimiters:  d.fetchLimiters,
 		filteredMatrix: d.filteredMatrix,
-		hydrateCalls:   d.hydrateCalls,
-		rowDataChan:    d.rowDataChan,
-		errorChan:      d.errorChan,
-		outputChan:     d.outputChan,
-		listWg:         d.listWg,
-		columns:        d.columns,
-		queryStatus:    d.queryStatus,
+
+		rowDataChan:     d.rowDataChan,
+		errorChan:       d.errorChan,
+		outputChan:      d.outputChan,
+		listWg:          d.listWg,
+		columns:         d.columns,
+		queryStatus:     d.queryStatus,
+		matrixColLookup: d.matrixColLookup,
+		listHydrate:     d.listHydrate,
+		childHydrate:    d.childHydrate,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
 	// - this is so they can be updated in the copied QueryData without mutating the original
 	for k, v := range d.EqualsQuals {
-		clone.EqualsQuals[k] = v
+		copyQueryData.EqualsQuals[k] = v
 	}
 	for k, v := range d.Quals {
-		clone.Quals[k] = v
+		copyQueryData.Quals[k] = v
+	}
+	for k, v := range d.rateLimiterScopeValues {
+		copyQueryData.rateLimiterScopeValues[k] = v
+	}
+	copyQueryData.hydrateCalls = make([]*hydrateCall, len(d.hydrateCalls))
+	for i, c := range d.hydrateCalls {
+		// clone the hydrate call but change the query data to the cloned version
+		clonedCall := c.clone()
+		clonedCall.queryData = copyQueryData
+		copyQueryData.hydrateCalls[i] = clonedCall
 	}
 
 	// NOTE: point the public streaming endpoints to their internal implementations IN THIS OBJECT
-	clone.StreamListItem = clone.streamListItem
-	clone.StreamLeafListItem = clone.streamLeafListItem
-	return clone
+	copyQueryData.StreamListItem = copyQueryData.streamListItem
+	copyQueryData.StreamLeafListItem = copyQueryData.streamLeafListItem
+	return copyQueryData
 }
 
 // RowsRemaining returns how many rows are required to complete the query
@@ -295,7 +307,7 @@ func (d *QueryData) GetSourceFiles(source string) ([]string, error) {
 	return getSourceFiles(source, d.tempDir)
 }
 
-func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
+func (d *QueryData) setMatrix(matrix []map[string]interface{}) {
 	d.Matrix = matrix
 	// if we have key column quals for any matrix properties, filter the matrix
 	// to exclude items which do not satisfy the quals
@@ -441,8 +453,11 @@ func (d *QueryData) addColumnsForHydrate(hydrateName string) {
 	}
 }
 
+// set the specific matrix item we are executin gfor
 // add matrix item into KeyColumnQuals and Quals
-func (d *QueryData) updateQualsWithMatrixItem(matrixItem map[string]interface{}) {
+func (d *QueryData) setMatrixItem(matrixItem map[string]interface{}) {
+	d.matrixItem = matrixItem
+	log.Printf("[INFO] setMatrixItem %s", matrixItem)
 	for col, value := range matrixItem {
 		qualValue := proto.NewQualValue(value)
 		// replace any existing entry for both Quals and EqualsQuals
@@ -618,7 +633,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 			debug.FreeOSMemory()
 		}
 
-		// do a deep nil check on item - if nil, just skipthis item
+		// do a deep nil check on item - if nil, just skip this item
 		if helpers.IsNil(item) {
 			log.Printf("[TRACE] streamLeafListItem received nil item, skipping")
 			continue
@@ -628,8 +643,8 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 
 		// create rowData, passing matrixItem from context
 		rd := newRowData(d, item)
-
-		rd.matrixItem = GetMatrixItem(ctx)
+		// set the matrix item
+		rd.matrixItem = d.matrixItem
 		// set the parent item on the row data
 		rd.parentItem = d.parentItem
 		// NOTE: add the item as the hydrate data for the list call
@@ -811,6 +826,7 @@ func (d *QueryData) streamError(err error) {
 	d.errorChan <- err
 }
 
+// TODO KAI this seems to get called even after cancellation
 // execute necessary hydrate calls to populate row data
 func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup, sem *semaphore.Weighted) {
 	go func() {
@@ -846,7 +862,9 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 }
 
 func (d *QueryData) addContextData(row *proto.Row, rowData *rowData) {
-	rowCtxData := newRowCtxData(d, rowData)
+	// NOTE: we use the rowdata QueryData, rather than ourselves
+	// this may be a child QueryData if there is a matrix
+	rowCtxData := newRowCtxData(rowData)
 	jsonValue, err := json.Marshal(rowCtxData)
 	if err != nil {
 		log.Printf("[WARN] failed to marshal JSON for row context data: %s", err.Error())
@@ -885,4 +903,9 @@ func (d *QueryData) removeReservedColumns(row *proto.Row) {
 	for c := range d.reservedColumns {
 		delete(row.Columns, c)
 	}
+}
+
+func (d *QueryData) setListCalls(listCall, childHydrate HydrateFunc) {
+	d.listHydrate = listCall
+	d.childHydrate = childHydrate
 }

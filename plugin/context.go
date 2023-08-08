@@ -31,9 +31,7 @@ func Logger(ctx context.Context) hclog.Logger {
 	return ctx.Value(context_key.Logger).(hclog.Logger)
 }
 
-/*
-Deprecated: Please use [plugin.Table.GetMatrixItemFunc] instead.
-*/
+// GetMatrixItem retrieves the matrix item from the context
 func GetMatrixItem(ctx context.Context) map[string]interface{} {
 	value := ctx.Value(context_key.MatrixItem)
 

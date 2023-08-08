@@ -28,11 +28,6 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 		Config:    config,
 		queryData: d,
 	}
-
-	if err := res.initialiseRateLimiter(); err != nil {
-		return nil, err
-	}
-
 	for _, f := range config.Depends {
 		res.Depends = append(res.Depends, helpers.GetFunctionName(f))
 	}
@@ -92,7 +87,10 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.
 }
 
 func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration {
-
+	// not expected
+	if h.rateLimiter == nil {
+		return 0
+	}
 	log.Printf("[TRACE] ****** start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
 
 	// wait until we can execute
@@ -106,5 +104,16 @@ func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration
 func (h *hydrateCall) onFinished() {
 	if h.rateLimiter != nil {
 		h.rateLimiter.ReleaseSemaphore()
+	}
+}
+
+func (h *hydrateCall) clone() *hydrateCall {
+	return &hydrateCall{
+		Func:        h.Func,
+		Depends:     h.Depends,
+		Config:      h.Config,
+		Name:        h.Name,
+		queryData:   h.queryData,
+		rateLimiter: h.rateLimiter,
 	}
 }

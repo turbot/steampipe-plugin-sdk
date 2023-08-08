@@ -19,12 +19,15 @@ type Limiter struct {
 }
 
 func newLimiter(l *Definition, scopeValues map[string]string) *Limiter {
-	return &Limiter{
+	res := &Limiter{
 		Limiter:     rate.NewLimiter(l.FillRate, int(l.BucketSize)),
 		Name:        l.Name,
-		sem:         semaphore.NewWeighted(l.MaxConcurrency),
 		scopeValues: scopeValues,
 	}
+	if l.MaxConcurrency != 0 {
+		res.sem = semaphore.NewWeighted(l.MaxConcurrency)
+	}
+	return res
 }
 
 func (l *Limiter) tryToAcquireSemaphore() bool {
