@@ -13,15 +13,29 @@ import (
 
 type Limiter struct {
 	*rate.Limiter
-	Name           string
-	MaxConcurrency int64
-	scopeValues    map[string]string
+	Name        string
+	scopeValues map[string]string
+	sem         *semaphore.Weighted
+}
+
+func (l *Limiter) TryToAcquireSemaphore() bool {
+	if l.sem == nil {
+		return true
+	}
+	return l.sem.TryAcquire(1)
+}
+
+func (l *Limiter) ReleaseSemaphore() {
+	if l.sem == nil {
+		return
+	}
+	l.sem.Release(1)
+
 }
 
 type MultiLimiter struct {
 	Limiters    []*Limiter
 	ScopeValues map[string]string
-	sem         *semaphore.Weighted
 }
 
 func NewMultiLimiter(limiters []*Limiter, scopeValues map[string]string) *MultiLimiter {
@@ -30,16 +44,6 @@ func NewMultiLimiter(limiters []*Limiter, scopeValues map[string]string) *MultiL
 		ScopeValues: scopeValues,
 	}
 
-	var maxConcurrency int64 = 0
-	for _, l := range limiters {
-		if maxConcurrency == 0 && l.MaxConcurrency != 0 ||
-			l.MaxConcurrency != 0 && l.MaxConcurrency < maxConcurrency {
-			maxConcurrency = l.MaxConcurrency
-		}
-	}
-	if maxConcurrency != 0 {
-		res.sem = semaphore.NewWeighted(maxConcurrency)
-	}
 	return res
 }
 
@@ -92,6 +96,7 @@ func (m *MultiLimiter) String() string {
 	}
 	return strings.Join(strs, "\n")
 }
+
 func (m *MultiLimiter) LimiterNames() []string {
 	var names = make([]string, len(m.Limiters))
 	for i, l := range m.Limiters {
@@ -101,14 +106,31 @@ func (m *MultiLimiter) LimiterNames() []string {
 }
 
 func (m *MultiLimiter) TryToAcquireSemaphore() bool {
-	if m.sem == nil {
-		return true
+
+	// keep track of limiters whose semaphore we have acquired
+	var acquired []*Limiter
+	for _, l := range m.Limiters {
+
+		if l.TryToAcquireSemaphore() {
+			acquired = append(acquired, l)
+
+		} else {
+
+			// we failed to acquire the semaphore -
+			// we must release all acquired semaphores
+			for _, a := range acquired {
+				a.ReleaseSemaphore()
+			}
+			return false
+		}
 	}
-	return m.sem.TryAcquire(1)
+
+	return true
 }
+
 func (m *MultiLimiter) ReleaseSemaphore() {
-	if m.sem != nil {
-		m.sem.Release(1)
+	for _, l := range m.Limiters {
+		l.ReleaseSemaphore()
 	}
 }
 
