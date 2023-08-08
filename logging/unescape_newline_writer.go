@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// UnescapeNewlineWriter represents a io.Writer that can escape newlines
+// UnescapeNewlineWriter represents a io.Writer that can unescape newlines
 type UnescapeNewlineWriter struct {
 	wr io.Writer
 }
