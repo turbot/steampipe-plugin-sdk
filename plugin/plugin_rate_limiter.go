@@ -4,6 +4,7 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"golang.org/x/exp/maps"
 	"log"
 )
 
@@ -41,7 +42,8 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 }
 
 func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([]*rate_limiter.Limiter, error) {
-	var limiters []*rate_limiter.Limiter
+	// put limiters in map to dedupe
+	var limiters = make(map[string]*rate_limiter.Limiter)
 	// lock the map
 	p.rateLimiterDefsMut.RLock()
 	defer p.rateLimiterDefsMut.RUnlock()
@@ -67,7 +69,7 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 		if err != nil {
 			return nil, err
 		}
-		limiters = append(limiters, limiter)
+		limiters[limiter.Name] = limiter
 	}
-	return limiters, nil
+	return maps.Values(limiters), nil
 }
