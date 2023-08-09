@@ -148,7 +148,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 	// we will make a copy of  queryData and update KeyColumnQuals to replace the list value with a single qual value
 	for _, qv := range qualValueList.Values {
 		// make a shallow copy of the query data and modify the quals
-		queryDataCopy := queryData.ShallowCopy()
+		queryDataCopy := queryData.shallowCopy()
 		queryDataCopy.EqualsQuals[keyColumnName] = qv
 		queryDataCopy.Quals[keyColumnName] =
 			&KeyColumnQuals{Name: keyColumnName, Quals: quals.QualSlice{{Column: keyColumnName, Operator: "=", Value: qv}}}
@@ -270,7 +270,7 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *rowDat
 			fetchContext := context.WithValue(ctx, context_key.MatrixItem, matrixItem)
 
 			// clone the query data and add the matrix properties to quals
-			matrixQueryData := queryData.ShallowCopy()
+			matrixQueryData := queryData.shallowCopy()
 			matrixQueryData.setMatrixItem(matrixItem)
 
 			// now we have set the matrix item, initialise the rate limiters for this query data
@@ -446,7 +446,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 	for _, qv := range qualValueList.Values {
 		log.Printf("[TRACE] executeListCall passing updated query data, qv: %v", qv)
 		// make a shallow copy of the query data and modify the value of the key column qual to be the value list item
-		queryDataCopy := queryData.ShallowCopy()
+		queryDataCopy := queryData.shallowCopy()
 		// update qual maps to replace list value with list element
 		queryDataCopy.EqualsQuals[keyColumn] = qv
 		queryDataCopy.Quals[keyColumn] = &KeyColumnQuals{
@@ -525,7 +525,7 @@ func (t *Table) listForEachMatrix(ctx context.Context, queryData *QueryData, lis
 			rd.matrixItem = matrixItem
 
 			// clone the query data and add the matrix properties to quals
-			matrixQueryData := queryData.ShallowCopy()
+			matrixQueryData := queryData.shallowCopy()
 			matrixQueryData.setMatrixItem(matrixItem)
 
 			// now we have set the matrix item, initialise the rate limiters for this query data

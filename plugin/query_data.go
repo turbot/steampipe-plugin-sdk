@@ -223,9 +223,9 @@ func getReservedColumns(table *Table) map[string]struct{} {
 	return res
 }
 
-// ShallowCopy creates a shallow copy of the QueryData, i.e. most pointer properties are copied
+// shallowCopy creates a shallow copy of the QueryData, i.e. most pointer properties are copied
 // this is used to pass different quals to multiple list/get calls, when an 'in' clause is specified
-func (d *QueryData) ShallowCopy() *QueryData {
+func (d *QueryData) shallowCopy() *QueryData {
 	copyQueryData := &QueryData{
 		Table:             d.Table,
 		EqualsQuals:       make(map[string]*proto.QualValue),
@@ -595,7 +595,7 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 		}()
 		defer d.listWg.Done()
 		// create a copy of query data with the stream function set to streamLeafListItem
-		childQueryData := d.ShallowCopy()
+		childQueryData := d.shallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
 		childQueryData.parentItem = parentItem

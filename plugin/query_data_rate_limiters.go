@@ -58,7 +58,6 @@ func (d *QueryData) populateRateLimitScopeValues() {
 	d.rateLimiterScopeValues[rate_limiter.RateLimiterScopeConnection] = d.Connection.Name
 	// add matrix quals
 
-
 	for column, qualsForColumn := range d.Quals {
 		if _, isMatrixQual := d.matrixColLookup[column]; isMatrixQual {
 			for _, qual := range qualsForColumn.Quals {
