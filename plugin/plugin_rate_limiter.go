@@ -43,9 +43,11 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 }
 
 func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([]*rate_limiter.Limiter, error) {
-	log.Printf("[INFO] getRateLimitersForScopeValues")
-	log.Printf("[INFO] scope values: %v", scopeValues)
-	log.Printf("[INFO] resolvedRateLimiterDefs: %s", strings.Join(maps.Keys(p.resolvedRateLimiterDefs), ","))
+	h := helpers.GetMD5Hash(rate_limiter.FormatStringMap(scopeValues))
+	h = h[len(h)-4:]
+	log.Printf("[INFO] getRateLimitersForScopeValues (%s)", h)
+	log.Printf("[INFO] scope values: %v (%s)", scopeValues, h)
+	log.Printf("[INFO] resolvedRateLimiterDefs: %s (%s)", strings.Join(maps.Keys(p.resolvedRateLimiterDefs), ","), h)
 
 	// put limiters in map to dedupe
 	var limiters = make(map[string]*rate_limiter.Limiter)
@@ -60,19 +62,19 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 		requiredScopeValues := helpers.FilterMap(scopeValues, l.Scope)
 		// do we have all the required values?
 		if len(requiredScopeValues) < len(l.Scope) {
-			log.Printf("[INFO] we DO NOT have scope values required by limiter '%s' - it requires: %s", l.Name, strings.Join(l.Scope, ","))
+			log.Printf("[INFO] we DO NOT have scope values required by limiter '%s' - it requires: %s (%s)", l.Name, strings.Join(l.Scope, ","), h)
 			// this rate limiter does not apply
 			continue
 		}
 
 		// now check whether the tag values satisfy any filters the limiter definition has
 		if !l.SatisfiesFilters(requiredScopeValues) {
-			log.Printf("[INFO] we DO NOT satisyfy the filter for limiter '%s' - filter: %s", l.Name, l.Where)
+			log.Printf("[INFO] we DO NOT satisfy the filter for limiter '%s' - filter: %s (%s)", l.Name, l.Where, h)
 			continue
 		}
 
 		// this limiter DOES apply to us, get or create a limiter instance
-		log.Printf("[INFO] limiter '%s' DOES apply to us", l.Name)
+		log.Printf("[INFO] limiter '%s' DOES apply to us (%s)", l.Name, h)
 
 		limiter, err := p.rateLimiterInstances.GetOrCreate(l, requiredScopeValues)
 		if err != nil {
