@@ -206,7 +206,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 
 	} else {
 		// the table has a matrix  - we will invoke get for each matrix  item
-		getItem, err = t.getForEach(ctx, queryData, rd)
+		getItem, err = t.getForEachMatrixItem(ctx, queryData, rd)
 	}
 
 	if err != nil {
@@ -229,11 +229,10 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	return nil
 }
 
-// getForEach executes the provided get call for each of a set of matrixItem
+// getForEachMatrixItem executes the provided get call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *rowData) (interface{}, error) {
-
-	log.Printf("[TRACE] getForEach, matrixItem list: %v\n", queryData.filteredMatrix)
+func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData, rd *rowData) (interface{}, error) {
+	log.Printf("[TRACE] getForEachMatrixItem, matrixItem list: %v\n", queryData.filteredMatrix)
 
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(queryData.Matrix))
@@ -272,7 +271,6 @@ func (t *Table) getForEach(ctx context.Context, queryData *QueryData, rd *rowDat
 			// clone the query data and add the matrix properties to quals
 			matrixQueryData := queryData.shallowCopy()
 			matrixQueryData.setMatrixItem(matrixItem)
-
 			// now we have set the matrix item, initialise the rate limiters for this query data
 			matrixQueryData.initialiseRateLimiters()
 			// now wait for any configured 'get' rate limiters
@@ -349,7 +347,6 @@ func buildSingleError(errors []error) error {
 }
 
 func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
-
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.executeListCall (%s)", t.Name)
 	defer span.End()
 
@@ -386,55 +383,65 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 	// NOTE: if there is an IN qual, the qual value will be a list of values
 	// in this case we call list for each value
-	if len(t.List.KeyColumns) > 0 {
-		log.Printf("[TRACE] list config defines key columns, checking for list qual values")
+	if listQual := t.getListCallQualValueList(queryData); listQual != nil {
 
-		// we can support IN calls for key columns if only 1 qual has a list value
-
-		// first determine whether more than 1 qual has a list value
-		qualsWithListValues := queryData.Quals.GetListQualValues()
-
-		numQualsWithListValues := len(qualsWithListValues)
-		if numQualsWithListValues > 0 {
-			log.Printf("[TRACE] %d %s have list values",
-				numQualsWithListValues,
-				pluralize.NewClient().Pluralize("qual", numQualsWithListValues, false))
-
-			// if we have more than one qual with list values, extract the required ones
-			// if more than one of these is required, this is an error
-			// - we do not support multiple required quals with list values
-			var requiredListQuals quals.QualSlice
-			if numQualsWithListValues > 1 {
-				log.Printf("[TRACE] more than 1 qual has a list value - counting required quals with list value")
-
-				for _, listQual := range qualsWithListValues {
-
-					// find key column
-					if c := t.List.KeyColumns.Find(listQual.Column); c.Require == Required {
-						requiredListQuals = append(requiredListQuals, listQual)
-					}
-				}
-				if len(requiredListQuals) > 1 {
-					log.Printf("[WARN] more than 1 required qual has a list value - we cannot call list for each so passing quals through to plugin unaltered")
-					qualsWithListValues = nil
-				} else {
-					log.Printf("[TRACE] after removing optional quals %d required remain", len(requiredListQuals))
-					qualsWithListValues = requiredListQuals
-				}
-			}
-		}
-		// list are there any list quals left to process?
-		if len(qualsWithListValues) == 1 {
-			listQual := qualsWithListValues[0]
-			log.Printf("[TRACE] one qual with list value will be processed: %v", *listQual)
-			qualValueList := listQual.Value.GetListValue()
-			t.doListForQualValues(ctx, queryData, listQual.Column, qualValueList, listCall)
-			return
-		}
-
+		log.Printf("[TRACE] one qual with list value will be processed: %v", *listQual)
+		qualValueList := listQual.Value.GetListValue()
+		t.doListForQualValues(ctx, queryData, listQual.Column, qualValueList, listCall)
+		return
 	}
 
 	t.doList(ctx, queryData, listCall)
+}
+
+// if this table defines key columns, and if there is a SINGLE qual with a list value
+// return that qual
+func (t *Table) getListCallQualValueList(queryData *QueryData) *quals.Qual {
+	if len(t.List.KeyColumns) == 0 {
+		return nil
+	}
+
+	log.Printf("[TRACE] list config defines key columns, checking for list qual values")
+
+	// we can support IN calls for key columns if only 1 qual has a list value
+
+	// first determine whether more than 1 qual has a list value
+	qualsWithListValues := queryData.Quals.GetListQualValues()
+
+	numQualsWithListValues := len(qualsWithListValues)
+	if numQualsWithListValues > 0 {
+		log.Printf("[TRACE] %d %s have list values",
+			numQualsWithListValues,
+			pluralize.NewClient().Pluralize("qual", numQualsWithListValues, false))
+
+		// if we have more than one qual with list values, extract the required ones
+		// if more than one of these is required, this is an error
+		// - we do not support multiple required quals with list values
+		var requiredListQuals quals.QualSlice
+		if numQualsWithListValues > 1 {
+			log.Printf("[TRACE] more than 1 qual has a list value - counting required quals with list value")
+
+			for _, listQual := range qualsWithListValues {
+
+				// find key column
+				if c := t.List.KeyColumns.Find(listQual.Column); c.Require == Required {
+					requiredListQuals = append(requiredListQuals, listQual)
+				}
+			}
+			if len(requiredListQuals) > 1 {
+				log.Printf("[WARN] more than 1 required qual has a list value - we cannot call list for each so passing quals through to plugin unaltered")
+				qualsWithListValues = nil
+			} else {
+				log.Printf("[TRACE] after removing optional quals %d required remain", len(requiredListQuals))
+				qualsWithListValues = requiredListQuals
+			}
+		}
+	}
+	// list are there any list quals left to process?
+	if len(qualsWithListValues) == 1 {
+		return qualsWithListValues[0]
+	}
+	return nil
 }
 
 // doListForQualValues is called when there is an equals qual and the qual value is a list of values
@@ -472,38 +479,40 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 	// create rowData, purely so we can call callHydrateWithRetries
 	rd := newRowData(queryData, nil)
 
-	// if a matrix is defined, run listForEachMatrix
+	// if a matrix is defined, run listForEachMatrixItem
 	if queryData.Matrix != nil {
-		log.Printf("[TRACE] doList: matrix len %d - calling  listForEachMatrix", len(queryData.Matrix))
-		t.listForEachMatrix(ctx, queryData, listCall)
-	} else {
-		// now we know there is no matrix, initialise the rate limiters for this query data
-		queryData.initialiseRateLimiters()
-		// now wait for any configured 'list' rate limiters
-		fetchDelay := queryData.fetchLimiters.wait(ctx)
-		// set the metadata
-		queryData.setListLimiterMetadata(fetchDelay)
-
-		log.Printf("[TRACE] doList: no matrix item")
-
-		// we cannot retry errors in the list hydrate function after streaming has started
-		listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
-
-		if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, t.List.IgnoreConfig, listRetryConfig); err != nil {
-			log.Printf("[WARN] doList callHydrateWithRetries (%s) returned err %s", queryData.connectionCallId, err.Error())
-			queryData.streamError(err)
-		}
+		log.Printf("[TRACE] doList: matrix len %d - calling  listForEachMatrixItem", len(queryData.Matrix))
+		t.listForEachMatrixItem(ctx, queryData, listCall)
+		return
 	}
+
+	// now we know there is no matrix, initialise the rate limiters for this query data
+	queryData.initialiseRateLimiters()
+	// now wait for any configured 'list' rate limiters
+	fetchDelay := queryData.fetchLimiters.wait(ctx)
+	// set the metadata
+	queryData.setListLimiterMetadata(fetchDelay)
+
+	log.Printf("[TRACE] doList: no matrix item")
+
+	// we cannot retry errors in the list hydrate function after streaming has started
+	listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
+
+	if _, err := rd.callHydrateWithRetries(ctx, queryData, listCall, t.List.IgnoreConfig, listRetryConfig); err != nil {
+		log.Printf("[WARN] doList callHydrateWithRetries (%s) returned err %s", queryData.connectionCallId, err.Error())
+		queryData.streamError(err)
+	}
+
 }
 
 // ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) listForEachMatrix(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
-	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.listForEachMatrix (%s)", t.Name)
+func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.listForEachMatrixItem (%s)", t.Name)
 	// TODO add matrix item to span
 	defer span.End()
 
-	log.Printf("[TRACE] listForEachMatrix: %v\n", queryData.Matrix)
+	log.Printf("[TRACE] listForEachMatrixItem: %v\n", queryData.Matrix)
 	var wg sync.WaitGroup
 	// NOTE - we use the filtered matrix - which means we may not actually run any hydrate calls
 	// if the quals have filtered out all matrix items (e.g. select where region = 'invalid')

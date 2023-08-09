@@ -266,10 +266,11 @@ func (d *QueryData) shallowCopy() *QueryData {
 	for k, v := range d.rateLimiterScopeValues {
 		copyQueryData.rateLimiterScopeValues[k] = v
 	}
+	// shallow copy the hydrate call but **change the query data to the cloned version**
+	// this is important as the cloned query data may have the matrix itme set - required ro resolve rate limiter
 	copyQueryData.hydrateCalls = make([]*hydrateCall, len(d.hydrateCalls))
 	for i, c := range d.hydrateCalls {
-		// clone the hydrate call but change the query data to the cloned version
-		clonedCall := c.clone()
+		clonedCall := c.shallowCopy()
 		clonedCall.queryData = copyQueryData
 		copyQueryData.hydrateCalls[i] = clonedCall
 	}

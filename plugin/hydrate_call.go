@@ -34,6 +34,17 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 	return res, nil
 }
 
+func (h *hydrateCall) shallowCopy() *hydrateCall {
+	return &hydrateCall{
+		Func:        h.Func,
+		Depends:     h.Depends,
+		Config:      h.Config,
+		Name:        h.Name,
+		queryData:   h.queryData,
+		rateLimiter: h.rateLimiter,
+	}
+}
+
 // identify any rate limiters which apply to this hydrate call
 func (h *hydrateCall) initialiseRateLimiter() error {
 	log.Printf("[INFO] hydrateCall %s initialiseRateLimiter (%s)", h.Name, h.queryData.connectionCallId)
@@ -87,8 +98,9 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.
 }
 
 func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration {
-	// not expected
+	// not expected as if there ar eno rate limiters we should have an empty MultiLimiter
 	if h.rateLimiter == nil {
+		log.Printf("[WARN] hydrate call %s has a nil rateLimiter - not expected", h.Name)
 		return 0
 	}
 	log.Printf("[TRACE] ****** start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
@@ -104,16 +116,5 @@ func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration
 func (h *hydrateCall) onFinished() {
 	if h.rateLimiter != nil {
 		h.rateLimiter.ReleaseSemaphore()
-	}
-}
-
-func (h *hydrateCall) clone() *hydrateCall {
-	return &hydrateCall{
-		Func:        h.Func,
-		Depends:     h.Depends,
-		Config:      h.Config,
-		Name:        h.Name,
-		queryData:   h.queryData,
-		rateLimiter: h.rateLimiter,
 	}
 }
