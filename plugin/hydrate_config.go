@@ -98,14 +98,15 @@ type HydrateConfig struct {
 	// a function which will return whenther to retry the call if an error is returned
 	RetryConfig *RetryConfig
 	Depends     []HydrateFunc
-	// static scope values used to resolve the rate limiter for this hydrate call
+
+	// tags - used to resolve the rate limiter for this hydrate call
 	// for example:
 	// "service": "s3"
 	//
 	// when resolving a rate limiter for a hydrate call, a map of scope values is automatically populated:
-	// - the plugin, table, connection and hydrate func name
+	// - the table and  connection name
 	// - values specified in the hydrate config
-	// - quals (with values as string)
+	// - matrix quals (with values as string)
 	// this map is then used to find a rate limiter
 	Tags map[string]string
 

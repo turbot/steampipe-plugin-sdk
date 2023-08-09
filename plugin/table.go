@@ -64,6 +64,8 @@ type Table struct {
 	// cache options - allows disabling of cache for this table
 	Cache *TableCacheOptions
 
+	// tags used to provide scope values for all child hydrate calls
+	// (may be used for more in future)
 	Tags map[string]string
 
 	// deprecated - use DefaultIgnoreConfig
