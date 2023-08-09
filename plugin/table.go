@@ -99,7 +99,7 @@ func (t *Table) initialise(p *Plugin) {
 	if t.Tags == nil {
 		t.Tags = make(map[string]string)
 	}
-	// populate scope values with table name
+	// populate tags with table name
 	t.Tags[rate_limiter.RateLimiterScopeTable] = t.Name
 
 	if t.DefaultShouldIgnoreError != nil && t.DefaultIgnoreConfig.ShouldIgnoreError == nil {

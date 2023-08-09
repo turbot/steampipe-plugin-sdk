@@ -486,7 +486,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 		return
 	}
 
-	// now we know there is no matrix, initialise the rate limiters for this query data
+	// OK we know there is no matrix, initialise the rate limiters for this query data
 	queryData.initialiseRateLimiters()
 	// now wait for any configured 'list' rate limiters
 	fetchDelay := queryData.fetchLimiters.wait(ctx)

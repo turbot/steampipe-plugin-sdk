@@ -24,9 +24,9 @@ func (d *QueryData) initialiseRateLimiters() {
 // resolve the scope values for a given hydrate call
 func (d *QueryData) resolveRateLimiterScopeValues(hydrateCallScopeValues map[string]string) map[string]string {
 	log.Printf("[INFO] resolveRateLimiterScopeValues (%s)", d.connectionCallId)
-	log.Printf("[INFO] hydrateCallScopeValues %v", hydrateCallScopeValues)
-	log.Printf("[INFO] d.Table.Tags %v", d.Table.Tags)
-	log.Printf("[INFO] d.rateLimiterScopeValues %v", d.rateLimiterScopeValues)
+	log.Printf("[INFO] HydrateCall tags %v", hydrateCallScopeValues)
+	log.Printf("[INFO] Table tags %v", d.Table.Tags)
+	log.Printf("[INFO] QueryData rateLimiterScopeValues %v", d.rateLimiterScopeValues)
 	// build list of source value maps which we will merge
 	// this is in order of DECREASING precedence, i.e. highest first
 	scopeValueList := []map[string]string{
@@ -139,6 +139,7 @@ func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 	fetchMetadata := &hydrateMetadata{
 		FuncName:     helpers.GetFunctionName(d.listHydrate),
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
+		ScopeValues:  d.fetchLimiters.rateLimiter.ScopeValues,
 		DelayMs:      fetchDelay.Milliseconds(),
 	}
 	if d.childHydrate == nil {
@@ -149,6 +150,7 @@ func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 			Type:         string(fetchTypeList),
 			FuncName:     helpers.GetFunctionName(d.childHydrate),
 			RateLimiters: d.fetchLimiters.childListRateLimiter.LimiterNames(),
+			ScopeValues:  d.fetchLimiters.childListRateLimiter.ScopeValues,
 		}
 		fetchMetadata.Type = "parentHydrate"
 		d.parentHydrateMetadata = fetchMetadata
@@ -160,6 +162,7 @@ func (d *QueryData) setGetLimiterMetadata(fetchDelay time.Duration) {
 		Type:         string(fetchTypeGet),
 		FuncName:     helpers.GetFunctionName(d.Table.Get.Hydrate),
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
+		ScopeValues:  d.fetchLimiters.rateLimiter.ScopeValues,
 		DelayMs:      fetchDelay.Milliseconds(),
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"golang.org/x/exp/maps"
 	"log"
+	"strings"
 )
 
 func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
@@ -21,7 +22,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 	// now build the set of all tag values which applies to this call
 	rateLimiterScopeValues := queryData.resolveRateLimiterScopeValues(hydrateCallScopeValues)
 
-	log.Printf("[INFO] rateLimiterTagValues: %s", rateLimiterScopeValues)
+	log.Printf("[INFO] rateLimiterScopeValues: %s", rateLimiterScopeValues)
 
 	// build a list of all the limiters which match these tags
 	limiters, err := p.getRateLimitersForScopeValues(rateLimiterScopeValues)
@@ -42,6 +43,10 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 }
 
 func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([]*rate_limiter.Limiter, error) {
+	log.Printf("[INFO] getRateLimitersForScopeValues")
+	log.Printf("[INFO] scope values: %v", scopeValues)
+	log.Printf("[INFO] resolvedRateLimiterDefs: %s", strings.Join(maps.Keys(p.resolvedRateLimiterDefs), ","))
+
 	// put limiters in map to dedupe
 	var limiters = make(map[string]*rate_limiter.Limiter)
 	// lock the map
@@ -55,16 +60,20 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 		requiredScopeValues := helpers.FilterMap(scopeValues, l.Scope)
 		// do we have all the required values?
 		if len(requiredScopeValues) < len(l.Scope) {
+			log.Printf("[INFO] we DO NOT have scope values required by limiter '%s' - it requires: %s", l.Name, strings.Join(l.Scope, ","))
 			// this rate limiter does not apply
 			continue
 		}
 
 		// now check whether the tag values satisfy any filters the limiter definition has
 		if !l.SatisfiesFilters(requiredScopeValues) {
+			log.Printf("[INFO] we DO NOT satisyfy the filter for limiter '%s' - filter: %s", l.Name, l.Where)
 			continue
 		}
 
 		// this limiter DOES apply to us, get or create a limiter instance
+		log.Printf("[INFO] limiter '%s' DOES apply to us", l.Name)
+
 		limiter, err := p.rateLimiterInstances.GetOrCreate(l, requiredScopeValues)
 		if err != nil {
 			return nil, err
