@@ -102,7 +102,7 @@ func (c *ListConfig) Validate(table *Table) []string {
 	for _, h := range table.HydrateConfig {
 		if helpers.GetFunctionName(h.Func) == listHydrateName {
 			if len(h.Depends) > 0 {
-				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' defines depdendencies in its `HydrateConfig`", table.Name, listHydrateName))
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' defines dependencies in its `HydrateConfig`", table.Name, listHydrateName))
 			}
 			break
 		}

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"log"
 	"strings"
 	"testing"
 
@@ -138,7 +139,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: []string{"table 'table' Get hydrate function 'getHydrate' also has an explicit hydrate config declared in `HydrateConfig`"},
+		expected: []string{"table 'table' Get hydrate function 'getHydrate' defines dependendencies in its `HydrateConfig`"},
 	},
 	"list with hydrate dependency": {
 		plugin: Plugin{
@@ -202,7 +203,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: []string{"table 'table' List hydrate function 'listHydrate' also has an explicit hydrate config declared in `HydrateConfig`"},
+		expected: []string{"table 'table' List hydrate function 'listHydrate' defines dependencies in its `HydrateConfig`"},
 	},
 	// non deterministic - skip
 	//"circular dep": {
@@ -460,7 +461,10 @@ var testCasesValidate = map[string]validateTest{
 
 func TestValidate(t *testing.T) {
 	for name, test := range testCasesValidate {
-		test.plugin.initialise(hclog.NewNullLogger())
+		logger := hclog.NewNullLogger()
+		log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+
+		test.plugin.initialise(logger)
 		test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
 
 		_, validationErrors := test.plugin.validate(test.plugin.TableMap)
