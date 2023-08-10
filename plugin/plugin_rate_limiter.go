@@ -80,6 +80,9 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 		if err != nil {
 			return nil, err
 		}
+		// this limiter DOES apply to us, get or create a limiter instance
+		log.Printf("[INFO] got limiter instance for '%s'(%s)", limiter.Name, h)
+
 		limiters[limiter.Name] = limiter
 	}
 	return maps.Values(limiters), nil

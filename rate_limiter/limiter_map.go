@@ -24,8 +24,8 @@ func NewLimiterMap() *LimiterMap {
 
 // GetOrCreate checks the map for a limiter with the specified key values - if none exists it creates it
 func (m *LimiterMap) GetOrCreate(def *Definition, scopeValues map[string]string) (*Limiter, error) {
-	// build the key from the scope values
-	key, err := buildLimiterKey(scopeValues)
+	// build the key from the name and scope values
+	key, err := buildLimiterKey(def.Name, scopeValues)
 	if err != nil {
 		return nil, err
 	}
@@ -64,10 +64,10 @@ func (m *LimiterMap) Clear() {
 	m.mut.Unlock()
 }
 
-func buildLimiterKey(values map[string]string) (string, error) {
+func buildLimiterKey(name string, values map[string]string) (string, error) {
 	// build the key for this rate limiter
-	// map key is the hash of the string representation of the value map
-	hash := md5.Sum([]byte(ScopeValuesString(values)))
+	// map key is the hash of the name and string representation of the value map
+	hash := md5.Sum([]byte(name + ScopeValuesString(values)))
 	key := hex.EncodeToString(hash[:])
 
 	return key, nil
