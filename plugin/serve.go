@@ -2,11 +2,11 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"fmt"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
@@ -49,15 +49,15 @@ passing callback functions to implement each of the plugin interface functions:
 const (
 	UnrecognizedRemotePluginMessage       = "Unrecognized remote plugin message:"
 	UnrecognizedRemotePluginMessageSuffix = "\nThis usually means"
-	StartupPanicMessage                   = "Unhandled exception starting plugin: "
+	PluginStartupFailureMessage           = "Plugin startup failed: "
 )
 
 func Serve(opts *ServeOpts) {
 	defer func() {
 		if r := recover(); r != nil {
-			msg := fmt.Sprintf("%s%s", StartupPanicMessage, helpers.ToError(r).Error())
+			msg := fmt.Sprintf("%s%s", PluginStartupFailureMessage, helpers.ToError(r).Error())
 			log.Println("[WARN]", msg)
-			// write to stdout so the plugin manager can extract the panic message
+			// write to stdout so the plugin manager can extract the error message
 			fmt.Println(msg)
 		}
 	}()
