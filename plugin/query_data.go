@@ -244,15 +244,16 @@ func (d *QueryData) shallowCopy() *QueryData {
 		fetchLimiters:  d.fetchLimiters,
 		filteredMatrix: d.filteredMatrix,
 
-		rowDataChan:     d.rowDataChan,
-		errorChan:       d.errorChan,
-		outputChan:      d.outputChan,
-		listWg:          d.listWg,
-		columns:         d.columns,
-		queryStatus:     d.queryStatus,
-		matrixColLookup: d.matrixColLookup,
-		listHydrate:     d.listHydrate,
-		childHydrate:    d.childHydrate,
+		rowDataChan:            d.rowDataChan,
+		errorChan:              d.errorChan,
+		outputChan:             d.outputChan,
+		listWg:                 d.listWg,
+		columns:                d.columns,
+		queryStatus:            d.queryStatus,
+		matrixColLookup:        d.matrixColLookup,
+		listHydrate:            d.listHydrate,
+		childHydrate:           d.childHydrate,
+		rateLimiterScopeValues: make(map[string]string),
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
