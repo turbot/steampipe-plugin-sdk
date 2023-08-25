@@ -19,6 +19,9 @@ type hydrateCall struct {
 
 	queryData   *QueryData
 	rateLimiter *rate_limiter.MultiLimiter
+	// the time when we _could_ start the call, if comncurrency limits allowed
+	potentialStartTime time.Time
+	concurrencyDelay   time.Duration
 }
 
 func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
@@ -74,10 +77,23 @@ func (h *hydrateCall) canStart(rowData *rowData) bool {
 			return false
 		}
 	}
+	// so all dependencies have been satisfied - if a rate limiting config is defined,
+	// check whether we satisfy the concurrency limits
 	if h.rateLimiter == nil {
 		return true
 	}
-	return h.rateLimiter.TryToAcquireSemaphore()
+
+	// if no potentiual start time is set, set it now
+	if h.potentialStartTime.IsZero() {
+		h.potentialStartTime = time.Now()
+	}
+
+	canStart := h.rateLimiter.TryToAcquireSemaphore()
+	if canStart {
+		// record the delay in startiung due to concurrency limits
+		h.concurrencyDelay = time.Since(h.potentialStartTime)
+	}
+	return canStart
 }
 
 // Start starts a hydrate call
@@ -94,7 +110,7 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.
 		r.callHydrate(ctx, d, h.Func, h.Name, h.Config)
 		h.onFinished()
 	}()
-	return rateLimitDelay
+	return rateLimitDelay + h.concurrencyDelay
 }
 
 func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration {
