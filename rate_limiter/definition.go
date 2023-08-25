@@ -40,6 +40,17 @@ func DefinitionFromProto(p *proto.RateLimiterDefinition) (*Definition, error) {
 	return res, nil
 }
 
+func (d *Definition) ToProto() *proto.RateLimiterDefinition {
+	return &proto.RateLimiterDefinition{
+		Name:           d.Name,
+		FillRate:       float32(d.FillRate),
+		BucketSize:     d.BucketSize,
+		MaxConcurrency: d.MaxConcurrency,
+		Scope:          d.Scope,
+		Where:          d.Where,
+	}
+}
+
 func (d *Definition) Initialise() error {
 	log.Printf("[INFO] initialise rate limiter Definition")
 	if d.Where != "" {

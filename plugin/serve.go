@@ -98,7 +98,9 @@ func Serve(opts *ServeOpts) {
 		p.execute,
 		p.establishMessageStream,
 		p.setCacheOptions,
-		p.setRateLimiters).Serve()
+		p.setRateLimiters,
+		p.getRateLimiters,
+	).Serve()
 }
 
 func setupLogger() hclog.Logger {

@@ -3,8 +3,9 @@ package grpc
 import "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 
 type PluginSchema struct {
-	Schema map[string]*proto.TableSchema
-	Mode   string
+	Schema       map[string]*proto.TableSchema
+	Mode         string
+	RateLimiters []*proto.RateLimiterDefinition
 }
 
 func NewPluginSchema(mode string) *PluginSchema {

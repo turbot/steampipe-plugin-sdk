@@ -13,6 +13,7 @@ service WrapperPlugin {
   rpc GetSupportedOperations(GetSupportedOperationsRequest) returns (GetSupportedOperationsResponse);
   rpc SetCacheOptions(SetCacheOptionsRequest) returns (SetCacheOptionsResponse);
   rpc SetRateLimiters(SetRateLimitersRequest) returns (SetRateLimitersResponse);
+  rpc GetRateLimiters(GetRateLimitersRequest) returns (GetRateLimitersResponse);
 }
 
 message EstablishMessageStreamRequest{
@@ -126,6 +127,7 @@ message GetSchemaRequest {
 
 message GetSchemaResponse {
   Schema schema = 1;
+  repeated RateLimiterDefinition rate_limiters = 2;
 }
 
 message GetSupportedOperationsRequest{}
@@ -136,7 +138,7 @@ message GetSupportedOperationsResponse{
   bool multiple_connections = 2;
   bool message_stream = 3;
   bool set_cache_options = 4;
-  bool set_rate_limiters = 5;
+  bool rate_limiters = 5;
 }
 
 message SetConnectionConfigRequest{
@@ -299,13 +301,6 @@ message SetCacheOptionsRequest {
   int64 max_size_mb = 4;
 }
 
-message SetCacheOptionsResponse {
-}
-
-message SetRateLimitersRequest {
-  repeated RateLimiterDefinition definitions = 1;
-}
-
 message RateLimiterDefinition {
   string name = 1;
   float fill_rate = 2;
@@ -315,5 +310,21 @@ message RateLimiterDefinition {
   string where = 6;
 }
 
+message SetCacheOptionsResponse {
+}
+
+message SetRateLimitersRequest {
+  repeated RateLimiterDefinition definitions = 1;
+}
+
+
 message SetRateLimitersResponse {
+}
+
+message GetRateLimitersRequest {
+}
+
+
+message GetRateLimitersResponse {
+  repeated RateLimiterDefinition definitions = 1;
 }

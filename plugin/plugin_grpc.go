@@ -371,3 +371,16 @@ func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) (err err
 
 	return error_helpers.CombineErrors(errors...)
 }
+
+// return the rate limiter defintions defined by the plugin
+func (p *Plugin) getRateLimiters() []*proto.RateLimiterDefinition {
+	if len(p.RateLimiters) == 0 {
+		return nil
+	}
+	res := make([]*proto.RateLimiterDefinition, len(p.RateLimiters))
+	for i, d := range p.RateLimiters {
+		res[i] = d.ToProto()
+
+	}
+	return res
+}
