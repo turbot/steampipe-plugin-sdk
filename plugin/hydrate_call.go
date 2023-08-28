@@ -122,7 +122,7 @@ func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration
 	log.Printf("[TRACE] ****** start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
 
 	// wait until we can execute
-	delay := h.rateLimiter.Wait(ctx, 1)
+	delay := h.rateLimiter.Wait(ctx)
 
 	log.Printf("[TRACE] ****** AFTER rate limiter %s (%dms) (%s)", h.Name, delay.Milliseconds(), d.connectionCallId)
 

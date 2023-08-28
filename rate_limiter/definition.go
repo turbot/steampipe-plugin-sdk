@@ -5,6 +5,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"golang.org/x/time/rate"
 	"log"
+	"strings"
 )
 
 type Definition struct {
@@ -13,7 +14,7 @@ type Definition struct {
 	// the actual limiter config
 	FillRate   rate.Limit
 	BucketSize int64
-
+	// the max concurrency supported
 	MaxConcurrency int64
 	// the scope properties which identify this limiter instance
 	// one limiter instance will be created for each combination of these properties which is encountered
@@ -66,7 +67,15 @@ func (d *Definition) Initialise() error {
 }
 
 func (d *Definition) String() string {
-	return fmt.Sprintf("Limit(/s): %v, Burst: %d, Scopes: %s, Filter: %s", d.FillRate, d.BucketSize, d.Scope, d.Where)
+	limiterString := ""
+	concurrencyString := ""
+	if d.FillRate >= 0 {
+		limiterString = fmt.Sprintf("Limit(/s): %v, Burst: %d", d.FillRate, d.BucketSize)
+	}
+	if d.MaxConcurrency >= 0 {
+		concurrencyString = fmt.Sprintf("MaxConcurrency: %d", d.MaxConcurrency)
+	}
+	return fmt.Sprintf("%s Scopes: %s, Where: %s", strings.Join([]string{limiterString, concurrencyString}, " "), d.Scope, d.Where)
 }
 
 func (d *Definition) Validate() []string {

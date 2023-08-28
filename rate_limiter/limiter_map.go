@@ -12,18 +12,18 @@ import (
 // tags: {"connection": "aws1", "region": "us-east-1"}
 // key: hash("{\"connection\": \"aws1\", \"region\": \"us-east-1\"})
 type LimiterMap struct {
-	limiters map[string]*Limiter
+	limiters map[string]*HydrateLimiter
 	mut      sync.RWMutex
 }
 
 func NewLimiterMap() *LimiterMap {
 	return &LimiterMap{
-		limiters: make(map[string]*Limiter),
+		limiters: make(map[string]*HydrateLimiter),
 	}
 }
 
 // GetOrCreate checks the map for a limiter with the specified key values - if none exists it creates it
-func (m *LimiterMap) GetOrCreate(def *Definition, scopeValues map[string]string) (*Limiter, error) {
+func (m *LimiterMap) GetOrCreate(def *Definition, scopeValues map[string]string) (*HydrateLimiter, error) {
 	// build the key from the name and scope values
 	key, err := buildLimiterKey(def.Name, scopeValues)
 	if err != nil {
@@ -60,7 +60,7 @@ func (m *LimiterMap) GetOrCreate(def *Definition, scopeValues map[string]string)
 
 func (m *LimiterMap) Clear() {
 	m.mut.Lock()
-	m.limiters = make(map[string]*Limiter)
+	m.limiters = make(map[string]*HydrateLimiter)
 	m.mut.Unlock()
 }
 

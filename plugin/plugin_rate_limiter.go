@@ -42,7 +42,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]str
 	return res, nil
 }
 
-func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([]*rate_limiter.Limiter, error) {
+func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([]*rate_limiter.HydrateLimiter, error) {
 	h := helpers.GetMD5Hash(rate_limiter.FormatStringMap(scopeValues))
 	h = h[len(h)-4:]
 	log.Printf("[INFO] getRateLimitersForScopeValues (%s)", h)
@@ -50,7 +50,7 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 	log.Printf("[INFO] resolvedRateLimiterDefs: %s (%s)", strings.Join(maps.Keys(p.resolvedRateLimiterDefs), ","), h)
 
 	// put limiters in map to dedupe
-	var limiters = make(map[string]*rate_limiter.Limiter)
+	var limiters = make(map[string]*rate_limiter.HydrateLimiter)
 	// lock the map
 	p.rateLimiterDefsMut.RLock()
 	defer p.rateLimiterDefsMut.RUnlock()

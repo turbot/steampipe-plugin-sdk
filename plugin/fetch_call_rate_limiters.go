@@ -18,7 +18,7 @@ type fetchCallRateLimiters struct {
 // if there is a fetch call rate limiter, wait for it
 func (l fetchCallRateLimiters) wait(ctx context.Context) time.Duration {
 	if l.rateLimiter != nil {
-		return l.rateLimiter.Wait(ctx, 1)
+		return l.rateLimiter.Wait(ctx)
 	}
 	return 0
 }
@@ -26,7 +26,7 @@ func (l fetchCallRateLimiters) wait(ctx context.Context) time.Duration {
 // if there is a 'childList' rate limiter, wait for it
 func (l fetchCallRateLimiters) childListWait(ctx context.Context) time.Duration {
 	if l.childListRateLimiter != nil {
-		return l.childListRateLimiter.Wait(ctx, 1)
+		return l.childListRateLimiter.Wait(ctx)
 	}
 	return 0
 }

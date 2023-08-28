@@ -4,53 +4,18 @@ import (
 	"context"
 	"fmt"
 	"github.com/turbot/go-kit/helpers"
-	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 	"log"
 	"strings"
 	"time"
 )
 
-type Limiter struct {
-	*rate.Limiter
-	Name        string
-	scopeValues map[string]string
-	sem         *semaphore.Weighted
-}
-
-func newLimiter(l *Definition, scopeValues map[string]string) *Limiter {
-	res := &Limiter{
-		Limiter:     rate.NewLimiter(l.FillRate, int(l.BucketSize)),
-		Name:        l.Name,
-		scopeValues: scopeValues,
-	}
-	if l.MaxConcurrency != 0 {
-		res.sem = semaphore.NewWeighted(l.MaxConcurrency)
-	}
-	return res
-}
-
-func (l *Limiter) tryToAcquireSemaphore() bool {
-	if l.sem == nil {
-		return true
-	}
-	return l.sem.TryAcquire(1)
-}
-
-func (l *Limiter) releaseSemaphore() {
-	if l.sem == nil {
-		return
-	}
-	l.sem.Release(1)
-
-}
-
 type MultiLimiter struct {
-	Limiters    []*Limiter
+	Limiters    []*HydrateLimiter
 	ScopeValues map[string]string
 }
 
-func NewMultiLimiter(limiters []*Limiter, scopeValues map[string]string) *MultiLimiter {
+func NewMultiLimiter(limiters []*HydrateLimiter, scopeValues map[string]string) *MultiLimiter {
 	res := &MultiLimiter{
 		Limiters:    limiters,
 		ScopeValues: scopeValues,
@@ -59,13 +24,13 @@ func NewMultiLimiter(limiters []*Limiter, scopeValues map[string]string) *MultiL
 	return res
 }
 
-func (m *MultiLimiter) Wait(ctx context.Context, cost int) time.Duration {
+func (m *MultiLimiter) Wait(ctx context.Context) time.Duration {
 	// short circuit if we have no limiters
 	if len(m.Limiters) == 0 {
 		return 0
 	}
 
-	var maxDelay time.Duration
+	var maxDelay time.Duration = 0
 	var reservations []*rate.Reservation
 
 	// todo cancel reservations for all but longest delay
@@ -73,17 +38,20 @@ func (m *MultiLimiter) Wait(ctx context.Context, cost int) time.Duration {
 
 	// find the max delay from all the limiters
 	for _, l := range m.Limiters {
-		r := l.ReserveN(time.Now(), cost)
-		reservations = append(reservations, r)
-		if d := r.Delay(); d > maxDelay {
-			maxDelay = d
+		if l.hasLimiter() {
+			r := l.reserve()
+			reservations = append(reservations, r)
+			if d := r.Delay(); d > maxDelay {
+				maxDelay = d
+			}
 		}
 	}
+
 	if maxDelay == 0 {
 		return 0
 	}
 
-	log.Printf("[INFO] rate limiter waiting %dms", maxDelay.Milliseconds())
+	log.Printf("[TRACE] rate limiter waiting %dms", maxDelay.Milliseconds())
 	// wait for the max delay time
 	t := time.NewTimer(maxDelay)
 	defer t.Stop()
@@ -104,7 +72,7 @@ func (m *MultiLimiter) String() string {
 	var strs []string
 
 	for _, l := range m.Limiters {
-		strs = append(strs, fmt.Sprintf("Name: %sm Limit: %d, Burst: %d, Tags: %s", l.Name, int(l.Limiter.Limit()), l.Limiter.Burst(), l.scopeValues))
+		strs = append(strs, l.String())
 	}
 	return strings.Join(strs, "\n")
 }
@@ -120,7 +88,7 @@ func (m *MultiLimiter) LimiterNames() []string {
 func (m *MultiLimiter) TryToAcquireSemaphore() bool {
 
 	// keep track of limiters whose semaphore we have acquired
-	var acquired []*Limiter
+	var acquired []*HydrateLimiter
 	for _, l := range m.Limiters {
 
 		if l.tryToAcquireSemaphore() {
