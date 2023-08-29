@@ -12,15 +12,18 @@ import (
 func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
 	log.Printf("[INFO] getHydrateCallRateLimiter (%s)", queryData.connectionCallId)
 
-	res := &rate_limiter.MultiLimiter{}
-	// short circuit if there ar eno defs
+	// now build the set of all tag values which applies to this call
+	rateLimiterScopeValues := queryData.resolveRateLimiterScopeValues(hydrateCallScopeValues)
+
+	// add scope values _even for an empty rate limiter_ so they appear in the _ctx field
+	res := &rate_limiter.MultiLimiter{
+		ScopeValues: rateLimiterScopeValues,
+	}
+	// short circuit if there are no defs
 	if len(p.resolvedRateLimiterDefs) == 0 {
 		log.Printf("[INFO] resolvedRateLimiterConfig: no rate limiters (%s)", queryData.connectionCallId)
 		return res, nil
 	}
-
-	// now build the set of all tag values which applies to this call
-	rateLimiterScopeValues := queryData.resolveRateLimiterScopeValues(hydrateCallScopeValues)
 
 	log.Printf("[INFO] rateLimiterScopeValues: %s", rateLimiterScopeValues)
 

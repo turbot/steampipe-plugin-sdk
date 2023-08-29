@@ -83,11 +83,8 @@ func (d *Definition) Validate() []string {
 	if d.Name == "" {
 		validationErrors = append(validationErrors, "rate limiter definition must specify a name")
 	}
-	if d.FillRate == 0 {
-		validationErrors = append(validationErrors, "rate limiter definition must have a non-zero limit")
-	}
-	if d.BucketSize == 0 {
-		validationErrors = append(validationErrors, "rate limiter definition must have a non-zero burst size")
+	if (d.FillRate == 0 || d.BucketSize == 0) && d.MaxConcurrency == 0 {
+		validationErrors = append(validationErrors, "rate limiter definition must definer either a rate limit or max concurrency")
 	}
 
 	return validationErrors
