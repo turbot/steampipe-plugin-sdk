@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
@@ -8,6 +9,10 @@ import (
 	"log"
 	"time"
 )
+
+func (d *QueryData) WaitForListRateLimit(ctx context.Context) {
+	d.fetchLimiters.wait(ctx)
+}
 
 func (d *QueryData) initialiseRateLimiters() {
 	log.Printf("[INFO] initialiseRateLimiters for query data %p (%s)", d, d.connectionCallId)
