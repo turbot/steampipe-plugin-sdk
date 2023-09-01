@@ -15,7 +15,6 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 	"log"
-	"runtime/debug"
 	"sync"
 )
 
@@ -195,11 +194,6 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	log.Printf("[INFO] Plugin execute table: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
-
-	// limit the plugin memory
-	newLimit := GetMaxMemoryBytes()
-	debug.SetMemoryLimit(newLimit)
-	log.Printf("[INFO] Plugin execute, setting memory limit to %dMb", newLimit/(1024*1024))
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
