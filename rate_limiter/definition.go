@@ -5,6 +5,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"golang.org/x/time/rate"
 	"log"
+	"regexp"
 	"strings"
 )
 
@@ -83,11 +84,21 @@ func (d *Definition) Validate() []string {
 	if d.Name == "" {
 		validationErrors = append(validationErrors, "rate limiter definition must specify a name")
 	}
+	if !validHCLLabel(d.Name) {
+		validationErrors = append(validationErrors, fmt.Sprintf("invalid rate limiter name '%s' - names can contain letters, digits, underscores (_), and hyphens (-), and cannot start with a digit", d.Name))
+	}
 	if (d.FillRate == 0 || d.BucketSize == 0) && d.MaxConcurrency == 0 {
 		validationErrors = append(validationErrors, "rate limiter definition must definer either a rate limit or max concurrency")
 	}
 
 	return validationErrors
+}
+
+func validHCLLabel(name string) bool {
+	// Identifiers can contain letters, digits, underscores (_), and hyphens (-). The first character of an identifier must not be a digit, to avoid ambiguity with literal numbers.
+	return regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(name) &&
+		// must not start with number (no negative lookaheads in go :( )
+		!regexp.MustCompile(`^[0-9]+$`).MatchString(name[:1])
 }
 
 // SatisfiesFilters returns whether the given values satisfy ANY of our filters

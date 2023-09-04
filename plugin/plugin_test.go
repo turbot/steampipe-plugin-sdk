@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 	"strings"
 	"testing"
@@ -76,6 +77,50 @@ var testCasesValidate = map[string]validateTest{
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
 		expected: []string{""},
+	},
+	"invalid limiter name": {
+		plugin: Plugin{
+			Name: "plugin",
+			TableMap: map[string]*Table{
+				"table": {
+					Name: "table",
+					Columns: []*Column{
+						{
+							Name: "name",
+							Type: proto.ColumnType_STRING,
+						},
+						{
+							Name:    "c1",
+							Type:    proto.ColumnType_STRING,
+							Hydrate: hydrate1,
+						},
+						{
+							Name:    "c2",
+							Type:    proto.ColumnType_STRING,
+							Hydrate: hydrate2,
+						},
+					},
+					List: &ListConfig{
+						Hydrate: listHydrate,
+					},
+					Get: &GetConfig{
+						KeyColumns:        SingleColumn("name"),
+						Hydrate:           getHydrate,
+						ShouldIgnoreError: isNotFound,
+					},
+					HydrateDependencies: []HydrateDependencies{{Func: hydrate2, Depends: []HydrateFunc{hydrate1}}},
+				},
+			},
+			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
+			RateLimiters: []*rate_limiter.Definition{
+				{
+					Name:           "1invalid",
+					MaxConcurrency: 10,
+				},
+			},
+		},
+
+		expected: []string{"invalid rate limiter name '1invalid' - names can contain letters, digits, underscores (_), and hyphens (-), and cannot start with a digit"},
 	},
 	"get with hydrate dependency": {
 		plugin: Plugin{
