@@ -95,7 +95,7 @@ func (t *Table) initialise(p *Plugin) {
 		t.DefaultIgnoreConfig = &IgnoreConfig{}
 	}
 
-	// create RateLimit if needed
+	// create Tags if needed
 	if t.Tags == nil {
 		t.Tags = make(map[string]string)
 	}
