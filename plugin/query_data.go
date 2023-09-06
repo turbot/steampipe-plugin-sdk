@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/exp/maps"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -19,7 +18,10 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"golang.org/x/exp/maps"
+	"golang.org/x/sync/semaphore"
 )
 
 // how may rows do we cache in the rowdata channel
@@ -88,6 +90,7 @@ type QueryData struct {
 	StreamLeafListItem func(context.Context, ...interface{})
 
 	// internal
+
 	// the status of the in-progress query
 	queryStatus *queryStatus
 	// the callId for this connection
@@ -95,21 +98,27 @@ type QueryData struct {
 	plugin           *Plugin
 	// a list of the required hydrate calls (EXCLUDING the fetch call)
 	hydrateCalls []*hydrateCall
+	// the rate limiter(s) which apply to the fetch call
+	fetchLimiters *fetchCallRateLimiters
 
 	// all the columns that will be returned by this query
-	columns            map[string]*QueryColumn
-	concurrencyManager *concurrencyManager
-	rowDataChan        chan *rowData
-	errorChan          chan error
+	columns     map[string]*QueryColumn
+	rowDataChan chan *rowData
+	errorChan   chan error
 	// channel to send results
 	outputChan chan *proto.ExecuteResponse
 	// wait group used to synchronise parent-child list fetches - each child hydrate function increments this wait group
 	listWg *sync.WaitGroup
 	// when executing parent child list calls, we cache the parent list result in the query data passed to the child list call
-	parentItem     interface{}
+	parentItem interface{}
+
 	filteredMatrix []map[string]interface{}
 	// column quals which were used to filter the matrix
 	filteredMatrixColumns []string
+	// lookup keyed by matrix property names - used to add matrix quals to scope values
+	matrixColLookup map[string]struct{}
+	// the set of matrix vals we are executing for
+	matrixItem map[string]interface{}
 
 	// ttl for the execute call
 	cacheTtl int64
@@ -134,6 +143,15 @@ type QueryData struct {
 	// cancel the execution context
 	// (this is only used if the cache is enabled - if a set request has no subscribers)
 	cancel context.CancelFunc
+
+	// auto populated tags used to resolve a rate limiter for each hydrate call
+	// (hydrate-call specific tags will be added when we resolve the limiter)
+	rateLimiterScopeValues map[string]string
+
+	fetchMetadata         *hydrateMetadata
+	parentHydrateMetadata *hydrateMetadata
+	listHydrate           HydrateFunc
+	childHydrate          HydrateFunc
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -168,24 +186,29 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 
 		// temporary dir for this connection
 		// this will only created if getSourceFiles is used
-		tempDir: getConnectionTempDir(p.tempDir, connectionData.Connection.Name),
+		tempDir:         getConnectionTempDir(p.tempDir, connectionData.Connection.Name),
+		matrixColLookup: make(map[string]struct{}),
 	}
 
 	d.StreamListItem = d.streamListItem
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
 	d.StreamLeafListItem = d.streamLeafListItem
+
+	// is this a get or a list fetch?
 	d.setFetchType(table)
 
+	// for count(*) queries, there will be no columns - add in 1 column so that we have some data to return
 	queryContext.ensureColumns(table)
 
 	// build list of required hydrate calls, based on requested columns
 	d.populateRequiredHydrateCalls()
+
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
-	d.concurrencyManager = newConcurrencyManager(table)
 	// populate the query status
 	// if a limit is set, use this to set rows required - otherwise just set to MaxInt32
 	d.queryStatus = newQueryStatus(d.QueryContext.Limit)
+
 	return d, nil
 }
 
@@ -200,10 +223,10 @@ func getReservedColumns(table *Table) map[string]struct{} {
 	return res
 }
 
-// ShallowCopy creates a shallow copy of the QueryData, i.e. most pointer properties are copied
+// shallowCopy creates a shallow copy of the QueryData, i.e. most pointer properties are copied
 // this is used to pass different quals to multiple list/get calls, when an 'in' clause is specified
-func (d *QueryData) ShallowCopy() *QueryData {
-	clone := &QueryData{
+func (d *QueryData) shallowCopy() *QueryData {
+	copyQueryData := &QueryData{
 		Table:             d.Table,
 		EqualsQuals:       make(map[string]*proto.QualValue),
 		Quals:             make(KeyColumnQualMap),
@@ -213,34 +236,50 @@ func (d *QueryData) ShallowCopy() *QueryData {
 		ConnectionManager: d.ConnectionManager,
 		ConnectionCache:   d.ConnectionCache,
 		Matrix:            d.Matrix,
+		connectionCallId:  d.connectionCallId,
 		plugin:            d.plugin,
 		cacheTtl:          d.cacheTtl,
 		cacheEnabled:      d.cacheEnabled,
 
-		filteredMatrix:     d.filteredMatrix,
-		hydrateCalls:       d.hydrateCalls,
-		concurrencyManager: d.concurrencyManager,
-		rowDataChan:        d.rowDataChan,
-		errorChan:          d.errorChan,
-		outputChan:         d.outputChan,
-		listWg:             d.listWg,
-		columns:            d.columns,
-		queryStatus:        d.queryStatus,
+		fetchLimiters:  d.fetchLimiters,
+		filteredMatrix: d.filteredMatrix,
+
+		rowDataChan:            d.rowDataChan,
+		errorChan:              d.errorChan,
+		outputChan:             d.outputChan,
+		listWg:                 d.listWg,
+		columns:                d.columns,
+		queryStatus:            d.queryStatus,
+		matrixColLookup:        d.matrixColLookup,
+		listHydrate:            d.listHydrate,
+		childHydrate:           d.childHydrate,
+		rateLimiterScopeValues: make(map[string]string),
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
 	// - this is so they can be updated in the copied QueryData without mutating the original
 	for k, v := range d.EqualsQuals {
-		clone.EqualsQuals[k] = v
+		copyQueryData.EqualsQuals[k] = v
 	}
 	for k, v := range d.Quals {
-		clone.Quals[k] = v
+		copyQueryData.Quals[k] = v
+	}
+	for k, v := range d.rateLimiterScopeValues {
+		copyQueryData.rateLimiterScopeValues[k] = v
+	}
+	// shallow copy the hydrate call but **change the query data to the cloned version**
+	// this is important as the cloned query data may have the matrix itme set - required ro resolve rate limiter
+	copyQueryData.hydrateCalls = make([]*hydrateCall, len(d.hydrateCalls))
+	for i, c := range d.hydrateCalls {
+		clonedCall := c.shallowCopy()
+		clonedCall.queryData = copyQueryData
+		copyQueryData.hydrateCalls[i] = clonedCall
 	}
 
 	// NOTE: point the public streaming endpoints to their internal implementations IN THIS OBJECT
-	clone.StreamListItem = clone.streamListItem
-	clone.StreamLeafListItem = clone.streamLeafListItem
-	return clone
+	copyQueryData.StreamListItem = copyQueryData.streamListItem
+	copyQueryData.StreamLeafListItem = copyQueryData.streamLeafListItem
+	return copyQueryData
 }
 
 // RowsRemaining returns how many rows are required to complete the query
@@ -270,134 +309,14 @@ func (d *QueryData) GetSourceFiles(source string) ([]string, error) {
 	return getSourceFiles(source, d.tempDir)
 }
 
-func (d *QueryData) setMatrixItem(matrix []map[string]interface{}) {
+func (d *QueryData) setMatrix(matrix []map[string]interface{}) {
 	d.Matrix = matrix
 	// if we have key column quals for any matrix properties, filter the matrix
 	// to exclude items which do not satisfy the quals
 	// this populates the property filteredMatrix
 	d.filterMatrixItems()
-}
-
-// build a list of required hydrate function calls which must be executed, based on the columns which have been requested
-// NOTE: 'get' and 'list' calls are hydration functions, but they must be omitted from this list as they are called
-// first. BEFORE the other hydration functions
-// NOTE2: this function also populates the resolvedHydrateName for each column (used to retrieve column values),
-// and the hydrateColumnMap (used to determine which columns to return)
-func (d *QueryData) populateRequiredHydrateCalls() {
-	t := d.Table
-	colsUsed := d.QueryContext.Columns
-	fetchType := d.FetchType
-
-	// what is the name of the fetch call (i.e. the get/list call)
-	fetchFunc := t.getFetchFunc(fetchType)
-	fetchCallName := helpers.GetFunctionName(fetchFunc)
-
-	// initialise hydrateColumnMap
-	d.hydrateColumnMap = make(map[string][]string)
-	requiredCallBuilder := newRequiredHydrateCallBuilder(t, fetchCallName)
-
-	// populate a map keyed by function name to ensure we only store each hydrate function once
-	for _, column := range t.Columns {
-		// skip reserved columns
-		if _, isReserved := d.reservedColumns[column.Name]; isReserved {
-			continue
-		}
-
-		// see if this column specifies a hydrate function
-
-		var hydrateName string
-		if hydrateFunc := column.Hydrate; hydrateFunc == nil {
-			// so there is NO hydrate call registered for the column
-			// the column is provided by the fetch call
-			// do not add to map of hydrate functions as the fetch call will always be called
-			hydrateFunc = fetchFunc
-			hydrateName = fetchCallName
-		} else {
-			// there is a hydrate call registered
-			hydrateName = helpers.GetFunctionName(hydrateFunc)
-			// if this column was requested in query, add the hydrate call to required calls
-			if helpers.StringSliceContains(colsUsed, column.Name) {
-				requiredCallBuilder.Add(hydrateFunc)
-			}
-		}
-
-		// now update hydrateColumnMap
-		d.hydrateColumnMap[hydrateName] = append(d.hydrateColumnMap[hydrateName], column.Name)
-	}
-	d.hydrateCalls = requiredCallBuilder.Get()
-
-	// now we have all the hydrate calls, build a list of all the columns that will be returned by the hydrate functions.
-	// these will be used for the cache
-
-}
-
-// build list of all columns returned by the fetch call and required hydrate calls
-func (d *QueryData) populateColumns() {
-	// add columns returned by fetch call
-	fetchName := helpers.GetFunctionName(d.Table.getFetchFunc(d.FetchType))
-	d.addColumnsForHydrate(fetchName)
-
-	// add columns returned by required hydrate calls
-	for _, h := range d.hydrateCalls {
-		d.addColumnsForHydrate(h.Name)
-	}
-}
-
-// get the column returned by the given hydrate call
-func (d *QueryData) addColumnsForHydrate(hydrateName string) {
-	for _, columnName := range d.hydrateColumnMap[hydrateName] {
-
-		// get the column from the table
-		column := d.Table.getColumn(columnName)
-		d.columns[columnName] = NewQueryColumn(column, hydrateName)
-	}
-}
-
-// add matrix item into KeyColumnQuals and Quals
-func (d *QueryData) updateQualsWithMatrixItem(matrixItem map[string]interface{}) {
-	for col, value := range matrixItem {
-		qualValue := proto.NewQualValue(value)
-		// replace any existing entry for both Quals and KeyColumnQuals
-		d.EqualsQuals[col] = qualValue
-		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Value: qualValue}}}
-	}
-}
-
-// setFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
-func (d *QueryData) setFetchType(table *Table) {
-	log.Printf("[TRACE] setFetchType %v", d.QueryContext.UnsafeQuals)
-	if table.Get != nil {
-		// default to get, even before checking the quals
-		// this handles the case of a get call only
-		d.FetchType = fetchTypeGet
-
-		// build a qual map from whichever quals match the Get key columns
-		qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.Get.KeyColumns)
-		// now see whether this qual map has everything required for the get call
-		if unsatisfiedColumns := qualMap.GetUnsatisfiedKeyColumns(table.Get.KeyColumns); len(unsatisfiedColumns) == 0 {
-			// so this IS a get call - all quals are satisfied
-			log.Printf("[TRACE] Set fetchType to fetchTypeGet")
-			d.EqualsQuals = qualMap.ToEqualsQualValueMap()
-			d.Quals = qualMap
-			d.logQualMaps()
-			return
-		}
-	}
-
-	if table.List != nil {
-		log.Printf("[TRACE] Set fetchType to fetchTypeList")
-		// if there is a list config default to list, even is we are missing required quals
-		d.FetchType = fetchTypeList
-		if len(table.List.KeyColumns) > 0 {
-			// build a qual map from List key columns
-			qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.List.KeyColumns)
-			// assign to the map of all key column quals
-			d.Quals = qualMap
-			// convert to a map of equals quals to populate legacy `KeyColumnQuals` map
-			d.EqualsQuals = d.Quals.ToEqualsQualValueMap()
-		}
-		d.logQualMaps()
-	}
+	// build list of the matrix property names
+	d.populateMatrixPropertyNames()
 }
 
 func (d *QueryData) filterMatrixItems() {
@@ -452,7 +371,141 @@ func (d *QueryData) filterMatrixItems() {
 	}
 	d.filteredMatrix = filteredMatrix
 	log.Printf("[TRACE] filtered matrix: %v", d.Matrix)
+}
 
+func (d *QueryData) populateMatrixPropertyNames() {
+	for _, m := range d.Matrix {
+		for prop := range m {
+			d.matrixColLookup[prop] = struct{}{}
+		}
+	}
+}
+
+// build a list of required hydrate function calls which must be executed, based on the columns which have been requested
+// NOTE: 'get' and 'list' calls are hydration functions, but they must be omitted from this list as they are called
+// first. BEFORE the other hydration functions
+// NOTE2: this function also populates the resolvedHydrateName for each column (used to retrieve column values),
+// and the hydrateColumnMap (used to determine which columns to return)
+func (d *QueryData) populateRequiredHydrateCalls() {
+	t := d.Table
+	colsUsed := d.QueryContext.Columns
+	fetchType := d.FetchType
+
+	// what is the name of the fetch call (i.e. the get/list call)
+	fetchFunc := t.getFetchFunc(fetchType)
+	fetchCallName := helpers.GetFunctionName(fetchFunc)
+
+	// initialise hydrateColumnMap
+	d.hydrateColumnMap = make(map[string][]string)
+	requiredCallBuilder := newRequiredHydrateCallBuilder(d, fetchCallName)
+
+	// populate a map keyed by function name to ensure we only store each hydrate function once
+	for _, column := range t.Columns {
+		// skip reserved columns
+		if _, isReserved := d.reservedColumns[column.Name]; isReserved {
+			continue
+		}
+
+		// see if this column specifies a hydrate function
+
+		var hydrateName string
+		if hydrateFunc := column.Hydrate; hydrateFunc == nil {
+			// so there is NO hydrate call registered for the column
+			// the column is provided by the fetch call
+			// do not add to map of hydrate functions as the fetch call will always be called
+			hydrateFunc = fetchFunc
+			hydrateName = fetchCallName
+		} else {
+			// there is a hydrate call registered
+			hydrateName = helpers.GetFunctionName(hydrateFunc)
+			// if this column was requested in query, add the hydrate call to required calls
+			if helpers.StringSliceContains(colsUsed, column.Name) {
+				requiredCallBuilder.Add(hydrateFunc, d.connectionCallId)
+			}
+		}
+
+		// now update hydrateColumnMap
+		d.hydrateColumnMap[hydrateName] = append(d.hydrateColumnMap[hydrateName], column.Name)
+	}
+	d.hydrateCalls = requiredCallBuilder.Get()
+
+	// now we have all the hydrate calls, build a list of all the columns that will be returned by the hydrate functions.
+	// these will be used for the cache
+}
+
+// build list of all columns returned by the fetch call and required hydrate calls
+func (d *QueryData) populateColumns() {
+	// add columns returned by fetch call
+	fetchName := helpers.GetFunctionName(d.Table.getFetchFunc(d.FetchType))
+	d.addColumnsForHydrate(fetchName)
+
+	// add columns returned by required hydrate calls
+	for _, h := range d.hydrateCalls {
+		d.addColumnsForHydrate(h.Name)
+	}
+}
+
+// get the column returned by the given hydrate call
+func (d *QueryData) addColumnsForHydrate(hydrateName string) {
+	for _, columnName := range d.hydrateColumnMap[hydrateName] {
+
+		// get the column from the table
+		column := d.Table.getColumn(columnName)
+		d.columns[columnName] = NewQueryColumn(column, hydrateName)
+	}
+}
+
+// set the specific matrix item we are executin gfor
+// add matrix item into KeyColumnQuals and Quals
+func (d *QueryData) setMatrixItem(matrixItem map[string]interface{}) {
+	d.matrixItem = matrixItem
+	log.Printf("[INFO] setMatrixItem %s", matrixItem)
+	for col, value := range matrixItem {
+		qualValue := proto.NewQualValue(value)
+		// replace any existing entry for both Quals and EqualsQuals
+		d.EqualsQuals[col] = qualValue
+		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Operator: quals.QualOperatorEqual, Value: qualValue}}}
+	}
+}
+
+// setFetchType determines whether this is a get or a list call, and populates the keyColumnQualValues map
+func (d *QueryData) setFetchType(table *Table) {
+	log.Printf("[TRACE] setFetchType %v", d.QueryContext.UnsafeQuals)
+
+	if table.Get != nil {
+		// default to get, even before checking the quals
+		// this handles the case of a get call only
+		d.FetchType = fetchTypeGet
+
+		// build a qual map from whichever quals match the Get key columns
+		qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.Get.KeyColumns)
+		// now see whether this qual map has everything required for the get call
+		if unsatisfiedColumns := qualMap.GetUnsatisfiedKeyColumns(table.Get.KeyColumns); len(unsatisfiedColumns) == 0 {
+			// so this IS a get call - all quals are satisfied
+			log.Printf("[TRACE] Set fetchType to fetchTypeGet")
+			d.setQuals(qualMap)
+			return
+		}
+	}
+
+	if table.List != nil {
+		log.Printf("[TRACE] Set fetchType to fetchTypeList")
+		// if there is a list config default to list, even is we are missing required quals
+		d.FetchType = fetchTypeList
+		if len(table.List.KeyColumns) > 0 {
+			// build a qual map from List key columns
+			qualMap := NewKeyColumnQualValueMap(d.QueryContext.UnsafeQuals, table.List.KeyColumns)
+			d.setQuals(qualMap)
+		}
+	}
+}
+
+func (d *QueryData) setQuals(qualMap KeyColumnQualMap) {
+	// convert to a map of equals quals to populate legacy `KeyColumnQuals` map
+	d.EqualsQuals = qualMap.ToEqualsQualValueMap()
+	// assign to the map of all key column quals
+	d.Quals = qualMap
+	d.logQualMaps()
 }
 
 func (d *QueryData) shouldIncludeMatrixItem(quals *KeyColumnQuals, matrixVal interface{}) bool {
@@ -522,9 +575,15 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 	if helpers.IsNil(parentItem) {
 		return
 	}
+
+	// wait for any configured child ListCall rate limiters
+	rateLimitDelay := d.fetchLimiters.childListWait(ctx)
+
+	// populate delay in metadata
+	d.fetchMetadata.DelayMs = rateLimitDelay.Milliseconds()
+
 	callingFunction := helpers.GetCallingFunction(1)
 	d.listWg.Add(1)
-
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -538,11 +597,11 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 		}()
 		defer d.listWg.Done()
 		// create a copy of query data with the stream function set to streamLeafListItem
-		childQueryData := d.ShallowCopy()
+		childQueryData := d.shallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
 		childQueryData.parentItem = parentItem
-		// now call the parent list
+		// now call the child list
 		_, err := d.Table.List.Hydrate(ctx, childQueryData, &HydrateData{Item: parentItem})
 		if err != nil {
 			d.streamError(err)
@@ -576,7 +635,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 			debug.FreeOSMemory()
 		}
 
-		// do a deep nil check on item - if nil, just skipthis item
+		// do a deep nil check on item - if nil, just skip this item
 		if helpers.IsNil(item) {
 			log.Printf("[TRACE] streamLeafListItem received nil item, skipping")
 			continue
@@ -586,8 +645,8 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 
 		// create rowData, passing matrixItem from context
 		rd := newRowData(d, item)
-
-		rd.matrixItem = GetMatrixItem(ctx)
+		// set the matrix item
+		rd.matrixItem = d.matrixItem
 		// set the parent item on the row data
 		rd.parentItem = d.parentItem
 		// NOTE: add the item as the hydrate data for the list call
@@ -616,6 +675,11 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 	// we need to use a wait group for rows we cannot close the row channel when the item channel is closed
 	// as getRow is executing asyncronously
 	var rowWg sync.WaitGroup
+	maxConcurrentRows := rate_limiter.GetMaxConcurrentRows()
+	var rowSemaphore *semaphore.Weighted
+	if maxConcurrentRows > 0 {
+		rowSemaphore = semaphore.NewWeighted(int64(maxConcurrentRows))
+	}
 
 	// start goroutine to read items from item chan and generate row data
 	go func() {
@@ -637,9 +701,21 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 					// rowData channel closed - nothing more to do
 					return
 				}
-
+				if rowSemaphore != nil {
+					t := time.Now()
+					//log.Printf("[INFO] buildRowsAsync acquire semaphore (%s)", d.connectionCallId)
+					if err := rowSemaphore.Acquire(ctx, 1); err != nil {
+						log.Printf("[INFO] SEMAPHORE ERROR %s", err)
+						// TODO KAI does this quit??
+						d.errorChan <- err
+						return
+					}
+					if time.Since(t) > 1*time.Millisecond {
+						log.Printf("[INFO] buildRowsAsync waited %dms to hydrate row (%s)", time.Since(t).Milliseconds(), d.connectionCallId)
+					}
+				}
 				rowWg.Add(1)
-				d.buildRowAsync(ctx, rowData, rowChan, &rowWg)
+				d.buildRowAsync(ctx, rowData, rowChan, &rowWg, rowSemaphore)
 			}
 		}
 	}()
@@ -653,8 +729,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 	log.Printf("[INFO] QueryData streamRows (%s)", d.connectionCallId)
 
 	defer func() {
-		// tell the concurrency manage we are done (it may log the concurrency stats)
-		d.concurrencyManager.Close()
 		log.Printf("[INFO] QueryData streamRows DONE (%s)", d.connectionCallId)
 
 		// if there is an error or cancellation, abort the pending set
@@ -754,8 +828,9 @@ func (d *QueryData) streamError(err error) {
 	d.errorChan <- err
 }
 
+// TODO KAI this seems to get called even after cancellation
 // execute necessary hydrate calls to populate row data
-func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup) {
+func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup, sem *semaphore.Weighted) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -763,6 +838,7 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 				d.streamError(helpers.ToError(r))
 			}
 			wg.Done()
+			sem.Release(1)
 		}()
 		if rowData == nil {
 			log.Printf("[INFO] buildRowAsync nil rowData - streaming nil row (%s)", d.connectionCallId)
@@ -776,18 +852,26 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			log.Printf("[WARN] getRow failed with error %v", err)
 			d.streamError(err)
 		} else {
-			// remove reserved columns
-			d.removeReservedColumns(row)
-			// NOTE: add the Steampipecontext data to the row
-			d.addContextData(row)
-
+			if row != nil {
+				// remove reserved columns
+				d.removeReservedColumns(row)
+				// NOTE: add the Steampipecontext data to the row
+				d.addContextData(row, rowData)
+			}
 			rowChan <- row
 		}
 	}()
 }
 
-func (d *QueryData) addContextData(row *proto.Row) {
-	jsonValue, _ := json.Marshal(map[string]string{"connection_name": d.Connection.Name})
+func (d *QueryData) addContextData(row *proto.Row, rowData *rowData) {
+	// NOTE: we use the rowdata QueryData, rather than ourselves
+	// this may be a child QueryData if there is a matrix
+	rowCtxData := newRowCtxData(rowData)
+	jsonValue, err := json.Marshal(rowCtxData)
+	if err != nil {
+		log.Printf("[WARN] failed to marshal JSON for row context data: %s", err.Error())
+		return
+	}
 
 	row.Columns[contextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
 }
@@ -821,4 +905,9 @@ func (d *QueryData) removeReservedColumns(row *proto.Row) {
 	for c := range d.reservedColumns {
 		delete(row.Columns, c)
 	}
+}
+
+func (d *QueryData) setListCalls(listCall, childHydrate HydrateFunc) {
+	d.listHydrate = listCall
+	d.childHydrate = childHydrate
 }

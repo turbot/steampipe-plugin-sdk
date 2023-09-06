@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"context"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"log"
 	"strings"
 	"testing"
 
@@ -76,6 +78,50 @@ var testCasesValidate = map[string]validateTest{
 		},
 		expected: []string{""},
 	},
+	"invalid limiter name": {
+		plugin: Plugin{
+			Name: "plugin",
+			TableMap: map[string]*Table{
+				"table": {
+					Name: "table",
+					Columns: []*Column{
+						{
+							Name: "name",
+							Type: proto.ColumnType_STRING,
+						},
+						{
+							Name:    "c1",
+							Type:    proto.ColumnType_STRING,
+							Hydrate: hydrate1,
+						},
+						{
+							Name:    "c2",
+							Type:    proto.ColumnType_STRING,
+							Hydrate: hydrate2,
+						},
+					},
+					List: &ListConfig{
+						Hydrate: listHydrate,
+					},
+					Get: &GetConfig{
+						KeyColumns:        SingleColumn("name"),
+						Hydrate:           getHydrate,
+						ShouldIgnoreError: isNotFound,
+					},
+					HydrateDependencies: []HydrateDependencies{{Func: hydrate2, Depends: []HydrateFunc{hydrate1}}},
+				},
+			},
+			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
+			RateLimiters: []*rate_limiter.Definition{
+				{
+					Name:           "1invalid",
+					MaxConcurrency: 10,
+				},
+			},
+		},
+
+		expected: []string{"invalid rate limiter name '1invalid' - names can contain letters, digits, underscores (_), and hyphens (-), and cannot start with a digit"},
+	},
 	"get with hydrate dependency": {
 		plugin: Plugin{
 			Name: "plugin",
@@ -138,7 +184,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: []string{"table 'table' Get hydrate function 'getHydrate' also has an explicit hydrate config declared in `HydrateConfig`"},
+		expected: []string{"table 'table' Get hydrate function 'getHydrate' defines dependendencies in its `HydrateConfig`"},
 	},
 	"list with hydrate dependency": {
 		plugin: Plugin{
@@ -202,7 +248,7 @@ var testCasesValidate = map[string]validateTest{
 			},
 			RequiredColumns: []*Column{{Name: "name", Type: proto.ColumnType_STRING}},
 		},
-		expected: []string{"table 'table' List hydrate function 'listHydrate' also has an explicit hydrate config declared in `HydrateConfig`"},
+		expected: []string{"table 'table' List hydrate function 'listHydrate' defines dependencies in its `HydrateConfig`"},
 	},
 	// non deterministic - skip
 	//"circular dep": {
@@ -460,7 +506,10 @@ var testCasesValidate = map[string]validateTest{
 
 func TestValidate(t *testing.T) {
 	for name, test := range testCasesValidate {
-		test.plugin.initialise(hclog.NewNullLogger())
+		logger := hclog.NewNullLogger()
+		log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+
+		test.plugin.initialise(logger)
 		test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
 
 		_, validationErrors := test.plugin.validate(test.plugin.TableMap)

@@ -10,10 +10,11 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 	"log"
-	"runtime/debug"
 	"sync"
 )
 
@@ -52,6 +53,7 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			p.Logger.Debug("setAllConnectionConfigs finished")
 		}
 	}()
+
 	// create a struct to populate with exemplar schema and connection failures
 	// this will be passed into update functions and may be mutated
 	updateData := NewConnectionUpdateData()
@@ -193,11 +195,6 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	log.Printf("[INFO] Plugin execute table: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
-	// limit the plugin memory
-	newLimit := GetMaxMemoryBytes()
-	debug.SetMemoryLimit(newLimit)
-	log.Printf("[INFO] Plugin execute, setting memory limit to %dMb", newLimit/(1024*1024))
-
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
 	errorChan := make(chan error, len(req.ExecuteConnectionData))
 
@@ -313,6 +310,71 @@ func (p *Plugin) establishMessageStream(stream proto.WrapperPlugin_EstablishMess
 	return nil
 }
 
-func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) error {
+func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("setCacheOptions experienced unhandled exception: %s", helpers.ToError(r).Error())
+			log.Println("[WARN]", msg)
+			err = fmt.Errorf(msg)
+		}
+	}()
+
 	return p.ensureCache(p.buildConnectionSchemaMap(), query_cache.NewQueryCacheOptions(request))
+}
+
+// clear current rate limiter definitions and instances and repopulate resolvedRateLimiterDefs using the
+// plugin defined rate limiters and any config defined rate limiters
+func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) (err error) {
+	log.Printf("[INFO] setRateLimiters")
+
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("setRateLimiters experienced unhandled exception: %s", helpers.ToError(r).Error())
+			log.Println("[WARN]", msg)
+			err = fmt.Errorf(msg)
+		}
+	}()
+	var errors []error
+	// clear all current rate limiters
+	p.rateLimiterDefsMut.Lock()
+	defer p.rateLimiterDefsMut.Unlock()
+
+	// clear the map of instantiated rate limiters
+	p.rateLimiterInstances.Clear()
+	// repopulate the map of resolved definitions from the plugin defs
+	p.populatePluginRateLimiters()
+
+	// now add in any limiters from config
+	for _, pd := range request.Definitions {
+		d, err := rate_limiter.DefinitionFromProto(pd)
+		if err != nil {
+			errors = append(errors, sperr.WrapWithMessage(err, "failed to create rate limiter %s from config", err))
+			continue
+		}
+
+		// is this overriding an existing limiter?
+		if _, ok := p.resolvedRateLimiterDefs[d.Name]; ok {
+			log.Printf("[INFO] overriding plugin defined rate limiter '%s' with one defined in config: %s", d.Name, d)
+		} else {
+			log.Printf("[INFO] adding rate limiter '%s' defined in config: %s", d.Name, d)
+		}
+
+		// in any case, store to map
+		p.resolvedRateLimiterDefs[d.Name] = d
+	}
+
+	return error_helpers.CombineErrors(errors...)
+}
+
+// return the rate limiter defintions defined by the plugin
+func (p *Plugin) getRateLimiters() []*proto.RateLimiterDefinition {
+	if len(p.RateLimiters) == 0 {
+		return nil
+	}
+	res := make([]*proto.RateLimiterDefinition, len(p.RateLimiters))
+	for i, d := range p.RateLimiters {
+		res[i] = d.ToProto()
+
+	}
+	return res
 }

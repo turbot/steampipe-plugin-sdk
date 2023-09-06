@@ -22,16 +22,17 @@ type rowData struct {
 	// the output of the get/list call which is passed to all other hydrate calls
 	item interface{}
 	// if there was a parent-child list call, store the parent list item
-	parentItem     interface{}
-	matrixItem     map[string]interface{}
-	hydrateResults map[string]interface{}
-	hydrateErrors  map[string]error
-	mut            sync.RWMutex
-	waitChan       chan bool
-	wg             sync.WaitGroup
-	table          *Table
-	errorChan      chan error
-	queryData      *QueryData
+	parentItem      interface{}
+	matrixItem      map[string]interface{}
+	hydrateResults  map[string]interface{}
+	hydrateErrors   map[string]error
+	hydrateMetadata []*hydrateMetadata
+	mut             sync.RWMutex
+	waitChan        chan bool
+	wg              sync.WaitGroup
+	table           *Table
+	errorChan       chan error
+	queryData       *QueryData
 }
 
 // newRowData creates an empty rowData object
@@ -56,14 +57,9 @@ func (r *rowData) getRow(ctx context.Context) (*proto.Row, error) {
 	// (this is a data structure containing fetch specific data, e.g. region)
 	// store this in the context for use by the transform functions
 	rowDataCtx := context.WithValue(ctx, context_key.MatrixItem, r.matrixItem)
-	// clone the query data and add the matrix properties to quals
-	rowQueryData := r.queryData.ShallowCopy()
-	rowQueryData.updateQualsWithMatrixItem(r.matrixItem)
-
 	// make any required hydrate function calls
 	// - these populate the row with data entries corresponding to the hydrate function name
-
-	if err := r.startAllHydrateCalls(rowDataCtx, rowQueryData); err != nil {
+	if err := r.startAllHydrateCalls(rowDataCtx, r.queryData); err != nil {
 		log.Printf("[WARN] startAllHydrateCalls failed with error %v", err)
 		return nil, err
 	}
@@ -76,6 +72,7 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 	// make a map of started hydrate calls for this row - this is used to determine which calls have not started yet
 	var callsStarted = map[string]bool{}
 
+	// TODO use retry.DO
 	for {
 		var allStarted = true
 		for _, call := range r.queryData.hydrateCalls {
@@ -86,9 +83,18 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 			}
 
 			// so call needs to start - can it?
-			if call.canStart(r, hydrateFuncName, r.queryData.concurrencyManager) {
+			if call.canStart(r) {
 				// execute the hydrate call asynchronously
-				call.start(rowDataCtx, r, rowQueryData, r.queryData.concurrencyManager)
+				rateLimitDelay := call.start(rowDataCtx, r, rowQueryData)
+				// store the call metadata
+				r.hydrateMetadata = append(r.hydrateMetadata, &hydrateMetadata{
+					Type:         "hydrate",
+					FuncName:     hydrateFuncName,
+					ScopeValues:  call.rateLimiter.ScopeValues,
+					RateLimiters: call.rateLimiter.LimiterNames(),
+					DelayMs:      rateLimitDelay.Milliseconds(),
+				})
+
 				callsStarted[hydrateFuncName] = true
 			} else {
 				allStarted = false

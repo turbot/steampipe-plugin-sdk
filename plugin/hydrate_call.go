@@ -2,9 +2,11 @@ package plugin
 
 import (
 	"context"
-	"sync/atomic"
-
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"log"
+	"sync/atomic"
+	"time"
 )
 
 // hydrateCall struct encapsulates a hydrate call, its config and dependencies
@@ -14,40 +16,90 @@ type hydrateCall struct {
 	Depends []string
 	Config  *HydrateConfig
 	Name    string
+
+	queryData   *QueryData
+	rateLimiter *rate_limiter.MultiLimiter
+	// the time when we _could_ start the call, if comncurrency limits allowed
+	potentialStartTime time.Time
+	concurrencyDelay   time.Duration
 }
 
-func newHydrateCall( config *HydrateConfig) *hydrateCall {
+func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 	res := &hydrateCall{
-		Name:   helpers.GetFunctionName(config.Func),
-		Func:   config.Func,
-		Config: config,
+		Name:      helpers.GetFunctionName(config.Func),
+		Func:      config.Func,
+		Config:    config,
+		queryData: d,
 	}
 	for _, f := range config.Depends {
 		res.Depends = append(res.Depends, helpers.GetFunctionName(f))
 	}
-	return res
+	return res, nil
+}
+
+func (h *hydrateCall) shallowCopy() *hydrateCall {
+	return &hydrateCall{
+		Func:        h.Func,
+		Depends:     h.Depends,
+		Config:      h.Config,
+		Name:        h.Name,
+		queryData:   h.queryData,
+		rateLimiter: h.rateLimiter,
+	}
+}
+
+// identify any rate limiters which apply to this hydrate call
+func (h *hydrateCall) initialiseRateLimiter() error {
+	log.Printf("[INFO] hydrateCall %s initialiseRateLimiter (%s)", h.Name, h.queryData.connectionCallId)
+
+	// ask plugin to build a rate limiter for us
+	p := h.queryData.plugin
+
+	// now try to construct a multi rate limiter for this call
+	rateLimiter, err := p.getHydrateCallRateLimiter(h.Config.Tags, h.queryData)
+	if err != nil {
+		log.Printf("[WARN] hydrateCall %s getHydrateCallRateLimiter failed: %s (%s)", h.Name, err.Error(), h.queryData.connectionCallId)
+		return err
+	}
+
+	h.rateLimiter = rateLimiter
+
+	return nil
 }
 
 // CanStart returns whether this hydrate call can execute
 // - check whether all dependency hydrate functions have been completed
 // - check whether the concurrency limits would be exceeded
-func (h hydrateCall) canStart(rowData *rowData, name string, concurrencyManager *concurrencyManager) bool {
+func (h *hydrateCall) canStart(rowData *rowData) bool {
 	// check whether all hydrate functions we depend on have saved their results
 	for _, dep := range h.Depends {
 		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep) {
 			return false
 		}
 	}
-	// ask the concurrency manager whether the call can start
-	// NOTE: if the call is allowed to start, the concurrency manager ASSUMES THE CALL WILL START
-	// and increments the counters
-	// it may seem more logical to do this in the Start() function below, but we need to check and increment the counters
-	// within the same mutex lock to ensure another call does not start between checking and starting
-	return concurrencyManager.StartIfAllowed(name, h.Config.MaxConcurrency)
+	// so all dependencies have been satisfied - if a rate limiting config is defined,
+	// check whether we satisfy the concurrency limits
+	if h.rateLimiter == nil {
+		return true
+	}
+
+	// if no potentiual start time is set, set it now
+	if h.potentialStartTime.IsZero() {
+		h.potentialStartTime = time.Now()
+	}
+
+	canStart := h.rateLimiter.TryToAcquireSemaphore()
+	if canStart {
+		// record the delay in startiung due to concurrency limits
+		h.concurrencyDelay = time.Since(h.potentialStartTime)
+	}
+	return canStart
 }
 
 // Start starts a hydrate call
-func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concurrencyManager *concurrencyManager) {
+func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.Duration {
+	rateLimitDelay := h.rateLimit(ctx, d)
+
 	// tell the rowdata to wait for this call to complete
 	r.wg.Add(1)
 	// update the hydrate count
@@ -56,7 +108,29 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData, concu
 	// call callHydrate async, ignoring return values
 	go func() {
 		r.callHydrate(ctx, d, h.Func, h.Name, h.Config)
-		// decrement number of hydrate functions running
-		concurrencyManager.Finished(h.Name)
+		h.onFinished()
 	}()
+	return rateLimitDelay + h.concurrencyDelay
+}
+
+func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration {
+	// not expected as if there ar eno rate limiters we should have an empty MultiLimiter
+	if h.rateLimiter == nil {
+		log.Printf("[WARN] hydrate call %s has a nil rateLimiter - not expected", h.Name)
+		return 0
+	}
+	log.Printf("[TRACE] ****** start hydrate call %s, wait for rate limiter (%s)", h.Name, d.connectionCallId)
+
+	// wait until we can execute
+	delay := h.rateLimiter.Wait(ctx)
+
+	log.Printf("[TRACE] ****** AFTER rate limiter %s (%dms) (%s)", h.Name, delay.Milliseconds(), d.connectionCallId)
+
+	return delay
+}
+
+func (h *hydrateCall) onFinished() {
+	if h.rateLimiter != nil {
+		h.rateLimiter.ReleaseSemaphore()
+	}
 }

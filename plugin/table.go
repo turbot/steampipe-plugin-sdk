@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 
 	"github.com/turbot/go-kit/helpers"
@@ -19,6 +20,7 @@ type TableCacheOptions struct {
 }
 
 /*
+|
 Table defines the properties of a plugin table:
 
   - The columns that are returned: [plugin.Table.Columns].
@@ -62,6 +64,10 @@ type Table struct {
 	// cache options - allows disabling of cache for this table
 	Cache *TableCacheOptions
 
+	// tags used to provide scope values for all child hydrate calls
+	// (may be used for more in future)
+	Tags map[string]string
+
 	// deprecated - use DefaultIgnoreConfig
 	DefaultShouldIgnoreError ErrorPredicate
 
@@ -88,6 +94,13 @@ func (t *Table) initialise(p *Plugin) {
 		log.Printf("[TRACE] no DefaultIgnoreConfig defined - creating empty")
 		t.DefaultIgnoreConfig = &IgnoreConfig{}
 	}
+
+	// create Tags if needed
+	if t.Tags == nil {
+		t.Tags = make(map[string]string)
+	}
+	// populate tags with table name
+	t.Tags[rate_limiter.RateLimiterScopeTable] = t.Name
 
 	if t.DefaultShouldIgnoreError != nil && t.DefaultIgnoreConfig.ShouldIgnoreError == nil {
 		// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
@@ -171,9 +184,10 @@ func (t *Table) buildHydrateConfigMap() {
 		hydrateName := helpers.GetFunctionName(get.Hydrate)
 		t.hydrateConfigMap[hydrateName] = &HydrateConfig{
 			Func:              get.Hydrate,
-			ShouldIgnoreError: get.ShouldIgnoreError,
 			IgnoreConfig:      get.IgnoreConfig,
 			RetryConfig:       get.RetryConfig,
+			Tags:              get.Tags,
+			ShouldIgnoreError: get.ShouldIgnoreError,
 			MaxConcurrency:    get.MaxConcurrency,
 		}
 	}

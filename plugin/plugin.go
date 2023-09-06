@@ -11,12 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gertd/go-pluralize"
-
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
@@ -26,6 +25,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"github.com/turbot/steampipe-plugin-sdk/v5/version"
 	"go.opentelemetry.io/otel/attribute"
@@ -69,12 +69,17 @@ type Plugin struct {
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	// NOTE: it must be NULL for plugins with dynamic schema
-	TableMap            map[string]*Table
-	TableMapFunc        TableMapFunc
-	DefaultTransform    *transform.ColumnTransforms
+	TableMap         map[string]*Table
+	TableMapFunc     TableMapFunc
+	DefaultTransform *transform.ColumnTransforms
+	// deprecated - use RateLimiters to control concurrency
 	DefaultConcurrency  *DefaultConcurrencyConfig
 	DefaultRetryConfig  *RetryConfig
 	DefaultIgnoreConfig *IgnoreConfig
+
+	// rate limiter definitions - these are (optionally) defined by the plugin author
+	// and do NOT include any config overrides
+	RateLimiters []*rate_limiter.Definition
 
 	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
 	DefaultGetConfig *GetConfig
@@ -108,6 +113,15 @@ type Plugin struct {
 	// stream used to send messages back to plugin manager
 	messageStream proto.WrapperPlugin_EstablishMessageStreamServer
 
+	// map of rate limiter INSTANCES - these are lazy loaded
+	// keyed by stringified scope values
+	rateLimiterInstances *rate_limiter.LimiterMap
+	// map of rate limiter definitions, keyed by limiter name
+	// NOTE: this includes limiters defined/overridden in config
+	resolvedRateLimiterDefs map[string]*rate_limiter.Definition
+	// lock for this map
+	rateLimiterDefsMut sync.RWMutex
+
 	// map of call ids to avoid duplicates
 	callIdLookup    map[string]struct{}
 	callIdLookupMut sync.RWMutex
@@ -121,6 +135,8 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 
 	p.Logger = logger
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
+
+	p.initialiseRateLimits()
 
 	// default the schema mode to static
 	if p.SchemaMode == "" {
@@ -172,6 +188,25 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 	p.tempDir = path.Join(os.TempDir(), p.Name)
 
 	p.callIdLookup = make(map[string]struct{})
+}
+
+func (p *Plugin) initialiseRateLimits() {
+	p.rateLimiterInstances = rate_limiter.NewLimiterMap()
+	p.populatePluginRateLimiters()
+	return
+}
+
+// populate resolvedRateLimiterDefs map with plugin rate limiter definitions
+func (p *Plugin) populatePluginRateLimiters() {
+	p.resolvedRateLimiterDefs = make(map[string]*rate_limiter.Definition, len(p.RateLimiters))
+	for _, d := range p.RateLimiters {
+		// NOTE: we have not validated the limiter definitions yet
+		// (this is done from initialiseTables, after setting the connection config),
+		// so just ignore limiters with no name (validation will fail later if this occurs)
+		if d.Name != "" {
+			p.resolvedRateLimiterDefs[d.Name] = d
+		}
+	}
 }
 
 func (p *Plugin) shutdown() {
@@ -353,7 +388,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	if table.GetMatrixItemFunc != nil {
 		matrixItem = table.GetMatrixItemFunc(ctx, queryData)
 	}
-	queryData.setMatrixItem(matrixItem)
+	queryData.setMatrix(matrixItem)
 
 	log.Printf("[TRACE] creating query data")
 
@@ -470,9 +505,10 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 	return ctx, span
 }
 
-// initialiseTables does 2 things:
+// initialiseTables does 3 things:
 // 1) if a TableMapFunc factory function was provided by the plugin, call it
 // 2) call initialise on the table, passing the plugin pointer which the table stores
+// 3) validate the plugin
 func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (tableMap map[string]*Table, err error) {
 	log.Printf("[TRACE] Plugin %s initialiseTables", p.Name)
 
@@ -503,7 +539,7 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 		table.initialise(p)
 	}
 
-	// now validate the plugin
+	// NOW finally validate the plugin
 	// NOTE: must do this after calling TableMapFunc
 	validationWarnings, validationErrors := p.validate(tableMap)
 

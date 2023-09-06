@@ -61,18 +61,20 @@ Plugin examples:
 [when the get call is used as a column hydrate func]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14-L35
 */
 type GetConfig struct {
-	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
-	KeyColumns KeyColumnSlice
 	// the hydrate function which is called first when performing a 'get' call.
 	// if this returns 'not found', no further hydrate functions are called
 	Hydrate HydrateFunc
+	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
+	KeyColumns KeyColumnSlice
 	// a function which will return whenther to ignore a given error
-	// deprecated - use IgnoreConfig
+	IgnoreConfig *IgnoreConfig
+	// a function which will return whenther to retry the call if an error is returned
+	RetryConfig *RetryConfig
+	Tags        map[string]string
+
+	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-	IgnoreConfig      *IgnoreConfig
-	RetryConfig       *RetryConfig
-	// max concurrency - this applies when the get function is ALSO used as a column hydrate function
-	MaxConcurrency int
+	MaxConcurrency    int
 }
 
 // initialise the GetConfig
@@ -96,6 +98,12 @@ func (c *GetConfig) initialise(table *Table) {
 	if c.IgnoreConfig == nil {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
+
+	// create empty tags if needed
+	if c.Tags == nil {
+		c.Tags = map[string]string{}
+	}
+
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
@@ -131,14 +139,17 @@ func (c *GetConfig) Validate(table *Table) []string {
 	if c.IgnoreConfig != nil {
 		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
-	// ensure there is no explicit hydrate config for the get config
+	// ensure that if there is an explicit hydrate config for the get hydrate, it does not declare dependencies
 	getHydrateName := helpers.GetFunctionName(table.Get.Hydrate)
 	for _, h := range table.HydrateConfig {
 		if helpers.GetFunctionName(h.Func) == getHydrateName {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' also has an explicit hydrate config declared in `HydrateConfig`", table.Name, getHydrateName))
+			if len(h.Depends) > 0 {
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' Get hydrate function '%s' defines dependendencies in its `HydrateConfig`", table.Name, getHydrateName))
+			}
 			break
 		}
 	}
+
 	// ensure there is no hydrate dependency declared for the get hydrate
 	for _, h := range table.HydrateDependencies {
 		if helpers.GetFunctionName(h.Func) == getHydrateName {

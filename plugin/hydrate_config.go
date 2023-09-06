@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 )
 
 /*
@@ -91,31 +92,47 @@ Examples:
 [oci]: https://github.com/turbot/steampipe-plugin-oci/blob/27ddf689f7606009cf26b2716e1634fc91d53585/oci/table_oci_identity_tenancy.go#L23-L27
 */
 type HydrateConfig struct {
-	Func           HydrateFunc
-	MaxConcurrency int
-	RetryConfig    *RetryConfig
-	IgnoreConfig   *IgnoreConfig
-	// deprecated - use IgnoreConfig
-	ShouldIgnoreError ErrorPredicate
+	Func HydrateFunc
+	// a function which will return whenther to ignore a given error
+	IgnoreConfig *IgnoreConfig
+	// a function which will return whenther to retry the call if an error is returned
+	RetryConfig *RetryConfig
+	Depends     []HydrateFunc
 
-	Depends []HydrateFunc
+	// tags - used to resolve the rate limiter for this hydrate call
+	// for example:
+	// "service": "s3"
+	//
+	// when resolving a rate limiter for a hydrate call, a map of scope values is automatically populated:
+	// - the table and  connection name
+	// - values specified in the hydrate config
+	// - matrix quals (with values as string)
+	// this map is then used to find a rate limiter
+	Tags map[string]string
+
+	MaxConcurrency int
+
+	// Deprecated: use IgnoreConfig
+	ShouldIgnoreError ErrorPredicate
 }
 
-func (c *HydrateConfig) String() interface{} {
+func (c *HydrateConfig) String() string {
 	var dependsStrings = make([]string, len(c.Depends))
 	for i, dep := range c.Depends {
 		dependsStrings[i] = helpers.GetFunctionName(dep)
 	}
-	return fmt.Sprintf(`Func: %s
-MaxConcurrency: %d
+	str := fmt.Sprintf(`Func: %s
 RetryConfig: %s
 IgnoreConfig: %s
-Depends: %s`,
+Depends: %s
+ScopeValues: %s`,
 		helpers.GetFunctionName(c.Func),
-		c.MaxConcurrency,
-		c.RetryConfig.String(),
-		c.IgnoreConfig.String(),
-		strings.Join(dependsStrings, ","))
+		c.RetryConfig,
+		c.IgnoreConfig,
+		strings.Join(dependsStrings, ","),
+		rate_limiter.FormatStringMap(c.Tags))
+
+	return str
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
@@ -130,6 +147,12 @@ func (c *HydrateConfig) initialise(table *Table) {
 	if c.IgnoreConfig == nil {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
+
+	// create empty Tags if needed
+	if c.Tags == nil {
+		c.Tags = map[string]string{}
+	}
+
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
@@ -154,5 +177,6 @@ func (c *HydrateConfig) Validate(table *Table) []string {
 	if c.IgnoreConfig != nil {
 		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
+
 	return validationErrors
 }

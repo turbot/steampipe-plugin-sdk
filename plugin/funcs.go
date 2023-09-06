@@ -23,7 +23,7 @@ by making an additional API call. However the SDK does all this for you.
 type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
 
 /*
-Deprecated
+Deprecated use MatrixItemMapFunc
 */
 type MatrixItemFunc func(context.Context, *Connection) []map[string]interface{}
 

@@ -2,10 +2,9 @@ package plugin
 
 import (
 	"fmt"
-	"log"
-
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
+	"log"
 )
 
 /*
@@ -36,15 +35,22 @@ Examples:
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L14
 */
 type ListConfig struct {
-	KeyColumns KeyColumnSlice
 	// the list function, this should stream the list results back using the QueryData object and return nil
 	Hydrate HydrateFunc
+	// key or keys which are used to uniquely identify rows - used to optimise the list call
+	KeyColumns KeyColumnSlice
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
 	ParentHydrate HydrateFunc
-	// deprecated - use IgnoreConfig
+	// a function which will return whenther to ignore a given error
+	IgnoreConfig *IgnoreConfig
+	// a function which will return whenther to retry the call if an error is returned
+	RetryConfig *RetryConfig
+
+	Tags       map[string]string
+	ParentTags map[string]string
+
+	// Deprecated: Use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-	IgnoreConfig      *IgnoreConfig
-	RetryConfig       *RetryConfig
 }
 
 func (c *ListConfig) initialise(table *Table) {
@@ -59,6 +65,14 @@ func (c *ListConfig) initialise(table *Table) {
 	if c.IgnoreConfig == nil {
 		c.IgnoreConfig = &IgnoreConfig{}
 	}
+
+	if c.Tags == nil {
+		c.Tags = map[string]string{}
+	}
+	if c.ParentTags == nil {
+		c.ParentTags = map[string]string{}
+	}
+
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
 		c.IgnoreConfig.ShouldIgnoreError = c.ShouldIgnoreError
@@ -83,11 +97,13 @@ func (c *ListConfig) Validate(table *Table) []string {
 		validationErrors = append(validationErrors, c.IgnoreConfig.validate(table)...)
 	}
 
-	// ensure there is no explicit hydrate config for the list config
+	// ensure that if there is an explicit hydrate config for the list hydrate, it does not declare dependencies
 	listHydrateName := helpers.GetFunctionName(table.List.Hydrate)
 	for _, h := range table.HydrateConfig {
 		if helpers.GetFunctionName(h.Func) == listHydrateName {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' also has an explicit hydrate config declared in `HydrateConfig`", table.Name, listHydrateName))
+			if len(h.Depends) > 0 {
+				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' defines dependencies in its `HydrateConfig`", table.Name, listHydrateName))
+			}
 			break
 		}
 	}

@@ -30,6 +30,8 @@ type WrapperPluginClient interface {
 	UpdateConnectionConfigs(ctx context.Context, in *UpdateConnectionConfigsRequest, opts ...grpc.CallOption) (*UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(ctx context.Context, in *GetSupportedOperationsRequest, opts ...grpc.CallOption) (*GetSupportedOperationsResponse, error)
 	SetCacheOptions(ctx context.Context, in *SetCacheOptionsRequest, opts ...grpc.CallOption) (*SetCacheOptionsResponse, error)
+	SetRateLimiters(ctx context.Context, in *SetRateLimitersRequest, opts ...grpc.CallOption) (*SetRateLimitersResponse, error)
+	GetRateLimiters(ctx context.Context, in *GetRateLimitersRequest, opts ...grpc.CallOption) (*GetRateLimitersResponse, error)
 }
 
 type wrapperPluginClient struct {
@@ -158,6 +160,24 @@ func (c *wrapperPluginClient) SetCacheOptions(ctx context.Context, in *SetCacheO
 	return out, nil
 }
 
+func (c *wrapperPluginClient) SetRateLimiters(ctx context.Context, in *SetRateLimitersRequest, opts ...grpc.CallOption) (*SetRateLimitersResponse, error) {
+	out := new(SetRateLimitersResponse)
+	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/SetRateLimiters", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wrapperPluginClient) GetRateLimiters(ctx context.Context, in *GetRateLimitersRequest, opts ...grpc.CallOption) (*GetRateLimitersResponse, error) {
+	out := new(GetRateLimitersResponse)
+	err := c.cc.Invoke(ctx, "/proto.WrapperPlugin/GetRateLimiters", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WrapperPluginServer is the server API for WrapperPlugin service.
 // All implementations must embed UnimplementedWrapperPluginServer
 // for forward compatibility
@@ -170,6 +190,8 @@ type WrapperPluginServer interface {
 	UpdateConnectionConfigs(context.Context, *UpdateConnectionConfigsRequest) (*UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(context.Context, *GetSupportedOperationsRequest) (*GetSupportedOperationsResponse, error)
 	SetCacheOptions(context.Context, *SetCacheOptionsRequest) (*SetCacheOptionsResponse, error)
+	SetRateLimiters(context.Context, *SetRateLimitersRequest) (*SetRateLimitersResponse, error)
+	GetRateLimiters(context.Context, *GetRateLimitersRequest) (*GetRateLimitersResponse, error)
 	mustEmbedUnimplementedWrapperPluginServer()
 }
 
@@ -200,6 +222,12 @@ func (UnimplementedWrapperPluginServer) GetSupportedOperations(context.Context, 
 }
 func (UnimplementedWrapperPluginServer) SetCacheOptions(context.Context, *SetCacheOptionsRequest) (*SetCacheOptionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetCacheOptions not implemented")
+}
+func (UnimplementedWrapperPluginServer) SetRateLimiters(context.Context, *SetRateLimitersRequest) (*SetRateLimitersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetRateLimiters not implemented")
+}
+func (UnimplementedWrapperPluginServer) GetRateLimiters(context.Context, *GetRateLimitersRequest) (*GetRateLimitersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRateLimiters not implemented")
 }
 func (UnimplementedWrapperPluginServer) mustEmbedUnimplementedWrapperPluginServer() {}
 
@@ -364,6 +392,42 @@ func _WrapperPlugin_SetCacheOptions_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WrapperPlugin_SetRateLimiters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRateLimitersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WrapperPluginServer).SetRateLimiters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.WrapperPlugin/SetRateLimiters",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WrapperPluginServer).SetRateLimiters(ctx, req.(*SetRateLimitersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WrapperPlugin_GetRateLimiters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRateLimitersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WrapperPluginServer).GetRateLimiters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.WrapperPlugin/GetRateLimiters",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WrapperPluginServer).GetRateLimiters(ctx, req.(*GetRateLimitersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WrapperPlugin_ServiceDesc is the grpc.ServiceDesc for WrapperPlugin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -394,6 +458,14 @@ var WrapperPlugin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetCacheOptions",
 			Handler:    _WrapperPlugin_SetCacheOptions_Handler,
+		},
+		{
+			MethodName: "SetRateLimiters",
+			Handler:    _WrapperPlugin_SetRateLimiters_Handler,
+		},
+		{
+			MethodName: "GetRateLimiters",
+			Handler:    _WrapperPlugin_GetRateLimiters_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

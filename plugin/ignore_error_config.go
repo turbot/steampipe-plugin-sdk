@@ -61,11 +61,11 @@ Plugin examples:
 */
 type IgnoreConfig struct {
 	ShouldIgnoreErrorFunc ErrorPredicateWithContext
-	// deprecated, used ShouldIgnoreErrorFunc
+	// Deprecated: used ShouldIgnoreErrorFunc
 	ShouldIgnoreError ErrorPredicate
 }
 
-func (c *IgnoreConfig) String() interface{} {
+func (c *IgnoreConfig) String() string {
 	var s strings.Builder
 	if c.ShouldIgnoreError != nil {
 		s.WriteString(fmt.Sprintf("ShouldIgnoreError: %s\n", helpers.GetFunctionName(c.ShouldIgnoreError)))

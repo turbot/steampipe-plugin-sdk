@@ -114,6 +114,22 @@ func (c *PluginClient) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*prot
 	return resp, nil
 }
 
+func (c *PluginClient) SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error) {
+	resp, err := c.Stub.SetRateLimiters(req)
+	if err != nil {
+		return nil, HandleGrpcError(err, c.Name, "SetRateLimiters")
+	}
+	return resp, nil
+}
+
+func (c *PluginClient) GetRateLimiters(req *proto.GetRateLimitersRequest) (*proto.GetRateLimitersResponse, error) {
+	resp, err := c.Stub.GetRateLimiters(req)
+	if err != nil {
+		return nil, HandleGrpcError(err, c.Name, "GetRateLimiters")
+	}
+	return resp, nil
+}
+
 func (c *PluginClient) GetSchema(connectionName string) (*proto.Schema, error) {
 	resp, err := c.Stub.GetSchema(&proto.GetSchemaRequest{Connection: connectionName})
 	if err != nil {

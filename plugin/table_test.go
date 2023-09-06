@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"testing"
@@ -371,7 +372,10 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 
 func TestRequiredHydrateCalls(t *testing.T) {
 	plugin := &Plugin{}
-	plugin.initialise(hclog.NewNullLogger())
+	logger := hclog.NewNullLogger()
+	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+
+	plugin.initialise(logger)
 	for name, test := range testCasesRequiredHydrateCalls {
 		test.table.initialise(plugin)
 
@@ -795,8 +799,11 @@ var testCasesGetHydrateConfig = map[string]getHydrateConfigTest{
 }
 
 func TestGetHydrateConfig(t *testing.T) {
+	logger := hclog.NewNullLogger()
+	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+
 	for name, test := range testCasesGetHydrateConfig {
-		test.table.Plugin.initialise(hclog.NewNullLogger())
+		test.table.Plugin.initialise(logger)
 		test.table.initialise(test.table.Plugin)
 
 		result := test.table.hydrateConfigMap[test.funcName]
