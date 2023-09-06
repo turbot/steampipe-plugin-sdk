@@ -127,8 +127,8 @@ func Plugin(_ context.Context) *plugin.Plugin {
 		TableMap: map[string]*plugin.Table{...},
 		RateLimiters: []*rate_limiter.Definition{
             {
-                Limit:     50,
-                BurstSize: 10,
+                FillRate:     50,
+                BucketSize: 10,
             },
         },
 		...
@@ -149,8 +149,8 @@ func Plugin(_ context.Context) *plugin.Plugin {
 		TableMap: map[string]*plugin.Table{...},
 		RateLimiters:[]*rate_limiter.Definition{
             {
-                Limit:     50,
-                BurstSize: 10,
+                FillRate:     50,
+                BucketSize: 10,
                 Scope: []string{
                         "connection",
                         "service"
@@ -229,23 +229,23 @@ func Plugin(_ context.Context) *plugin.Plugin {
 		RateLimiters: []*rate_limiter.Definition{
             // rate limiter for s3 service
             {
-                Limit:     20,
-                BurstSize: 5,
+                FillRate:     20,
+                BucketSize: 5,
                 Scope: rateLimiterScope,
                 Where: "service='s3'",
                 },
             },
             // rate limiter for ec2 service
             {
-                Limit:     40,
-                BurstSize: 5,
+                FillRate:     40,
+                BucketSize: 5,
                 Scope rateLimiterScope,
                 Where: "service='ec2'",
             },
             // rate limiter for all other services
             {
-                Limit:     75,
-                BurstSize: 10,
+                FillRate:     75,
+                BucketSize: 10,
                 Where: "service not in ('s3,'ec2')",
             },
         },
