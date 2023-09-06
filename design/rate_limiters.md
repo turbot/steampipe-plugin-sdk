@@ -1,21 +1,20 @@
-
 # Rate Limiting
 
 ## Overview
 
 Rate limiting can be applied to all `Get`, `List` and column `Hydrate` calls.
 
-For each call, multiple rate limiters may apply. When more than one limiter applies to a call, 
+For each call, multiple rate limiters may apply. When more than one limiter applies to a call,
 the rate limiter with the largest required wait is respected.
 
-The rate limiters which apply to a call are resolved using `scopes`. Each rate limiter definition specifies
-scopes which apply to it, for example `region`, `connection`. Then for each call, the values of these scopes are 
-determined and used to identify which limiters apply. 
+The rate limiters which apply to a call are resolved using `scope`. Each rate limiter definition specifies
+scope properties which apply to it, for example `region`, `connection`. Then for each call, the values of these scope properties are
+determined and used to identify which limiters apply.
 
 
 ## Defining Rate Limiters
 
-Rate limiters may be defined in the plugin definition (by the plugin author), or in HCL config (by the user) 
+Rate limiters may be defined in the plugin definition (by the plugin author), or in HCL config (by the user)
 
 ### Plugin Definition
 A rate limiters is defined using the `Definition` struct:
@@ -25,23 +24,22 @@ type Definition struct {
 	Name string
 	// the actual limiter config
 	FillRate   rate.Limit
-	BucketSize int
-
-	// the scopes which identify this limiter instance
-	// one limiter instance will be created for each combination of scopes which is encountered
-	Scopes []string
+	BucketSize int64
+	// the max concurrency supported
+	MaxConcurrency int64
+	// the scope properties which identify this limiter instance
+	// one limiter instance will be created for each combination of these properties 
+	Scope []string
 
 	// filter used to target the limiter
 	Where        string
-}
 ```
-`Scopes` is list of all the scopes which apply to the rate limiter. 
-For example, if you want a rate limiter that applies to a single account, region and service, you could use the scopes:
+`Scope` is list of all the scope properties which apply to the rate limiter.
+For example, if you want a rate limiter that applies to a single account, region and service, you could use the scope:
 [`connection`, `region`,`service`].
-(See below for details of predefined vs custom scope names)
 
-`Where` is a SQL compatible where clause which allows a rate limiter to be targeted to spcific set of scope values, 
-for example to specify a rate limiter for a specific service only, the filter `"service"="s3` be used. 
+`Where` is a SQL compatible where clause which allows a rate limiter to be targeted to spcific set of scope values,
+for example to specify a rate limiter for a specific service only, the filter `"service"="s3` be used.
 
 For example:
 ```go
@@ -52,25 +50,28 @@ p := &plugin.Plugin{
 			Name:       "connection-region-service",
 			BucketSize: 10,
 			FillRate:   50,
-			Scopes:     []string{"region", "connection", "servive"},
+			Scope:     []string{"region", "connection", "servive"},
 			Where:      "service = 's3'",
 			},
 		},
 ```
 
 ### HCL Definition
-Rate limiters may be define in HCL in an `.spc` file in the config folder. 
+Plugin rate limiters may be define in HCL in an `.spc` file in the config folder.
 If a limiter has the same name as one defined in the plugin it will override it, if not, a new limiter is defined.
 
+Rate limiters for a plugin are defined in `plugin` blocks:
 ```
-limiter "connection-region-service" {
-  plugin       = "aws"  
-  bucket_size  = 5
-  fill_rate    = 25
-  scope  = ["region", "connection", "servive"]
-  where  = "service = 's3'"
-}
-
+plugin "aws" {  
+  limiter "connection-region-service" {
+    bucket_size  = 5
+    fill_rate    = 25
+    scope  = ["region", "connection", "servive"]
+    where  = "service = 's3'"
+  }
+  limiter "global-concurrency-limit" {
+    max_concurrency = 1000
+  }
 ```
 
 ## Resolving Rate Limiters
@@ -78,15 +79,15 @@ limiter "connection-region-service" {
 When executing a hydrate call the following steps are followed:
 1) Build the set of rate limiter definitions which may apply to the hydrate call
 2) Build the set of scope values which apply to the hydrate call
-3) Determine which limiter defintions are satisfied by the scope values (looking at both required scopes and the scope filters)
-4) Build a MultiLimiter from the resultant limiter defintions
+3) Determine which limiter definitions are satisfied by the scope values (looking at both required scope and the scope filters)
+4) Build a `MultiLimiter` from the resultant limiter definitions
 
 ### Resolving Scope Values
-Scope values are popuylated from 3 sources:
-- *implicit* scope values populated automatically 
-  - `tabe`, `connection`
+Scope values are populated from 3 sources:
+- *implicit* scope values populated automatically
+    - `table`, `connection`
 - *matrix* scope values populated from matrix quals (e.g. `region`)
-- *custom* scope values (tags?) which may be defined in `Table` defintions, `HydrateConfig`, `GetConfig` and  `ListConfig`   
+- *Tags* which may be defined in `Table` definitions, `HydrateConfig`, `GetConfig` and  `ListConfig`
 
 ## Paged List Calls
 
@@ -137,7 +138,7 @@ func Plugin(_ context.Context) *plugin.Plugin {
 }
 ```
 
-### 2. Plugin defines a rate limiter scoped by implicit scope "connection", custom scope "service" and matrix scope "region"  
+### 2. Plugin defines a rate limiter scoped by implicit scope "connection", "service" tag and matrix scope "region"
 
 #### Plugin definition
 ```go
@@ -150,7 +151,7 @@ func Plugin(_ context.Context) *plugin.Plugin {
             {
                 Limit:     50,
                 BurstSize: 10,
-                Scopes: []string{
+                Scope: []string{
                         "connection",
                         "service"
                         "region",
@@ -163,8 +164,8 @@ func Plugin(_ context.Context) *plugin.Plugin {
 	return p
 }
 ```
-NOTE: `region` must be defined as a matrix qual in order to use the matrix scope value, 
-and `service` must be defined as a custom scope value for tables or hydrate calls which this limiter targets.    
+NOTE: `region` must be defined as a matrix qual in order to use the matrix scope value,
+and `service` must be defined as a tag value for tables or hydrate calls which this limiter targets.
 
 #### 2a. Table definition which defines a "region" key column and sets the "service" scope value for all hydrate calls
 
@@ -218,8 +219,8 @@ NOTE: also scoped by "connection" and "region"
 
 ```go
 
-// scopes used for all rate limiters
-var rateLimiterScopes=[]string{"connection","service","region",}
+// scope used for all rate limiters
+var rateLimiterScope=[]string{"connection","service","region",}
 
 func Plugin(_ context.Context) *plugin.Plugin {
 	p := &plugin.Plugin{
@@ -230,7 +231,7 @@ func Plugin(_ context.Context) *plugin.Plugin {
             {
                 Limit:     20,
                 BurstSize: 5,
-                Scopes: rateLimiterScopes,
+                Scope: rateLimiterScope,
                 Where: "service='s3'",
                 },
             },
@@ -238,7 +239,7 @@ func Plugin(_ context.Context) *plugin.Plugin {
             {
                 Limit:     40,
                 BurstSize: 5,
-                Scopes: rateLimiterScopes,
+                Scope rateLimiterScope,
                 Where: "service='ec2'",
             },
             // rate limiter for all other services
