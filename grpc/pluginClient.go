@@ -121,6 +121,7 @@ func (c *PluginClient) SetRateLimiters(req *proto.SetRateLimitersRequest) (*prot
 	}
 	return resp, nil
 }
+
 func (c *PluginClient) GetRateLimiters(req *proto.GetRateLimitersRequest) (*proto.GetRateLimitersResponse, error) {
 	resp, err := c.Stub.GetRateLimiters(req)
 	if err != nil {
