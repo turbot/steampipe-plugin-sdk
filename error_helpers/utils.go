@@ -2,6 +2,7 @@ package error_helpers
 
 import (
 	"fmt"
+	"golang.org/x/exp/maps"
 	"strings"
 )
 
@@ -31,14 +32,16 @@ func CombineErrorsWithPrefix(prefix string, errors ...error) error {
 		}
 	}
 
-	combinedErrorString := []string{prefix}
+	// put into map to dedupe
+	combinedErrorStrings := map[string]struct{}{prefix: {}}
 	for _, e := range errors {
 		if e == nil {
 			continue
 		}
-		combinedErrorString = append(combinedErrorString, e.Error())
+		combinedErrorStrings[e.Error()] = struct{}{}
 	}
-	return fmt.Errorf(strings.Join(combinedErrorString, "\n\t"))
+
+	return fmt.Errorf(strings.Join(maps.Keys(combinedErrorStrings), "\n\t"))
 }
 
 func CombineErrors(errors ...error) error {

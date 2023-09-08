@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/danwakefield/fnmatch"
 	"github.com/turbot/steampipe-plugin-sdk/v5/filter"
+	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
+	"log"
 	"strings"
 )
 
@@ -15,7 +17,8 @@ type scopeFilter struct {
 func newScopeFilter(raw string) (*scopeFilter, error) {
 	parsed, err := filter.Parse("", []byte(raw))
 	if err != nil {
-		return nil, err
+		log.Printf("err %v", err)
+		return nil, sperr.New("failed to parse 'where' property: %s", err.Error())
 	}
 
 	res := &scopeFilter{

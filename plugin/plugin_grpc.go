@@ -348,7 +348,7 @@ func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) (err err
 	for _, pd := range request.Definitions {
 		d, err := rate_limiter.DefinitionFromProto(pd)
 		if err != nil {
-			errors = append(errors, sperr.WrapWithMessage(err, "failed to create rate limiter %s from config", err))
+			errors = append(errors, sperr.WrapWithMessage(err, "failed to create rate limiter '%s' from config", pd.Name))
 			continue
 		}
 
