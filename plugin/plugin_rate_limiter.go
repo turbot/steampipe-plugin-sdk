@@ -71,7 +71,9 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 		}
 
 		// now check whether the tag values satisfy any filters the limiter definition has
-		if !l.SatisfiesFilters(requiredScopeValues) {
+		// NOTE: pass ALL scope values, not just the ones specified in theSsope (requiredScopeValues)
+		// as the where clause may mention properties NOT in the scope
+		if !l.SatisfiesFilters(scopeValues) {
 			log.Printf("[INFO] we DO NOT satisfy the filter for limiter '%s' - filter: %s (%s)", l.Name, l.Where, h)
 			continue
 		}
@@ -79,6 +81,8 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 		// this limiter DOES apply to us, get or create a limiter instance
 		log.Printf("[INFO] limiter '%s' DOES apply to us (%s)", l.Name, h)
 
+		// get a limiter for this definition and set of scope values
+		// NOTE: pass the requiredScopeValues
 		limiter, err := p.rateLimiterInstances.GetOrCreate(l, requiredScopeValues)
 		if err != nil {
 			return nil, err
