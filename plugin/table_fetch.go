@@ -80,7 +80,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 
 	// so there is NOT a list of qual values, just call get once
 	// call doGet passing nil hydrate item
-	return t.doGet(ctx, queryData, nil)
+	return t.doGet(ctx, queryData)
 }
 
 func (t *Table) buildMissingKeyColumnError(operation string, unsatisfiedColumns KeyColumnSlice) error {
@@ -156,7 +156,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 		getWg.Add(1)
 		// call doGet passing nil hydrate item (hydrate item only needed for legacy implementation)
 		go func() {
-			if err := t.doGet(ctx, queryDataCopy, nil); err != nil {
+			if err := t.doGet(ctx, queryDataCopy); err != nil {
 				errorChan <- err
 			}
 			getWg.Done()
@@ -178,7 +178,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 
 // execute a get call for a single key column qual value
 // if a matrix is defined, call for every matrix item
-func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem interface{}) (err error) {
+func (t *Table) doGet(ctx context.Context, queryData *QueryData) (err error) {
 	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
 	defer func() {
 		if p := recover(); p != nil {
@@ -188,25 +188,14 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	}()
 	logging.LogTime(hydrateKey + " start")
 
-	// build rowData item, passing the hydrate item and use to invoke the 'get' hydrate call(s)
-	// NOTE the hydrate item is only needed for legacy get calls
-	rd := newRowData(queryData, hydrateItem)
-	var getItem interface{}
-
+	// do the get call, fanning out matrix if needed
+	var rd *rowData
 	if len(queryData.Matrix) == 0 {
-		// now we know there is no matrix,  initialise the rate limiters for this query data
-		queryData.initialiseRateLimiters()
-		// now wait for any configured 'get' rate limiters
-		fetchDelay := queryData.fetchLimiters.wait(ctx)
-		// set the metadata
-		queryData.setGetLimiterMetadata(fetchDelay)
-
-		// just invoke callHydrateWithRetries()
-		getItem, err = rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
-
+		rd, err = t.get(ctx, queryData)
 	} else {
 		// the table has a matrix  - we will invoke get for each matrix  item
-		getItem, err = t.getForEachMatrixItem(ctx, queryData, rd)
+		// returns row data containing the result (if any)
+		rd, err = t.getForEachMatrixItem(ctx, queryData)
 	}
 
 	if err != nil {
@@ -215,36 +204,46 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData, hydrateItem int
 	}
 
 	// if there is no error and the getItem is nil, we assume the item does not exist
-	if !helpers.IsNil(getItem) {
-		// set the rowData Item to the result of the Get hydrate call - this will be passed through to all other hydrate calls
-		rd.item = getItem
+	if !helpers.IsNil(rd.item) {
 		// NOTE: explicitly set the get hydrate results on rowData
-		rd.set(hydrateKey, getItem)
+		rd.set(hydrateKey, rd.item)
 		// set the rowsStreamed to 1
 		queryData.queryStatus.rowsStreamed = 1
-
+		// send the result down the stream
 		queryData.rowDataChan <- rd
 	}
 
 	return nil
 }
 
+// execute single get call (i.e. no matrix)
+func (t *Table) get(ctx context.Context, queryData *QueryData) (*rowData, error) {
+	// now we know there is no matrix,  initialise the rate limiters for this query data
+	queryData.initialiseRateLimiters()
+	// now wait for any configured 'get' rate limiters
+	fetchDelay := queryData.fetchLimiters.wait(ctx)
+	// set the metadata
+	queryData.setGetLimiterMetadata(fetchDelay)
+	// build rowData and use to invoke the 'get' hydrate call
+	rd := newRowData(queryData, nil)
+	// just invoke callHydrateWithRetries()
+	var getItem any
+	getItem, err := rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
+	rd.item = getItem
+	return rd, err
+}
+
 // getForEachMatrixItem executes the provided get call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData, rd *rowData) (interface{}, error) {
+func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData) (*rowData, error) {
 	log.Printf("[TRACE] getForEachMatrixItem, matrixItem list: %v\n", queryData.filteredMatrix)
 
 	var wg sync.WaitGroup
 	errorChan := make(chan error, len(queryData.Matrix))
 	var errors []error
-	// define type to stream down results channel - package the item and the matrix item
-	// this will for example allow us to determine which region contains the resulting get item
-	type resultWithMetadata struct {
-		item       interface{}
-		matrixItem map[string]interface{}
-	}
-	resultChan := make(chan *resultWithMetadata, len(queryData.Matrix))
-	var results []*resultWithMetadata
+
+	resultChan := make(chan *rowData, len(queryData.Matrix))
+	var results []*rowData
 
 	// NOTE - we use the filtered matrix - which means we may not actually run any hydrate calls
 	// if the quals have filtered out all matrix items (e.g. select where region = 'invalid')
@@ -254,7 +253,7 @@ func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData, 
 		wg.Add(1)
 
 		// pass matrixItem into goroutine to avoid async timing issues
-		go func(matrixItem map[string]interface{}) {
+		go func(matrixItem map[string]any) {
 			defer func() {
 				if r := recover(); r != nil {
 					if err, ok := r.(error); ok {
@@ -277,15 +276,19 @@ func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData, 
 			fetchDelay := matrixQueryData.fetchLimiters.wait(ctx)
 			// set the metadata
 			matrixQueryData.setGetLimiterMetadata(fetchDelay)
+			// create a rowData for each matrix item
+			matrixRd := newRowData(matrixQueryData, nil)
 
-			item, err := rd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
+			// now call hydrate from the matrix rowdata
+			item, err := matrixRd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
 			if err != nil {
 				log.Printf("[WARN] callHydrateWithRetries returned error %v", err)
 				errorChan <- err
 			} else if !helpers.IsNil(item) {
-				// stream the get item AND the matrix item
-				resultChan <- &resultWithMetadata{item, matrixItem}
+				matrixRd.item = item
+				// stream the rowdata
+				resultChan <- matrixRd
 			}
 		}(matrixItem)
 	}
@@ -315,15 +318,16 @@ func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData, 
 			if len(results) > 1 {
 				return nil, fmt.Errorf("get call returned %d results - the key column is not globally unique", len(results))
 			}
-			var item interface{}
+			// if we got a result, set the matrix item on the row data
+			var res *rowData
 			if len(results) == 1 {
-				// TODO KAI what????
-				// set the matrix item on the row data
-				rd.matrixItem = results[0].matrixItem
-				item = results[0].item
+				res = results[0]
+			} else {
+				// return empty rowdata
+				res = &rowData{}
 			}
 			// return item, if we have one
-			return item, nil
+			return res, nil
 		}
 	}
 }
@@ -522,7 +526,7 @@ func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData,
 		wg.Add(1)
 
 		// pass matrixItem into goroutine to avoid async timing issues
-		go func(matrixItem map[string]interface{}) {
+		go func(matrixItem map[string]any) {
 			defer func() {
 				if r := recover(); r != nil {
 					queryData.streamError(helpers.ToError(r))

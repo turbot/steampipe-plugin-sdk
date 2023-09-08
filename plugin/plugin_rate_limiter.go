@@ -58,7 +58,7 @@ func (p *Plugin) getRateLimitersForScopeValues(scopeValues map[string]string) ([
 	p.rateLimiterDefsMut.RLock()
 	defer p.rateLimiterDefsMut.RUnlock()
 
-	// NOTE: use rateLimiterLookup NOT the public RateLimiter property.
+	// NOTE: use resolvedRateLimiterDefs NOT the public RateLimiter property.
 	// This is to ensure config overrides are respected
 	for _, l := range p.resolvedRateLimiterDefs {
 		// build a filtered map of just the scope values required for this limiter
