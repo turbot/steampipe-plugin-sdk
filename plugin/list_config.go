@@ -50,7 +50,9 @@ type ListConfig struct {
 	ParentTags map[string]string
 
 	// Deprecated: Use IgnoreConfig
-	ShouldIgnoreError ErrorPredicate
+	ShouldIgnoreError      ErrorPredicate
+	namedHydrateFunc       *namedHydrateFunc
+	namedParentHydrateFunc *namedHydrateFunc
 }
 
 func (c *ListConfig) initialise(table *Table) {
@@ -81,6 +83,14 @@ func (c *ListConfig) initialise(table *Table) {
 	// default ignore and retry configs to table defaults
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
+
+	// populate the namedHydrateFunc hydrate func
+	n := newNamedHydrateFunc(c.Hydrate)
+	c.namedHydrateFunc = &n
+	if c.ParentHydrate != nil {
+		p := newNamedHydrateFunc(c.ParentHydrate)
+		c.namedParentHydrateFunc = &p
+	}
 
 	log.Printf("[TRACE] ListConfig.initialise complete: RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }

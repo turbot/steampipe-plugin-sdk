@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
@@ -164,39 +163,39 @@ func (r *rowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 }
 
 // invoke a hydrate function, and set results on the rowData object. Stream errors on the rowData error channel
-func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, hydrateKey string, hydrateConfig *HydrateConfig) {
+func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrate namedHydrateFunc, hydrateConfig *HydrateConfig) {
 	// handle panics in the row hydrate function
 	defer func() {
 		if p := recover(); p != nil {
 			log.Printf("[WARN] callHydrate recover: %v", p)
-			r.errorChan <- status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrateKey, p))
+			r.errorChan <- status.Error(codes.Internal, fmt.Sprintf("hydrate call %s failed with panic %v", hydrate.Name, p))
 		}
 		r.wg.Done()
 	}()
 
-	logging.LogTime(hydrateKey + " start")
+	logging.LogTime(hydrate.Name + " start")
 
 	// now call the hydrate function, passing the item and hydrate results so far
-	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrateFunc, hydrateConfig.IgnoreConfig, hydrateConfig.RetryConfig)
+	hydrateData, err := r.callHydrateWithRetries(ctx, d, hydrate, hydrateConfig.IgnoreConfig, hydrateConfig.RetryConfig)
 	if err != nil {
-		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrateKey, err)
-		r.setError(hydrateKey, err)
+		log.Printf("[ERROR] callHydrate %s finished with error: %v\n", hydrate.Name, err)
+		r.setError(hydrate.Name, err)
 		r.errorChan <- err
 	} else {
 		// set the hydrate data, even if it is nil
 		// (it may legitimately be nil if the hydrate function returned an ignored error)
 		// if we do not set it for nil values, we will get error that required hydrate functions hav enot been called
-		r.set(hydrateKey, hydrateData)
+		r.set(hydrate.Name, hydrateData)
 	}
-	logging.LogTime(hydrateKey + " end")
+	logging.LogTime(hydrate.Name + " end")
 }
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
-func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
+func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrate namedHydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
 	ctx, span := telemetry.StartSpan(ctx, r.table.Plugin.Name, "rowData.callHydrateWithRetries (%s)", r.table.Name)
 
 	span.SetAttributes(
-		attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
+		attribute.String("hydrate-func", hydrate.Name),
 	)
 	defer func() {
 		if err != nil {
@@ -209,15 +208,15 @@ func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 
 	h := &HydrateData{Item: r.item, ParentItem: r.parentItem, HydrateResults: r.hydrateResults}
 	// WrapHydrate function returns a HydrateFunc which handles Ignorable errors
-	var hydrateWithIgnoreError = WrapHydrate(hydrateFunc, ignoreConfig)
-	hydrateResult, err = hydrateWithIgnoreError(ctx, d, h)
+	var hydrateWithIgnoreError = WrapHydrate(hydrate, ignoreConfig)
+	hydrateResult, err = hydrateWithIgnoreError.Func(ctx, d, h)
 	if err != nil {
 		log.Printf("[TRACE] hydrateWithIgnoreError returned error %v", err)
 
 		if shouldRetryError(ctx, d, h, err, retryConfig) {
 			log.Printf("[TRACE] retrying hydrate")
 			hydrateData := &HydrateData{Item: r.item, ParentItem: r.parentItem, HydrateResults: r.hydrateResults}
-			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrateFunc, retryConfig)
+			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrate, retryConfig)
 			log.Printf("[TRACE] back from retry")
 		}
 	}

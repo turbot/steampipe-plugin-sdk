@@ -228,7 +228,7 @@ func (t *Table) get(ctx context.Context, queryData *QueryData) (*rowData, error)
 	rd := newRowData(queryData, nil)
 	// just invoke callHydrateWithRetries()
 	var getItem any
-	getItem, err := rd.callHydrateWithRetries(ctx, queryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
+	getItem, err := rd.callHydrateWithRetries(ctx, queryData, t.Get.named, t.Get.IgnoreConfig, t.Get.RetryConfig)
 	rd.item = getItem
 	return rd, err
 }
@@ -280,7 +280,7 @@ func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData) 
 			matrixRd := newRowData(matrixQueryData, nil)
 
 			// now call hydrate from the matrix rowdata
-			item, err := matrixRd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.Hydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
+			item, err := matrixRd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.namedHydrateFunc(), t.Get.IgnoreConfig, t.Get.RetryConfig)
 
 			if err != nil {
 				log.Printf("[WARN] callHydrateWithRetries returned error %v", err)
@@ -373,13 +373,13 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}
 
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
-	var childHydrate HydrateFunc = nil
-	listCall := t.List.Hydrate
+	var childHydrate *namedHydrateFunc = nil
+	listCall := t.List.namedHydrateFunc
 	// if there is a parent hydrate function, call that
 	// - the child 'Hydrate' function will be called by QueryData.StreamListItem,
 	if t.List.ParentHydrate != nil {
-		listCall = t.List.ParentHydrate
-		childHydrate = t.List.Hydrate
+		listCall = t.List.namedParentHydrateFunc
+		childHydrate = t.List.namedHydrateFunc
 	}
 
 	// store the list call and child hydrate call - these will be used later when we call setListLimiterMetadata
@@ -388,14 +388,13 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	// NOTE: if there is an IN qual, the qual value will be a list of values
 	// in this case we call list for each value
 	if listQual := t.getListCallQualValueList(queryData); listQual != nil {
-
 		log.Printf("[TRACE] one qual with list value will be processed: %v", *listQual)
 		qualValueList := listQual.Value.GetListValue()
-		t.doListForQualValues(ctx, queryData, listQual.Column, qualValueList, listCall)
+		t.doListForQualValues(ctx, queryData, listQual.Column, qualValueList, *listCall)
 		return
 	}
 
-	t.doList(ctx, queryData, listCall)
+	t.doList(ctx, queryData, *listCall)
 }
 
 // if this table defines key columns, and if there is a SINGLE qual with a list value
@@ -449,7 +448,7 @@ func (t *Table) getListCallQualValueList(queryData *QueryData) *quals.Qual {
 }
 
 // doListForQualValues is called when there is an equals qual and the qual value is a list of values
-func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall HydrateFunc) {
+func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall namedHydrateFunc) {
 	var listWg sync.WaitGroup
 
 	log.Printf("[TRACE] doListForQualValues - qual value is a list - executing list for each qual value item, qualValueList: %v", qualValueList)
@@ -474,7 +473,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 	listWg.Wait()
 }
 
-func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall namedHydrateFunc) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.doList (%s)", t.Name)
 	defer span.End()
 
@@ -511,7 +510,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Hydra
 
 // ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData, listCall HydrateFunc) {
+func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData, listCall namedHydrateFunc) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.listForEachMatrixItem (%s)", t.Name)
 	// TODO add matrix item to span
 	defer span.End()

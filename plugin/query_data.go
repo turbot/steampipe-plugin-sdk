@@ -150,8 +150,8 @@ type QueryData struct {
 
 	fetchMetadata         *hydrateMetadata
 	parentHydrateMetadata *hydrateMetadata
-	listHydrate           HydrateFunc
-	childHydrate          HydrateFunc
+	listHydrate           *namedHydrateFunc
+	childHydrate          *namedHydrateFunc
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -907,7 +907,7 @@ func (d *QueryData) removeReservedColumns(row *proto.Row) {
 	}
 }
 
-func (d *QueryData) setListCalls(listCall, childHydrate HydrateFunc) {
+func (d *QueryData) setListCalls(listCall, childHydrate *namedHydrateFunc) {
 	d.listHydrate = listCall
 	d.childHydrate = childHydrate
 }
