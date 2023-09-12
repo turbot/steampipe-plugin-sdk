@@ -3,12 +3,12 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/go-hclog"
 	"log"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
