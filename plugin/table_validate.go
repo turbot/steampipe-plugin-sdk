@@ -121,6 +121,16 @@ func (t *Table) validateHydrateDependencies() []string {
 	return validationErrors
 }
 
+// ensure that no hydrate config is declared for a hydrate func which has global hydrate config
+func (t *Table) validateHydrateConfig() {
+	var validationErrors []string
+	for funcName := range t.hydrateConfigMap {
+		if _, globalConfigExists := t.Plugin.hydrateConfigMap[funcName]; globalConfigExists {
+			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' declares HydrateConfig for '%s' which also has global HydrateConfig declared by the plugin", t.Name, funcName))
+		}
+	}
+}
+
 func (t *Table) detectCyclicHydrateDependencies() string {
 	var dependencyGraph = topsort.NewGraph()
 	dependencyGraph.AddNode("root")

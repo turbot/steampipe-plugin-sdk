@@ -11,11 +11,10 @@ import (
 
 // hydrateCall struct encapsulates a hydrate call, its config and dependencies
 type hydrateCall struct {
-	Func HydrateFunc
+	namedHydrateFunc
 	// the dependencies expressed using function name
 	Depends []string
 	Config  *HydrateConfig
-	Name    string
 
 	queryData   *QueryData
 	rateLimiter *rate_limiter.MultiLimiter
@@ -26,23 +25,26 @@ type hydrateCall struct {
 
 func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 	res := &hydrateCall{
-		Name:      helpers.GetFunctionName(config.Func),
-		Func:      config.Func,
 		Config:    config,
 		queryData: d,
 	}
+	res.namedHydrateFunc = newNamedHydrateFunc(config.Func)
+
 	for _, f := range config.Depends {
 		res.Depends = append(res.Depends, helpers.GetFunctionName(f))
 	}
+
 	return res, nil
 }
 
 func (h *hydrateCall) shallowCopy() *hydrateCall {
 	return &hydrateCall{
-		Func:        h.Func,
+		namedHydrateFunc: namedHydrateFunc{
+			Func: h.Func,
+			Name: h.Name,
+		},
 		Depends:     h.Depends,
 		Config:      h.Config,
-		Name:        h.Name,
 		queryData:   h.queryData,
 		rateLimiter: h.rateLimiter,
 	}
@@ -107,7 +109,7 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, d, h.Func, h.Name, h.Config)
+		r.callHydrate(ctx, d, h.namedHydrateFunc, h.Config)
 		h.onFinished()
 	}()
 	return rateLimitDelay + h.concurrencyDelay

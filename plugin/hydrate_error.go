@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/sethvargo/go-retry"
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
@@ -15,10 +14,10 @@ import (
 )
 
 // RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attempts before throwing error
-func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrateFunc HydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
+func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrate namedHydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "RetryHydrate (%s)", d.Table.Name)
 	span.SetAttributes(
-		attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
+		attribute.String("hydrate-func", hydrate.Name),
 	)
 	defer func() {
 		if err != nil {
@@ -42,7 +41,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	}
 
 	err = retry.Do(ctx, retry.WithMaxRetries(maxAttempts, backoff), func(ctx context.Context) error {
-		hydrateResult, err = hydrateFunc(ctx, d, hydrateData)
+		hydrateResult, err = hydrate.Func(ctx, d, hydrateData)
 		if err != nil {
 			log.Printf("[TRACE] >>> error %s", err.Error())
 			if shouldRetryError(ctx, d, hydrateData, err, retryConfig) {
@@ -105,11 +104,13 @@ func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 }
 
 // WrapHydrate is a higher order function which returns a [HydrateFunc] that handles Ignorable errors.
-func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFunc {
-	return func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
+func WrapHydrate(hydrate namedHydrateFunc, ignoreConfig *IgnoreConfig) namedHydrateFunc {
+	res := hydrate.clone()
+
+	res.Func = func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {
 		ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "hydrateWithIgnoreError (%s)", d.Table.Name)
 		span.SetAttributes(
-			attribute.String("hydrate-func", helpers.GetFunctionName(hydrateFunc)),
+			attribute.String("hydrate-func", hydrate.Name),
 		)
 		defer func() {
 			if err != nil {
@@ -123,20 +124,20 @@ func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFun
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("[WARN] recovered a panic from a wrapped hydrate function: %v\n", r)
-				err = status.Error(codes.Internal, fmt.Sprintf("hydrate function %s failed with panic %v", helpers.GetFunctionName(hydrateFunc), r))
+				err = status.Error(codes.Internal, fmt.Sprintf("hydrate function %s failed with panic %v", hydrate.Name, r))
 			}
 		}()
 		// call the underlying get function
-		item, err = hydrateFunc(ctx, d, h)
+		item, err = hydrate.Func(ctx, d, h)
 		if err != nil {
-			log.Printf("[TRACE] wrapped hydrate call %s returned error %v, ignore config %s\n", helpers.GetFunctionName(hydrateFunc), err, ignoreConfig.String())
+			log.Printf("[TRACE] wrapped hydrate call %s returned error %v, ignore config %s\n", hydrate.Name, err, ignoreConfig.String())
 			// see if the ignoreConfig defines a should ignore function
 			if ignoreConfig.ShouldIgnoreError != nil && ignoreConfig.ShouldIgnoreError(err) {
-				log.Printf("[TRACE] wrapped hydrate call %s returned error but we are ignoring it: %v", helpers.GetFunctionName(hydrateFunc), err)
+				log.Printf("[TRACE] wrapped hydrate call %s returned error but we are ignoring it: %v", hydrate.Name, err)
 				return nil, nil
 			}
 			if ignoreConfig.ShouldIgnoreErrorFunc != nil && ignoreConfig.ShouldIgnoreErrorFunc(ctx, d, h, err) {
-				log.Printf("[TRACE] wrapped hydrate call %s returned error but we are ignoring it: %v", helpers.GetFunctionName(hydrateFunc), err)
+				log.Printf("[TRACE] wrapped hydrate call %s returned error but we are ignoring it: %v", hydrate.Name, err)
 				return nil, nil
 			}
 			// pass any other error on
@@ -144,6 +145,8 @@ func WrapHydrate(hydrateFunc HydrateFunc, ignoreConfig *IgnoreConfig) HydrateFun
 		}
 		return item, nil
 	}
+
+	return res
 }
 
 func shouldRetryError(ctx context.Context, d *QueryData, h *HydrateData, err error, retryConfig *RetryConfig) bool {

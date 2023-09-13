@@ -197,9 +197,13 @@ func (t *Table) buildHydrateConfigMap() {
 		if c.Hydrate == nil {
 			continue
 		}
-		hydrateName := helpers.GetFunctionName(c.Hydrate)
+		// to get name, create a namedFunc - this will take care of mapping memoized function named
+		hydrateName := newNamedHydrateFunc(c.Hydrate).Name
+
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
-			t.hydrateConfigMap[hydrateName] = &HydrateConfig{Func: c.Hydrate}
+			t.hydrateConfigMap[hydrateName] = &HydrateConfig{
+				Func: c.Hydrate,
+			}
 		}
 	}
 }

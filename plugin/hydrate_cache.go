@@ -4,17 +4,46 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
 )
 
+// map of memoized functions to the original function name
+var memoizedNameMap = make(map[uintptr]string)
+var memoizedNameMapLock sync.RWMutex
+
 var memoizedHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
 var memoizedHydrateLock sync.RWMutex
 
+// return the function name
+// if this function has been memoized, return the underlying function
+func getOriginalFuncName(f HydrateFunc) string {
+	memoizedNameMapLock.RLock()
+	// check if this is a memoized function, if so get the original name
+	p := reflect.ValueOf(f).Pointer()
+	name, isMemoized := memoizedNameMap[p]
+	memoizedNameMapLock.RUnlock()
+
+	if !isMemoized {
+		name = helpers.GetFunctionName(f)
+	}
+
+	return name
+}
+
+func setMemoizedFuncName(memoizedFunc, originalFunc HydrateFunc) {
+	// add to map
+	memoizedNameMapLock.Lock()
+	p := reflect.ValueOf(memoizedFunc).Pointer()
+	memoizedNameMap[p] = helpers.GetFunctionName(originalFunc)
+	memoizedNameMapLock.Unlock()
+}
+
 /*
-WithCache ensures the [HydrateFunc] results are saved in the [connection.ConnectionCache].
+Memoize ensures the [HydrateFunc] results are saved in the [connection.ConnectionCache].
 
 Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
 
@@ -68,7 +97,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 	buildCacheKey := config.GetCacheKeyFunc
 	ttl := config.Ttl
 
-	return func(ctx context.Context, d *QueryData, h *HydrateData) (interface{}, error) {
+	memoizedFunc := func(ctx context.Context, d *QueryData, h *HydrateData) (interface{}, error) {
 		// build key
 		k, err := buildCacheKey(ctx, d, h)
 		if err != nil {
@@ -128,6 +157,11 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
 
 	}
+
+	// store the memoized func in the name map
+	setMemoizedFuncName(memoizedFunc, hydrate)
+
+	return memoizedFunc
 }
 
 func (hydrate HydrateFunc) waitForHydrate(ctx context.Context, d *QueryData, h *HydrateData, functionLock *sync.WaitGroup, cacheKey string, ttl time.Duration) (interface{}, error) {

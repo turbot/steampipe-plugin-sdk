@@ -65,6 +65,7 @@ func Serve(opts *ServeOpts) {
 	// create the logger
 	logger := setupLogger()
 
+	log.Printf("[INFO] Serve")
 	// add logger into the context for the plugin create func
 	ctx := context.WithValue(context.Background(), context_key.Logger, logger)
 

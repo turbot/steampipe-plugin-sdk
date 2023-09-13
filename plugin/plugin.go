@@ -100,6 +100,9 @@ type Plugin struct {
 	// callback function which is called when any watched source file(s) gets changed
 	WatchedFileChangedFunc func(ctx context.Context, p *Plugin, connection *Connection, events []fsnotify.Event)
 
+	// config for hydrate functions which are used across multiple tables
+	HydrateConfig []HydrateConfig
+
 	queryCache *query_cache.QueryCache
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
 	connectionCacheStore *cache.Cache[any]
@@ -125,11 +128,18 @@ type Plugin struct {
 	// map of call ids to avoid duplicates
 	callIdLookup    map[string]struct{}
 	callIdLookupMut sync.RWMutex
+
+	// map of hydrate function name to columns it provides
+	hydrateConfigMap map[string]*HydrateConfig
 }
 
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) initialise(logger hclog.Logger) {
+
+	log.Printf("[WARN] initialise")
+
+	//time.Sleep(10 * time.Second)
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
 
@@ -533,8 +543,10 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 		}
 	}
 
-	// update tables to have a reference to the plugin
+	// populate map of global hydrate config
+	p.buildHydrateConfigMap()
 
+	// initialise all tables
 	for _, table := range tableMap {
 		table.initialise(p)
 	}
@@ -550,6 +562,19 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 		return nil, fmt.Errorf("plugin %s connection %s validation failed: \n%s", p.Name, connection.Name, strings.Join(validationErrors, "\n"))
 	}
 	return tableMap, nil
+}
+
+// build map of all hydrate configs, including those specified in the legacy HydrateDependencies,
+// and those mentioned only in column config
+func (p *Plugin) buildHydrateConfigMap() {
+	p.hydrateConfigMap = make(map[string]*HydrateConfig)
+	for i := range p.HydrateConfig {
+		// as we are converting into a pointer, we cannot use the array value direct from the range as
+		// this was causing incorrect values - go must be reusing memory addresses for successive items
+		h := &p.HydrateConfig[i]
+		funcName := helpers.GetFunctionName(h.Func)
+		p.hydrateConfigMap[funcName] = h
+	}
 }
 
 func logValidationWarning(connection *Connection, warnings []string) {

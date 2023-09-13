@@ -30,7 +30,7 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc, callId string) 
 		}
 
 		// get the config for this hydrate function
-		config := c.queryData.Table.hydrateConfigMap[hydrateName]
+		config := getHydrateConfig(c, hydrateName)
 
 		call, err := newHydrateCall(config, c.queryData)
 		if err != nil {
@@ -48,6 +48,16 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc, callId string) 
 		}
 	}
 	return nil
+}
+
+func getHydrateConfig(c requiredHydrateCallBuilder, hydrateName string) *HydrateConfig {
+	// first try plugin
+	config := c.queryData.plugin.hydrateConfigMap[hydrateName]
+	// fall back on table - we know there will at least be implicit config
+	if config == nil {
+		config = c.queryData.Table.hydrateConfigMap[hydrateName]
+	}
+	return config
 }
 
 func (c requiredHydrateCallBuilder) Get() []*hydrateCall {
