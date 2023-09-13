@@ -18,13 +18,20 @@ var memoizedNameMapLock sync.RWMutex
 var memoizedHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
 var memoizedHydrateLock sync.RWMutex
 
-func getMemoizedFuncName(f HydrateFunc) (string, bool) {
+// return the function name
+// if this function has been memoized, return the underlying function
+func getOriginalFuncName(f HydrateFunc) string {
 	memoizedNameMapLock.RLock()
 	// check if this is a memoized function, if so get the original name
 	p := reflect.ValueOf(f).Pointer()
-	originalName, isMemoized := memoizedNameMap[p]
+	name, isMemoized := memoizedNameMap[p]
 	memoizedNameMapLock.RUnlock()
-	return originalName, isMemoized
+
+	if !isMemoized {
+		name = helpers.GetFunctionName(f)
+	}
+
+	return name
 }
 
 func setMemoizedFuncName(memoizedFunc, originalFunc HydrateFunc) {
