@@ -19,6 +19,7 @@ import (
 
 // ServeOpts are the configurations to serve a plugin.
 type ServeOpts struct {
+	// Deprecated
 	PluginName string
 	PluginFunc PluginFunc
 }
@@ -53,15 +54,7 @@ const (
 	PluginStartupFailureMessage           = "Plugin startup failed: "
 )
 
-func Serve(opts *ServeOpts) {
-	defer func() {
-		if r := recover(); r != nil {
-			msg := fmt.Sprintf("%s%s", PluginStartupFailureMessage, helpers.ToError(r).Error())
-			log.Println("[WARN]", msg)
-			// write to stdout so the plugin manager can extract the error message
-			fmt.Println(msg)
-		}
-	}()
+func NewPluginServer(opts *ServeOpts) *grpc.PluginServer {
 
 	// create the logger
 	logger := setupLogger()
@@ -98,7 +91,7 @@ func Serve(opts *ServeOpts) {
 	}
 	// TODO add context into all of these handlers
 
-	grpc.NewPluginServer(p.Name,
+	return grpc.NewPluginServer(p.Name,
 		p.setConnectionConfig,
 		p.setAllConnectionConfigs,
 		p.updateConnectionConfigs,
@@ -109,7 +102,20 @@ func Serve(opts *ServeOpts) {
 		p.setRateLimiters,
 		p.getRateLimiters,
 		p.setConnectionCacheOptions,
-	).Serve()
+	)
+}
+
+func Serve(opts *ServeOpts) {
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("%s%s", PluginStartupFailureMessage, helpers.ToError(r).Error())
+			log.Println("[WARN]", msg)
+			// write to stdout so the plugin manager can extract the error message
+			fmt.Println(msg)
+		}
+	}()
+
+	NewPluginServer(opts).Serve()
 }
 
 func setupLogger() hclog.Logger {
