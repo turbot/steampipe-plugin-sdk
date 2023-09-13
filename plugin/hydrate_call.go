@@ -79,13 +79,18 @@ func (h *hydrateCall) canStart(rowData *rowData) bool {
 			return false
 		}
 	}
-	// so all dependencies have been satisfied - if a rate limiting config is defined,
-	// check whether we satisfy the concurrency limits
+	// so all dependencies have been satisfied
+	// if this is a memoized function, no rate limiting is required - we can start
+	if h.IsMemoized {
+		return true
+	}
+	// if no rate limiting config is defined, we cna start
 	if h.rateLimiter == nil {
 		return true
 	}
+	// so a rate limiting config is defined - check whether we satisfy the concurrency limits
 
-	// if no potentiual start time is set, set it now
+	// if no potential start time is set, set it now
 	if h.potentialStartTime.IsZero() {
 		h.potentialStartTime = time.Now()
 	}
@@ -100,9 +105,13 @@ func (h *hydrateCall) canStart(rowData *rowData) bool {
 
 // Start starts a hydrate call
 func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.Duration {
-	rateLimitDelay := h.rateLimit(ctx, d)
+	var rateLimitDelay time.Duration
+	// if we are memoized there is no need to rate limit
+	if !h.IsMemoized {
+		rateLimitDelay = h.rateLimit(ctx, d)
+	}
 
-	// tell the rowdata to wait for this call to complete
+	// tell the rowData to wait for this call to complete
 	r.wg.Add(1)
 	// update the hydrate count
 	atomic.AddInt64(&d.queryStatus.hydrateCalls, 1)

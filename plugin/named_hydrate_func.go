@@ -1,16 +1,16 @@
 package plugin
 
 type namedHydrateFunc struct {
-	Func HydrateFunc
-	Name string
+	Func       HydrateFunc
+	Name       string
+	IsMemoized bool
 }
 
 func newNamedHydrateFunc(f HydrateFunc) namedHydrateFunc {
 	res := namedHydrateFunc{
 		Func: f,
-		Name: getOriginalFuncName(f),
 	}
-
+	res.Name, res.IsMemoized = f.getOriginalFuncName()
 	return res
 }
 
