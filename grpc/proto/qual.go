@@ -3,7 +3,6 @@ package proto
 import "log"
 
 func (x *Qual) Equals(other *Qual) bool {
-	//log.Printf("[TRACE] me %s, other %s", x.String(), other.String())
 	return x.String() == other.String()
 }
 
