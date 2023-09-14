@@ -15,60 +15,37 @@ import (
 var memoizedNameMap = make(map[uintptr]string)
 var memoizedNameMapLock sync.RWMutex
 
+// map of currently executing memoized hydrate funcs
+
 var memoizedHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
 var memoizedHydrateLock sync.RWMutex
 
-// return the function name
-// if this function has been memoized, return the underlying function
-func getOriginalFuncName(f HydrateFunc) string {
-	memoizedNameMapLock.RLock()
-	// check if this is a memoized function, if so get the original name
-	p := reflect.ValueOf(f).Pointer()
-	name, isMemoized := memoizedNameMap[p]
-	memoizedNameMapLock.RUnlock()
+/*
+HydrateFunc is a function that gathers data to build table rows.
+Typically this would make an API call and return the raw API output.
 
-	if !isMemoized {
-		name = helpers.GetFunctionName(f)
-	}
+List and Get are special hydrate functions.
 
-	return name
-}
+  - List returns data for all rows. Almost all tables will have a List function.
 
-func setMemoizedFuncName(memoizedFunc, originalFunc HydrateFunc) {
-	// add to map
-	memoizedNameMapLock.Lock()
-	p := reflect.ValueOf(memoizedFunc).Pointer()
-	memoizedNameMap[p] = helpers.GetFunctionName(originalFunc)
-	memoizedNameMapLock.Unlock()
-}
+  - Get returns data for a single row. In order to filter as cheaply as possible a Get function should be implemented if 		the API supports fetching single items by key.
+
+A column may require data not returned by the List or Get calls and an additional API
+call will be required. A HydrateFunc that wraps this API call can be specified in the [Column] definition.
+
+You could do this the hard way by looping through the List API results and enriching each item
+by making an additional API call. However the SDK does all this for you.
+*/
+type HydrateFunc func(context.Context, *QueryData, *HydrateData) (interface{}, error)
 
 /*
-Memoize ensures the [HydrateFunc] results are saved in the [connection.ConnectionCache].
-
-Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
-
-# Usage
-
-	{
-		Name:        "account",
-		Type:        proto.ColumnType_STRING,
-		Hydrate:     plugin.HydrateFunc(getCommonColumns).WithCache(),
-		Description: "The Snowflake account ID.",
-		Transform:   transform.FromCamel(),
-	}
-
-Plugin examples:
-  - [snowflake]
-
-// deprecated: use Memoize
-
-[snowflake]: https://github.com/turbot/steampipe-plugin-snowflake/blob/6e243aad63b5706ee1a9dd8979df88eb097e38a8/snowflake/common_columns.go#L28
+WithCache deprecated: use Memoize
 */
-func (hydrate HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
+func (f HydrateFunc) WithCache(args ...HydrateFunc) HydrateFunc {
 	// build a function to return the cache key
-	getCacheKey := hydrate.getCacheKeyFunction(args)
+	getCacheKey := f.getCacheKeyFunction(args)
 
-	return hydrate.Memoize(func(o *MemoizeConfiguration) {
+	return f.Memoize(func(o *MemoizeConfiguration) {
 		o.GetCacheKeyFunc = getCacheKey
 	})
 }
@@ -88,8 +65,8 @@ Use it to reduce the number of API calls if the HydrateFunc is used by multiple 
 		Transform:   transform.FromCamel(),
 	}
 */
-func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
-	config := newMemoizeConfiguration(hydrate)
+func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
+	config := newMemoizeConfiguration(f)
 	for _, o := range opts {
 		o(config)
 	}
@@ -121,7 +98,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 			log.Printf("[TRACE] Memoize (connection %s, cache key %s) - pending call found so waiting for it to complete", d.Connection.Name, cacheKey)
 			// a hydrate function is running - or it has completed
 			// wait for the function lock
-			return hydrate.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
+			return f.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
 		}
 
 		// so there was no function lock - no pending hydrate so we must execute
@@ -136,7 +113,7 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 			memoizedHydrateLock.Unlock()
 
 			// a hydrate function is running - or it has completed
-			return hydrate.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
+			return f.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
 		}
 
 		// there is no lock for this function, which means it has not been run yet
@@ -154,17 +131,17 @@ func (hydrate HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 
 		log.Printf("[TRACE] Memoize (connection %s, cache key %s) - no pending call found so calling and caching hydrate", d.Connection.Name, cacheKey)
 		// no call the hydrate function and cache the result
-		return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
+		return callAndCacheHydrate(ctx, d, h, f, cacheKey, ttl)
 
 	}
 
 	// store the memoized func in the name map
-	setMemoizedFuncName(memoizedFunc, hydrate)
+	f.setMemoizedFuncName(memoizedFunc)
 
 	return memoizedFunc
 }
 
-func (hydrate HydrateFunc) waitForHydrate(ctx context.Context, d *QueryData, h *HydrateData, functionLock *sync.WaitGroup, cacheKey string, ttl time.Duration) (interface{}, error) {
+func (f HydrateFunc) waitForHydrate(ctx context.Context, d *QueryData, h *HydrateData, functionLock *sync.WaitGroup, cacheKey string, ttl time.Duration) (interface{}, error) {
 	functionLock.Wait()
 
 	// we have the function lock
@@ -178,17 +155,17 @@ func (hydrate HydrateFunc) waitForHydrate(ctx context.Context, d *QueryData, h *
 	}
 
 	// so there is no cached data - call the hydrate function and cache the result
-	return callAndCacheHydrate(ctx, d, h, hydrate, cacheKey, ttl)
+	return callAndCacheHydrate(ctx, d, h, f, cacheKey, ttl)
 }
 
 // deprecated
-func (hydrate HydrateFunc) getCacheKeyFunction(args []HydrateFunc) HydrateFunc {
+func (f HydrateFunc) getCacheKeyFunction(args []HydrateFunc) HydrateFunc {
 	var getCacheKey HydrateFunc
 	switch len(args) {
 	case 0:
 		// no argument was supplied - infer cache key from the hydrate function
 		getCacheKey = func(context.Context, *QueryData, *HydrateData) (interface{}, error) {
-			return helpers.GetFunctionName(hydrate), nil
+			return helpers.GetFunctionName(f), nil
 		}
 	case 1:
 		getCacheKey = args[0]
@@ -211,4 +188,28 @@ func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydr
 
 	// return the hydrate data
 	return hydrateData, nil
+}
+
+// return the function name
+// if this function has been memoized, return the underlying function name
+func (f HydrateFunc) getOriginalFuncName() (name string, isMemoized bool) {
+	memoizedNameMapLock.RLock()
+	// check if this is a memoized function, if so get the original name
+	p := reflect.ValueOf(f).Pointer()
+	name, isMemoized = memoizedNameMap[p]
+	memoizedNameMapLock.RUnlock()
+
+	if !isMemoized {
+		name = helpers.GetFunctionName(f)
+	}
+
+	return name, isMemoized
+}
+
+func (f HydrateFunc) setMemoizedFuncName(memoizedFunc HydrateFunc) {
+	// add to map
+	memoizedNameMapLock.Lock()
+	p := reflect.ValueOf(memoizedFunc).Pointer()
+	memoizedNameMap[p] = helpers.GetFunctionName(f)
+	memoizedNameMapLock.Unlock()
 }
