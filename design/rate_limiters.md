@@ -38,7 +38,7 @@ type Definition struct {
 For example, if you want a rate limiter that applies to a single account, region and service, you could use the scope:
 [`connection`, `region`,`service`].
 
-`Where` is a SQL compatible where clause which allows a rate limiter to be targeted to spcific set of scope values,
+`Where` is a SQL compatible where clause which allows a rate limiter to be targeted to specific set of scope values,
 for example to specify a rate limiter for a specific service only, the filter `"service"="s3` be used.
 
 For example:
@@ -50,14 +50,14 @@ p := &plugin.Plugin{
 			Name:       "connection-region-service",
 			BucketSize: 10,
 			FillRate:   50,
-			Scope:     []string{"region", "connection", "servive"},
+			Scope:     []string{"region", "connection", "service"},
 			Where:      "service = 's3'",
 			},
 		},
 ```
 
 ### HCL Definition
-Plugin rate limiters may be define in HCL in an `.spc` file in the config folder.
+Plugin rate limiters may be defined in HCL in an `.spc` file in the config folder.
 If a limiter has the same name as one defined in the plugin it will override it, if not, a new limiter is defined.
 
 Rate limiters for a plugin are defined in `plugin` blocks:
@@ -66,12 +66,13 @@ plugin "aws" {
   limiter "connection-region-service" {
     bucket_size  = 5
     fill_rate    = 25
-    scope  = ["region", "connection", "servive"]
+    scope  = ["region", "connection", "service"]
     where  = "service = 's3'"
   }
   limiter "global-concurrency-limit" {
     max_concurrency = 1000
   }
+}
 ```
 
 ## Resolving Rate Limiters
