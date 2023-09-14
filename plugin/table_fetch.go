@@ -66,7 +66,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 		// we can now close the item chan
 		queryData.fetchComplete(ctx)
 		if r := recover(); r != nil {
-			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", helpers.GetFunctionName(t.Get.Hydrate), r))
+			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", t.Get.named.Name, r))
 		}
 	}()
 
@@ -179,7 +179,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 // execute a get call for a single key column qual value
 // if a matrix is defined, call for every matrix item
 func (t *Table) doGet(ctx context.Context, queryData *QueryData) (err error) {
-	hydrateKey := helpers.GetFunctionName(t.Get.Hydrate)
+	hydrateKey := t.Get.named.Name
 	defer func() {
 		if p := recover(); p != nil {
 			err = status.Error(codes.Internal, fmt.Sprintf("table '%s': Get hydrate call %s failed with panic %v", t.Name, hydrateKey, p))
@@ -358,7 +358,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	defer log.Printf("[TRACE] executeListCall COMPLETE (%s)", queryData.connectionCallId)
 	defer func() {
 		if r := recover(); r != nil {
-			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", helpers.GetFunctionName(t.List.Hydrate), r)))
+			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", t.List.namedHydrateFunc.Name, r)))
 		}
 		// list call will return when it has streamed all items so close rowDataChan
 		queryData.fetchComplete(ctx)

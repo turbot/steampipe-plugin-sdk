@@ -3,7 +3,6 @@ package plugin
 import (
 	"fmt"
 	"github.com/gertd/go-pluralize"
-	"github.com/turbot/go-kit/helpers"
 	"log"
 )
 
@@ -108,9 +107,9 @@ func (c *ListConfig) Validate(table *Table) []string {
 	}
 
 	// ensure that if there is an explicit hydrate config for the list hydrate, it does not declare dependencies
-	listHydrateName := helpers.GetFunctionName(table.List.Hydrate)
+	listHydrateName := table.List.namedHydrateFunc.Name
 	for _, h := range table.HydrateConfig {
-		if helpers.GetFunctionName(h.Func) == listHydrateName {
+		if h.namedFunc.Name == listHydrateName {
 			if len(h.Depends) > 0 {
 				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' defines dependencies in its `HydrateConfig`", table.Name, listHydrateName))
 			}
@@ -119,7 +118,7 @@ func (c *ListConfig) Validate(table *Table) []string {
 	}
 	// ensure there is no hydrate dependency declared for the list hydrate
 	for _, h := range table.HydrateDependencies {
-		if helpers.GetFunctionName(h.Func) == listHydrateName {
+		if newNamedHydrateFunc(h.Func).Name == listHydrateName {
 			numDeps := len(h.Depends)
 			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' has %d %s - List hydrate functions cannot have dependencies",
 				table.Name,

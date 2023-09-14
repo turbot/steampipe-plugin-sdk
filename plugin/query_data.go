@@ -393,11 +393,10 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 
 	// what is the name of the fetch call (i.e. the get/list call)
 	fetchFunc := t.getFetchFunc(fetchType)
-	fetchCallName := helpers.GetFunctionName(fetchFunc)
 
 	// initialise hydrateColumnMap
 	d.hydrateColumnMap = make(map[string][]string)
-	requiredCallBuilder := newRequiredHydrateCallBuilder(d, fetchCallName)
+	requiredCallBuilder := newRequiredHydrateCallBuilder(d, fetchFunc.Name)
 
 	// populate a map keyed by function name to ensure we only store each hydrate function once
 	for _, column := range t.Columns {
@@ -413,14 +412,16 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 			// so there is NO hydrate call registered for the column
 			// the column is provided by the fetch call
 			// do not add to map of hydrate functions as the fetch call will always be called
-			hydrateFunc = fetchFunc
-			hydrateName = fetchCallName
+			hydrateFunc = fetchFunc.Func
+			hydrateName = fetchFunc.Name
 		} else {
 			// there is a hydrate call registered
-			hydrateName = helpers.GetFunctionName(hydrateFunc)
+			namedFunc := newNamedHydrateFunc(hydrateFunc)
+			hydrateName = namedFunc.Name
+
 			// if this column was requested in query, add the hydrate call to required calls
 			if helpers.StringSliceContains(colsUsed, column.Name) {
-				requiredCallBuilder.Add(hydrateFunc, d.connectionCallId)
+				requiredCallBuilder.Add(namedFunc, d.connectionCallId)
 			}
 		}
 
@@ -436,7 +437,7 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 // build list of all columns returned by the fetch call and required hydrate calls
 func (d *QueryData) populateColumns() {
 	// add columns returned by fetch call
-	fetchName := helpers.GetFunctionName(d.Table.getFetchFunc(d.FetchType))
+	fetchName := d.Table.getFetchFunc(d.FetchType).Name
 	d.addColumnsForHydrate(fetchName)
 
 	// add columns returned by required hydrate calls
@@ -536,13 +537,13 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 	if d.Table.List == nil {
 		return false
 	}
-	listFunction := helpers.GetFunctionName(d.Table.List.Hydrate)
-	listParentFunction := helpers.GetFunctionName(d.Table.List.ParentHydrate)
+	listFunction := d.Table.List.namedHydrateFunc.Name
+	listParentFunction := d.Table.List.namedParentHydrateFunc.Name
 	if callingFunction != listFunction && callingFunction != listParentFunction {
 		// if the calling function is NOT one of the other registered hydrate functions,
 		//it must be an anonymous function so let it go
 		for _, c := range d.Table.Columns {
-			if c.Hydrate != nil && helpers.GetFunctionName(c.Hydrate) == callingFunction {
+			if c.Hydrate != nil && newNamedHydrateFunc(c.Hydrate).Name == callingFunction {
 				return false
 			}
 		}
@@ -650,7 +651,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 		// set the parent item on the row data
 		rd.parentItem = d.parentItem
 		// NOTE: add the item as the hydrate data for the list call
-		rd.set(helpers.GetFunctionName(d.Table.List.Hydrate), item)
+		rd.set(d.Table.List.namedHydrateFunc.Name, item)
 
 		d.rowDataChan <- rd
 	}

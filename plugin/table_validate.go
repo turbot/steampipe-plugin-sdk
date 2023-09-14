@@ -136,13 +136,13 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 	dependencyGraph.AddNode("root")
 
 	updateDependencyGraph := func(hydrateFunc HydrateFunc, hydrateDepends []HydrateFunc) {
-		name := helpers.GetFunctionName(hydrateFunc)
+		name := newNamedHydrateFunc(hydrateFunc).Name
 		if !dependencyGraph.ContainsNode(name) {
 			dependencyGraph.AddNode(name)
 		}
 		dependencyGraph.AddEdge("root", name)
 		for _, dep := range hydrateDepends {
-			depName := helpers.GetFunctionName(dep)
+			depName := newNamedHydrateFunc(dep).Name
 			if !dependencyGraph.ContainsNode(depName) {
 				dependencyGraph.AddNode(depName)
 			}

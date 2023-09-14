@@ -13,7 +13,7 @@ import (
 type hydrateCall struct {
 	namedHydrateFunc
 	// the dependencies expressed using function name
-	Depends []string
+	Depends []namedHydrateFunc
 	Config  *HydrateConfig
 
 	queryData   *QueryData
@@ -31,7 +31,7 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 	res.namedHydrateFunc = newNamedHydrateFunc(config.Func)
 
 	for _, f := range config.Depends {
-		res.Depends = append(res.Depends, helpers.GetFunctionName(f))
+		res.Depends = append(res.Depends, newNamedHydrateFunc(f))
 	}
 
 	return res, nil
@@ -75,7 +75,7 @@ func (h *hydrateCall) initialiseRateLimiter() error {
 func (h *hydrateCall) canStart(rowData *rowData) bool {
 	// check whether all hydrate functions we depend on have saved their results
 	for _, dep := range h.Depends {
-		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep) {
+		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep.Name) {
 			return false
 		}
 	}

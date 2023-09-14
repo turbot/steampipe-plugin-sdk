@@ -4,7 +4,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
@@ -132,7 +131,7 @@ func (t *Table) initialise(p *Plugin) {
 	// declared for specific columns which do not have config defined
 	// build a map of all hydrate functions, with empty config if needed
 	// NOTE: this map also includes information from the legacy HydrateDependencies property
-	t.initialiseHydrateConfigs()
+	t.buildHydrateConfigMap()
 
 	t.setColumnNameMap()
 
@@ -148,17 +147,6 @@ func (t *Table) setColumnNameMap() {
 	}
 }
 
-// build map of all hydrate configs, and initialise them
-func (t *Table) initialiseHydrateConfigs() {
-	// first build a map of all hydrate functions
-	t.buildHydrateConfigMap()
-
-	//  initialise all hydrate configs in map
-	for _, h := range t.hydrateConfigMap {
-		h.initialise(t)
-	}
-}
-
 // build map of all hydrate configs, including those specified in the legacy HydrateDependencies,
 // and those mentioned only in column config
 func (t *Table) buildHydrateConfigMap() {
@@ -167,12 +155,14 @@ func (t *Table) buildHydrateConfigMap() {
 		// as we are converting into a pointer, we cannot use the array value direct from the range as
 		// this was causing incorrect values - go must be reusing memory addresses for successive items
 		h := &t.HydrateConfig[i]
-		funcName := helpers.GetFunctionName(h.Func)
-		t.hydrateConfigMap[funcName] = h
+
+		// initialise before adding to map
+		h.initialise(t)
+		t.hydrateConfigMap[h.namedFunc.Name] = h
 	}
 	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies
 	for _, d := range t.HydrateDependencies {
-		hydrateName := helpers.GetFunctionName(d.Func)
+		hydrateName := newNamedHydrateFunc(d.Func).Name
 		// if there is already a hydrate config, do nothing here
 		// (this is a validation error that will be picked up by the validation check later)
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
@@ -181,7 +171,7 @@ func (t *Table) buildHydrateConfigMap() {
 	}
 	// NOTE: the get config may be used as a column hydrate function so add this into the map
 	if get := t.Get; get != nil {
-		hydrateName := helpers.GetFunctionName(get.Hydrate)
+		hydrateName := get.named.Name
 		t.hydrateConfigMap[hydrateName] = &HydrateConfig{
 			Func:              get.Hydrate,
 			IgnoreConfig:      get.IgnoreConfig,
@@ -208,9 +198,9 @@ func (t *Table) buildHydrateConfigMap() {
 	}
 }
 
-func (t *Table) getFetchFunc(fetchType fetchType) HydrateFunc {
+func (t *Table) getFetchFunc(fetchType fetchType) namedHydrateFunc {
 	if fetchType == fetchTypeList {
-		return t.List.Hydrate
+		return *t.List.namedHydrateFunc
 	}
-	return t.Get.Hydrate
+	return t.Get.named
 }
