@@ -5,7 +5,6 @@ import (
 	"log"
 	"strings"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 )
 
@@ -138,7 +137,9 @@ ScopeValues: %s`,
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
-	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", helpers.GetFunctionName(c.Func), table.Name)
+	c.namedFunc = newNamedHydrateFunc(c.Func)
+
+	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.namedFunc.Name, table.Name)
 
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
@@ -161,9 +162,11 @@ func (c *HydrateConfig) initialise(table *Table) {
 	}
 
 	// default ignore and retry configs to table defaults
-	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
-	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
-	c.namedFunc = newNamedHydrateFunc(c.Func)
+	if table != nil {
+		c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
+		c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
+	}
+
 	log.Printf("[TRACE] HydrateConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 

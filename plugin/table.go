@@ -131,7 +131,7 @@ func (t *Table) initialise(p *Plugin) {
 	// declared for specific columns which do not have config defined
 	// build a map of all hydrate functions, with empty config if needed
 	// NOTE: this map also includes information from the legacy HydrateDependencies property
-	t.initialiseHydrateConfigs()
+	t.buildHydrateConfigMap()
 
 	t.setColumnNameMap()
 
@@ -147,17 +147,6 @@ func (t *Table) setColumnNameMap() {
 	}
 }
 
-// build map of all hydrate configs, and initialise them
-func (t *Table) initialiseHydrateConfigs() {
-	// first build a map of all hydrate functions
-	t.buildHydrateConfigMap()
-
-	//  initialise all hydrate configs in map
-	for _, h := range t.hydrateConfigMap {
-		h.initialise(t)
-	}
-}
-
 // build map of all hydrate configs, including those specified in the legacy HydrateDependencies,
 // and those mentioned only in column config
 func (t *Table) buildHydrateConfigMap() {
@@ -166,6 +155,9 @@ func (t *Table) buildHydrateConfigMap() {
 		// as we are converting into a pointer, we cannot use the array value direct from the range as
 		// this was causing incorrect values - go must be reusing memory addresses for successive items
 		h := &t.HydrateConfig[i]
+
+		// initialise before adding to map
+		h.initialise(t)
 		t.hydrateConfigMap[h.namedFunc.Name] = h
 	}
 	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies

@@ -825,6 +825,9 @@ func TestGetHydrateConfig(t *testing.T) {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 
 	for name, test := range testCasesGetHydrateConfig {
+		// initialise the expected
+		test.expected.initialise(test.table)
+		// initialise the plugin and table
 		test.table.Plugin.initialise(logger)
 		test.table.initialise(test.table.Plugin)
 
