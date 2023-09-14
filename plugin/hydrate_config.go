@@ -114,19 +114,21 @@ type HydrateConfig struct {
 
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
+
+	namedFunc namedHydrateFunc
 }
 
 func (c *HydrateConfig) String() string {
 	var dependsStrings = make([]string, len(c.Depends))
 	for i, dep := range c.Depends {
-		dependsStrings[i] = helpers.GetFunctionName(dep)
+		dependsStrings[i] = newNamedHydrateFunc(dep).Name
 	}
 	str := fmt.Sprintf(`Func: %s
 RetryConfig: %s
 IgnoreConfig: %s
 Depends: %s
 ScopeValues: %s`,
-		helpers.GetFunctionName(c.Func),
+		c.namedFunc.Name,
 		c.RetryConfig,
 		c.IgnoreConfig,
 		strings.Join(dependsStrings, ","),
@@ -161,7 +163,7 @@ func (c *HydrateConfig) initialise(table *Table) {
 	// default ignore and retry configs to table defaults
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
-
+	c.namedFunc = newNamedHydrateFunc(c.Func)
 	log.Printf("[TRACE] HydrateConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 

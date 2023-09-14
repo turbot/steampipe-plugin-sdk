@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"github.com/turbot/go-kit/helpers"
 	"log"
 )
 
@@ -20,8 +19,8 @@ func newRequiredHydrateCallBuilder(d *QueryData, fetchCallName string) *required
 	}
 }
 
-func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc, callId string) error {
-	hydrateName := helpers.GetFunctionName(hydrateFunc)
+func (c requiredHydrateCallBuilder) Add(hydrateFunc namedHydrateFunc, callId string) error {
+	hydrateName := hydrateFunc.Name
 
 	// if the resolved hydrate call is NOT the same as the fetch call, add to the map of hydrate functions to call
 	if hydrateName != c.fetchCallName {
@@ -41,8 +40,9 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc HydrateFunc, callId string) 
 
 		// now add dependencies (we have already checked for circular dependencies so recursion is fine
 		for _, dep := range config.Depends {
-			if err := c.Add(dep, callId); err != nil {
-				log.Printf("[WARN] failed to add a hydrate call for %s, which is a dependency of %s: %s", helpers.GetFunctionName(dep), hydrateName, err.Error())
+			namedDep := newNamedHydrateFunc(dep)
+			if err := c.Add(namedDep, callId); err != nil {
+				log.Printf("[WARN] failed to add a hydrate call for %s, which is a dependency of %s: %s", namedDep, hydrateName, err.Error())
 				return err
 			}
 		}

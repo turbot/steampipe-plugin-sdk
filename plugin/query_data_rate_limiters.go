@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
@@ -97,7 +96,7 @@ func (d *QueryData) resolveGetRateLimiters() error {
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
 	getLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.Get.Tags, d)
 	if err != nil {
-		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.Get.Hydrate), err.Error(), d.connectionCallId)
+		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", d.Table.Get.named.Name, err.Error(), d.connectionCallId)
 		return err
 	}
 
@@ -112,7 +111,7 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 	// resolve the parent hydrate rate limiter
 	parentRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ParentTags, d)
 	if err != nil {
-		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.List.ParentHydrate), err.Error(), d.connectionCallId)
+		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", d.Table.List.namedParentHydrateFunc.Name, err.Error(), d.connectionCallId)
 		return err
 	}
 	// assign the parent rate limiter to d.fetchLimiters
@@ -121,7 +120,7 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 	// resolve the child  hydrate rate limiter
 	childRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.Tags, d)
 	if err != nil {
-		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.List.Hydrate), err.Error(), d.connectionCallId)
+		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", d.Table.List.namedHydrateFunc.Name, err.Error(), d.connectionCallId)
 		return err
 	}
 	d.fetchLimiters.childListRateLimiter = childRateLimiter
@@ -133,7 +132,7 @@ func (d *QueryData) resolveListRateLimiters() error {
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
 	listLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.Tags, d)
 	if err != nil {
-		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", helpers.GetFunctionName(d.Table.Get.Hydrate), err.Error(), d.connectionCallId)
+		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", d.Table.Get.named.Name, err.Error(), d.connectionCallId)
 		return err
 	}
 	d.fetchLimiters.rateLimiter = listLimiter
@@ -142,7 +141,7 @@ func (d *QueryData) resolveListRateLimiters() error {
 
 func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 	fetchMetadata := &hydrateMetadata{
-		FuncName:     helpers.GetFunctionName(d.listHydrate),
+		FuncName:     d.listHydrate.Name,
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
 		ScopeValues:  d.fetchLimiters.rateLimiter.ScopeValues,
 		DelayMs:      fetchDelay.Milliseconds(),
@@ -153,7 +152,7 @@ func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 	} else {
 		d.fetchMetadata = &hydrateMetadata{
 			Type:         string(fetchTypeList),
-			FuncName:     helpers.GetFunctionName(d.childHydrate),
+			FuncName:     d.childHydrate.Name,
 			RateLimiters: d.fetchLimiters.childListRateLimiter.LimiterNames(),
 			ScopeValues:  d.fetchLimiters.childListRateLimiter.ScopeValues,
 		}
@@ -165,7 +164,7 @@ func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 func (d *QueryData) setGetLimiterMetadata(fetchDelay time.Duration) {
 	d.fetchMetadata = &hydrateMetadata{
 		Type:         string(fetchTypeGet),
-		FuncName:     helpers.GetFunctionName(d.Table.Get.Hydrate),
+		FuncName:     d.Table.Get.named.Name,
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
 		ScopeValues:  d.fetchLimiters.rateLimiter.ScopeValues,
 		DelayMs:      fetchDelay.Milliseconds(),

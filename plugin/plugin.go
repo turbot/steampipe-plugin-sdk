@@ -572,7 +572,7 @@ func (p *Plugin) buildHydrateConfigMap() {
 		// as we are converting into a pointer, we cannot use the array value direct from the range as
 		// this was causing incorrect values - go must be reusing memory addresses for successive items
 		h := &p.HydrateConfig[i]
-		funcName := helpers.GetFunctionName(h.Func)
+		funcName := h.namedFunc.Name
 		p.hydrateConfigMap[funcName] = h
 	}
 }
