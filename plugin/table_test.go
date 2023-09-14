@@ -238,7 +238,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
 		expected: []*hydrateCall{
-			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []string{"hydrate2"}},
+			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []namedHydrateFunc{{Name: "hydrate2"}}},
 			{namedHydrateFunc: namedHydrateFunc{Func: hydrate2, Name: "hydrate2"}},
 		},
 	},
@@ -258,7 +258,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		columns:   []string{"c1", "c2"},
 		fetchType: fetchTypeGet,
 		expected: []*hydrateCall{
-			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []string{"hydrate3"}},
+			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []namedHydrateFunc{{Name: "hydrate3"}}},
 			{namedHydrateFunc: namedHydrateFunc{Func: hydrate3, Name: "hydrate3"}},
 			{namedHydrateFunc: namedHydrateFunc{Func: hydrate2, Name: "hydrate2"}}},
 	},
@@ -281,8 +281,8 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		columns:   []string{"c1"},
 		fetchType: fetchTypeGet,
 		expected: []*hydrateCall{
-			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []string{"hydrate2"}},
-			{namedHydrateFunc: namedHydrateFunc{Func: hydrate2, Name: "hydrate2"}, Depends: []string{"hydrate3"}},
+			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []namedHydrateFunc{{Name: "hydrate2"}}},
+			{namedHydrateFunc: namedHydrateFunc{Func: hydrate2, Name: "hydrate2"}, Depends: []namedHydrateFunc{{Name: "hydrate3"}}},
 			{namedHydrateFunc: namedHydrateFunc{Func: hydrate3, Name: "hydrate3"}}},
 	},
 	"get - unreferenced depends [HydrateDependencies]": {
@@ -322,7 +322,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		columns:   []string{"c1"},
 		fetchType: fetchTypeList,
 		expected: []*hydrateCall{
-			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []string{"hydrate2"}},
+			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []namedHydrateFunc{{Name: "hydrate2"}}},
 			{namedHydrateFunc: namedHydrateFunc{Func: hydrate2, Name: "hydrate2"}}},
 	},
 	"get - 2 hydrate, depends": {
@@ -341,7 +341,7 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		columns:   []string{"c1", "c2"},
 		fetchType: fetchTypeGet,
 		expected: []*hydrateCall{
-			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []string{"hydrate3"}},
+			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []namedHydrateFunc{{Name: "hydrate3"}}},
 			{namedHydrateFunc: namedHydrateFunc{Func: hydrate3, Name: "hydrate3"}},
 			{namedHydrateFunc: namedHydrateFunc{Func: hydrate2, Name: "hydrate2"}},
 		},
@@ -365,8 +365,8 @@ var testCasesRequiredHydrateCalls = map[string]requiredHydrateCallsTest{
 		columns:   []string{"c1"},
 		fetchType: fetchTypeGet,
 		expected: []*hydrateCall{
-			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []string{"hydrate2"}},
-			{namedHydrateFunc: namedHydrateFunc{Func: hydrate2, Name: "hydrate2"}, Depends: []string{"hydrate3"}},
+			{namedHydrateFunc: namedHydrateFunc{Func: hydrate1, Name: "hydrate1"}, Depends: []namedHydrateFunc{{Name: "hydrate2"}}},
+			{namedHydrateFunc: namedHydrateFunc{Func: hydrate2, Name: "hydrate2"}, Depends: []namedHydrateFunc{{Name: "hydrate3"}}},
 			{namedHydrateFunc: namedHydrateFunc{Func: hydrate3, Name: "hydrate3"}},
 		},
 	},
@@ -461,7 +461,7 @@ func hydrateCallToString(call *hydrateCall) string {
 	}
 
 	for _, c := range call.Depends {
-		str += fmt.Sprintf("%s\n          ", c)
+		str += fmt.Sprintf("%s\n          ", c.Name)
 	}
 	return str
 }

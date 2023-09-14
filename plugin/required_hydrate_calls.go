@@ -42,7 +42,7 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc namedHydrateFunc, callId str
 		for _, dep := range config.Depends {
 			namedDep := newNamedHydrateFunc(dep)
 			if err := c.Add(namedDep, callId); err != nil {
-				log.Printf("[WARN] failed to add a hydrate call for %s, which is a dependency of %s: %s", namedDep, hydrateName, err.Error())
+				log.Printf("[WARN] failed to add a hydrate call for %s, which is a dependency of %s: %s", namedDep.Name, hydrateName, err.Error())
 				return err
 			}
 		}
