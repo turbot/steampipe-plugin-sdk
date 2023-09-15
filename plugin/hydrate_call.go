@@ -54,6 +54,11 @@ func (h *hydrateCall) shallowCopy() *hydrateCall {
 func (h *hydrateCall) initialiseRateLimiter() error {
 	log.Printf("[INFO] hydrateCall %s initialiseRateLimiter (%s)", h.Name, h.queryData.connectionCallId)
 
+	// if this call is memoized, do not assign a rate limiter
+	if h.IsMemoized {
+		log.Printf("[INFO] hydrateCall %s is memoized - do not assign a rate limiter (%s)", h.Name, h.queryData.connectionCallId)
+		return nil
+	}
 	// ask plugin to build a rate limiter for us
 	p := h.queryData.plugin
 
@@ -78,11 +83,6 @@ func (h *hydrateCall) canStart(rowData *rowData) bool {
 		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep.Name) {
 			return false
 		}
-	}
-	// so all dependencies have been satisfied
-	// if this is a memoized function, no rate limiting is required - we can start
-	if h.IsMemoized {
-		return true
 	}
 	// if no rate limiting config is defined, we cna start
 	if h.rateLimiter == nil {
