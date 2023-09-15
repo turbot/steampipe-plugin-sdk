@@ -137,9 +137,8 @@ type Plugin struct {
 // and sets the file limit.
 func (p *Plugin) initialise(logger hclog.Logger) {
 
-	log.Printf("[WARN] initialise")
+	log.Printf("[INFO] initialise")
 
-	//time.Sleep(10 * time.Second)
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
 
