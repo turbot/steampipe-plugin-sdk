@@ -25,7 +25,7 @@ type hydrateMetadata struct {
 }
 
 type rowCtxData struct {
-	Connection  string             `json:"connection"`
+	Connection  string             `json:"connection_name"`
 	Diagnostics *rowCtxDiagnostics `json:"diagnostics,omitempty"`
 }
 type rowCtxDiagnostics struct {
