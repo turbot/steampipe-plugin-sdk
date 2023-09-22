@@ -1,20 +1,30 @@
 package plugin
 
 import (
+	"fmt"
+	"golang.org/x/exp/maps"
 	"log"
-	"math"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
 	envMaxConcurrentConnection      = "STEAMPIPE_MAX_CONCURRENT_CONNECTIONS"
-	envMaxMemoryMb                  = "STEAMPIPE_MAX_MEMORY_MB"
 	envFreeMemInterval              = "STEAMPIPE_FREE_MEM_INTERVAL"
-	defaultMaxConcurrentConnections = 25            // default to 25 concurrent connections
-	defaultMaxMemoryMb              = math.MaxInt64 // default to no memory limit
-	defaultFreeMemInterval          = 100           // default to freeing memory every 100 rows
+	defaultMaxConcurrentConnections = 25  // default to 25 concurrent connections
+	defaultFreeMemInterval          = 100 // default to freeing memory every 100 rows
+
+	EnvDiagnosticsLevel       = "STEAMPIPE_DIAGNOSTIC_LEVEL"
+	EnvLegacyDiagnosticsLevel = "STEAMPIPE_DIAGNOSTICS_LEVEL"
+	DiagnosticsAll            = "ALL"
+	DiagnosticsNone           = "NONE"
 )
+
+var ValidDiagnosticsLevels = map[string]struct{}{
+	DiagnosticsAll:  {},
+	DiagnosticsNone: {},
+}
 
 func getMaxConcurrentConnections() int {
 	maxConcurrentConnections, _ := strconv.Atoi(os.Getenv(envMaxConcurrentConnection))
@@ -23,17 +33,6 @@ func getMaxConcurrentConnections() int {
 	}
 	log.Printf("[INFO] Setting max concurrent connections to %d", maxConcurrentConnections)
 	return maxConcurrentConnections
-}
-
-func GetMaxMemoryBytes() int64 {
-	maxMemoryMb, _ := strconv.Atoi(os.Getenv(envMaxMemoryMb))
-	if maxMemoryMb == 0 {
-		log.Printf("[TRACE] No memory limit set")
-		maxMemoryMb = defaultMaxMemoryMb
-	} else {
-		log.Printf("[TRACE] Setting max memory %dMb", maxMemoryMb)
-	}
-	return int64(1024 * 1024 * maxMemoryMb)
 }
 
 func GetFreeMemInterval() int64 {
@@ -47,4 +46,24 @@ func GetFreeMemInterval() int64 {
 	log.Printf("[INFO] Setting free memory interval to %d rows", freeMemInterval)
 
 	return int64(freeMemInterval)
+}
+
+func loadDiagnosticsEnvVar() string {
+	// load both the legacy and current diagnostics env vars
+	diagnostics := strings.ToUpper(os.Getenv(EnvLegacyDiagnosticsLevel))
+	if newDiagnostics, isSet := os.LookupEnv(EnvDiagnosticsLevel); isSet {
+		diagnostics = strings.ToUpper(newDiagnostics)
+	}
+	return diagnostics
+}
+
+func ValidateDiagnosticsEnvVar() error {
+	diagnostics := loadDiagnosticsEnvVar()
+	if diagnostics == "" {
+		return nil
+	}
+	if _, isValid := ValidDiagnosticsLevels[strings.ToUpper(diagnostics)]; !isValid {
+		return fmt.Errorf(`invalid value of '%s' (%s), must be one of: %s`, EnvDiagnosticsLevel, diagnostics, strings.Join(maps.Keys(ValidDiagnosticsLevels), ", "))
+	}
+	return nil
 }
