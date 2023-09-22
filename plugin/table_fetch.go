@@ -66,7 +66,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 		// we can now close the item chan
 		queryData.fetchComplete(ctx)
 		if r := recover(); r != nil {
-			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", t.Get.named.Name, r))
+			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", t.Get.namedHydrate.Name, r))
 		}
 	}()
 
@@ -179,7 +179,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 // execute a get call for a single key column qual value
 // if a matrix is defined, call for every matrix item
 func (t *Table) doGet(ctx context.Context, queryData *QueryData) (err error) {
-	hydrateKey := t.Get.named.Name
+	hydrateKey := t.Get.namedHydrate.Name
 	defer func() {
 		if p := recover(); p != nil {
 			err = status.Error(codes.Internal, fmt.Sprintf("table '%s': Get hydrate call %s failed with panic %v", t.Name, hydrateKey, p))
@@ -228,7 +228,7 @@ func (t *Table) get(ctx context.Context, queryData *QueryData) (*rowData, error)
 	rd := newRowData(queryData, nil)
 	// just invoke callHydrateWithRetries()
 	var getItem any
-	getItem, err := rd.callHydrateWithRetries(ctx, queryData, t.Get.named, t.Get.IgnoreConfig, t.Get.RetryConfig)
+	getItem, err := rd.callHydrateWithRetries(ctx, queryData, t.Get.namedHydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 	rd.item = getItem
 	return rd, err
 }
@@ -280,7 +280,7 @@ func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData) 
 			matrixRd := newRowData(matrixQueryData, nil)
 
 			// now call hydrate from the matrix rowdata
-			item, err := matrixRd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.namedHydrateFunc(), t.Get.IgnoreConfig, t.Get.RetryConfig)
+			item, err := matrixRd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.namedHydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
 			if err != nil {
 				log.Printf("[WARN] callHydrateWithRetries returned error %v", err)
@@ -358,7 +358,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	defer log.Printf("[TRACE] executeListCall COMPLETE (%s)", queryData.connectionCallId)
 	defer func() {
 		if r := recover(); r != nil {
-			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", t.List.namedHydrateFunc.Name, r)))
+			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", t.List.namedHydrate.Name, r)))
 		}
 		// list call will return when it has streamed all items so close rowDataChan
 		queryData.fetchComplete(ctx)
@@ -374,12 +374,12 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
 	var childHydrate *namedHydrateFunc = nil
-	listCall := t.List.namedHydrateFunc
+	listCall := t.List.namedHydrate
 	// if there is a parent hydrate function, call that
 	// - the child 'Hydrate' function will be called by QueryData.StreamListItem,
 	if t.List.ParentHydrate != nil {
-		listCall = t.List.namedParentHydrateFunc
-		childHydrate = t.List.namedHydrateFunc
+		listCall = t.List.namedParentHydrate
+		childHydrate = t.List.namedHydrate
 	}
 
 	// store the list call and child hydrate call - these will be used later when we call setListLimiterMetadata

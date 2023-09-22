@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"github.com/gertd/go-pluralize"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
 )
 
@@ -49,9 +50,9 @@ type ListConfig struct {
 	ParentTags map[string]string
 
 	// Deprecated: Use IgnoreConfig
-	ShouldIgnoreError      ErrorPredicate
-	namedHydrateFunc       *namedHydrateFunc
-	namedParentHydrateFunc *namedHydrateFunc
+	ShouldIgnoreError  ErrorPredicate
+	namedHydrate       *namedHydrateFunc
+	namedParentHydrate *namedHydrateFunc
 }
 
 func (c *ListConfig) initialise(table *Table) {
@@ -68,10 +69,11 @@ func (c *ListConfig) initialise(table *Table) {
 	}
 
 	if c.Tags == nil {
-		c.Tags = map[string]string{}
+		c.Tags = make(map[string]string)
 	}
+
 	if c.ParentTags == nil {
-		c.ParentTags = map[string]string{}
+		c.ParentTags = make(map[string]string)
 	}
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
@@ -83,12 +85,17 @@ func (c *ListConfig) initialise(table *Table) {
 	c.RetryConfig.DefaultTo(table.DefaultRetryConfig)
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 
-	// populate the namedHydrateFunc hydrate func
+	// populate the named hydrate funcs
 	n := newNamedHydrateFunc(c.Hydrate)
-	c.namedHydrateFunc = &n
+	c.namedHydrate = &n
+	// add in function name to tags
+	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
+
 	if c.ParentHydrate != nil {
 		p := newNamedHydrateFunc(c.ParentHydrate)
-		c.namedParentHydrateFunc = &p
+		c.namedParentHydrate = &p
+		// add in parent function name to tags
+		c.ParentTags[rate_limiter.RateLimiterScopeFunction] = c.namedParentHydrate.Name
 	}
 
 	log.Printf("[TRACE] ListConfig.initialise complete: RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())
@@ -107,9 +114,9 @@ func (c *ListConfig) Validate(table *Table) []string {
 	}
 
 	// ensure that if there is an explicit hydrate config for the list hydrate, it does not declare dependencies
-	listHydrateName := table.List.namedHydrateFunc.Name
+	listHydrateName := table.List.namedHydrate.Name
 	for _, h := range table.HydrateConfig {
-		if h.namedFunc.Name == listHydrateName {
+		if h.namedHydrate.Name == listHydrateName {
 			if len(h.Depends) > 0 {
 				validationErrors = append(validationErrors, fmt.Sprintf("table '%s' List hydrate function '%s' defines dependencies in its `HydrateConfig`", table.Name, listHydrateName))
 			}

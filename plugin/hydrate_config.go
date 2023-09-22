@@ -114,7 +114,7 @@ type HydrateConfig struct {
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 
-	namedFunc namedHydrateFunc
+	namedHydrate namedHydrateFunc
 }
 
 func (c *HydrateConfig) String() string {
@@ -127,7 +127,7 @@ RetryConfig: %s
 IgnoreConfig: %s
 Depends: %s
 ScopeValues: %s`,
-		c.namedFunc.Name,
+		c.namedHydrate.Name,
 		c.RetryConfig,
 		c.IgnoreConfig,
 		strings.Join(dependsStrings, ","),
@@ -137,9 +137,9 @@ ScopeValues: %s`,
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
-	c.namedFunc = newNamedHydrateFunc(c.Func)
+	c.namedHydrate = newNamedHydrateFunc(c.Func)
 
-	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.namedFunc.Name, table.Name)
+	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.namedHydrate.Name, table.Name)
 
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
@@ -153,8 +153,10 @@ func (c *HydrateConfig) initialise(table *Table) {
 
 	// create empty Tags if needed
 	if c.Tags == nil {
-		c.Tags = map[string]string{}
+		c.Tags = make(map[string]string)
 	}
+	// add in function name to tags
+	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
