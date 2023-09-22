@@ -158,7 +158,7 @@ func (t *Table) buildHydrateConfigMap() {
 
 		// initialise before adding to map
 		h.initialise(t)
-		t.hydrateConfigMap[h.namedFunc.Name] = h
+		t.hydrateConfigMap[h.namedHydrate.Name] = h
 	}
 	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies
 	for _, d := range t.HydrateDependencies {
@@ -171,7 +171,7 @@ func (t *Table) buildHydrateConfigMap() {
 	}
 	// NOTE: the get config may be used as a column hydrate function so add this into the map
 	if get := t.Get; get != nil {
-		hydrateName := get.named.Name
+		hydrateName := get.namedHydrate.Name
 		t.hydrateConfigMap[hydrateName] = &HydrateConfig{
 			Func:              get.Hydrate,
 			IgnoreConfig:      get.IgnoreConfig,
@@ -187,7 +187,7 @@ func (t *Table) buildHydrateConfigMap() {
 		if c.Hydrate == nil {
 			continue
 		}
-		// to get name, create a namedFunc - this will take care of mapping memoized function named
+		// to get name, create a namedHydrate - this will take care of mapping memoized function namedHydrate
 		hydrateName := newNamedHydrateFunc(c.Hydrate).Name
 
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
@@ -200,7 +200,7 @@ func (t *Table) buildHydrateConfigMap() {
 
 func (t *Table) getFetchFunc(fetchType fetchType) namedHydrateFunc {
 	if fetchType == fetchTypeList {
-		return *t.List.namedHydrateFunc
+		return *t.List.namedHydrate
 	}
-	return t.Get.named
+	return t.Get.namedHydrate
 }
