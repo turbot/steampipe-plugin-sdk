@@ -1,21 +1,5 @@
 package plugin
 
-import (
-	"os"
-	"strings"
-)
-
-const (
-	EnvDiagnosticsLevel = "STEAMPIPE_DIAGNOSTICS_LEVEL"
-	DiagnosticsAll      = "ALL"
-	DiagnosticsNone     = "NONE"
-)
-
-var ValidDiagnosticsLevels = map[string]struct{}{
-	DiagnosticsAll:  {},
-	DiagnosticsNone: {},
-}
-
 type hydrateMetadata struct {
 	Type         string            `json:"type"`
 	ScopeValues  map[string]string `json:"scope_values"`
@@ -37,7 +21,7 @@ func newRowCtxData(rd *rowData) *rowCtxData {
 		Connection: d.Connection.Name,
 	}
 
-	if strings.ToUpper(os.Getenv(EnvDiagnosticsLevel)) == DiagnosticsAll {
+	if loadDiagnosticsEnvVar() == DiagnosticsAll {
 		calls := append([]*hydrateMetadata{d.fetchMetadata}, rd.hydrateMetadata...)
 		if d.parentHydrateMetadata != nil {
 			calls = append([]*hydrateMetadata{d.parentHydrateMetadata}, calls...)
