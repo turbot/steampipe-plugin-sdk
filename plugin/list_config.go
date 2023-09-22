@@ -69,15 +69,12 @@ func (c *ListConfig) initialise(table *Table) {
 	}
 
 	if c.Tags == nil {
-		c.Tags = map[string]string{}
+		c.Tags = make(map[string]string)
 	}
 
 	if c.ParentTags == nil {
-		c.ParentTags = map[string]string{}
+		c.ParentTags = make(map[string]string)
 	}
-	// add in function name to tags
-	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
-	c.ParentTags[rate_limiter.RateLimiterScopeFunction] = c.namedParentHydrate.Name
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
@@ -91,9 +88,14 @@ func (c *ListConfig) initialise(table *Table) {
 	// populate the named hydrate funcs
 	n := newNamedHydrateFunc(c.Hydrate)
 	c.namedHydrate = &n
+	// add in function name to tags
+	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
+
 	if c.ParentHydrate != nil {
 		p := newNamedHydrateFunc(c.ParentHydrate)
 		c.namedParentHydrate = &p
+		// add in parent function name to tags
+		c.ParentTags[rate_limiter.RateLimiterScopeFunction] = c.namedParentHydrate.Name
 	}
 
 	log.Printf("[TRACE] ListConfig.initialise complete: RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())

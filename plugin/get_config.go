@@ -103,7 +103,7 @@ func (c *GetConfig) initialise(table *Table) {
 
 	// create empty tags if needed
 	if c.Tags == nil {
-		c.Tags = map[string]string{}
+		c.Tags = make(map[string]string)
 	}
 	// add in function name to tags
 	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
