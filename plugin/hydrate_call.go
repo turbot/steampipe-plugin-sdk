@@ -27,6 +27,8 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 	res := &hydrateCall{
 		Config:    config,
 		queryData: d,
+		// default to empty limiter
+		rateLimiter: rate_limiter.EmptyMultiLimiter(),
 	}
 	res.namedHydrateFunc = newNamedHydrateFunc(config.Func)
 
@@ -56,7 +58,7 @@ func (h *hydrateCall) initialiseRateLimiter() error {
 
 	// if this call is memoized, do not assign a rate limiter
 	if h.IsMemoized {
-		log.Printf("[INFO] hydrateCall %s is memoized - do not assign a rate limiter (%s)", h.Name, h.queryData.connectionCallId)
+		log.Printf("[INFO] hydrateCall %s is memoized - assign an empty rate limiter (%s)", h.Name, h.queryData.connectionCallId)
 		return nil
 	}
 	// ask plugin to build a rate limiter for us

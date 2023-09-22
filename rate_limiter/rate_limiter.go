@@ -24,6 +24,11 @@ func NewMultiLimiter(limiters []*HydrateLimiter, scopeValues map[string]string) 
 	return res
 }
 
+func EmptyMultiLimiter() *MultiLimiter {
+	return &MultiLimiter{ScopeValues: make(map[string]string)}
+
+}
+
 func (m *MultiLimiter) Wait(ctx context.Context) time.Duration {
 	// short circuit if we have no limiters
 	if len(m.Limiters) == 0 {
