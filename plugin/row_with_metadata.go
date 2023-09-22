@@ -18,7 +18,6 @@ var ValidDiagnosticsLevels = map[string]struct{}{
 
 type hydrateMetadata struct {
 	Type         string            `json:"type"`
-	FuncName     string            `json:"function_name"`
 	ScopeValues  map[string]string `json:"scope_values"`
 	RateLimiters []string          `json:"rate_limiters"`
 	DelayMs      int64             `json:"rate_limiter_delay_ms"`
