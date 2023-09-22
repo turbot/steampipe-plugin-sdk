@@ -88,6 +88,7 @@ func (r *rowData) startAllHydrateCalls(rowDataCtx context.Context, rowQueryData 
 				// store the call metadata
 				r.hydrateMetadata = append(r.hydrateMetadata, &hydrateMetadata{
 					Type:         "hydrate",
+					FuncName:     hydrateFuncName,
 					ScopeValues:  call.rateLimiter.ScopeValues,
 					RateLimiters: call.rateLimiter.LimiterNames(),
 					DelayMs:      rateLimitDelay.Milliseconds(),

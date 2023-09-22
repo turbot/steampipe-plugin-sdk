@@ -141,6 +141,7 @@ func (d *QueryData) resolveListRateLimiters() error {
 
 func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 	fetchMetadata := &hydrateMetadata{
+		FuncName:     d.listHydrate.Name,
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
 		ScopeValues:  d.fetchLimiters.rateLimiter.ScopeValues,
 		DelayMs:      fetchDelay.Milliseconds(),
@@ -151,6 +152,7 @@ func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 	} else {
 		d.fetchMetadata = &hydrateMetadata{
 			Type:         string(fetchTypeList),
+			FuncName:     d.childHydrate.Name,
 			RateLimiters: d.fetchLimiters.childListRateLimiter.LimiterNames(),
 			ScopeValues:  d.fetchLimiters.childListRateLimiter.ScopeValues,
 		}
@@ -162,6 +164,7 @@ func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
 func (d *QueryData) setGetLimiterMetadata(fetchDelay time.Duration) {
 	d.fetchMetadata = &hydrateMetadata{
 		Type:         string(fetchTypeGet),
+		FuncName:     d.Table.Get.namedHydrate.Name,
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
 		ScopeValues:  d.fetchLimiters.rateLimiter.ScopeValues,
 		DelayMs:      fetchDelay.Milliseconds(),
