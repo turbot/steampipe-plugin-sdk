@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-func (p *Plugin) getHydrateCallRateLimiter(hydrateCallScopeValues map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
+func (p *Plugin) getHydrateCallRateLimiter(hydrateCallTags map[string]string, queryData *QueryData) (*rate_limiter.MultiLimiter, error) {
 	log.Printf("[INFO] getHydrateCallRateLimiter (%s)", queryData.connectionCallId)
 
 	// now build the set of all tag values which applies to this call
-	rateLimiterScopeValues := queryData.resolveRateLimiterScopeValues(hydrateCallScopeValues)
+	rateLimiterScopeValues := queryData.resolveRateLimiterScopeValues(hydrateCallTags)
 
 	// add scope values _even for an empty rate limiter_ so they appear in the _ctx field
 	res := &rate_limiter.MultiLimiter{

@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	// todo should these be more unique to avoid clash
+	RateLimiterScopeFunction   = "function_name"
 	RateLimiterScopeConnection = "connection"
 	RateLimiterScopeTable      = "table"
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 )
 
 /*
@@ -75,7 +76,7 @@ type GetConfig struct {
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 	MaxConcurrency    int
-	named             namedHydrateFunc
+	namedHydrate      namedHydrateFunc
 }
 
 // initialise the GetConfig
@@ -104,6 +105,8 @@ func (c *GetConfig) initialise(table *Table) {
 	if c.Tags == nil {
 		c.Tags = map[string]string{}
 	}
+	// add in function name to tags
+	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
@@ -124,8 +127,8 @@ func (c *GetConfig) initialise(table *Table) {
 	}
 	log.Printf("[TRACE] GetConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 
-	// populate the namedHydrateFunc hydrate func
-	c.named = newNamedHydrateFunc(c.Hydrate)
+	// populate the named hydrate func
+	c.namedHydrate = newNamedHydrateFunc(c.Hydrate)
 
 }
 
@@ -169,8 +172,4 @@ func (c *GetConfig) Validate(table *Table) []string {
 	}
 
 	return validationErrors
-}
-
-func (c *GetConfig) namedHydrateFunc() namedHydrateFunc {
-	return c.named
 }
