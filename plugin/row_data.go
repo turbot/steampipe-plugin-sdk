@@ -216,7 +216,7 @@ func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydr
 		if shouldRetryError(ctx, d, h, err, retryConfig) {
 			log.Printf("[TRACE] retrying hydrate")
 			hydrateData := &HydrateData{Item: r.item, ParentItem: r.parentItem, HydrateResults: r.hydrateResults}
-			hydrateResult, err = RetryHydrate(ctx, d, hydrateData, hydrate, retryConfig)
+			hydrateResult, err = retryNamedHydrate(ctx, d, hydrateData, hydrate, retryConfig)
 			log.Printf("[TRACE] back from retry")
 		}
 	}

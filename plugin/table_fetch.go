@@ -382,7 +382,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 		childHydrate = t.List.namedHydrate
 	}
 
-	// store the list call and child hydrate call - these will be used later when we call setListLimiterMetadata
+	// store the list call and child hydrate call - these will be used later when we call setListMetadata
 	queryData.setListCalls(listCall, childHydrate)
 
 	// NOTE: if there is an IN qual, the qual value will be a list of values
@@ -494,7 +494,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall named
 	// now wait for any configured 'list' rate limiters
 	fetchDelay := queryData.fetchLimiters.wait(ctx)
 	// set the metadata
-	queryData.setListLimiterMetadata(fetchDelay)
+	queryData.setListMetadata(fetchDelay)
 
 	log.Printf("[TRACE] doList: no matrix item")
 
@@ -545,7 +545,7 @@ func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData,
 			// now wait for any configured 'list' rate limiters
 			fetchDelay := matrixQueryData.fetchLimiters.wait(ctx)
 			// set the metadata
-			matrixQueryData.setListLimiterMetadata(fetchDelay)
+			matrixQueryData.setListMetadata(fetchDelay)
 
 			// we cannot retry errors in the list hydrate function after streaming has started
 			listRetryConfig := t.List.RetryConfig.GetListRetryConfig()
