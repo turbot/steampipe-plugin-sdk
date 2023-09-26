@@ -70,10 +70,10 @@ func (p *Plugin) validateRateLimiters() []string {
 	for _, l := range p.RateLimiters {
 		if err := l.Initialise(); err != nil {
 			validationErrors = append(validationErrors, err.Error())
-		} else {
-			// initialised ok, now validate
-			validationErrors = append(validationErrors, l.Validate()...)
+			continue
 		}
+		// initialised ok, now validate
+		validationErrors = append(validationErrors, l.Validate()...)
 	}
 
 	return validationErrors

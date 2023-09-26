@@ -32,6 +32,9 @@ type rowData struct {
 	table           *Table
 	errorChan       chan error
 	queryData       *QueryData
+
+	delayMapMut             sync.RWMutex
+	hydrateConcurrencyDelay map[string]*hydrateConcurrencyDelay
 }
 
 // newRowData creates an empty rowData object
@@ -40,14 +43,15 @@ func newRowData(d *QueryData, item interface{}) *rowData {
 	errorChan := make(chan error, len(d.hydrateCalls)+2)
 
 	return &rowData{
-		item:           item,
-		matrixItem:     make(map[string]interface{}),
-		hydrateResults: make(map[string]interface{}),
-		hydrateErrors:  make(map[string]error),
-		waitChan:       make(chan bool),
-		table:          d.Table,
-		errorChan:      errorChan,
-		queryData:      d,
+		item:                    item,
+		matrixItem:              make(map[string]interface{}),
+		hydrateResults:          make(map[string]interface{}),
+		hydrateErrors:           make(map[string]error),
+		waitChan:                make(chan bool),
+		table:                   d.Table,
+		errorChan:               errorChan,
+		queryData:               d,
+		hydrateConcurrencyDelay: make(map[string]*hydrateConcurrencyDelay),
 	}
 }
 
@@ -277,5 +281,43 @@ func (r *rowData) GetColumnData(column *QueryColumn) (interface{}, error) {
 		return nil, fmt.Errorf(errorString)
 	} else {
 		return hydrateItem, nil
+	}
+}
+
+func (r *rowData) getHydrateConcurrencyDelay(name string) time.Duration {
+	r.delayMapMut.RLock()
+	defer r.delayMapMut.RUnlock()
+	d := r.hydrateConcurrencyDelay[name]
+	if d != nil {
+		return d.delay
+	}
+	return 0
+}
+
+func (r *rowData) initHydrateConcurrencyDelay(name string) {
+	r.delayMapMut.Lock()
+	// create a hydrateConcurrencyDelay struct for this call, initialise it and add to the map
+	r.hydrateConcurrencyDelay[name] = newHydrateConcurrencyDelay()
+	r.delayMapMut.Unlock()
+}
+
+func (r *rowData) setHydrateCanStart(hydrateName string, canStart bool) {
+	// get or create a hydrateConcurrencyDelay struct for this call
+	r.delayMapMut.RLock()
+	concurrencyDelay := r.hydrateConcurrencyDelay[hydrateName]
+	r.delayMapMut.RUnlock()
+
+	if concurrencyDelay == nil {
+		// no concurrencyDelay stored for this row - this is the first time we have tried this hydrate call for this row
+		// add a delay struct - this will hold the potentialStartTime which is used ot measure the delay due to concurrency limit
+		r.initHydrateConcurrencyDelay(hydrateName)
+		return
+	}
+	// if there is an existing concurrencyDelay struct for this row and call,
+	// that implies that we have failed to start at least once
+
+	if canStart {
+		// we can now run - record the delay in starting due to concurrency limits
+		concurrencyDelay.setCanStart()
 	}
 }
