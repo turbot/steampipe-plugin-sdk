@@ -139,7 +139,7 @@ func (d *QueryData) resolveListRateLimiters() error {
 	return nil
 }
 
-func (d *QueryData) setListLimiterMetadata(fetchDelay time.Duration) {
+func (d *QueryData) setListMetadata(fetchDelay time.Duration) {
 	fetchMetadata := &hydrateMetadata{
 		FuncName:     d.listHydrate.Name,
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),

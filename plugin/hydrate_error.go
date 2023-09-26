@@ -14,7 +14,11 @@ import (
 )
 
 // RetryHydrate function invokes the hydrate function with retryable errors and retries the function until the maximum attempts before throwing error
-func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrate namedHydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
+func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrate HydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
+	return retryNamedHydrate(ctx, d, hydrateData, newNamedHydrateFunc(hydrate), retryConfig)
+}
+
+func retryNamedHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrate namedHydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "RetryHydrate (%s)", d.Table.Name)
 	span.SetAttributes(
 		attribute.String("hydrate-func", hydrate.Name),

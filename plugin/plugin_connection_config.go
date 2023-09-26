@@ -57,7 +57,7 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 // add connections for all the provided configs
 // NOTE: this (may) mutate failedConnections, exemplarSchema and exemplarTableMap
 func (p *Plugin) addConnections(configs []*proto.ConnectionConfig, updateData *connectionUpdateData) {
-	log.Printf("[TRACE] SetAllConnectionConfigs setting %d configs", len(configs))
+	log.Printf("[INFO] Plugin.addConnections adding %d configs", len(configs))
 
 	for _, config := range configs {
 		if config.IsAggregator() {
@@ -211,7 +211,7 @@ func (p *Plugin) logChanges(added []*proto.ConnectionConfig, deleted []*proto.Co
 	for i, c := range changed {
 		changedNames[i] = c.Connection
 	}
-	log.Printf("[TRACE] UpdateConnectionConfigs added: %s, deleted: %s, changed: %s", strings.Join(addedNames, ","), strings.Join(deletedNames, ","), strings.Join(changedNames, ","))
+	log.Printf("[INFO] UpdateConnectionConfigs added: %s, deleted: %s, changed: %s", strings.Join(addedNames, ","), strings.Join(deletedNames, ","), strings.Join(changedNames, ","))
 }
 
 // this is the default ConnectionConfigChanged callback function

@@ -254,6 +254,8 @@ func (d *QueryData) shallowCopy() *QueryData {
 		listHydrate:            d.listHydrate,
 		childHydrate:           d.childHydrate,
 		rateLimiterScopeValues: make(map[string]string),
+		fetchMetadata:          d.fetchMetadata,
+		parentHydrateMetadata:  d.parentHydrateMetadata,
 	}
 
 	// NOTE: we create a deep copy of the keyColumnQuals
