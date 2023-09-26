@@ -67,6 +67,7 @@ func (r *rowData) getRow(ctx context.Context) (*proto.Row, error) {
 		return nil, err
 	}
 
+	log.Printf("[WARN] startAllHydrateCalls  started")
 	return r.waitForHydrateCallsToComplete(rowDataCtx)
 }
 

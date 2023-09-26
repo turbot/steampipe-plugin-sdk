@@ -1,11 +1,16 @@
 ## v5.6.0 [tbd]
 _What's new_
+* Add support for rate limiting. ([#623](https://github.com/turbot/steampipe-plugin-sdk/issues/623))
+* Add `diagnostics` property to `_ctx` column, containing information on hydrate calls and rate limiting (enabled by setting env var `STEAMPIPE_DIAGNOSTIC_LEVEL=all`) 
 * Add support for JSONB operators in List hydrate functions ([#594](https://github.com/turbot/steampipe-plugin-sdk/issues/594))
-* Add `Type` to `ConnectionConfig` protobuf defintion and use to determine if a connection is an aggregator. ([#590](https://github.com/turbot/steampipe-plugin-sdk/issues/590))
-
+* Add `Type` to `ConnectionConfig` protobuf definition and use to determine if a connection is an aggregator. ([#590](https://github.com/turbot/steampipe-plugin-sdk/issues/590))
+* When plugin startup experiences panic, write known string to stdout so plugin manager can intercept the "Unrecognized remote plugin message" and instead return the panic message. Closes #619
+* Support multi-line log entries. ([#612](https://github.com/turbot/steampipe-plugin-sdk/issues/612))
+* Add Equals function for QualValue. ([#646](https://github.com/turbot/steampipe-plugin-sdk/issues/646))
+* 
 _Bug fixes_
 * Fix cache deadlock caused when the same table is scanned multiple times, and Postgres does not iterate the first scan. 
-Update the query cache to make all scans a subscriber of the cache request, and decouple the reading ands writing of cached data . ([#586](https://github.com/turbot/steampipe-plugin-sdk/issues/586))
+  Update the query cache to make all scans a subscriber of the cache request, and decouple the reading ands writing of cached data . ([#586](https://github.com/turbot/steampipe-plugin-sdk/issues/586))
 
 ## v5.5.1 [2023-07-26]
 _What's new_
