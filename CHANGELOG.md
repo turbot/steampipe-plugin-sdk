@@ -1,4 +1,4 @@
-## v5.6.0 [tbd]
+## v5.6.0 [2023-09-27]
 _What's new_
 * Add support for rate limiting. ([#623](https://github.com/turbot/steampipe-plugin-sdk/issues/623))
 * Add `diagnostics` property to `_ctx` column, containing information on hydrate calls and rate limiting (enabled by setting env var `STEAMPIPE_DIAGNOSTIC_LEVEL=all`) 
