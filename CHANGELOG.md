@@ -1,3 +1,7 @@
+## v5.5.2 [2023-09-29]
+_What's new_
+* Improve logging for connection config updates and connection cache clearing ([#677](https://github.com/turbot/steampipe-plugin-sdk/issues/677))
+ 
 ## v5.5.1 [2023-07-26]
 _What's new_
 * Upgrade opentelemetry SDK to v1.16.0. ([#570](https://github.com/turbot/steampipe-plugin-sdk/issues/570))
