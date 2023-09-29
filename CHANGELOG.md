@@ -1,3 +1,7 @@
+## v5.6.1 [2023-09-29]
+_What's new_
+* Add GRPC endpoint to clear connection cache. ([#678](https://github.com/turbot/steampipe-plugin-sdk/issues/678))
+
 ## v5.6.0 [2023-09-27]
 _What's new_
 * Add support for rate limiting. ([#623](https://github.com/turbot/steampipe-plugin-sdk/issues/623))
