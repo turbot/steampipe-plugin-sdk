@@ -101,6 +101,7 @@ func Serve(opts *ServeOpts) {
 		p.setCacheOptions,
 		p.setRateLimiters,
 		p.getRateLimiters,
+		p.setConnectionCacheOptions,
 	).Serve()
 }
 

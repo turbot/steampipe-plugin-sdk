@@ -322,6 +322,20 @@ func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) (err err
 	return p.ensureCache(p.buildConnectionSchemaMap(), query_cache.NewQueryCacheOptions(request))
 }
 
+func (p *Plugin) setConnectionCacheOptions(request *proto.SetConnectionCacheOptionsRequest) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("setConnectionCacheOptions experienced unhandled exception: %s", helpers.ToError(r).Error())
+			log.Println("[WARN]", msg)
+			err = fmt.Errorf(msg)
+		}
+	}()
+
+	log.Printf("[INFO] setConnectionCacheOptions clearing connection cache for connection '%s'", request.ClearCacheForConnection)
+	p.ClearConnectionCache(context.Background(), request.ClearCacheForConnection)
+	return nil
+}
+
 // clear current rate limiter definitions and instances and repopulate resolvedRateLimiterDefs using the
 // plugin defined rate limiters and any config defined rate limiters
 func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) (err error) {
