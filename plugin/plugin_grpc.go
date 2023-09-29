@@ -116,9 +116,12 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		}
 	}
 
-	// remove deleted connections
+	// remove deleted connections and remove cache
 	for _, deletedConnection := range deleted {
+		// delete connection
 		delete(p.ConnectionMap, deletedConnection.Connection)
+		// delete cache wrapper struct
+		delete(p.connectionCacheMap, deletedConnection.Connection)
 	}
 
 	// add added connections

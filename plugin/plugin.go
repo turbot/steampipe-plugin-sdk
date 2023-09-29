@@ -220,14 +220,16 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
 
+	log.Printf("[INFO] ClearConnectionCache, connection: '%s'", connectionName)
 	// get the connection cache for this connection
 	connectionCache, ok := p.connectionCacheMap[connectionName]
 	if !ok {
-		// not expected
-		log.Printf("[TRACE] ClearConnectionCache failed - no connection cache found for connection %s", connectionName)
+		// connection cache is lazily created when creating query data so may not exist
+		log.Printf("[INFO] no connection cache found for connection %s - possibly no queries have been run for this connection", connectionName)
 		return
 	}
 	connectionCache.Clear(ctx)
+	log.Printf("[INFO] cleared connection cache for connection: '%s'", connectionName)
 }
 
 // ClearQueryCache clears the query cache for the given connection.
@@ -583,7 +585,7 @@ func (p *Plugin) getConnectionCallId(callId string, connectionName string) strin
 			p.callIdLookupMut.RUnlock()
 			p.callIdLookupMut.Lock()
 
-			// recheck as ther eis a race condition to acquire a write lockm
+			// recheck as there is a race condition to acquire a write lock
 			if _, callIdExists := p.callIdLookup[connectionCallId]; !callIdExists {
 				// store in map
 				p.callIdLookup[connectionCallId] = struct{}{}
