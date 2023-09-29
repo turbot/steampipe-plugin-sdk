@@ -16,6 +16,7 @@ type SetConnectionConfigFunc func(string, string) error
 type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) (map[string]error, error)
 type UpdateConnectionConfigsFunc func([]*proto.ConnectionConfig, []*proto.ConnectionConfig, []*proto.ConnectionConfig) (map[string]error, error)
 type SetCacheOptionsFunc func(*proto.SetCacheOptionsRequest) error
+type SetConnectionCacheOptionsFunc func(*proto.SetConnectionCacheOptionsRequest) error
 type SetRateLimitersFunc func(*proto.SetRateLimitersRequest) error
 type GetRateLimitersFunc func() []*proto.RateLimiterDefinition
 type EstablishMessageStreamFunc func(stream proto.WrapperPlugin_EstablishMessageStreamServer) error
@@ -23,16 +24,17 @@ type EstablishMessageStreamFunc func(stream proto.WrapperPlugin_EstablishMessage
 // PluginServer is the server for a single plugin
 type PluginServer struct {
 	proto.UnimplementedWrapperPluginServer
-	pluginName                  string
-	executeFunc                 ExecuteFunc
-	setConnectionConfigFunc     SetConnectionConfigFunc
-	setAllConnectionConfigsFunc SetAllConnectionConfigsFunc
-	updateConnectionConfigsFunc UpdateConnectionConfigsFunc
-	getSchemaFunc               GetSchemaFunc
-	establishMessageStreamFunc  EstablishMessageStreamFunc
-	setCacheOptionsFunc         SetCacheOptionsFunc
-	setRateLimitersFunc         SetRateLimitersFunc
-	getRateLimitersFunc         GetRateLimitersFunc
+	pluginName                    string
+	executeFunc                   ExecuteFunc
+	setConnectionConfigFunc       SetConnectionConfigFunc
+	setAllConnectionConfigsFunc   SetAllConnectionConfigsFunc
+	updateConnectionConfigsFunc   UpdateConnectionConfigsFunc
+	getSchemaFunc                 GetSchemaFunc
+	establishMessageStreamFunc    EstablishMessageStreamFunc
+	setCacheOptionsFunc           SetCacheOptionsFunc
+	setConnectionCacheOptionsFunc SetConnectionCacheOptionsFunc
+	setRateLimitersFunc           SetRateLimitersFunc
+	getRateLimitersFunc           GetRateLimitersFunc
 }
 
 func NewPluginServer(pluginName string,
@@ -45,19 +47,21 @@ func NewPluginServer(pluginName string,
 	setCacheOptionsFunc SetCacheOptionsFunc,
 	setRateLimitersFunc SetRateLimitersFunc,
 	getRateLimitersFunc GetRateLimitersFunc,
+	setConnectionCacheOptionsFunc SetConnectionCacheOptionsFunc,
 ) *PluginServer {
 
 	return &PluginServer{
-		pluginName:                  pluginName,
-		executeFunc:                 executeFunc,
-		setConnectionConfigFunc:     setConnectionConfigFunc,
-		setAllConnectionConfigsFunc: setAllConnectionConfigsFunc,
-		updateConnectionConfigsFunc: updateConnectionConfigsFunc,
-		getSchemaFunc:               getSchemaFunc,
-		establishMessageStreamFunc:  establishMessageStreamFunc,
-		setCacheOptionsFunc:         setCacheOptionsFunc,
-		setRateLimitersFunc:         setRateLimitersFunc,
-		getRateLimitersFunc:         getRateLimitersFunc,
+		pluginName:                    pluginName,
+		executeFunc:                   executeFunc,
+		setConnectionConfigFunc:       setConnectionConfigFunc,
+		setAllConnectionConfigsFunc:   setAllConnectionConfigsFunc,
+		updateConnectionConfigsFunc:   updateConnectionConfigsFunc,
+		getSchemaFunc:                 getSchemaFunc,
+		establishMessageStreamFunc:    establishMessageStreamFunc,
+		setCacheOptionsFunc:           setCacheOptionsFunc,
+		setRateLimitersFunc:           setRateLimitersFunc,
+		getRateLimitersFunc:           getRateLimitersFunc,
+		setConnectionCacheOptionsFunc: setConnectionCacheOptionsFunc,
 	}
 }
 
@@ -164,6 +168,11 @@ func (s PluginServer) GetSupportedOperations(*proto.GetSupportedOperationsReques
 func (s PluginServer) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error) {
 	err := s.setCacheOptionsFunc(req)
 	return &proto.SetCacheOptionsResponse{}, err
+}
+
+func (s PluginServer) SetConnectionCacheOptions(req *proto.SetConnectionCacheOptionsRequest) (*proto.SetConnectionCacheOptionsResponse, error) {
+	err := s.setConnectionCacheOptionsFunc(req)
+	return &proto.SetConnectionCacheOptionsResponse{}, err
 }
 
 func (s PluginServer) SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error) {

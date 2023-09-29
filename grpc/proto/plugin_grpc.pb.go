@@ -19,16 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	WrapperPlugin_EstablishMessageStream_FullMethodName  = "/proto.WrapperPlugin/EstablishMessageStream"
-	WrapperPlugin_GetSchema_FullMethodName               = "/proto.WrapperPlugin/GetSchema"
-	WrapperPlugin_Execute_FullMethodName                 = "/proto.WrapperPlugin/Execute"
-	WrapperPlugin_SetConnectionConfig_FullMethodName     = "/proto.WrapperPlugin/SetConnectionConfig"
-	WrapperPlugin_SetAllConnectionConfigs_FullMethodName = "/proto.WrapperPlugin/SetAllConnectionConfigs"
-	WrapperPlugin_UpdateConnectionConfigs_FullMethodName = "/proto.WrapperPlugin/UpdateConnectionConfigs"
-	WrapperPlugin_GetSupportedOperations_FullMethodName  = "/proto.WrapperPlugin/GetSupportedOperations"
-	WrapperPlugin_SetCacheOptions_FullMethodName         = "/proto.WrapperPlugin/SetCacheOptions"
-	WrapperPlugin_SetRateLimiters_FullMethodName         = "/proto.WrapperPlugin/SetRateLimiters"
-	WrapperPlugin_GetRateLimiters_FullMethodName         = "/proto.WrapperPlugin/GetRateLimiters"
+	WrapperPlugin_EstablishMessageStream_FullMethodName    = "/proto.WrapperPlugin/EstablishMessageStream"
+	WrapperPlugin_GetSchema_FullMethodName                 = "/proto.WrapperPlugin/GetSchema"
+	WrapperPlugin_Execute_FullMethodName                   = "/proto.WrapperPlugin/Execute"
+	WrapperPlugin_SetConnectionConfig_FullMethodName       = "/proto.WrapperPlugin/SetConnectionConfig"
+	WrapperPlugin_SetAllConnectionConfigs_FullMethodName   = "/proto.WrapperPlugin/SetAllConnectionConfigs"
+	WrapperPlugin_UpdateConnectionConfigs_FullMethodName   = "/proto.WrapperPlugin/UpdateConnectionConfigs"
+	WrapperPlugin_GetSupportedOperations_FullMethodName    = "/proto.WrapperPlugin/GetSupportedOperations"
+	WrapperPlugin_SetCacheOptions_FullMethodName           = "/proto.WrapperPlugin/SetCacheOptions"
+	WrapperPlugin_SetRateLimiters_FullMethodName           = "/proto.WrapperPlugin/SetRateLimiters"
+	WrapperPlugin_GetRateLimiters_FullMethodName           = "/proto.WrapperPlugin/GetRateLimiters"
+	WrapperPlugin_SetConnectionCacheOptions_FullMethodName = "/proto.WrapperPlugin/SetConnectionCacheOptions"
 )
 
 // WrapperPluginClient is the client API for WrapperPlugin service.
@@ -45,6 +46,7 @@ type WrapperPluginClient interface {
 	SetCacheOptions(ctx context.Context, in *SetCacheOptionsRequest, opts ...grpc.CallOption) (*SetCacheOptionsResponse, error)
 	SetRateLimiters(ctx context.Context, in *SetRateLimitersRequest, opts ...grpc.CallOption) (*SetRateLimitersResponse, error)
 	GetRateLimiters(ctx context.Context, in *GetRateLimitersRequest, opts ...grpc.CallOption) (*GetRateLimitersResponse, error)
+	SetConnectionCacheOptions(ctx context.Context, in *SetConnectionCacheOptionsRequest, opts ...grpc.CallOption) (*SetConnectionCacheOptionsResponse, error)
 }
 
 type wrapperPluginClient struct {
@@ -191,6 +193,15 @@ func (c *wrapperPluginClient) GetRateLimiters(ctx context.Context, in *GetRateLi
 	return out, nil
 }
 
+func (c *wrapperPluginClient) SetConnectionCacheOptions(ctx context.Context, in *SetConnectionCacheOptionsRequest, opts ...grpc.CallOption) (*SetConnectionCacheOptionsResponse, error) {
+	out := new(SetConnectionCacheOptionsResponse)
+	err := c.cc.Invoke(ctx, WrapperPlugin_SetConnectionCacheOptions_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WrapperPluginServer is the server API for WrapperPlugin service.
 // All implementations must embed UnimplementedWrapperPluginServer
 // for forward compatibility
@@ -205,6 +216,7 @@ type WrapperPluginServer interface {
 	SetCacheOptions(context.Context, *SetCacheOptionsRequest) (*SetCacheOptionsResponse, error)
 	SetRateLimiters(context.Context, *SetRateLimitersRequest) (*SetRateLimitersResponse, error)
 	GetRateLimiters(context.Context, *GetRateLimitersRequest) (*GetRateLimitersResponse, error)
+	SetConnectionCacheOptions(context.Context, *SetConnectionCacheOptionsRequest) (*SetConnectionCacheOptionsResponse, error)
 	mustEmbedUnimplementedWrapperPluginServer()
 }
 
@@ -241,6 +253,9 @@ func (UnimplementedWrapperPluginServer) SetRateLimiters(context.Context, *SetRat
 }
 func (UnimplementedWrapperPluginServer) GetRateLimiters(context.Context, *GetRateLimitersRequest) (*GetRateLimitersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRateLimiters not implemented")
+}
+func (UnimplementedWrapperPluginServer) SetConnectionCacheOptions(context.Context, *SetConnectionCacheOptionsRequest) (*SetConnectionCacheOptionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetConnectionCacheOptions not implemented")
 }
 func (UnimplementedWrapperPluginServer) mustEmbedUnimplementedWrapperPluginServer() {}
 
@@ -441,6 +456,24 @@ func _WrapperPlugin_GetRateLimiters_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WrapperPlugin_SetConnectionCacheOptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetConnectionCacheOptionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WrapperPluginServer).SetConnectionCacheOptions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WrapperPlugin_SetConnectionCacheOptions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WrapperPluginServer).SetConnectionCacheOptions(ctx, req.(*SetConnectionCacheOptionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WrapperPlugin_ServiceDesc is the grpc.ServiceDesc for WrapperPlugin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -479,6 +512,10 @@ var WrapperPlugin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRateLimiters",
 			Handler:    _WrapperPlugin_GetRateLimiters_Handler,
+		},
+		{
+			MethodName: "SetConnectionCacheOptions",
+			Handler:    _WrapperPlugin_SetConnectionCacheOptions_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

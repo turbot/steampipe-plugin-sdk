@@ -32,6 +32,7 @@ type WrapperPluginServer interface {
 	SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error)
 	GetRateLimiters(req *proto.GetRateLimitersRequest) (*proto.GetRateLimitersResponse, error)
 	EstablishMessageStream(server proto.WrapperPlugin_EstablishMessageStreamServer) error
+	SetConnectionCacheOptions(req *proto.SetConnectionCacheOptionsRequest) (*proto.SetConnectionCacheOptionsResponse, error)
 }
 
 type WrapperPluginClient interface {
@@ -45,6 +46,7 @@ type WrapperPluginClient interface {
 	SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error)
 	GetRateLimiters(req *proto.GetRateLimitersRequest) (*proto.GetRateLimitersResponse, error)
 	EstablishMessageStream() (proto.WrapperPlugin_EstablishMessageStreamClient, error)
+	SetConnectionCacheOptions(req *proto.SetConnectionCacheOptionsRequest) (*proto.SetConnectionCacheOptionsResponse, error)
 }
 
 // This is the implementation of plugin.GRPCServer so we can serve/consume this.

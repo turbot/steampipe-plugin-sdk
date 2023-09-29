@@ -114,6 +114,14 @@ func (c *PluginClient) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*prot
 	return resp, nil
 }
 
+func (c *PluginClient) SetConnectionCacheOptions(req *proto.SetConnectionCacheOptionsRequest) (*proto.SetConnectionCacheOptionsResponse, error) {
+	resp, err := c.Stub.SetConnectionCacheOptions(req)
+	if err != nil {
+		return nil, HandleGrpcError(err, c.Name, "SetConnectionCacheOptions")
+	}
+	return resp, nil
+}
+
 func (c *PluginClient) SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error) {
 	resp, err := c.Stub.SetRateLimiters(req)
 	if err != nil {

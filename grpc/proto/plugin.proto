@@ -14,6 +14,7 @@ service WrapperPlugin {
   rpc SetCacheOptions(SetCacheOptionsRequest) returns (SetCacheOptionsResponse);
   rpc SetRateLimiters(SetRateLimitersRequest) returns (SetRateLimitersResponse);
   rpc GetRateLimiters(GetRateLimitersRequest) returns (GetRateLimitersResponse);
+  rpc SetConnectionCacheOptions(SetConnectionCacheOptionsRequest) returns (SetConnectionCacheOptionsResponse);
 }
 
 message EstablishMessageStreamRequest{
@@ -302,6 +303,16 @@ message SetCacheOptionsRequest {
   int64 max_size_mb = 4;
 }
 
+message SetCacheOptionsResponse {
+}
+
+message SetConnectionCacheOptionsRequest {
+  string clear_cache_for_connection = 1;
+}
+
+message SetConnectionCacheOptionsResponse {
+}
+
 message RateLimiterDefinition {
   string name = 1;
   float fill_rate = 2;
@@ -311,8 +322,7 @@ message RateLimiterDefinition {
   string where = 6;
 }
 
-message SetCacheOptionsResponse {
-}
+
 
 message SetRateLimitersRequest {
   repeated RateLimiterDefinition definitions = 1;
