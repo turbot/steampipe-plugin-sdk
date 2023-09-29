@@ -49,6 +49,10 @@ func (c *GRPCClient) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.
 	return c.client.SetCacheOptions(c.ctx, req)
 }
 
+func (c *GRPCClient) SetConnectionCacheOptions(req *proto.SetConnectionCacheOptionsRequest) (*proto.SetConnectionCacheOptionsResponse, error) {
+	return c.client.SetConnectionCacheOptions(c.ctx, req)
+}
+
 func (c *GRPCClient) SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error) {
 	return c.client.SetRateLimiters(c.ctx, req)
 }
@@ -91,6 +95,10 @@ func (m *GRPCServer) GetSupportedOperations(_ context.Context, req *proto.GetSup
 
 func (m *GRPCServer) SetCacheOptions(_ context.Context, req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error) {
 	return m.Impl.SetCacheOptions(req)
+}
+
+func (m *GRPCServer) SetConnectionCacheOptions(_ context.Context, req *proto.SetConnectionCacheOptionsRequest) (*proto.SetConnectionCacheOptionsResponse, error) {
+	return m.Impl.SetConnectionCacheOptions(req)
 }
 
 func (m *GRPCServer) SetRateLimiters(_ context.Context, req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error) {

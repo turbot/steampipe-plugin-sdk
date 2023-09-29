@@ -31,6 +31,11 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 	if len(changed) == 0 {
 		return
 	}
+	log.Printf("[INFO] updateConnections updating %d connections", len(changed))
+
+	if len(changed) == 0 {
+		return
+	}
 
 	// first get the existing connection data - used for the update events
 	existingConnections := make(map[string]*ConnectionData, len(changed))
@@ -57,7 +62,11 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 // add connections for all the provided configs
 // NOTE: this (may) mutate failedConnections, exemplarSchema and exemplarTableMap
 func (p *Plugin) addConnections(configs []*proto.ConnectionConfig, updateData *connectionUpdateData) {
-	log.Printf("[INFO] Plugin.addConnections adding %d configs", len(configs))
+	if len(configs) == 0 {
+		return
+	}
+
+	log.Printf("[INFO] addConnections adding %d connection configs", len(configs))
 
 	for _, config := range configs {
 		if config.IsAggregator() {
@@ -124,7 +133,7 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, updateData *c
 	d := NewConnectionData(c, p, config).setSchema(tableMap, schema)
 	p.ConnectionMap[connectionName] = d
 
-	log.Printf("[TRACE] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
+	log.Printf("[INFO] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
 	// update the watch paths for the connection file watcher
 	err = p.updateConnectionWatchPaths(c)
@@ -220,6 +229,7 @@ func defaultConnectionConfigChangedFunc(ctx context.Context, p *Plugin, old *Con
 	log.Printf("[TRACE] defaultConnectionConfigChangedFunc connection config changed for connection: %s", new.Name)
 	p.ClearConnectionCache(ctx, new.Name)
 	p.ClearQueryCache(ctx, new.Name)
+
 	return nil
 }
 
