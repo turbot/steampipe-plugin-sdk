@@ -1,31 +1,31 @@
 ## v5.6.1 [2023-09-29]
-_What's new_
-* Add GRPC endpoint to clear connection cache. ([#678](https://github.com/turbot/steampipe-plugin-sdk/issues/678))
+_What's new?_
+* `SetConnectionCacheOptions`, a new GRPC endpoint to clear connection cache. ([#678](https://github.com/turbot/steampipe-plugin-sdk/issues/678))
 
 ## v5.6.0 [2023-09-27]
-_What's new_
-* Add support for rate limiting. ([#623](https://github.com/turbot/steampipe-plugin-sdk/issues/623))
-* Add `diagnostics` property to `_ctx` column, containing information on hydrate calls and rate limiting (enabled by setting env var `STEAMPIPE_DIAGNOSTIC_LEVEL=all`) 
-* Add support for JSONB operators in List hydrate functions ([#594](https://github.com/turbot/steampipe-plugin-sdk/issues/594))
-* Add `Type` to `ConnectionConfig` protobuf definition and use to determine if a connection is an aggregator. ([#590](https://github.com/turbot/steampipe-plugin-sdk/issues/590))
-* When plugin startup experiences panic, write known string to stdout so plugin manager can intercept the "Unrecognized remote plugin message" and instead return the panic message. Closes #619
-* Support multi-line log entries. ([#612](https://github.com/turbot/steampipe-plugin-sdk/issues/612))
-* Add Equals function for QualValue. ([#646](https://github.com/turbot/steampipe-plugin-sdk/issues/646))
-* 
+_What's new?_
+* Define [rate and concurrency limits](https://steampipe.io/docs/guides/limiter#concurrency--rate-limiting) for plugin execution. ([#623](https://github.com/turbot/steampipe-plugin-sdk/issues/623))
+* [Diagnostics](https://steampipe.io/docs/guides/limiter?#exploring--troubleshooting-with-diagnostic-mode) property added to `_ctx` column, containing information on hydrate calls and rate limiting (enabled by setting env var `STEAMPIPE_DIAGNOSTIC_LEVEL=all`)
+* Support for JSONB operators in `List` hydrate functions. ([#594](https://github.com/turbot/steampipe-plugin-sdk/issues/594)).
+* `Type` property added to `ConnectionConfig` protobuf definition and use to determine if a connection is an aggregator. ([#590](https://github.com/turbot/steampipe-plugin-sdk/issues/590))
+* When plugin startup fails, write specially formatted string to stdout so plugin manager can parse the output and display a useful message.  ([#619](https://github.com/turbot/steampipe-plugin-sdk/issues/619))
+* Support for multi-line log entries. ([#612](https://github.com/turbot/steampipe-plugin-sdk/issues/612))
+* Added `Equals` function for `QualValue`. ([#646](https://github.com/turbot/steampipe-plugin-sdk/issues/646))
+ 
 _Bug fixes_
 * Fix cache deadlock caused when the same table is scanned multiple times, and Postgres does not iterate the first scan. 
   Update the query cache to make all scans a subscriber of the cache request, and decouple the reading ands writing of cached data . ([#586](https://github.com/turbot/steampipe-plugin-sdk/issues/586))
 
 ## v5.5.2 [2023-09-29]
-_What's new_
+_What's new?_
 * Improve logging for connection config updates and connection cache clearing ([#677](https://github.com/turbot/steampipe-plugin-sdk/issues/677))
  
 ## v5.5.1 [2023-07-26]
-_What's new_
+_What's new?_
 * Upgrade opentelemetry SDK to v1.16.0. ([#570](https://github.com/turbot/steampipe-plugin-sdk/issues/570))
 
 ## v5.5.0 [2023-06-16]
-_What's new_
+_What's new?_
 * Update cache pending item implementation. ([#564](https://github.com/turbot/steampipe-plugin-sdk/issues/564),[#566](https://github.com/turbot/steampipe-plugin-sdk/issues/566)) 
   * Cache requests subscribe to pending items and stream them as the data is received rather than waiting for the item to complete. 
   * When making cache request, update request to include ALL columns which will be returned, not just columns requested. This will allow pending item code to match in cases where a different column in the same hydrate function is requested.
@@ -41,16 +41,16 @@ _Bug fixes_
 * Avoid loading schema repeatedly when initializing plugin with multiple connections. ([#547](https://github.com/turbot/steampipe-plugin-sdk/issues/547))
 
 ## v5.4.0 [2023-04-27]
-_What's new_
+_What's new?_
 * Add SetCacheOptions to allow control of cache at server level. ([#546](https://github.com/turbot/steampipe-plugin-sdk/issues/546))
 
 ## v5.3.0 [2023-03-16]
-_What's new_
+_What's new?_
 * Add env var support for limiting the folders from which source files are retrieved. ([#540](https://github.com/turbot/steampipe-plugin-sdk/issues/540))
 * Add go-getter support to `TableMapFunc` - add `GetSourceFiles` method to `ConnectionMapData`. ([#542](https://github.com/turbot/steampipe-plugin-sdk/issues/542))
 
 ## v5.2.0 [2023-03-02]
-_What's new_
+_What's new?_
 * Add support for update of dynamic plugin schema based on file watching events. ([#457](https://github.com/turbot/steampipe-plugin-sdk/issues/457))
 * Update SetAllConnectionConfigs to return map of failed connections.  ([#458](https://github.com/turbot/steampipe-plugin-sdk/issues/458))
 * Add support/handling for aggregator connections using dynamic plugins. ([#453](https://github.com/turbot/steampipe-plugin-sdk/issues/453))
@@ -78,7 +78,7 @@ _Bug fixes_
 * When caching query results, cache all columns, not just those that were requested. ([#487](https://github.com/turbot/steampipe-plugin-sdk/issues/487))
 
 ## v5.1.0 [2023-01-11]
-_What's new_
+_What's new?_
 * Add DiagsToWarnings function. ([#474](https://github.com/turbot/steampipe-plugin-sdk/issues/474))
 * Add NullIfEmptySlice transform. ([#476](https://github.com/turbot/steampipe-plugin-sdk/issues/476))
 
@@ -92,7 +92,7 @@ _Bug fixes_
 * Fix hydrate function caching using `WithCache` for aggregator connections. ([#460](https://github.com/turbot/steampipe-plugin-sdk/issues/460))
 
 ## v5.0.0 [2022-11-16]
-_What's new_
+_What's new?_
 * Add `QueryData.GetSourceFiles` which fetches files using [go-getter](https://github.com/hashicorp/go-getter). ([#434](https://github.com/turbot/steampipe-plugin-sdk/issues/434))
 * Add support for watching files specified by connection config properties with the tag `watch`. ([#451](https://github.com/turbot/steampipe-plugin-sdk/issues/451))
 * Update comments to improve GoDoc documentation and remove unnecessary exports.  ([#432](https://github.com/turbot/steampipe-plugin-sdk/issues/432))
@@ -164,7 +164,7 @@ _Bug fixes_
 * Fix concurrent map access crash for Plugin.connectionCacheMap. ([#389](https://github.com/turbot/steampipe-plugin-sdk/issues/389))
 
 ## v4.1.0 [2022-08-24]
-_What's new_
+_What's new?_
 * Add `Plugin` property`ConnectionConfigChangedFunc`. This is a callback function invoked when the connection config changes. The default implementation clears the connection cache and query cache for the changed connection. ([#387](https://github.com/turbot/steampipe-plugin-sdk/issues/387))
 
 ## v4.0.2 [2022-08-22]
@@ -180,7 +180,7 @@ _Bug fixes_
 * Fix parent-child listing, which was broken in v4.0.x  ([#378](https://github.com/turbot/steampipe-plugin-sdk/issues/378))
 
 ## v4.0.0 [2022-08-04]
-_What's new_
+_What's new?_
 * A single plugin instance now supports multiple connections, as opposed to an instance being created per connection. ([#365](https://github.com/turbot/steampipe-plugin-sdk/issues/365))
 * Memory usage has been substantially reduced, particularly when streaming high row counts. ([#366](https://github.com/turbot/steampipe-plugin-sdk/issues/366))
 * Allow control of maximum cache memory usage. ([#302](https://github.com/turbot/steampipe-plugin-sdk/issues/302))
@@ -216,7 +216,7 @@ type ConnectionData struct {
 NOTE: the property `QueryData.ConnectionManager` has been retained for comptibility reasons - this will be deprecated in a future version
 
 ## v3.3.2  [2022-07-11]
-_What's new_
+_What's new?_
 * Add `MaxConcurrency` to `GetConfig` - for use when using the `Get` hydrate as a column hydrate function. ([#353](https://github.com/turbot/steampipe-plugin-sdk/issues/353))
 * Validate table Name property matches key in plugin's TableMap. ([#355](https://github.com/turbot/steampipe-plugin-sdk/issues/355))
 
@@ -226,7 +226,7 @@ _Bug fixes_
 * If cached item has limit, quals must match exactly to be considered a cache hit. ([#345](https://github.com/turbot/steampipe-plugin-sdk/issues/345))
 
 ## v3.3.0  [2022-06-22]
-_What's new_
+_What's new?_
 * Add support for Open Telemetry. ([#337](https://github.com/turbot/steampipe-plugin-sdk/issues/337))
 * Return query metadata with the scan result, such as the number of hydrate functions called and the cache status. ([#338](https://github.com/turbot/steampipe-plugin-sdk/issues/338))
 
@@ -235,7 +235,7 @@ _Bug fixes_
 * Avoid deadlock after panic during newQueryData. ([#332](https://github.com/turbot/steampipe-plugin-sdk/issues/332))
 
 ## v3.2.0  [2022-05-20]
-_What's new_
+_What's new?_
 * Deprecate `ShouldIgnoreError` and `ShouldRetryError`. 
 
   Add instead `ShouldRetryErrorFunc` and a new `IgnoreConfig` containing `ShouldIgnoreErrorFunc`. 
@@ -247,7 +247,7 @@ _Bug fixes_
 * Fix the sdk not respecting the DefaultGetConfig when resolving the `ShouldIgnoreError` function.  ([#319](https://github.com/turbot/steampipe-plugin-sdk/issues/319))
 
 ## v3.1.0  [2022-03-30]
-_What's new_
+_What's new?_
 * Add `CacheMatch` property to `KeyColumn`, to support key columns which require exact matching to be considered a cache hit. ([#298](https://github.com/turbot/steampipe-plugin-sdk/issues/298))
 * Add table and plugin level defaults for `ShouldIgnoreError` and `RetryConfig`. ([#257](https://github.com/turbot/steampipe-plugin-sdk/issues/257))
 
@@ -256,12 +256,12 @@ _Bug fixes_
 * Fix issue when executing list calls with 'in' clauses, key column values passed in Quals map are incorrect. ([#294](https://github.com/turbot/steampipe-plugin-sdk/issues/294))
 
 ## v3.0.0 [2022-03-09]
-_What's new_
+_What's new?_
 * Add support for `ltree` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/248))
 * Add support for `inet` column type. ([#248](https://github.com/turbot/steampipe-plugin-sdk/issues/291))
 
 ## v2.2.0  [2022-03-30]
-_What's new_
+_What's new?_
 * Add `CacheMatch` property to `KeyColumn`, to support key columns which require exact matching to be considered a cache hit. ([#298](https://github.com/turbot/steampipe-plugin-sdk/issues/298))
 * Add table and plugin level defaults for `ShouldIgnoreError` and `RetryConfig`. ([#257](https://github.com/turbot/steampipe-plugin-sdk/issues/257))
 
@@ -270,18 +270,18 @@ _Bug fixes_
 * Fix issue when executing list calls with 'in' clauses, key column values passed in Quals map are incorrect. ([#294](https://github.com/turbot/steampipe-plugin-sdk/issues/294))
 
 ## v2.1.0  [2022-03-04]
-_What's new_
+_What's new?_
 * Add support for `is null` and `is not null` quals. ([#286](https://github.com/turbot/steampipe-plugin-sdk/issues/286))
 
 _Bug fixes_
 * Fix list call not respecting `in` qual if list config has multiple key columns. ([#275](https://github.com/turbot/steampipe-plugin-sdk/issues/275))
 
 ## v2.0.3  [2022-02-14]
-_What's new_
+_What's new?_
 * Update all references to use `github.com/turbot/steampipe-plugin-sdk/v2`. ([#272](https://github.com/turbot/steampipe-plugin-sdk/issues/272))
 
 ## v2.0.2  [2022-02-14]
-_What's new_
+_What's new?_
 * Update package name to `github.com/turbot/steampipe-plugin-sdk/v2`. ([#272](https://github.com/turbot/steampipe-plugin-sdk/issues/272))
 
 ## v2.0.1  [2022-02-10]
@@ -296,7 +296,7 @@ _Bug fixes_
 * Fix a query cache bug which under very specific circumstances would lead to an incomplete data set being returned. ([#254](https://github.com/turbot/steampipe-plugin-sdk/issues/254))
 
  ## v1.8.3  [2021-12-23]
-_What's new_
+_What's new?_
 * Updated `missing required quals` error to include table name. ([#166](https://github.com/turbot/steampipe-plugin-sdk/issues/166))
 * Move setting R Limit to OS specific code to allow compilation on Windows systems.
 * Update makefile and GRPCServer to support protoc-gen-go-grpc 1.1.0_2.
@@ -308,13 +308,13 @@ _Bug fixes_
 
 ## v1.8.2  [2021-11-22]
 
-_What's new_
+_What's new?_
 * Query cache TTL defaults to 5 minutes and is increased to match the TTL of incoming queries. ([#226](https://github.com/turbot/steampipe-plugin-sdk/issues/226))
 * Set cache cost of items based on number of rows and columns inserted. ([#227](https://github.com/turbot/steampipe-plugin-sdk/issues/227))
 * Add logging for query cache usage. ([#229](https://github.com/turbot/steampipe-plugin-sdk/issues/229))
 
 ## v1.8.1  [2021-11-22]
-_What's new_
+_What's new?_
 * Query result caching now determines whether a cache request is a subset of an existing cached item, taking the quals into account.  ([#224](https://github.com/turbot/steampipe-plugin-sdk/issues/224))
 
 _Bug fixes_
@@ -322,7 +322,7 @@ _Bug fixes_
 * Support cancellation while waiting for pending cache transfer. ([#219](https://github.com/turbot/steampipe-plugin-sdk/issues/219))
 
 ## v1.8.0  [2021-11-10]
-_What's new_
+_What's new?_
 * Add support for query result caching with stampede prevention, and concurrent query execution.  ([#211](https://github.com/turbot/steampipe-plugin-sdk/issues/211))
 
 ## v1.7.3  [2021-11-08]
@@ -340,7 +340,7 @@ _Bug fixes_
 * Avoid nil data being passed to hydrate calls if plugin calls StreamListItem with a nil item. ([#198](https://github.com/turbot/steampipe-plugin-sdk/issues/198))
 
 ## v1.7.0  [2021-10-18]
-_What's new_
+_What's new?_
 * Add dynamic schema support - add `SchemaMode` property to Plugin. If this is set to `dynamic`, Steampipe will check for plugin schema changes on startup. ([#195](https://github.com/turbot/steampipe-plugin-sdk/issues/195))
 
 ## v1.6.2  [2021-10-08]
@@ -353,7 +353,7 @@ _Bug fixes_
 * Pass context to table creation callback `TableMapFunc`. ([#183](https://github.com/turbot/steampipe-plugin-sdk/issues/183))
 
 ## v1.6.0  [2021-09-21]
-_What's new_
+_What's new?_
 * Add `QueryStatus.RowsRemaining` function which performs context cancellation and limit checking to determine how much more data the plugin should provide. ([#177](https://github.com/turbot/steampipe-plugin-sdk/issues/177))
   * This function is used internally by StreamListItem to avoid calling hydrate functions once sufficient data has been returned. 
   * It may also be called directly by the plugin to avoid retrieving unneeded data from the external API
@@ -364,7 +364,7 @@ _Bug fixes_
 * Fix `get` call returning nothing if there is an `in` clause for the key column, and matrix parameters are used. ([#170](https://github.com/turbot/steampipe-plugin-sdk/issues/170))
 
 ## v1.5.0  [2021-08-06]
-_What's new_ 
+_What's new?_ 
 * Add cache functions `SetWithTTL` and `Delete`. ([#163](https://github.com/turbot/steampipe-plugin-sdk/issues/163))
 
 _Bug fixes_
@@ -374,7 +374,7 @@ _Bug fixes_
 * Extraneous log output removed
 
 ## v1.4.0  [2021-07-20]
-_What's new_
+_What's new?_
 * Return all columns provided by hydrate functions, not just requested columns. ([#156](https://github.com/turbot/steampipe-plugin-sdk/issues/156))
 
 _Bug fixes_
@@ -387,7 +387,7 @@ _Bug fixes_
 
 ## v1.3.0  [2021-07-09]
 
-_What's new_
+_What's new?_
 * When defining key columns it is now possible to specify supported operators for each column (defaulting to '='). ([#121](https://github.com/turbot/steampipe-plugin-sdk/issues/121))
 * Add support for optional key columns. ([#112](https://github.com/turbot/steampipe-plugin-sdk/issues/112))
 * Cancellation of GRPC stream is now reflected in the context passed to plugin operations, so plugins can easily handle cancellation by checking the context. ([#17](https://github.com/turbot/steampipe-plugin-sdk/issues/17))
@@ -399,7 +399,7 @@ _Breaking changes_
 * Plugins built with `v1.3` of the sdk will only be loaded by Steampipe `v0.6.2` onwards.
 
 ## v0.2.10 [2021-06-09]
-_What's new_
+_What's new?_
 * Provide SDK transform to get a qual value. ([#77](https://github.com/turbot/steampipe-plugin-sdk/issues/77))
 * Change plugin license to Apache 2.0 ([#488](https://github.com/turbot/steampipe/issues/488))
   
@@ -412,11 +412,11 @@ _Bug fixes_
 * Fix list call failing with error "get call requires an '=' qual". ([#103](https://github.com/turbot/steampipe-plugin-sdk/issues/103))
 
 ## v0.2.9 [2021-05-13]
-_What's new_
+_What's new?_
 * Export GetQualValue function ([#98](https://github.com/turbot/steampipe-plugin-sdk/issues/98))
 
 ## v0.2.8 [2021-05-06]
-_What's new_
+_What's new?_
 * Added support for retryable errors and ignorable errors inside `getConfig` and `hydrateConfig`. ([#15](https://github.com/turbot/steampipe-plugin-sdk/issues/15))
 * Update `FromField` transform to accept multiple arguments, which are tried in order. ([#55](https://github.com/turbot/steampipe-plugin-sdk/issues/55))
 * Add `ProtocolVersion` property to the plugin `GetSchema` response. ([#94](https://github.com/turbot/steampipe-plugin-sdk/issues/94))
@@ -429,11 +429,11 @@ _Bug fixes_
 _re-tagged after pushing missing commit_
 
 ## v0.2.5 [2021-03-18]
-_What's new_
+_What's new?_
 * Improve the hcl diagnostic to error message conversion to improve parse failure messages. ([#72](https://github.com/turbot/steampipe-plugin-sdk/issues/72))
 
 ## v0.2.4 [2021-03-16]
-_What's new_
+_What's new?_
 * Include key column information in GetSchema response to support dynamic path key generation. ([#57](https://github.com/turbot/steampipe-plugin-sdk/issues/57))
 * Make get calls with 'in' clauses asynchronous. ([#30](https://github.com/turbot/steampipe-plugin-sdk/issues/30))
 * Remove need to call StreamLeafListItem for parent-child list calls. The child list function can now just cal StreamListItem. ([#64](https://github.com/turbot/steampipe-plugin-sdk/issues/64))
