@@ -7,10 +7,11 @@ import (
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/v5/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/version"
 )
 
-type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
+type ExecuteFunc func(req *proto.ExecuteRequest, stream row_stream.Sender) error
 type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) (map[string]error, error)
@@ -86,6 +87,7 @@ func (s PluginServer) GetSchema(req *proto.GetSchemaRequest) (res *proto.GetSche
 	}, err
 }
 
+// Execute implements the WrapperPluginServer interface and is used to execute calls vis GRPC
 func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -109,6 +111,17 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 			},
 		}
 	}
+
+	return s.executeFunc(req, stream)
+}
+
+// CallExecute directly calls the execute function and is used to execute in-process
+func (s PluginServer) CallExecute(req *proto.ExecuteRequest, stream row_stream.Sender) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = helpers.ToError(r)
+		}
+	}()
 
 	return s.executeFunc(req, stream)
 }

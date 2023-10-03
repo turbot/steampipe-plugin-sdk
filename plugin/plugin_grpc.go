@@ -11,6 +11,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
@@ -179,7 +180,7 @@ func (p *Plugin) getSchema(connectionName string) (*grpc.PluginSchema, error) {
 // execute starts a query and streams the results using the given GRPC stream.
 //
 // This is the handler function for the execute GRPC function.
-func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (err error) {
 	ctx := stream.Context()
 	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
