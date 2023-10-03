@@ -150,36 +150,31 @@ func (t *Table) setColumnNameMap() {
 // build map of all hydrate configs, including those specified in the legacy HydrateDependencies,
 // and those mentioned only in column config
 func (t *Table) buildHydrateConfigMap() {
+	// TDO tidy this up - initialise at end, set name first?
 	t.hydrateConfigMap = make(map[string]*HydrateConfig)
 	for i := range t.HydrateConfig {
 		// as we are converting into a pointer, we cannot use the array value direct from the range as
 		// this was causing incorrect values - go must be reusing memory addresses for successive items
 		h := &t.HydrateConfig[i]
-
-		// initialise before adding to map
+		// NOTE: initialise the hydrate config
 		h.initialise(t)
+
 		t.hydrateConfigMap[h.namedHydrate.Name] = h
 	}
 	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies
 	for _, d := range t.HydrateDependencies {
 		hydrateName := newNamedHydrateFunc(d.Func).Name
-		// if there is already a hydrate config, do nothing here
+		// if there is already an explicit hydrate config, do nothing here
 		// (this is a validation error that will be picked up by the validation check later)
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
-			t.hydrateConfigMap[hydrateName] = &HydrateConfig{Func: d.Func, Depends: d.Depends}
+			// create and initialise a new hydrate config for this func
+			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(d.Func, d.Depends...)
 		}
 	}
 	// NOTE: the get config may be used as a column hydrate function so add this into the map
 	if get := t.Get; get != nil {
-		hydrateName := get.namedHydrate.Name
-		t.hydrateConfigMap[hydrateName] = &HydrateConfig{
-			Func:              get.Hydrate,
-			IgnoreConfig:      get.IgnoreConfig,
-			RetryConfig:       get.RetryConfig,
-			Tags:              get.Tags,
-			ShouldIgnoreError: get.ShouldIgnoreError,
-			MaxConcurrency:    get.MaxConcurrency,
-		}
+		// create and initialise a new hydrate config for the get func
+		t.hydrateConfigMap[get.namedHydrate.Name] = t.hydrateConfigFromGet(t.Get)
 	}
 
 	// now add all hydrate functions with no explicit config
@@ -191,11 +186,33 @@ func (t *Table) buildHydrateConfigMap() {
 		hydrateName := newNamedHydrateFunc(c.Hydrate).Name
 
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
-			t.hydrateConfigMap[hydrateName] = &HydrateConfig{
-				Func: c.Hydrate,
-			}
+			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(c.Hydrate)
 		}
 	}
+}
+
+func (t *Table) newHydrateConfig(hydrateFunc HydrateFunc, depends ...HydrateFunc) *HydrateConfig {
+	c := &HydrateConfig{Func: hydrateFunc, Depends: depends}
+	// be sure to initialise the config
+	c.initialise(t)
+	return c
+}
+
+func (t *Table) hydrateConfigFromGet(get *GetConfig) *HydrateConfig {
+	if t.Get == nil {
+		return nil
+	}
+	c := &HydrateConfig{
+		Func:              get.Hydrate,
+		IgnoreConfig:      get.IgnoreConfig,
+		RetryConfig:       get.RetryConfig,
+		Tags:              get.Tags,
+		ShouldIgnoreError: get.ShouldIgnoreError,
+		MaxConcurrency:    get.MaxConcurrency,
+	}
+	// be sure to initialise the config
+	c.initialise(t)
+	return c
 }
 
 func (t *Table) getFetchFunc(fetchType fetchType) namedHydrateFunc {

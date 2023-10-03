@@ -154,12 +154,11 @@ func WrapHydrate(hydrate namedHydrateFunc, ignoreConfig *IgnoreConfig) namedHydr
 }
 
 func shouldRetryError(ctx context.Context, d *QueryData, h *HydrateData, err error, retryConfig *RetryConfig) bool {
-	log.Printf("[TRACE] shouldRetryError err: %v, retryConfig: %s", err, retryConfig.String())
-
 	if retryConfig == nil {
-		log.Printf("[TRACE] shouldRetryError nil retry config - return false")
+		log.Printf("[WARN] nil retry config passed to shouldRetryError this is unexpected - returning false")
 		return false
 	}
+	log.Printf("[TRACE] shouldRetryError err: %v, retryConfig: %s", err, retryConfig.String())
 
 	if retryConfig.ShouldRetryError != nil {
 		log.Printf("[TRACE] shouldRetryError - calling legacy ShouldRetryError")
