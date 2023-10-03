@@ -1,3 +1,7 @@
+## v5.6.2 [2023-10-03]
+_Bug fixes_
+* `initialise` not being called for implicit hydrate configs (i.e. hydrate funcitons without explcit config) - this leads to a nil reference error if the hydrate function returns an error. ([#683](https://github.com/turbot/steampipe-plugin-sdk/issues/683))
+
 ## v5.6.1 [2023-09-29]
 _What's new?_
 * `SetConnectionCacheOptions`, a new GRPC endpoint to clear connection cache. ([#678](https://github.com/turbot/steampipe-plugin-sdk/issues/678))
