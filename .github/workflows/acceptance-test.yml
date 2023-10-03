@@ -76,6 +76,8 @@ jobs:
         run: |
           echo "PATH=$PATH:$HOME/build::/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
+          go mod edit -replace github.com/turbot/steampipe-plugin-sdk/v5=/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
+          go mod tidy
           make
 
       - name: Setup BATS
