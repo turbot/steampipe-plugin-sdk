@@ -1,6 +1,6 @@
 ## v5.6.2 [2023-10-03]
 _Bug fixes_
-* `initialise` not being called for implicit hydrate configs (i.e. hydrate functions without explicit config) - this leads to a nil reference error if the hydrate function returns an error. ([#683](https://github.com/turbot/steampipe-plugin-sdk/issues/683))
+* The `initialise` function is now being called for implicit hydrate configs (i.e. hydrate functions without explicit config), thereby preventing nil pointer reference errors when the hydrate function returns an error. ([#683](https://github.com/turbot/steampipe-plugin-sdk/issues/683))
 
 ## v5.6.1 [2023-09-29]
 _What's new?_
