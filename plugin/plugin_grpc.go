@@ -191,7 +191,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	// when done, remove call id from map
 	defer p.clearCallId(req.CallId)
 
-	log.Printf("[INFO] Plugin execute table: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
+	log.Printf("[INFO] Plugin execute table name: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
@@ -225,13 +225,17 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 		}
 		outputWg.Add(1)
 
+		log.Printf("[INFO] Plugin execute connection %s", connectionName)
+
 		go func(c string) {
 			defer outputWg.Done()
 
+			log.Printf("[TRACE] Plugin execute goroutine for connection %s", connectionName)
 			if err := sem.Acquire(ctx, 1); err != nil {
 				return
 			}
 			defer sem.Release(1)
+			log.Printf("[TRACE] acquired sem")
 
 			// execute the scan for this connection
 			if err := p.executeForConnection(ctx, req, c, outputChan, logger); err != nil {
@@ -263,6 +267,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 				complete = true
 				break
 			}
+			log.Printf("[TRACE] send a row")
 			if err := stream.Send(row); err != nil {
 				// ignore context cancellation - they will get picked up further downstream
 				if !error_helpers.IsContextCancelledError(err) {

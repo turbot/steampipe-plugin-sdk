@@ -150,7 +150,7 @@ func (t *Table) setColumnNameMap() {
 // build map of all hydrate configs, including those specified in the legacy HydrateDependencies,
 // and those mentioned only in column config
 func (t *Table) buildHydrateConfigMap() {
-	// TDO tidy this up - initialise at end, set name first?
+	// TODO tidy this up - initialise at end, set name first?
 	t.hydrateConfigMap = make(map[string]*HydrateConfig)
 	for i := range t.HydrateConfig {
 		// as we are converting into a pointer, we cannot use the array value direct from the range as
