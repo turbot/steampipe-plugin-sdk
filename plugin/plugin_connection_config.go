@@ -70,6 +70,28 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 	return
 }
 
+func (p *Plugin) getExemplarConnectionData() *ConnectionData {
+	p.connectionMapLock.RLock()
+	defer p.connectionMapLock.RUnlock()
+
+	for _, connectionData := range p.ConnectionMap {
+		// just take the first item
+		return connectionData
+	}
+
+	return nil
+}
+
+func (p *Plugin) deleteConnections(deleted []*proto.ConnectionConfig) {
+	if len(deleted) > 0 {
+		deletedNames := make([]string, len(deleted))
+		for i, c := range deleted {
+			deletedNames[i] = c.Connection
+		}
+		p.deleteConnectionData(deletedNames)
+	}
+}
+
 // add connections for all the provided configs
 // NOTE: this (may) mutate failedConnections, exemplarSchema and exemplarTableMap
 func (p *Plugin) addConnections(configs []*proto.ConnectionConfig, updateData *connectionUpdateData) {

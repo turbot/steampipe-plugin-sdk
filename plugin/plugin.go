@@ -702,3 +702,12 @@ func (p *Plugin) setConnectionData(connectionData *ConnectionData, connectionNam
 	p.ConnectionMap[connectionName] = connectionData
 	p.connectionMapLock.Unlock()
 }
+
+// safely delete from ConnectionMap
+func (p *Plugin) deleteConnectionData(connections []string) {
+	p.connectionMapLock.Lock()
+	for _, deletedConnection := range connections {
+		delete(p.ConnectionMap, deletedConnection)
+	}
+	p.connectionMapLock.Unlock()
+}

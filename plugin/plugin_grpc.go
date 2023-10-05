@@ -120,9 +120,7 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	}
 
 	// remove deleted connections
-	for _, deletedConnection := range deleted {
-		delete(p.ConnectionMap, deletedConnection.Connection)
-	}
+	p.deleteConnections(deleted)
 
 	// add added connections
 	p.addConnections(added, updateData)
@@ -145,18 +143,6 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	}
 
 	return updateData.failedConnections, nil
-}
-
-func (p *Plugin) getExemplarConnectionData() *ConnectionData {
-	p.connectionMapLock.RLock()
-	defer p.connectionMapLock.RUnlock()
-
-	for _, connectionData := range p.ConnectionMap {
-		// just take the first item
-		return connectionData
-	}
-
-	return nil
 }
 
 /*
