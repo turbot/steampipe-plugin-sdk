@@ -8,6 +8,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"log"
 	"reflect"
 	"strings"
@@ -15,6 +16,9 @@ import (
 
 func (p *Plugin) setAggregatorSchemas() (logMessages map[string][]string, err error) {
 	// build the schema of all aggregators (do this AFTER adding all connections)
+	p.connectionMapLock.RLock()
+	defer p.connectionMapLock.RUnlock()
+
 	for _, connectionData := range p.ConnectionMap {
 		// if this is an aggregator connection, update its schema, passing its existing config
 		if connectionData.isAggregator() {
@@ -40,8 +44,9 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 	// first get the existing connection data - used for the update events
 	existingConnections := make(map[string]*ConnectionData, len(changed))
 	for _, changedConnection := range changed {
-		connectionData, ok := p.ConnectionMap[changedConnection.Connection]
+		connectionData, ok := p.getConnectionData(changedConnection.Connection)
 		if !ok {
+			// not expected
 			updateData.failedConnections[changedConnection.Connection] = fmt.Errorf("no connection config found for changed connection %s", changedConnection.Connection)
 			return
 		}
@@ -54,7 +59,13 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 	// call the ConnectionConfigChanged callback function for each changed connection
 	for _, changedConnection := range changed {
 		c := changedConnection.Connection
-		p.ConnectionConfigChangedFunc(ctx, p, existingConnections[c].Connection, p.ConnectionMap[changedConnection.Connection].Connection)
+		connectionData, ok := p.getConnectionData(changedConnection.Connection)
+		if !ok {
+			// possible this connection may have failed to parse or something
+			// in which cadse there will be an error in updateData
+			continue
+		}
+		p.ConnectionConfigChangedFunc(ctx, p, existingConnections[c].Connection, connectionData.Connection)
 	}
 	return
 }
@@ -73,7 +84,7 @@ func (p *Plugin) addConnections(configs []*proto.ConnectionConfig, updateData *c
 			log.Printf("[TRACE] connection %s is an aggregator - handle separately", config.Connection)
 			p.setAggregatorConnectionData(config)
 		} else {
-			p.setConnectionData(config, updateData)
+			p.createConnectionData(config, updateData)
 		}
 	}
 }
@@ -82,12 +93,12 @@ func (p *Plugin) addConnections(configs []*proto.ConnectionConfig, updateData *c
 // ConnectionData contains the table map, the schema and the connection
 // NOTE: this (may) mutate failedConnections, exemplarSchema and exemplarTableMap
 // NOTE: this is NOT called for aggregator connections
-func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, updateData *connectionUpdateData) {
+func (p *Plugin) createConnectionData(config *proto.ConnectionConfig, updateData *connectionUpdateData) {
 	connectionName := config.Connection
 	connectionConfigString := config.Config
 	if connectionName == "" {
-		log.Printf("[WARN] setConnectionData failed - ConnectionConfig contained empty connection name")
-		updateData.failedConnections["unknown"] = fmt.Errorf("setConnectionData failed - ConnectionConfig contained empty connection name")
+		log.Printf("[WARN] createConnectionData failed - ConnectionConfig contained empty connection name")
+		updateData.failedConnections["unknown"] = fmt.Errorf("createConnectionData failed - ConnectionConfig contained empty connection name")
 		return
 	}
 
@@ -96,14 +107,16 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, updateData *c
 	// if config was provided, parse it
 	if connectionConfigString != "" {
 		if p.ConnectionConfigSchema == nil {
-			updateData.failedConnections[connectionName] = fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+			msg := fmt.Sprintf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+			log.Println("[WARN]", msg)
+			updateData.failedConnections[connectionName] = sperr.New(msg)
 			return
 		}
 		// ask plugin for a struct to deserialise the config into
 		config, err := p.ConnectionConfigSchema.parse(config)
 		if err != nil {
 			updateData.failedConnections[connectionName] = err
-			log.Printf("[WARN] setConnectionData failed for connection %s, config validation failed: %s", connectionName, err.Error())
+			log.Printf("[WARN] createConnectionData failed for connection %s, config validation failed: %s", connectionName, err.Error())
 			return
 		}
 		c.Config = config
@@ -131,7 +144,7 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, updateData *c
 
 	// add to connection map
 	d := NewConnectionData(c, p, config).setSchema(tableMap, schema)
-	p.ConnectionMap[connectionName] = d
+	p.setConnectionData(d, connectionName)
 
 	log.Printf("[INFO] SetAllConnectionConfigs added connection %s to map, setting watch paths", c.Name)
 
@@ -162,15 +175,16 @@ func (p *Plugin) getConnectionSchema(c *Connection) (map[string]*Table, *grpc.Pl
 }
 
 func (p *Plugin) updateConnectionWatchPaths(c *Connection) error {
-	if watchPaths := p.extractWatchPaths(c.Config); len(watchPaths) > 0 {
-		log.Printf("[TRACE] updateConnectionWatchPaths for connection %s, watch paths: %v", c.Name, watchPaths)
-		connectionData := p.ConnectionMap[c.Name]
-		err := connectionData.updateWatchPaths(watchPaths, p)
-		if err != nil {
-			return err
-		}
+	watchPaths := p.extractWatchPaths(c.Config)
+	if len(watchPaths) == 0 {
+		return nil
 	}
-	return nil
+	log.Printf("[TRACE] updateConnectionWatchPaths for connection %s, watch paths: %v", c.Name, watchPaths)
+	connectionData, ok := p.getConnectionData(c.Name)
+	if !ok {
+		return nil
+	}
+	return connectionData.updateWatchPaths(watchPaths, p)
 }
 
 // reflect on a config struct and extract any watch paths, using the `watch` tag

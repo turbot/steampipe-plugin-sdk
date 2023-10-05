@@ -9,5 +9,6 @@ import (
 // have been processed
 func (p *Plugin) setAggregatorConnectionData(aggregatorConfig *proto.ConnectionConfig) {
 	c := aggregatorConfig.Connection
-	p.ConnectionMap[c] = NewConnectionData(&Connection{Name: c}, p, aggregatorConfig)
+	connectionData := NewConnectionData(&Connection{Name: c}, p, aggregatorConfig)
+	p.setConnectionData(connectionData, c)
 }

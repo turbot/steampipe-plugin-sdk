@@ -92,9 +92,11 @@ type Plugin struct {
 	// when any connection configs have changed
 	ConnectionConfigChangedFunc func(ctx context.Context, p *Plugin, old, new *Connection) error
 
-	// map of connection data (schema, config, connection cache)
+	// map of connection data (schema, config)
 	// keyed by connection name
-	ConnectionMap map[string]*ConnectionData
+	ConnectionMap     map[string]*ConnectionData
+	connectionMapLock sync.RWMutex
+
 	// is this a static or dynamic schema
 	SchemaMode string
 	// callback function which is called when any watched source file(s) gets changed
@@ -288,7 +290,13 @@ func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	log.Printf("[TRACE] ConnectionSchemaChanged plugin %s, connection %s", p.Name, connection.Name)
 
-	oldSchema := p.ConnectionMap[connection.Name].Schema
+	// get the existing connection data
+	connectionData, ok := p.getConnectionData(connection.Name)
+	if !ok {
+		// no change handling required - the new connection code will cover it
+		return nil
+	}
+	oldSchema := connectionData.Schema
 
 	// get the updated table map and schema
 	tableMap, schema, err := p.getConnectionSchema(connection)
@@ -296,7 +304,7 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 		return err
 	}
 	// update the connection data
-	p.ConnectionMap[connection.Name].setSchema(tableMap, schema)
+	connectionData.setSchema(tableMap, schema)
 
 	// if there are changes,  let the plugin manager know
 	if !oldSchema.Equals(schema) && p.messageStream != nil {
@@ -329,7 +337,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	}()
 
 	// the connection property must be set already
-	connectionData, ok := p.ConnectionMap[connectionName]
+	connectionData, ok := p.getConnectionData(connectionName)
 	if !ok {
 		return fmt.Errorf("plugin execute failed - no connection data loaded for connection '%s'", connectionName)
 	}
@@ -622,6 +630,9 @@ func (p *Plugin) buildSchema(tableMap map[string]*Table) (*grpc.PluginSchema, er
 }
 
 func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
+	p.connectionMapLock.RLock()
+	defer p.connectionMapLock.RUnlock()
+
 	res := make(map[string]*grpc.PluginSchema, len(p.ConnectionMap))
 	for k, v := range p.ConnectionMap {
 		res[k] = v.Schema
@@ -674,4 +685,20 @@ func (p *Plugin) clearCallId(connectionCallId string) {
 	p.callIdLookupMut.Lock()
 	delete(p.callIdLookup, connectionCallId)
 	p.callIdLookupMut.Unlock()
+}
+
+// safely read from ConnectionMap
+func (p *Plugin) getConnectionData(connectionName string) (*ConnectionData, bool) {
+	p.connectionMapLock.RLock()
+	connectionData, ok := p.ConnectionMap[connectionName]
+	p.connectionMapLock.RUnlock()
+
+	return connectionData, ok
+}
+
+// safely write to ConnectionMap
+func (p *Plugin) setConnectionData(connectionData *ConnectionData, connectionName string) {
+	p.connectionMapLock.Lock()
+	p.ConnectionMap[connectionName] = connectionData
+	p.connectionMapLock.Unlock()
 }
