@@ -284,6 +284,15 @@ func (d *QueryData) shallowCopy() *QueryData {
 	return copyQueryData
 }
 
+func (d *QueryData) GetConnection() *Connection {
+	connectionData, ok := d.plugin.getConnectionData(d.Connection.Name)
+	if !ok {
+		// not expected
+		return nil
+	}
+	return connectionData.Connection
+}
+
 // RowsRemaining returns how many rows are required to complete the query
 //   - if no limit has been parsed from the query, this will return math.MaxInt32
 //     (meaning an unknown number of rows remain)

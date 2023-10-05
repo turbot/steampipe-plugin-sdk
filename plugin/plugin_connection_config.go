@@ -134,14 +134,14 @@ func (p *Plugin) createConnectionData(config *proto.ConnectionConfig, updateData
 			updateData.failedConnections[connectionName] = sperr.New(msg)
 			return
 		}
-		// ask plugin for a struct to deserialise the config into
-		config, err := p.ConnectionConfigSchema.parse(config)
+		// parse the config into a struct
+		configStruct, err := p.ConnectionConfigSchema.parse(config)
 		if err != nil {
 			updateData.failedConnections[connectionName] = err
 			log.Printf("[WARN] createConnectionData failed for connection %s, config validation failed: %s", connectionName, err.Error())
 			return
 		}
-		c.Config = config
+		c.Config = configStruct
 	}
 
 	var err error
