@@ -19,6 +19,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
@@ -828,7 +829,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 
 func (d *QueryData) streamError(err error) {
 	log.Printf("[WARN] QueryData StreamError %v (%s)", err, d.connectionCallId)
-	d.errorChan <- err
+	d.errorChan <- sperr.WrapWithMessage(err, d.Connection.Name)
 }
 
 // TODO KAI this seems to get called even after cancellation
