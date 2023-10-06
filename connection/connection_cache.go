@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
+	"github.com/gertd/go-pluralize"
+	"log"
+	"sync"
 	"time"
 )
 
@@ -13,12 +16,15 @@ import (
 type ConnectionCache struct {
 	connectionName string
 	cache          *cache.Cache[any]
+	keys           map[string]struct{}
+	keysLock       sync.Mutex
 }
 
 func NewConnectionCache(connectionName string, connectionCache *cache.Cache[any]) *ConnectionCache {
 	return &ConnectionCache{
 		connectionName: connectionName,
 		cache:          connectionCache,
+		keys:           make(map[string]struct{}),
 	}
 }
 
@@ -29,6 +35,9 @@ func (c *ConnectionCache) Set(ctx context.Context, key string, value interface{}
 func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
 	// build a key which includes the connection name
 	key = c.buildCacheKey(key)
+	c.keysLock.Lock()
+	c.keys[key] = struct{}{}
+	c.keysLock.Unlock()
 
 	err := c.cache.Set(ctx,
 		key,
@@ -63,7 +72,20 @@ func (c *ConnectionCache) Delete(ctx context.Context, key string) {
 
 // Clear deletes all cache items for this connection
 func (c *ConnectionCache) Clear(ctx context.Context) {
-	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{c.connectionName}))
+	// TODO TACTICAL
+	c.keysLock.Lock()
+	log.Printf("[INFO] ConnectionCache clear for connection '%s', deleting %d %s",
+		c.connectionName,
+		len(c.keys),
+		pluralize.NewClient().Pluralize("key", len(c.keys), false),
+	)
+	for key := range c.keys {
+		c.cache.Delete(ctx, key)
+	}
+	c.keys = make(map[string]struct{})
+	c.keysLock.Unlock()
+
+	//c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{c.connectionName}))
 }
 
 func (c *ConnectionCache) buildCacheKey(key string) string {

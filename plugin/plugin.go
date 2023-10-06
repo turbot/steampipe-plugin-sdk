@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -139,14 +140,12 @@ type Plugin struct {
 // and sets the file limit.
 func (p *Plugin) initialise(logger hclog.Logger) {
 
-	log.Printf("[INFO] initialise")
-
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
-
 	p.Logger = logger
-	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 
+	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
+	p.logMemoryLimit()
 	p.initialiseRateLimits()
 
 	// default the schema mode to static
@@ -199,6 +198,16 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 	p.tempDir = path.Join(os.TempDir(), p.Name)
 
 	p.callIdLookup = make(map[string]struct{})
+}
+
+func (p *Plugin) logMemoryLimit() {
+	maxMemoryStr := os.Getenv("GOMEMLIMIT")
+	maxMemoryBytes, err := strconv.ParseInt(maxMemoryStr, 10, 64)
+	if err != nil {
+		log.Printf("[INFO] GOMEMLIMIT=%s", maxMemoryStr)
+	} else {
+		log.Printf("[INFO] GOMEMLIMIT=%s (%dMb)", maxMemoryStr, maxMemoryBytes/1024/1024)
+	}
 }
 
 func (p *Plugin) initialiseRateLimits() {
