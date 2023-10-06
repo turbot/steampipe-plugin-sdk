@@ -57,7 +57,7 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	// create a struct to populate with exemplar schema and connection failures
 	// this will be passed into update functions and may be mutated
 	updateData := NewConnectionUpdateData()
-	p.addConnections(configs, updateData)
+	p.upsertConnections(configs, updateData)
 
 	// TODO report log messages back somewhere
 	_, err = p.setAggregatorSchemas()
@@ -123,7 +123,7 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	p.deleteConnections(deleted)
 
 	// add added connections
-	p.addConnections(added, updateData)
+	p.upsertConnections(added, updateData)
 
 	// update changed connections
 	// build map of current connection data for each changed connection

@@ -338,11 +338,9 @@ func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto
 	return exemplarSchema, connectionTableDiffs, messages
 }
 
-func (d *ConnectionData) setSchema(tableMap map[string]*Table, schema *grpc.PluginSchema) *ConnectionData {
+func (d *ConnectionData) setSchema(tableMap map[string]*Table, schema *grpc.PluginSchema) {
 	d.TableMap = tableMap
 	d.Schema = schema
-	// chainable
-	return d
 }
 
 func (d *ConnectionData) isAggregator() bool {
