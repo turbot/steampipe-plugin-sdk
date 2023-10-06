@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/eko/gocache/v3/cache"
 	"github.com/eko/gocache/v3/store"
-	"github.com/gertd/go-pluralize"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -72,20 +72,51 @@ func (c *ConnectionCache) Delete(ctx context.Context, key string) {
 
 // Clear deletes all cache items for this connection
 func (c *ConnectionCache) Clear(ctx context.Context) {
-	// TODO TACTICAL
-	c.keysLock.Lock()
-	log.Printf("[INFO] ConnectionCache clear for connection '%s', deleting %d %s",
-		c.connectionName,
-		len(c.keys),
-		pluralize.NewClient().Pluralize("key", len(c.keys), false),
-	)
-	for key := range c.keys {
-		c.cache.Delete(ctx, key)
-	}
-	c.keys = make(map[string]struct{})
-	c.keysLock.Unlock()
+	// read tags keys from ristretto and verify they exist
+	var cacheKeys []string
+	tagKey := fmt.Sprintf("gocache_tag_%s", c.connectionName)
+	if result, err := c.cache.Get(ctx, tagKey); err == nil {
+		log.Printf("[INFO] existing cache key for connection '%s': %s ", c.connectionName, result)
 
-	//c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{c.connectionName}))
+		if bytes, ok := result.([]byte); ok {
+			cacheKeys = strings.Split(string(bytes), ",")
+			for _, k := range cacheKeys {
+				_, err := c.cache.Get(ctx, k)
+				if err != nil {
+					log.Printf("[INFO] %s  does not exists in cache", k)
+				}
+			}
+		}
+	}
+
+	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{c.connectionName}))
+
+	// now verify the tags have been deleted
+	for _, k := range cacheKeys {
+		_, err := c.cache.Get(ctx, k)
+		if err == nil {
+			log.Printf("[INFO]  cache key for connection '%s' : %s  still exists in cache after clear", c.connectionName, k)
+		}
+	}
+	//
+	////TODO TACTICAL
+	//c.keysLock.Lock()
+	//log.Printf("[INFO] ConnectionCache clear for connection '%s', deleting %d %s",
+	//	c.connectionName,
+	//	len(c.keys),
+	//	pluralize.NewClient().Pluralize("key", len(c.keys), false),
+	//)
+	//for key := range c.keys {
+	//	_, err := c.cache.Get(ctx, key)
+	//	log.Printf("[INFO] before delete get %s returns err %v", key, err)
+	//	c.cache.Delete(ctx, key)
+	//	time.Sleep(10 * time.Millisecond)
+	//	_, err = c.cache.Get(ctx, key)
+	//	log.Printf("[INFO] after delete get %s returns %v ", key, err)
+	//}
+	//c.keys = make(map[string]struct{})
+	//c.keysLock.Unlock()
+
 }
 
 func (c *ConnectionCache) buildCacheKey(key string) string {

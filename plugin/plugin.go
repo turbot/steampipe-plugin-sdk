@@ -139,7 +139,6 @@ type Plugin struct {
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) initialise(logger hclog.Logger) {
-
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
 	p.Logger = logger
