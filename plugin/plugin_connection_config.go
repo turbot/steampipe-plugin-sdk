@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -66,7 +67,9 @@ func (p *Plugin) addConnections(configs []*proto.ConnectionConfig, updateData *c
 		return
 	}
 
-	log.Printf("[INFO] addConnections adding %d connection configs", len(configs))
+	log.Printf("[INFO] addConnections adding %d connection %s",
+		len(configs),
+		pluralize.NewClient().Pluralize("connection", len(configs), false))
 
 	for _, config := range configs {
 		if config.IsAggregator() {
