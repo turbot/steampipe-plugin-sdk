@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -192,6 +194,10 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	defer p.clearCallId(req.CallId)
 
 	log.Printf("[INFO] Plugin execute table name: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
+	log.Printf("[INFO] Executing for %d %s: %s", len(req.ExecuteConnectionData),
+		pluralize.NewClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
+		strings.Join(maps.Keys(req.ExecuteConnectionData), "'"))
+
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
@@ -263,11 +269,10 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 		case row := <-outputChan:
 			// nil row means that one connection is done streaming
 			if row == nil {
-				log.Printf("[TRACE] empty row on output channel - we are done ")
+				log.Printf("[INFO] empty row on output channel - we are done ")
 				complete = true
 				break
 			}
-			log.Printf("[TRACE] send a row")
 			if err := stream.Send(row); err != nil {
 				// ignore context cancellation - they will get picked up further downstream
 				if !error_helpers.IsContextCancelledError(err) {
