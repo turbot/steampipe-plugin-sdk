@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"runtime/debug"
@@ -691,14 +692,15 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 
 	// start goroutine to read items from item chan and generate row data
 	go func() {
+		log.Printf("[INFO] buildRowsAsync  goroutine")
 		for {
 			// wait for either an rowData or an error
 			select {
 			case <-doneChan:
-				log.Printf("[TRACE] buildRowsAsync done channel selected - quitting %s", d.Connection.Name)
+				log.Printf("[INFO] buildRowsAsync done channel selected - quitting %s", d.Connection.Name)
 				return
 			case rowData := <-d.rowDataChan:
-				logging.LogTime("got rowData - calling getRow")
+				log.Printf("[INFO] got rowData - calling getRow")
 				// is there any more data?
 				if rowData == nil {
 					log.Printf("[INFO] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
@@ -781,12 +783,12 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// return what we have sent
 			return err
 		case row := <-rowChan:
-
 			// nil row means we are done streaming
 			if row == nil {
 				log.Printf("[INFO] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
 				return nil
 			}
+			log.Printf("[INFO] streamRows - got a row (%s)", d.connectionCallId)
 			// if we are caching stream this row to the cache - this will stream it to all subscribers
 			// (including ourselves)
 			if d.cacheEnabled {
@@ -794,7 +796,8 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				if err != nil {
 					// if there are no subscribers to the setRequest, cancel the scan and abort the set request
 					// (this deletes already-cached pages)
-					if _, noSubscribers := err.(query_cache.NoSubscribersError); noSubscribers {
+					var noSubscribersError query_cache.NoSubscribersError
+					if errors.As(err, &noSubscribersError) {
 						log.Printf("[INFO] streamRows - set request has no subscribers, cancelling the scan (%s)", d.connectionCallId)
 						d.cancel()
 						// abort the set operation
@@ -854,6 +857,7 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 			return
 		}
 
+		log.Printf("[INFO] buildRowAsync - calling getRow")
 		// delegate the work to a row object
 		row, err := rowData.getRow(ctx)
 		if err != nil {
@@ -866,6 +870,7 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 				// NOTE: add the Steampipecontext data to the row
 				d.addContextData(row, rowData)
 			}
+			log.Printf("[INFO] buildRowAsync - streaming row")
 			rowChan <- row
 		}
 	}()
