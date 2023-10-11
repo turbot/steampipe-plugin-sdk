@@ -260,7 +260,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 		outputWg.Wait()
 		// so all executeForConnection calls are complete
 		// stream a nil row to indicate completion
-		log.Printf("[TRACE] output wg complete - send nil row (%s)", req.CallId)
+		log.Printf("[INFO] output wg complete - send nil response (%s)", req.CallId)
 
 		outputChan <- nil
 	}()
