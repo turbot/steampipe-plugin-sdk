@@ -271,14 +271,13 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 			if row == nil {
 				log.Printf("[INFO] empty row on output channel - we are done ")
 				complete = true
-				break
+				// fall through to send empty row
 			}
 			if err := stream.Send(row); err != nil {
 				// ignore context cancellation - they will get picked up further downstream
 				if !error_helpers.IsContextCancelledError(err) {
 					errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
 				}
-				break
 			}
 		case err := <-errorChan:
 			if !error_helpers.IsContextCancelledError(err) {
