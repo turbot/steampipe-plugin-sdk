@@ -54,8 +54,7 @@ const (
 	PluginStartupFailureMessage           = "Plugin startup failed: "
 )
 
-func NewPluginServer(opts *ServeOpts) *grpc.PluginServer {
-
+func Server(opts *ServeOpts) *grpc.PluginServer {
 	// create the logger
 	logger := setupLogger()
 
@@ -115,7 +114,7 @@ func Serve(opts *ServeOpts) {
 		}
 	}()
 
-	NewPluginServer(opts).Serve()
+	Server(opts).Serve()
 }
 
 func setupLogger() hclog.Logger {
