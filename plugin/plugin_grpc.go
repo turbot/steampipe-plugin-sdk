@@ -273,7 +273,14 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 			if row == nil {
 				log.Printf("[INFO] empty row on output channel - we are done ")
 				complete = true
+
+				// if the stream is a grpc stream, no need to send a nil item - break out
+				if _, ok := stream.(proto.WrapperPlugin_ExecuteServer); ok {
+					break
+				}
 				// fall through to send empty row
+				// HACK - only send empty row on standalone
+				break
 			}
 			if err := stream.Send(row); err != nil {
 				// ignore context cancellation - they will get picked up further downstream
