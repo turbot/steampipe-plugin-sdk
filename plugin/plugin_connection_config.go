@@ -94,22 +94,24 @@ func (p *Plugin) setConnectionData(config *proto.ConnectionConfig, updateData *c
 		return
 	}
 
+	log.Printf("[INFO] setConnectionData config %s", config.Config)
 	// create connection object
 	c := &Connection{Name: connectionName}
 	// if config was provided, parse it
 	if connectionConfigString != "" {
 		if p.ConnectionConfigSchema == nil {
-			updateData.failedConnections[connectionName] = fmt.Errorf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", connectionName, p.Name)
+			updateData.failedConnections[connectionName] = fmt.Errorf("connection parsedConfig has been set for connection '%s', but plugin '%s' does not define connection parsedConfig schema", connectionName, p.Name)
 			return
 		}
-		// ask plugin for a struct to deserialise the config into
-		config, err := p.ConnectionConfigSchema.parse(config)
+		// ask plugin for a struct to deserialise the parsedConfig into
+		parsedConfig, err := p.ConnectionConfigSchema.parse(config)
 		if err != nil {
 			updateData.failedConnections[connectionName] = err
-			log.Printf("[WARN] setConnectionData failed for connection %s, config validation failed: %s", connectionName, err.Error())
+			log.Printf("[WARN] setConnectionData failed for connection %s, parsedConfig validation failed: %s", connectionName, err.Error())
 			return
 		}
-		c.Config = config
+		c.Config = parsedConfig
+		log.Printf("[INFO] setConnectionData parsed config %v", parsedConfig)
 	}
 
 	var err error

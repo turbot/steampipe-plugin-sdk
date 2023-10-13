@@ -56,7 +56,7 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			p.Logger.Debug("setAllConnectionConfigs finished")
 		}
 	}()
-
+	log.Printf("[INFO] setAllConnectionConfigs")
 	// create a struct to populate with exemplar schema and connection failures
 	// this will be passed into update functions and may be mutated
 	updateData := NewConnectionUpdateData()
