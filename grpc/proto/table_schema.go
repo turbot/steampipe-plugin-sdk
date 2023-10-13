@@ -11,20 +11,11 @@ func (x *TableSchema) GetColumnMap() map[string]*ColumnDefinition {
 	return nil
 }
 
-func (x *TableSchema) GetKeyColumnMap() map[string]*KeyColumn {
-	var res = make(map[string]*KeyColumn)
-	for _, k := range x.GetCallKeyColumnList {
-		res[k.Name] = k
+func (x *TableSchema) GetAllKeyColumns() []*KeyColumn {
+	if x != nil {
+		return append(x.GetCallKeyColumnList, x.ListCallKeyColumnList...)
 	}
-	return res
-}
-
-func (x *TableSchema) ListKeyColumnMap() map[string]*KeyColumn {
-	var res = make(map[string]*KeyColumn)
-	for _, k := range x.ListCallKeyColumnList {
-		res[k.Name] = k
-	}
-	return res
+	return nil
 }
 
 func (x *TableSchema) Equals(other *TableSchema) bool {
