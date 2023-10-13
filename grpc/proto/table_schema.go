@@ -11,6 +11,13 @@ func (x *TableSchema) GetColumnMap() map[string]*ColumnDefinition {
 	return nil
 }
 
+func (x *TableSchema) GetAllKeyColumns() []*KeyColumn {
+	if x != nil {
+		return append(x.GetCallKeyColumnList, x.ListCallKeyColumnList...)
+	}
+	return nil
+}
+
 func (x *TableSchema) Equals(other *TableSchema) bool {
 	return !x.Diff(other).HasDiffs()
 }

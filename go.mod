@@ -1,6 +1,8 @@
 module github.com/turbot/steampipe-plugin-sdk/v5
 
-go 1.19
+go 1.21
+
+toolchain go1.21.3
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -11,13 +13,13 @@ require (
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/go-plugin v1.5.2
 	github.com/hashicorp/go-version v1.6.0
-	github.com/hashicorp/hcl/v2 v2.18.0
+	github.com/hashicorp/hcl/v2 v2.18.1
 	github.com/iancoleman/strcase v0.3.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/stevenle/topsort v0.2.0
-	github.com/turbot/go-kit v0.8.0-rc.0
-	github.com/zclconf/go-cty v1.14.0
+	github.com/turbot/go-kit v0.9.0-rc.1
+	github.com/zclconf/go-cty v1.14.1
 	go.opentelemetry.io/otel v1.17.0
 	go.opentelemetry.io/otel/metric v1.17.0 // indirect
 	go.opentelemetry.io/otel/trace v1.17.0
