@@ -2,9 +2,11 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/helpers"
+	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
@@ -211,6 +213,31 @@ func (p *Plugin) parseConnectionConfig(config *proto.ConnectionConfig) (any, err
 	if err != nil {
 		log.Printf("[WARN] upsertConnectionData failed for connection %s, config validation failed: %s", config.Connection, err.Error())
 		return nil, err
+	}
+	type awsConfig struct {
+		Profile      *string
+		AccessKey    *string
+		SecretKey    *string
+		SessionToken *string
+	}
+
+	// TODO TACTICAL log redacted AWS credentials
+	j, err := json.Marshal(configStruct)
+	if err == nil {
+		var target awsConfig
+		if err := json.Unmarshal(j, &target); err == nil {
+			secretKey := typehelpers.SafeString(target.SecretKey)
+			if l := len(secretKey); l > 0 {
+				secretKey = secretKey[l-4:]
+			}
+			sessionToken := typehelpers.SafeString(target.SessionToken)
+			if l := len(sessionToken); l > 0 {
+				sessionToken = sessionToken[l-4:]
+			}
+
+			log.Println("Info", "setConnectionData", "connection_name", config.Connection, "profile", typehelpers.SafeString(target.Profile), "accessKey", typehelpers.SafeString(target.AccessKey), "secretKey", secretKey, "sessionToken", sessionToken)
+
+		}
 	}
 	return configStruct, err
 }
