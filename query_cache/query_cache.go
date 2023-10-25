@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/allegro/bigcache/v3"
-	"github.com/eko/gocache/v3/cache"
-	"github.com/eko/gocache/v3/store"
+	"github.com/eko/gocache/lib/v4/cache"
+	"github.com/eko/gocache/lib/v4/store"
+	bigcache_store "github.com/eko/gocache/store/bigcache/v4"
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -86,8 +87,8 @@ func (c *QueryCache) createCacheStore(maxCacheStorageMb int, maxTtl time.Duratio
 	config.HardMaxCacheSize = maxCacheStorageMb
 	log.Printf("[INFO] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
 
-	bigcacheClient, _ := bigcache.NewBigCache(config)
-	bigcacheStore := store.NewBigcache(bigcacheClient)
+	bigcacheClient, _ := bigcache.New(context.Background(), config)
+	bigcacheStore := bigcache_store.NewBigcache(bigcacheClient)
 	return bigcacheStore, nil
 }
 

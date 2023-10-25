@@ -3,8 +3,8 @@ package connection
 import (
 	"context"
 	"fmt"
-	"github.com/eko/gocache/v3/cache"
-	"github.com/eko/gocache/v3/store"
+	"github.com/eko/gocache/lib/v4/cache"
+	"github.com/eko/gocache/lib/v4/store"
 	"log"
 	"strings"
 	"sync"
@@ -52,6 +52,9 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 	// wait for value to pass through buffers (necessary for ristretto)
 	time.Sleep(10 * time.Millisecond)
 
+	if err != nil {
+		log.Printf("[WARN] SetWithTTL (connection %s, cache key %s) failed - error %v", c.connectionName, key, err)
+	}
 	// TACTICAL
 	// verify this key has been set with the correct tag
 	var foundKeyForTag bool

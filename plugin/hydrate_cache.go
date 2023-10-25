@@ -94,20 +94,12 @@ func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		functionLock, ok := memoizedHydrateFunctionsPending[executeLockKey]
 		memoizedHydrateLock.RUnlock()
 		if ok {
-			//if strings.HasPrefix(cacheKey, "getClient") {
-			//	log.Printf("[INFO] Memoize (connection %s, cache key %s) - pending call found so waiting for it to complete", d.Connection.Name, cacheKey)
-			//}
-
 			// a hydrate function is running - or it has completed
 			// wait for the function lock
 			return f.waitForHydrate(ctx, d, h, functionLock, cacheKey, ttl)
 		}
 
 		// so there was no function lock - no pending hydrate so we must execute
-
-		//if strings.HasPrefix(cacheKey, "getClient") {
-		//	log.Printf("[INFO] Memoize (connection %s, cache key %s) - NO pending call found so starting", d.Connection.Name, cacheKey)
-		//}
 
 		// acquire a Write lock
 		memoizedHydrateLock.Lock()
@@ -182,6 +174,8 @@ func (f HydrateFunc) getCacheKeyFunction(args []HydrateFunc) HydrateFunc {
 }
 
 func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydrate HydrateFunc, cacheKey string, ttl time.Duration) (interface{}, error) {
+	log.Printf("[TRACE] callAndCacheHydrate (connection %s, cache key %s) ", d.Connection.Name, cacheKey)
+
 	// now call the hydrate function
 	hydrateData, err := hydrate(ctx, d, h)
 	if err != nil {

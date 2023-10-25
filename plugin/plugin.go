@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/dgraph-io/ristretto"
-	"github.com/eko/gocache/v3/cache"
-	"github.com/eko/gocache/v3/store"
+	"github.com/eko/gocache/lib/v4/cache"
+	ristretto_store "github.com/eko/gocache/store/ristretto/v4"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
@@ -253,7 +253,7 @@ func (p *Plugin) createConnectionCacheStore() error {
 	if err != nil {
 		return err
 	}
-	ristrettoStore := store.NewRistretto(ristrettoCache)
+	ristrettoStore := ristretto_store.NewRistretto(ristrettoCache)
 	p.connectionCacheStore = cache.New[any](ristrettoStore)
 	return nil
 }
