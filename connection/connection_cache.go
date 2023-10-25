@@ -39,6 +39,7 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 	c.keys[key] = struct{}{}
 	c.keysLock.Unlock()
 
+	//log.Printf("[INFO] SetWithTTL (connection %s, cache key %s) ", c.connectionName, key)
 	err := c.cache.Set(ctx,
 		key,
 		value,
@@ -50,6 +51,26 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 
 	// wait for value to pass through buffers (necessary for ristretto)
 	time.Sleep(10 * time.Millisecond)
+
+	// TACTICAL
+	// verify this key has been set with the correct tag
+	var foundKeyForTag bool
+	var cacheKeys []string
+	tagKey := fmt.Sprintf("gocache_tag_%s", c.connectionName)
+	if result, err := c.cache.Get(ctx, tagKey); err == nil {
+		if bytes, ok := result.([]byte); ok {
+			cacheKeys = strings.Split(string(bytes), ",")
+			for _, k := range cacheKeys {
+				if k == key {
+					foundKeyForTag = true
+					break
+				}
+			}
+		}
+	}
+	if !foundKeyForTag {
+		log.Printf("[WARN] SetWithTTL (connection %s, cache key %s) - key NOT found for tag %s", c.connectionName, key, c.connectionName)
+	}
 
 	return err
 }
@@ -72,6 +93,7 @@ func (c *ConnectionCache) Delete(ctx context.Context, key string) {
 
 // Clear deletes all cache items for this connection
 func (c *ConnectionCache) Clear(ctx context.Context) {
+	log.Printf("[INFO] ConnectionCache.Clear (%s)", c.connectionName)
 	// read tags keys from ristretto and verify they exist
 	var cacheKeys []string
 	tagKey := fmt.Sprintf("gocache_tag_%s", c.connectionName)
