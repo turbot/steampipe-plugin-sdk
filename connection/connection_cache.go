@@ -39,6 +39,8 @@ func NewConnectionCache(connectionName string, maxCost int64) (*ConnectionCache,
 		//keys:           make(map[string]struct{}),
 	}
 
+	log.Printf("[INFO] Created connection cache for connection '%s'", connectionName)
+
 	return cache, nil
 }
 
