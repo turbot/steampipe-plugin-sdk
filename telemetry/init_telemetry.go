@@ -19,6 +19,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func Init(serviceName string) (func(), error) {
@@ -45,7 +46,14 @@ func Init(serviceName string) (func(), error) {
 		otelAgentAddr = "localhost:4317"
 	}
 
-	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr)
+	var opts grpc.DialOption
+	if _, ok := os.LookupEnv(EnvOtelInsecure); ok {
+		log.Printf("[TRACE] STEAMPIPE_OTEL_INSECURE is set - disable security checks")
+		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
+	} else {
+		opts = grpc.EmptyDialOption{}
+	}
+	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr, opts)
 	if err != nil {
 		return nil, err
 	}
