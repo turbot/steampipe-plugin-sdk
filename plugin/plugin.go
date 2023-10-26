@@ -12,9 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
-	"github.com/eko/gocache/lib/v4/cache"
-	ristretto_store "github.com/eko/gocache/store/ristretto/v4"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
@@ -108,7 +105,7 @@ type Plugin struct {
 
 	queryCache *query_cache.QueryCache
 	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
-	connectionCacheStore *cache.Cache[any]
+	//connectionCacheStore *cache.Cache[any]
 	// map of the connection caches, keyed by connection name
 	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
@@ -188,9 +185,9 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 		p.WatchedFileChangedFunc = defaultWatchedFilesChangedFunc
 	}
 
-	if err := p.createConnectionCacheStore(); err != nil {
-		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
-	}
+	//if err := p.createConnectionCacheStore(); err != nil {
+	//	panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
+	//}
 
 	// set temporary dir for this plugin
 	// this will only created if getSourceFiles is used
@@ -244,31 +241,36 @@ func (p *Plugin) shutdown() {
 	}
 }
 
-func (p *Plugin) createConnectionCacheStore() error {
-	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1000,
-		MaxCost:     100000,
-		BufferItems: 64,
-	})
-	if err != nil {
-		return err
-	}
-	ristrettoStore := ristretto_store.NewRistretto(ristrettoCache)
-	p.connectionCacheStore = cache.New[any](ristrettoStore)
-	return nil
-}
+//func (p *Plugin) createConnectionCacheStore() error {
+//	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
+//		NumCounters: 1000,
+//		MaxCost:     100000,
+//		BufferItems: 64,
+//	})
+//	if err != nil {
+//		return err
+//	}
+//	ristrettoStore := ristretto_store.NewRistretto(ristrettoCache)
+//	p.connectionCacheStore = cache.New[any](ristrettoStore)
+//	return nil
+//}
 
-func (p *Plugin) ensureConnectionCache(connectionName string) *connectionmanager.ConnectionCache {
-	connectionCache := connectionmanager.NewConnectionCache(connectionName, p.connectionCacheStore)
+func (p *Plugin) ensureConnectionCache(connectionName string) (*connectionmanager.ConnectionCache, error) {
+	maxCost := int64(100000 / len(p.ConnectionMap))
+	connectionCache, err := connectionmanager.NewConnectionCache(connectionName, maxCost)
+	if err != nil {
+		return nil, err
+	}
+
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
 	// add to map of connection caches
 	p.connectionCacheMap[connectionName] = connectionCache
-	return connectionCache
+	return connectionCache, nil
 }
 
 // ClearConnectionCache clears the connection cache for the given connection.
-func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
+func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) error {
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
 
@@ -278,17 +280,23 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 	if !ok {
 		// connection cache is lazily created when creating query data so may not exist
 		log.Printf("[INFO] no connection cache found for connection '%s' - possibly no queries have been run for this connection", connectionName)
-		return
+		return nil
 	}
-	connectionCache.Clear(ctx)
+	err := connectionCache.Clear(ctx)
+	if err != nil {
+		log.Printf("[WARN] failed to clear connection cache for connection '%s': %s", connectionName, err.Error())
+		return err
+	}
 	log.Printf("[INFO] cleared connection cache for connection: '%s'", connectionName)
+	return nil
 }
 
 // ClearQueryCache clears the query cache for the given connection.
-func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
+func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) error {
 	if p.queryCache.Enabled {
-		p.queryCache.ClearForConnection(ctx, connectionName)
+		return p.queryCache.ClearForConnection(ctx, connectionName)
 	}
+	return nil
 }
 
 // ConnectionSchemaChanged sends a message to the plugin-manager that the schema of this plugin has changed
@@ -549,9 +557,14 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 			}
 		}()
 
+		connectionCache, err := p.ensureConnectionCache(connection.Name)
+		if err != nil {
+			return nil, err
+		}
+
 		tableMapData := &TableMapData{
 			Connection:      connection,
-			ConnectionCache: p.ensureConnectionCache(connection.Name),
+			ConnectionCache: connectionCache,
 			tempDir:         getConnectionTempDir(p.tempDir, connection.Name),
 		}
 		tableMap, err = p.TableMapFunc(ctx, tableMapData)

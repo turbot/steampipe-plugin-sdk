@@ -351,8 +351,8 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 }
 
 // ClearForConnection removes all cache entries for the given connection
-func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) {
-	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
+func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) error {
+	return c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
 }
 
 func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setRequest) error {
