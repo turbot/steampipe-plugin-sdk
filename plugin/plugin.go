@@ -246,7 +246,7 @@ func (p *Plugin) shutdown() {
 
 func (p *Plugin) createConnectionCacheStore() error {
 	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1000,
+		NumCounters: 100000,
 		MaxCost:     100000,
 		BufferItems: 64,
 	})
