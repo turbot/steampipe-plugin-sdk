@@ -6,14 +6,12 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
-	"github.com/eko/gocache/v3/cache"
-	"github.com/eko/gocache/v3/store"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
@@ -92,9 +90,11 @@ type Plugin struct {
 	// when any connection configs have changed
 	ConnectionConfigChangedFunc func(ctx context.Context, p *Plugin, old, new *Connection) error
 
-	// map of connection data (schema, config, connection cache)
+	// map of connection data (schema, config)
 	// keyed by connection name
-	ConnectionMap map[string]*ConnectionData
+	ConnectionMap     map[string]*ConnectionData
+	connectionMapLock sync.RWMutex
+
 	// is this a static or dynamic schema
 	SchemaMode string
 	// callback function which is called when any watched source file(s) gets changed
@@ -104,8 +104,6 @@ type Plugin struct {
 	HydrateConfig []HydrateConfig
 
 	queryCache *query_cache.QueryCache
-	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
-	connectionCacheStore *cache.Cache[any]
 	// map of the connection caches, keyed by connection name
 	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
@@ -136,15 +134,12 @@ type Plugin struct {
 // initialise creates the 'connection manager' (which provides caching), sets up the logger
 // and sets the file limit.
 func (p *Plugin) initialise(logger hclog.Logger) {
-
-	log.Printf("[INFO] initialise")
-
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
-
 	p.Logger = logger
-	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 
+	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
+	p.logMemoryLimit()
 	p.initialiseRateLimits()
 
 	// default the schema mode to static
@@ -188,15 +183,21 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 		p.WatchedFileChangedFunc = defaultWatchedFilesChangedFunc
 	}
 
-	if err := p.createConnectionCacheStore(); err != nil {
-		panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
-	}
-
 	// set temporary dir for this plugin
 	// this will only created if getSourceFiles is used
 	p.tempDir = path.Join(os.TempDir(), p.Name)
 
 	p.callIdLookup = make(map[string]struct{})
+}
+
+func (p *Plugin) logMemoryLimit() {
+	maxMemoryStr := os.Getenv("GOMEMLIMIT")
+	maxMemoryBytes, err := strconv.ParseInt(maxMemoryStr, 10, 64)
+	if err != nil {
+		log.Printf("[INFO] GOMEMLIMIT=%s", maxMemoryStr)
+	} else {
+		log.Printf("[INFO] GOMEMLIMIT=%s (%dMb)", maxMemoryStr, maxMemoryBytes/1024/1024)
+	}
 }
 
 func (p *Plugin) initialiseRateLimits() {
@@ -234,31 +235,22 @@ func (p *Plugin) shutdown() {
 	}
 }
 
-func (p *Plugin) createConnectionCacheStore() error {
-	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1000,
-		MaxCost:     100000,
-		BufferItems: 64,
-	})
+func (p *Plugin) ensureConnectionCache(connectionName string) (*connectionmanager.ConnectionCache, error) {
+	maxCost := int64(100000 / len(p.ConnectionMap))
+	connectionCache, err := connectionmanager.NewConnectionCache(connectionName, maxCost)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	ristrettoStore := store.NewRistretto(ristrettoCache)
-	p.connectionCacheStore = cache.New[any](ristrettoStore)
-	return nil
-}
 
-func (p *Plugin) ensureConnectionCache(connectionName string) *connectionmanager.ConnectionCache {
-	connectionCache := connectionmanager.NewConnectionCache(connectionName, p.connectionCacheStore)
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
 	// add to map of connection caches
 	p.connectionCacheMap[connectionName] = connectionCache
-	return connectionCache
+	return connectionCache, nil
 }
 
 // ClearConnectionCache clears the connection cache for the given connection.
-func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) {
+func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string) error {
 	p.connectionCacheMapLock.Lock()
 	defer p.connectionCacheMapLock.Unlock()
 
@@ -268,17 +260,23 @@ func (p *Plugin) ClearConnectionCache(ctx context.Context, connectionName string
 	if !ok {
 		// connection cache is lazily created when creating query data so may not exist
 		log.Printf("[INFO] no connection cache found for connection '%s' - possibly no queries have been run for this connection", connectionName)
-		return
+		return nil
 	}
-	connectionCache.Clear(ctx)
+	err := connectionCache.Clear(ctx)
+	if err != nil {
+		log.Printf("[WARN] failed to clear connection cache for connection '%s': %s", connectionName, err.Error())
+		return err
+	}
 	log.Printf("[INFO] cleared connection cache for connection: '%s'", connectionName)
+	return nil
 }
 
 // ClearQueryCache clears the query cache for the given connection.
-func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
+func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) error {
 	if p.queryCache.Enabled {
-		p.queryCache.ClearForConnection(ctx, connectionName)
+		return p.queryCache.ClearForConnection(ctx, connectionName)
 	}
+	return nil
 }
 
 // ConnectionSchemaChanged sends a message to the plugin-manager that the schema of this plugin has changed
@@ -288,7 +286,13 @@ func (p *Plugin) ClearQueryCache(ctx context.Context, connectionName string) {
 func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 	log.Printf("[TRACE] ConnectionSchemaChanged plugin %s, connection %s", p.Name, connection.Name)
 
-	oldSchema := p.ConnectionMap[connection.Name].Schema
+	// get the existing connection data
+	connectionData, ok := p.getConnectionData(connection.Name)
+	if !ok {
+		// no change handling required - the new connection code will cover it
+		return nil
+	}
+	oldSchema := connectionData.Schema
 
 	// get the updated table map and schema
 	tableMap, schema, err := p.getConnectionSchema(connection)
@@ -296,7 +300,7 @@ func (p *Plugin) ConnectionSchemaChanged(connection *Connection) error {
 		return err
 	}
 	// update the connection data
-	p.ConnectionMap[connection.Name].setSchema(tableMap, schema)
+	connectionData.setSchema(tableMap, schema)
 
 	// if there are changes,  let the plugin manager know
 	if !oldSchema.Equals(schema) && p.messageStream != nil {
@@ -329,7 +333,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	}()
 
 	// the connection property must be set already
-	connectionData, ok := p.ConnectionMap[connectionName]
+	connectionData, ok := p.getConnectionData(connectionName)
 	if !ok {
 		return fmt.Errorf("plugin execute failed - no connection data loaded for connection '%s'", connectionName)
 	}
@@ -533,9 +537,14 @@ func (p *Plugin) initialiseTables(ctx context.Context, connection *Connection) (
 			}
 		}()
 
+		connectionCache, err := p.ensureConnectionCache(connection.Name)
+		if err != nil {
+			return nil, err
+		}
+
 		tableMapData := &TableMapData{
 			Connection:      connection,
-			ConnectionCache: p.ensureConnectionCache(connection.Name),
+			ConnectionCache: connectionCache,
 			tempDir:         getConnectionTempDir(p.tempDir, connection.Name),
 		}
 		tableMap, err = p.TableMapFunc(ctx, tableMapData)
@@ -622,6 +631,9 @@ func (p *Plugin) buildSchema(tableMap map[string]*Table) (*grpc.PluginSchema, er
 }
 
 func (p *Plugin) buildConnectionSchemaMap() map[string]*grpc.PluginSchema {
+	p.connectionMapLock.RLock()
+	defer p.connectionMapLock.RUnlock()
+
 	res := make(map[string]*grpc.PluginSchema, len(p.ConnectionMap))
 	for k, v := range p.ConnectionMap {
 		res[k] = v.Schema
@@ -674,4 +686,29 @@ func (p *Plugin) clearCallId(connectionCallId string) {
 	p.callIdLookupMut.Lock()
 	delete(p.callIdLookup, connectionCallId)
 	p.callIdLookupMut.Unlock()
+}
+
+// safely read from ConnectionMap
+func (p *Plugin) getConnectionData(connectionName string) (*ConnectionData, bool) {
+	p.connectionMapLock.RLock()
+	connectionData, ok := p.ConnectionMap[connectionName]
+	p.connectionMapLock.RUnlock()
+
+	return connectionData, ok
+}
+
+// safely write to ConnectionMap
+func (p *Plugin) setConnectionData(connectionData *ConnectionData, connectionName string) {
+	p.connectionMapLock.Lock()
+	p.ConnectionMap[connectionName] = connectionData
+	p.connectionMapLock.Unlock()
+}
+
+// safely delete from ConnectionMap
+func (p *Plugin) deleteConnectionData(connections []string) {
+	p.connectionMapLock.Lock()
+	for _, deletedConnection := range connections {
+		delete(p.ConnectionMap, deletedConnection)
+	}
+	p.connectionMapLock.Unlock()
 }

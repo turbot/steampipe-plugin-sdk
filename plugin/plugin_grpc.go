@@ -57,7 +57,7 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	// create a struct to populate with exemplar schema and connection failures
 	// this will be passed into update functions and may be mutated
 	updateData := NewConnectionUpdateData()
-	p.addConnections(configs, updateData)
+	p.upsertConnections(configs, updateData)
 
 	// TODO report log messages back somewhere
 	_, err = p.setAggregatorSchemas()
@@ -110,21 +110,20 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 	// if this plugin does not have dynamic config, we can share table map and schema
 	if p.SchemaMode == SchemaModeStatic {
-		for _, connectionData := range p.ConnectionMap {
-			updateData.exemplarSchema = connectionData.Schema
-			updateData.exemplarTableMap = connectionData.TableMap
-			// just take the first item
-			break
+		exemplarConnection := p.getExemplarConnectionData()
+		if exemplarConnection == nil {
+			// not expected
+			return nil, fmt.Errorf("plugin has no connections")
 		}
+		updateData.exemplarSchema = exemplarConnection.Schema
+		updateData.exemplarTableMap = exemplarConnection.TableMap
 	}
 
 	// remove deleted connections
-	for _, deletedConnection := range deleted {
-		delete(p.ConnectionMap, deletedConnection.Connection)
-	}
+	p.deleteConnections(deleted)
 
 	// add added connections
-	p.addConnections(added, updateData)
+	p.upsertConnections(added, updateData)
 
 	// update changed connections
 	// build map of current connection data for each changed connection
@@ -163,11 +162,10 @@ func (p *Plugin) getSchema(connectionName string) (*grpc.PluginSchema, error) {
 			return nil, fmt.Errorf("Plugin.getSchema failed - no connection name passed and multiple connections loaded")
 		}
 		// get first (and only) connection data
-		for _, connectionData = range p.ConnectionMap {
-		}
+		connectionData = p.getExemplarConnectionData()
 	} else {
 		var ok bool
-		connectionData, ok = p.ConnectionMap[connectionName]
+		connectionData, ok = p.getConnectionData(connectionName)
 		if !ok {
 			return nil, fmt.Errorf("Plugin.getSchema failed - no connection data loaded for connection '%s'", connectionName)
 		}
@@ -206,7 +204,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 
 	// get the config for the connection - needed in case of aggregator
 	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
-	connectionData := p.ConnectionMap[req.Connection]
+	connectionData, _ := p.getConnectionData(req.Connection)
 
 	for connectionName := range req.ExecuteConnectionData {
 		// if this is an aggregator execution, check whether this child connection supports this table

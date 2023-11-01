@@ -18,7 +18,8 @@ import (
 // ConnectionData is the data stored by the plugin which is connection dependent.
 type ConnectionData struct {
 	// map of all the tables in the connection schema, keyed by the table name
-	TableMap   map[string]*Table
+	TableMap map[string]*Table
+	// Connection struct contains the _parsed_ connection config object as an interface
 	Connection *Connection
 	// the connection schema
 	Schema *grpc.PluginSchema
@@ -195,7 +196,7 @@ func (d *ConnectionData) setAggregatedTablesByConnection(aggregatorConfig *proto
 	logMessages := make(map[string][]string)
 	for _, c := range aggregatorConfig.ChildConnections {
 		// find connection data for this child connection
-		connectionData, ok := d.Plugin.ConnectionMap[c]
+		connectionData, ok := d.Plugin.getConnectionData(c)
 		if !ok {
 			// should never happen
 			return nil, fmt.Errorf("initAggregatorSchema failed for aggregator connection '%s': no connection data loaded for child connection '%s'", aggregatorConfig.Connection, c)
@@ -262,7 +263,12 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 
 	includedColumns := make(map[string]struct{})
 	for _, connectionName := range aggregatorConfig.ChildConnections {
-		c := d.Plugin.ConnectionMap[connectionName]
+		c, ok := d.Plugin.getConnectionData(connectionName)
+		if !ok {
+			// unexpected
+			log.Printf("[WARN] buildAggregatorTableSchema: connection '%s' (child of aggregator '%s') has no connectionData stored", connectionName, aggregatorConfig.Connection)
+			continue
+		}
 		tableSchema, ok := c.Schema.Schema[tableName]
 		if !ok {
 			continue
@@ -301,8 +307,11 @@ func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto
 
 	var exemplarSchema *proto.TableSchema
 	for _, connectionName := range aggregatorConfig.ChildConnections {
-		c := d.Plugin.ConnectionMap[connectionName]
-
+		c, ok := d.Plugin.getConnectionData(connectionName)
+		if !ok {
+			log.Printf("[WARN] buildAggregatorTableSchema: connection '%s' (child of aggregator %s) has no connectionData stored", connectionName, aggregatorConfig.Connection)
+			continue
+		}
 		// does this connection have this table?
 		tableSchema, ok := c.Schema.Schema[tableName]
 		if !ok || len(tableSchema.Columns) == 0 {
@@ -329,11 +338,9 @@ func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto
 	return exemplarSchema, connectionTableDiffs, messages
 }
 
-func (d *ConnectionData) setSchema(tableMap map[string]*Table, schema *grpc.PluginSchema) *ConnectionData {
+func (d *ConnectionData) setSchema(tableMap map[string]*Table, schema *grpc.PluginSchema) {
 	d.TableMap = tableMap
 	d.Schema = schema
-	// chainable
-	return d
 }
 
 func (d *ConnectionData) isAggregator() bool {

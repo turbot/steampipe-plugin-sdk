@@ -3,8 +3,11 @@ package connection
 import (
 	"context"
 	"fmt"
-	"github.com/eko/gocache/v3/cache"
-	"github.com/eko/gocache/v3/store"
+	"github.com/dgraph-io/ristretto"
+	"github.com/eko/gocache/lib/v4/cache"
+	"github.com/eko/gocache/lib/v4/store"
+	ristretto_store "github.com/eko/gocache/store/ristretto/v4"
+	"log"
 	"time"
 )
 
@@ -15,11 +18,27 @@ type ConnectionCache struct {
 	cache          *cache.Cache[any]
 }
 
-func NewConnectionCache(connectionName string, connectionCache *cache.Cache[any]) *ConnectionCache {
-	return &ConnectionCache{
-		connectionName: connectionName,
-		cache:          connectionCache,
+func NewConnectionCache(connectionName string, maxCost int64) (*ConnectionCache, error) {
+
+	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1000,
+		MaxCost:     maxCost,
+		BufferItems: 64,
+	})
+	if err != nil {
+		return nil, err
 	}
+	ristrettoStore := ristretto_store.NewRistretto(ristrettoCache)
+	connectionCacheStore := cache.New[any](ristrettoStore)
+
+	cache := &ConnectionCache{
+		connectionName: connectionName,
+		cache:          connectionCacheStore,
+	}
+
+	log.Printf("[INFO] Created connection cache for connection '%s'", connectionName)
+
+	return cache, nil
 }
 
 func (c *ConnectionCache) Set(ctx context.Context, key string, value interface{}) error {
@@ -35,12 +54,14 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 		value,
 		// if ttl is zero there is no expiration
 		store.WithExpiration(ttl),
-		// put connection name in tags
-		store.WithTags([]string{c.connectionName}),
 	)
 
 	// wait for value to pass through buffers (necessary for ristretto)
 	time.Sleep(10 * time.Millisecond)
+
+	if err != nil {
+		log.Printf("[WARN] SetWithTTL (connection %s, cache key %s) failed - error %v", c.connectionName, key, err)
+	}
 
 	return err
 }
@@ -62,8 +83,9 @@ func (c *ConnectionCache) Delete(ctx context.Context, key string) {
 }
 
 // Clear deletes all cache items for this connection
-func (c *ConnectionCache) Clear(ctx context.Context) {
-	c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{c.connectionName}))
+func (c *ConnectionCache) Clear(ctx context.Context) error {
+	log.Printf("[INFO] ConnectionCache.Clear (%s)", c.connectionName)
+	return c.cache.Clear(ctx)
 }
 
 func (c *ConnectionCache) buildCacheKey(key string) string {

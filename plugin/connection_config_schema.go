@@ -82,6 +82,13 @@ type Connection struct {
 	Config any
 }
 
+func (c Connection) shallowCopy() *Connection {
+	return &Connection{
+		Name:   c.Name,
+		Config: c.Config,
+	}
+}
+
 // parse function parses the hcl config string into a connection config struct.
 //
 // The schema and the  struct to parse into are provided by the plugin
