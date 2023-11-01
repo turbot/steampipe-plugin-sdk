@@ -29,6 +29,8 @@ require (
 	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964
 	github.com/eko/gocache/lib/v4 v4.1.5
+	github.com/eko/gocache/store/bigcache/v4 v4.2.1
+	github.com/eko/gocache/store/ristretto/v4 v4.2.1
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/hashicorp/go-getter v1.7.2
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.40.0
@@ -56,8 +58,6 @@ require (
 	github.com/btubbs/datetime v0.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/eko/gocache/store/bigcache/v4 v4.2.1 // indirect
-	github.com/eko/gocache/store/ristretto/v4 v4.2.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

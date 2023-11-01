@@ -2,11 +2,9 @@ package plugin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/helpers"
-	typehelpers "github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
@@ -65,7 +63,7 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 		connectionData, ok := p.getConnectionData(changedConnection.Connection)
 		if !ok {
 			// possible this connection may have failed to parse or something
-			// in which cadse there will be an error in updateData
+			// in which case there will be an error in updateData
 			continue
 		}
 		p.ConnectionConfigChangedFunc(ctx, p, existingConnections[c], connectionData.Connection)
@@ -140,7 +138,7 @@ func (p *Plugin) upsertConnectionData(config *proto.ConnectionConfig, updateData
 	// this is because its possible a query is executing already with the Connection object in it's QueryData
 	// if we replace the Connection with a new struct, any update we make to the Connection.Config will not be
 	// picked up by those running queries
-	// worst case scenario is that (for example) trhe Aws plugin may refresh the Client using the previous credentials
+	// worst case scenario is that (for example) the Aws plugin may refresh the Client using the previous credentials
 	d, alreadyHaveConnectionData := p.getConnectionData(connectionName)
 	if !alreadyHaveConnectionData {
 		// no data stored for this connection - create
@@ -214,31 +212,7 @@ func (p *Plugin) parseConnectionConfig(config *proto.ConnectionConfig) (any, err
 		log.Printf("[WARN] upsertConnectionData failed for connection %s, config validation failed: %s", config.Connection, err.Error())
 		return nil, err
 	}
-	type awsConfig struct {
-		Profile      *string
-		AccessKey    *string
-		SecretKey    *string
-		SessionToken *string
-	}
 
-	// TODO TACTICAL log redacted AWS credentials
-	j, err := json.Marshal(configStruct)
-	if err == nil {
-		var target awsConfig
-		if err := json.Unmarshal(j, &target); err == nil {
-			secretKey := typehelpers.SafeString(target.SecretKey)
-			if l := len(secretKey); l > 0 {
-				secretKey = secretKey[l-4:]
-			}
-			sessionToken := typehelpers.SafeString(target.SessionToken)
-			if l := len(sessionToken); l > 0 {
-				sessionToken = sessionToken[l-4:]
-			}
-
-			log.Println("Info", "setConnectionData", "connection_name", config.Connection, "profile", typehelpers.SafeString(target.Profile), "accessKey", typehelpers.SafeString(target.AccessKey), "secretKey", secretKey, "sessionToken", sessionToken)
-
-		}
-	}
 	return configStruct, err
 }
 

@@ -104,8 +104,6 @@ type Plugin struct {
 	HydrateConfig []HydrateConfig
 
 	queryCache *query_cache.QueryCache
-	// shared connection cache - this is the underlying cache used for all queryData ConnectionCache
-	//connectionCacheStore *cache.Cache[any]
 	// map of the connection caches, keyed by connection name
 	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
@@ -185,10 +183,6 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 		p.WatchedFileChangedFunc = defaultWatchedFilesChangedFunc
 	}
 
-	//if err := p.createConnectionCacheStore(); err != nil {
-	//	panic(fmt.Sprintf("failed to create connection cache: %s", err.Error()))
-	//}
-
 	// set temporary dir for this plugin
 	// this will only created if getSourceFiles is used
 	p.tempDir = path.Join(os.TempDir(), p.Name)
@@ -240,20 +234,6 @@ func (p *Plugin) shutdown() {
 		log.Printf("[WARN] failed to delete the temp directory %s: %s", p.tempDir, err.Error())
 	}
 }
-
-//func (p *Plugin) createConnectionCacheStore() error {
-//	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
-//		NumCounters: 1000,
-//		MaxCost:     100000,
-//		BufferItems: 64,
-//	})
-//	if err != nil {
-//		return err
-//	}
-//	ristrettoStore := ristretto_store.NewRistretto(ristrettoCache)
-//	p.connectionCacheStore = cache.New[any](ristrettoStore)
-//	return nil
-//}
 
 func (p *Plugin) ensureConnectionCache(connectionName string) (*connectionmanager.ConnectionCache, error) {
 	maxCost := int64(100000 / len(p.ConnectionMap))
