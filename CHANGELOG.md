@@ -1,3 +1,7 @@
+## v5.6.3 [tbd]
+_Bug fixes_
+* Fix expired credentials sometimes being left in connection cache - update connection cache to use a backing store per connection, rather than a shared backing store. ([#699](https://github.com/turbot/steampipe-plugin-sdk/issues/699))
+
 ## v5.6.2 [2023-10-03]
 _Bug fixes_
 * The `initialise` function is now being called for implicit hydrate configs (i.e. hydrate functions without explicit config), thereby preventing nil pointer reference errors when the hydrate function returns an error. ([#683](https://github.com/turbot/steampipe-plugin-sdk/issues/683))
