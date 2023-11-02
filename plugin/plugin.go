@@ -236,15 +236,21 @@ func (p *Plugin) shutdown() {
 }
 
 func (p *Plugin) ensureConnectionCache(connectionName string) (*connectionmanager.ConnectionCache, error) {
+	p.connectionCacheMapLock.Lock()
+	defer p.connectionCacheMapLock.Unlock()
+
+	// check if we already have a cache
+	if cache, ok := p.connectionCacheMap[connectionName]; ok {
+		return cache, nil
+	}
+
+	// add to map of connection caches
 	maxCost := int64(100000 / len(p.ConnectionMap))
 	connectionCache, err := connectionmanager.NewConnectionCache(connectionName, maxCost)
 	if err != nil {
 		return nil, err
 	}
 
-	p.connectionCacheMapLock.Lock()
-	defer p.connectionCacheMapLock.Unlock()
-	// add to map of connection caches
 	p.connectionCacheMap[connectionName] = connectionCache
 	return connectionCache, nil
 }
