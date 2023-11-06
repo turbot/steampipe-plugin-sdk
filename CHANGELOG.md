@@ -1,4 +1,4 @@
-## v5.6.3 [tbd]
+## v5.6.3 [2023-11-06]
 _Bug fixes_
 * Fix expired credentials sometimes being left in connection cache - update connection cache to use a backing store per connection, rather than a shared backing store. ([#699](https://github.com/turbot/steampipe-plugin-sdk/issues/699))
 
