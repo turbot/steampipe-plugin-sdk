@@ -694,6 +694,10 @@ func (p *Plugin) clearCallId(connectionCallId string) {
 	p.callIdLookupMut.Unlock()
 }
 
+func (p *Plugin) getSchemaMode() string {
+	return p.SchemaMode
+}
+
 // safely read from ConnectionMap
 func (p *Plugin) getConnectionData(connectionName string) (*ConnectionData, bool) {
 	p.connectionMapLock.RLock()
