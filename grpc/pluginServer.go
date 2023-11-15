@@ -20,6 +20,7 @@ type SetConnectionCacheOptionsFunc func(*proto.SetConnectionCacheOptionsRequest)
 type SetRateLimitersFunc func(*proto.SetRateLimitersRequest) error
 type GetRateLimitersFunc func() []*proto.RateLimiterDefinition
 type EstablishMessageStreamFunc func(stream proto.WrapperPlugin_EstablishMessageStreamServer) error
+type GetSchemaModeFunc func() string
 
 // PluginServer is the server for a single plugin
 type PluginServer struct {
@@ -35,6 +36,7 @@ type PluginServer struct {
 	setConnectionCacheOptionsFunc SetConnectionCacheOptionsFunc
 	setRateLimitersFunc           SetRateLimitersFunc
 	getRateLimitersFunc           GetRateLimitersFunc
+	getSchemaModeFunc             GetSchemaModeFunc
 }
 
 func NewPluginServer(pluginName string,
@@ -48,6 +50,7 @@ func NewPluginServer(pluginName string,
 	setRateLimitersFunc SetRateLimitersFunc,
 	getRateLimitersFunc GetRateLimitersFunc,
 	setConnectionCacheOptionsFunc SetConnectionCacheOptionsFunc,
+	GetSchemaModeFunc GetSchemaModeFunc,
 ) *PluginServer {
 
 	return &PluginServer{
@@ -62,6 +65,7 @@ func NewPluginServer(pluginName string,
 		setRateLimitersFunc:           setRateLimitersFunc,
 		getRateLimitersFunc:           getRateLimitersFunc,
 		setConnectionCacheOptionsFunc: setConnectionCacheOptionsFunc,
+		getSchemaModeFunc:             GetSchemaModeFunc,
 	}
 }
 
@@ -199,6 +203,10 @@ func (s PluginServer) GetRateLimiters(*proto.GetRateLimitersRequest) (*proto.Get
 
 func (s PluginServer) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
 	return s.establishMessageStreamFunc(stream)
+}
+
+func (s PluginServer) GetSchemaMode() string {
+	return s.getSchemaModeFunc()
 }
 
 func (s PluginServer) Serve() {

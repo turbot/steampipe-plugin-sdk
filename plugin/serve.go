@@ -94,6 +94,7 @@ func Server(opts *ServeOpts) *grpc.PluginServer {
 		p.setRateLimiters,
 		p.getRateLimiters,
 		p.setConnectionCacheOptions,
+		p.getSchemaMode,
 	)
 }
 

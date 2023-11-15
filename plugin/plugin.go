@@ -675,3 +675,7 @@ func (p *Plugin) clearCallId(connectionCallId string) {
 	delete(p.callIdLookup, connectionCallId)
 	p.callIdLookupMut.Unlock()
 }
+
+func (p *Plugin) getSchemaMode() string {
+	return p.SchemaMode
+}
