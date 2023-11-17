@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -86,7 +87,13 @@ func Serve(opts *ServeOpts) {
 	if _, found := os.LookupEnv("STEAMPIPE_PPROF"); found {
 		log.Printf("[INFO] PROFILING!!!!")
 		go func() {
-			log.Println(http.ListenAndServe("localhost:6060", nil))
+			listener, err := net.Listen("tcp", "localhost:0")
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			log.Printf("[INFO] Check http://localhost:%d/debug/pprof/", listener.Addr().(*net.TCPAddr).Port)
+			log.Println(http.Serve(listener, nil))
 		}()
 	}
 	// TODO add context into all of these handlers
