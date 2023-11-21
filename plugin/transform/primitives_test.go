@@ -812,7 +812,7 @@ Statement:
 			Value: testStruct{},
 		},
 		function: NullIfEmptySliceValue,
-		expected: "ERROR",
+		expected: testStruct{},
 	},
 }
 
