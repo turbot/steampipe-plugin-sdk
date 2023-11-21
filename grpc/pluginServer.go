@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/anywhere"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/v5/grpc/shared"
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
@@ -118,15 +119,20 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 	return s.executeFunc(req, stream)
 }
 
-// CallExecute directly calls the execute function and is used to execute in-process
-func (s PluginServer) CallExecute(req *proto.ExecuteRequest, stream row_stream.Sender) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = helpers.ToError(r)
+// CallExecuteAsync directly calls the execute function and is used to execute in-process
+func (s PluginServer) CallExecuteAsync(req *proto.ExecuteRequest, stream *anywhere.LocalPluginStream) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				stream.Error(helpers.ToError(r))
+			}
+		}()
+
+		err := s.executeFunc(req, stream)
+		if err != nil {
+			stream.Error(err)
 		}
 	}()
-
-	return s.executeFunc(req, stream)
 }
 
 func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) {
