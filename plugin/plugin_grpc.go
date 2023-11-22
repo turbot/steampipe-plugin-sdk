@@ -3,6 +3,10 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
+	"sync"
+
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
@@ -16,9 +20,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
-	"log"
-	"strings"
-	"sync"
 )
 
 /*
