@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"fmt"
+
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/anywhere"
