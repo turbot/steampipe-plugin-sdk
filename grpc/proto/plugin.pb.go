@@ -2329,9 +2329,9 @@ func (*Column) Descriptor() ([]byte, []int) {
 	return file_plugin_proto_rawDescGZIP(), []int{31}
 }
 
-func (m *Column) GetValue() isColumn_Value {
-	if m != nil {
-		return m.Value
+func (x *Column) GetValue() isColumn_Value {
+	if x != nil {
+		return x.Value
 	}
 	return nil
 }
