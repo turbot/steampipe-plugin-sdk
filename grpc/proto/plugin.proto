@@ -262,6 +262,8 @@ message ColumnDefinition {
   string name = 1;
   ColumnType type = 2;
   string description = 3;
+  string hydrate = 4;
+  Column default = 5;
 }
 
 enum ColumnType {
