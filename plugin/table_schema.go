@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"strings"
 )
@@ -40,6 +41,20 @@ func (t *Table) GetSchema() (*proto.TableSchema, error) {
 				Name:        column.Name,
 				Type:        column.Type,
 				Description: column.Description,
+			}
+			if column.Hydrate != nil {
+				name, _ := column.Hydrate.getOriginalFuncName()
+				columnDef.Hydrate = name
+			}
+			if !helpers.IsNil(column.Default) {
+				// to convert the column default to a proto.Column, call ToColumnValue with a nil value
+				// - we will get the default
+				def, err := column.ToColumnValue(nil)
+				if err != nil {
+					return nil, err
+				}
+				columnDef.Default = def
+
 			}
 			schema.Columns = append(schema.Columns, columnDef)
 		}
