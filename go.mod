@@ -1,6 +1,8 @@
 module github.com/turbot/steampipe-plugin-sdk/v5
 
-go 1.19
+go 1.21
+
+toolchain go1.21.3
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
