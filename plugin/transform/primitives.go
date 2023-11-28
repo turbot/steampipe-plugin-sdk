@@ -214,8 +214,11 @@ func NullIfEmptySliceValue(_ context.Context, d *TransformData) (interface{}, er
 		return nil, nil
 	}
 	v := helpers.DereferencePointer(d.Value)
-	b, l := reflect.TypeOf(v).Kind() == reflect.Slice, reflect.ValueOf(v).Len()
-	if b && l == 0 {
+	if reflect.TypeOf(v).Kind() != reflect.Slice {
+		// this is not a slice, so return the value
+		return d.Value, nil
+	}
+	if reflect.ValueOf(v).Len() == 0 {
 		return nil, nil
 	}
 	return d.Value, nil

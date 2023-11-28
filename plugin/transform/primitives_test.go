@@ -807,6 +807,13 @@ Statement:
 		function: NullIfEmptySliceValue,
 		expected: nil,
 	},
+	"NullIfEmptySlice struct": {
+		d: &TransformData{
+			Value: testStruct{},
+		},
+		function: NullIfEmptySliceValue,
+		expected: testStruct{},
+	},
 }
 
 func TestTransformFunctions(t *testing.T) {
