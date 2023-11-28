@@ -1,3 +1,12 @@
+## v5.7.0 [2023-11-28]
+_What's new?_
+* Update `proto.ColumnDefinition` to include column `default` and `hydrate` function name. ([#711](https://github.com/turbot/steampipe-plugin-sdk/issues/711))
+* Show connection name along with error message. ([#684](https://github.com/turbot/steampipe-plugin-sdk/issues/684))
+* Dynamically allocate a TCP port when STEAMPIPE_PPROF environment variable is set.
+
+_Bug fixes_
+* Fix issue where `NullIfEmptySliceValue` panics when input is not a slice. ([#707](https://github.com/turbot/steampipe-plugin-sdk/issues/707))
+
 ## v5.6.3 [2023-11-06]
 _Bug fixes_
 * Fix expired credentials sometimes being left in connection cache - update connection cache to use a backing store per connection, rather than a shared backing store. ([#699](https://github.com/turbot/steampipe-plugin-sdk/issues/699))
