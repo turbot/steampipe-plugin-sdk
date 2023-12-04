@@ -17,7 +17,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/stevenle/topsort v0.2.0
 	github.com/turbot/go-kit v0.8.0-rc.0
-	github.com/zclconf/go-cty v1.14.0
+	github.com/zclconf/go-cty v1.14.1
 	go.opentelemetry.io/otel v1.21.0
 	go.opentelemetry.io/otel/metric v1.21.0 // indirect
 	go.opentelemetry.io/otel/trace v1.21.0
