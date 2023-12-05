@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"github.com/hashicorp/hcl/v2/json"
 	"log"
 
 	"github.com/hashicorp/hcl/v2"
@@ -140,15 +141,7 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.Connection
 	filename := ""
 	startPos := hcl.Pos{}
 
-	file, diags := hclsyntax.ParseConfig(configString, filename, startPos)
-	if diags.HasErrors() {
-		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
-	}
-	_, body, diags := file.Body.PartialContent(&hcl.BodySchema{})
-	if diags.HasErrors() {
-		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
-	}
-
+	body, diags := parseConfig(configString, filename, startPos)
 	evalCtx := &hcl.EvalContext{
 		Variables: make(map[string]cty.Value),
 		Functions: make(map[string]function.Function),
@@ -161,4 +154,27 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.Connection
 	}
 	// return the struct by value
 	return helpers.DereferencePointer(configStruct), nil
+}
+
+func parseConfig(configString []byte, filename string, startPos hcl.Pos) (hcl.Body, hcl.Diagnostics) {
+	file, diags := hclsyntax.ParseConfig(configString, filename, startPos)
+	if diags.HasErrors() {
+		// try json
+		return parseJsonConfig(configString, filename)
+
+	}
+	//_, body, diags := file.Body.PartialContent(&hcl.BodySchema{})
+	//if diags.HasErrors() {
+	//	return nil, diags
+	//}
+	return file.Body, nil
+
+}
+
+func parseJsonConfig(configString []byte, filename string) (hcl.Body, hcl.Diagnostics) {
+	file, diags := json.Parse(configString, filename)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+	return file.Body, nil
 }
