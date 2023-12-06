@@ -84,20 +84,20 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 		backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
 
 		for {
-			log.Printf("[INFO] readAndStreamAsync internal goroutine to read all rows from the publisher and stream them (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
+			log.Printf("[TRACE] readAndStreamAsync internal goroutine to read all rows from the publisher and stream them (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
 
 			var rowsTostream []*sdkproto.Row
 
 			// get rows available to stream - retry with backoff
 			err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 				var getRowsErr error
-				log.Printf("[INFO] readAndStreamAsync getting rowsTostream (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
+				log.Printf("[TRACE] readAndStreamAsync getting rowsTostream (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
 				rowsTostream, getRowsErr = s.getRowsToStream(ctx)
-				log.Printf("[INFO] readAndStreamAsync rowsTostream %d (%s)", len(rowsTostream), s.callId)
+				log.Printf("[TRACE] readAndStreamAsync rowsTostream %d (%s)", len(rowsTostream), s.callId)
 				return getRowsErr
 			})
 
-			log.Printf("[INFO] readAndStreamAsync retry returned %d rows to stream (%s)", len(rowsTostream), s.callId)
+			log.Printf("[TRACE] readAndStreamAsync retry returned %d rows to stream (%s)", len(rowsTostream), s.callId)
 
 			// is there an error
 			if err != nil {
@@ -108,14 +108,14 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 
 			// getRowsToStream will keep retrying as long as there are still rows to stream (or there is an error)
 			if len(rowsTostream) == 0 {
-				log.Printf("[INFO] readAndStreamAsync returning")
+				log.Printf("[TRACE] readAndStreamAsync returning")
 				// to get here, publisher has no more rows
 				// exit the goroutine
 				return
 			}
 
 			for _, row := range rowsTostream {
-				log.Printf("[INFO] readAndStreamAsync stream row (%s)", s.callId)
+				log.Printf("[TRACE] readAndStreamAsync stream row (%s)", s.callId)
 				s.streamRowFunc(row)
 				s.rowsStreamed++
 				// check for contect cancellation

@@ -278,8 +278,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 					log.Printf("[INFO] return without streaming nil row as this is GRPC stream")
 					break
 				}
-				// fall through to send empty row
-				// HACK - only send empty row on standalone
+				// fall through to send empty row (required if using local stream)
 				log.Printf("[INFO] Sending nil row")
 			}
 			if err := stream.Send(row); err != nil {
