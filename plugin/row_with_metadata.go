@@ -15,10 +15,8 @@ type SteampipeMetadata struct {
 }
 
 type rowCtxData struct {
-	Connection string `json:"connection_name"`
-
-	ConnectionName string            `json:"connection_name"`
-	Steampipe      SteampipeMetadata `json:"steampipe"`
+	Connection string            `json:"connection_name"`
+	Steampipe  SteampipeMetadata `json:"steampipe"`
 
 	Diagnostics *rowCtxDiagnostics `json:"diagnostics,omitempty"`
 }
