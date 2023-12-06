@@ -1,5 +1,7 @@
 package plugin
 
+import "github.com/turbot/steampipe-plugin-sdk/v5/version"
+
 type hydrateMetadata struct {
 	Type         string            `json:"type"`
 	FuncName     string            `json:"function_name"`
@@ -8,8 +10,14 @@ type hydrateMetadata struct {
 	DelayMs      int64             `json:"rate_limiter_delay_ms"`
 }
 
+type SteampipeMetadata struct {
+	SdkVersion string `json:"sdk_version"`
+}
+
 type rowCtxData struct {
-	Connection  string             `json:"connection_name"`
+	Connection string            `json:"connection_name"`
+	Steampipe  SteampipeMetadata `json:"steampipe"`
+
 	Diagnostics *rowCtxDiagnostics `json:"diagnostics,omitempty"`
 }
 type rowCtxDiagnostics struct {
@@ -20,6 +28,9 @@ func newRowCtxData(rd *rowData) *rowCtxData {
 	d := rd.queryData
 	res := &rowCtxData{
 		Connection: d.Connection.Name,
+		Steampipe: SteampipeMetadata{
+			SdkVersion: version.String(),
+		},
 	}
 
 	if loadDiagnosticsEnvVar() == DiagnosticsAll {
