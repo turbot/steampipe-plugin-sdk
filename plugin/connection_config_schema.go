@@ -163,12 +163,8 @@ func parseConfig(configString []byte, filename string, startPos hcl.Pos) (hcl.Bo
 		return parseJsonConfig(configString, filename)
 
 	}
-	//_, body, diags := file.Body.PartialContent(&hcl.BodySchema{})
-	//if diags.HasErrors() {
-	//	return nil, diags
-	//}
-	return file.Body, nil
 
+	return file.Body, nil
 }
 
 func parseJsonConfig(configString []byte, filename string) (hcl.Body, hcl.Diagnostics) {
