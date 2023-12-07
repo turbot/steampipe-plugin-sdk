@@ -51,7 +51,7 @@ func (s *setRequestSubscriber) readRowsAsync(ctx context.Context) {
 		// internal goroutine to read all rows from the publisher and stream them
 		streamChan, errChan := s.readAndStreamAsync(ctx)
 
-		// wait for all rows tro be streams (or cancellation)
+		// wait for all rows to be streams (or cancellation)
 		select {
 		// first check for context cancellation - this may happen if channel is blocked and scane is subsequently cancelled
 		case <-s.streamContext.Done():
@@ -84,47 +84,49 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 		backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
 
 		for {
-			log.Printf("[TRACE] readRowsAsync internal goroutine to read all rows from the publisher and stream them (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
+			log.Printf("[TRACE] readAndStreamAsync internal goroutine to read all rows from the publisher and stream them (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
 
 			var rowsTostream []*sdkproto.Row
 
 			// get rows available to stream - retry with backoff
 			err := retry.Do(ctx, backoff, func(ctx context.Context) error {
 				var getRowsErr error
-				log.Printf("[TRACE] readRowsAsync getting rowsTostream (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
+				log.Printf("[TRACE] readAndStreamAsync getting rowsTostream (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
 				rowsTostream, getRowsErr = s.getRowsToStream(ctx)
-				log.Printf("[TRACE] readRowsAsync rowsTostream %d (%s)", len(rowsTostream), s.callId)
+				log.Printf("[TRACE] readAndStreamAsync rowsTostream %d (%s)", len(rowsTostream), s.callId)
 				return getRowsErr
 			})
 
-			log.Printf("[TRACE] readRowsAsync retry returned %d rows to stream (%s)", len(rowsTostream), s.callId)
+			log.Printf("[TRACE] readAndStreamAsync retry returned %d rows to stream (%s)", len(rowsTostream), s.callId)
 
 			// is there an error
 			if err != nil {
-				log.Printf("[WARN] readRowsAsync failed to read previous rows from cache: %s publisher %s (%s)", err, s.publisher.CallId, s.callId)
+				log.Printf("[WARN] readAndStreamAsync failed to read previous rows from cache: %s publisher %s (%s)", err, s.publisher.CallId, s.callId)
 				errChan <- err
 				return
 			}
 
 			// getRowsToStream will keep retrying as long as there are still rows to stream (or there is an error)
 			if len(rowsTostream) == 0 {
-				// to get here, publisdher has no more rows
+				log.Printf("[TRACE] readAndStreamAsync returning")
+				// to get here, publisher has no more rows
 				// exit the goroutine
 				return
 			}
 
 			for _, row := range rowsTostream {
+				log.Printf("[TRACE] readAndStreamAsync stream row (%s)", s.callId)
 				s.streamRowFunc(row)
 				s.rowsStreamed++
 				// check for contect cancellation
 				if s.streamContext.Err() != nil {
-					log.Printf("[INFO] readRowsAsync stream context cancelled (%s)", s.callId)
+					log.Printf("[INFO] readAndStreamAsync stream context cancelled (%s)", s.callId)
 					errChan <- s.streamContext.Err()
 					return
 				}
 			}
 
-			log.Printf("[TRACE] readRowsAsync streaming complete (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
+			log.Printf("[INFO] readAndStreamAsync streaming complete (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
 		}
 
 	}()

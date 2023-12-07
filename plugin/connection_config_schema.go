@@ -142,6 +142,9 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.Connection
 	startPos := hcl.Pos{}
 
 	body, diags := parseConfig(configString, filename, startPos)
+	if diags.HasErrors() {
+		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
+	}
 	evalCtx := &hcl.EvalContext{
 		Variables: make(map[string]cty.Value),
 		Functions: make(map[string]function.Function),
@@ -163,12 +166,8 @@ func parseConfig(configString []byte, filename string, startPos hcl.Pos) (hcl.Bo
 		return parseJsonConfig(configString, filename)
 
 	}
-	//_, body, diags := file.Body.PartialContent(&hcl.BodySchema{})
-	//if diags.HasErrors() {
-	//	return nil, diags
-	//}
-	return file.Body, nil
 
+	return file.Body, nil
 }
 
 func parseJsonConfig(configString []byte, filename string) (hcl.Body, hcl.Diagnostics) {

@@ -5,12 +5,14 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/anywhere"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/v5/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/version"
 )
 
-type ExecuteFunc func(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
+type ExecuteFunc func(req *proto.ExecuteRequest, stream row_stream.Sender) error
 type GetSchemaFunc func(string) (*PluginSchema, error)
 type SetConnectionConfigFunc func(string, string) error
 type SetAllConnectionConfigsFunc func([]*proto.ConnectionConfig, int) (map[string]error, error)
@@ -20,6 +22,7 @@ type SetConnectionCacheOptionsFunc func(*proto.SetConnectionCacheOptionsRequest)
 type SetRateLimitersFunc func(*proto.SetRateLimitersRequest) error
 type GetRateLimitersFunc func() []*proto.RateLimiterDefinition
 type EstablishMessageStreamFunc func(stream proto.WrapperPlugin_EstablishMessageStreamServer) error
+type GetSchemaModeFunc func() string
 
 // PluginServer is the server for a single plugin
 type PluginServer struct {
@@ -35,6 +38,7 @@ type PluginServer struct {
 	setConnectionCacheOptionsFunc SetConnectionCacheOptionsFunc
 	setRateLimitersFunc           SetRateLimitersFunc
 	getRateLimitersFunc           GetRateLimitersFunc
+	getSchemaModeFunc             GetSchemaModeFunc
 }
 
 func NewPluginServer(pluginName string,
@@ -48,6 +52,7 @@ func NewPluginServer(pluginName string,
 	setRateLimitersFunc SetRateLimitersFunc,
 	getRateLimitersFunc GetRateLimitersFunc,
 	setConnectionCacheOptionsFunc SetConnectionCacheOptionsFunc,
+	GetSchemaModeFunc GetSchemaModeFunc,
 ) *PluginServer {
 
 	return &PluginServer{
@@ -62,6 +67,7 @@ func NewPluginServer(pluginName string,
 		setRateLimitersFunc:           setRateLimitersFunc,
 		getRateLimitersFunc:           getRateLimitersFunc,
 		setConnectionCacheOptionsFunc: setConnectionCacheOptionsFunc,
+		getSchemaModeFunc:             GetSchemaModeFunc,
 	}
 }
 
@@ -86,6 +92,7 @@ func (s PluginServer) GetSchema(req *proto.GetSchemaRequest) (res *proto.GetSche
 	}, err
 }
 
+// Execute implements the WrapperPluginServer interface and is used to execute calls vis GRPC
 func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -111,6 +118,22 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 	}
 
 	return s.executeFunc(req, stream)
+}
+
+// CallExecuteAsync directly calls the execute function and is used to execute in-process
+func (s PluginServer) CallExecuteAsync(req *proto.ExecuteRequest, stream *anywhere.LocalPluginStream) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				stream.Error(helpers.ToError(r))
+			}
+		}()
+
+		err := s.executeFunc(req, stream)
+		if err != nil {
+			stream.Error(err)
+		}
+	}()
 }
 
 func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) {
@@ -187,6 +210,10 @@ func (s PluginServer) GetRateLimiters(*proto.GetRateLimitersRequest) (*proto.Get
 
 func (s PluginServer) EstablishMessageStream(stream proto.WrapperPlugin_EstablishMessageStreamServer) error {
 	return s.establishMessageStreamFunc(stream)
+}
+
+func (s PluginServer) GetSchemaMode() string {
+	return s.getSchemaModeFunc()
 }
 
 func (s PluginServer) Serve() {

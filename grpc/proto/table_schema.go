@@ -1,5 +1,7 @@
 package proto
 
+import "golang.org/x/exp/maps"
+
 func (x *TableSchema) GetColumnMap() map[string]*ColumnDefinition {
 	if x != nil {
 		res := make(map[string]*ColumnDefinition, len(x.Columns))
@@ -7,6 +9,16 @@ func (x *TableSchema) GetColumnMap() map[string]*ColumnDefinition {
 			res[c.Name] = c
 		}
 		return res
+	}
+	return nil
+}
+func (x *TableSchema) GetColumnNames() []string {
+	return maps.Keys(x.GetColumnMap())
+}
+
+func (x *TableSchema) GetAllKeyColumns() []*KeyColumn {
+	if x != nil {
+		return append(x.GetCallKeyColumnList, x.ListCallKeyColumnList...)
 	}
 	return nil
 }

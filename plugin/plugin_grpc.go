@@ -3,6 +3,11 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
+	"sync"
+
+	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
@@ -11,11 +16,10 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
-	"log"
-	"sync"
 )
 
 /*
@@ -53,7 +57,7 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 			p.Logger.Debug("setAllConnectionConfigs finished")
 		}
 	}()
-
+	log.Printf("[INFO] setAllConnectionConfigs")
 	// create a struct to populate with exemplar schema and connection failures
 	// this will be passed into update functions and may be mutated
 	updateData := NewConnectionUpdateData()
@@ -177,7 +181,7 @@ func (p *Plugin) getSchema(connectionName string) (*grpc.PluginSchema, error) {
 // execute starts a query and streams the results using the given GRPC stream.
 //
 // This is the handler function for the execute GRPC function.
-func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) (err error) {
+func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (err error) {
 	ctx := stream.Context()
 	// add CallId to logs for the execute call
 	logger := p.Logger.Named(req.CallId)
@@ -190,7 +194,11 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 	// when done, remove call id from map
 	defer p.clearCallId(req.CallId)
 
-	log.Printf("[INFO] Plugin execute table: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
+	log.Printf("[INFO] Plugin execute table name: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
+	log.Printf("[INFO] Executing for %d %s: %s", len(req.ExecuteConnectionData),
+		pluralize.NewClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
+		strings.Join(maps.Keys(req.ExecuteConnectionData), "'"))
+
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
@@ -224,13 +232,17 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		}
 		outputWg.Add(1)
 
+		log.Printf("[INFO] Plugin execute connection %s", connectionName)
+
 		go func(c string) {
 			defer outputWg.Done()
 
+			log.Printf("[TRACE] Plugin execute goroutine for connection %s", connectionName)
 			if err := sem.Acquire(ctx, 1); err != nil {
 				return
 			}
 			defer sem.Release(1)
+			log.Printf("[TRACE] acquired sem")
 
 			// execute the scan for this connection
 			if err := p.executeForConnection(ctx, req, c, outputChan, logger); err != nil {
@@ -247,7 +259,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		outputWg.Wait()
 		// so all executeForConnection calls are complete
 		// stream a nil row to indicate completion
-		log.Printf("[TRACE] output wg complete - send nil row (%s)", req.CallId)
+		log.Printf("[INFO] output wg complete - send nil response (%s)", req.CallId)
 
 		outputChan <- nil
 	}()
@@ -258,16 +270,22 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_E
 		case row := <-outputChan:
 			// nil row means that one connection is done streaming
 			if row == nil {
-				log.Printf("[TRACE] empty row on output channel - we are done ")
+				log.Printf("[INFO] empty row on output channel - we are done ")
 				complete = true
-				break
+
+				// if the stream is a grpc stream, no need to send a nil item - break out
+				if _, ok := stream.(proto.WrapperPlugin_ExecuteServer); ok {
+					log.Printf("[INFO] return without streaming nil row as this is GRPC stream")
+					break
+				}
+				// fall through to send empty row (required if using local stream)
+				log.Printf("[INFO] Sending nil row")
 			}
 			if err := stream.Send(row); err != nil {
 				// ignore context cancellation - they will get picked up further downstream
 				if !error_helpers.IsContextCancelledError(err) {
 					errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
 				}
-				break
 			}
 		case err := <-errorChan:
 			if !error_helpers.IsContextCancelledError(err) {

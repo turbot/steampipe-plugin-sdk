@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"runtime/debug"
@@ -695,7 +696,7 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 			// wait for either an rowData or an error
 			select {
 			case <-doneChan:
-				log.Printf("[TRACE] buildRowsAsync done channel selected - quitting %s", d.Connection.Name)
+				log.Printf("[INFO] buildRowsAsync done channel selected - quitting %s", d.Connection.Name)
 				return
 			case rowData := <-d.rowDataChan:
 				logging.LogTime("got rowData - calling getRow")
@@ -781,7 +782,6 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			// return what we have sent
 			return err
 		case row := <-rowChan:
-
 			// nil row means we are done streaming
 			if row == nil {
 				log.Printf("[INFO] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
@@ -794,7 +794,8 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				if err != nil {
 					// if there are no subscribers to the setRequest, cancel the scan and abort the set request
 					// (this deletes already-cached pages)
-					if _, noSubscribers := err.(query_cache.NoSubscribersError); noSubscribers {
+					var noSubscribersError query_cache.NoSubscribersError
+					if errors.As(err, &noSubscribersError) {
 						log.Printf("[INFO] streamRows - set request has no subscribers, cancelling the scan (%s)", d.connectionCallId)
 						d.cancel()
 						// abort the set operation
