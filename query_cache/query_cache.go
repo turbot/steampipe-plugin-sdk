@@ -194,7 +194,7 @@ func (c *QueryCache) findAndSubscribeToPendingRequest(ctx context.Context, index
 }
 
 func (c *QueryCache) subscribeToPendingRequest(ctx context.Context, pendingSetRequest *setRequest, req *CacheRequest, streamRowFunc func(row *sdkproto.Row)) (subscriber *setRequestSubscriber, err error) {
-	log.Printf("[INFO] subscribeToPendingRequest table %s (%s)", req.Table, req.CallId)
+	log.Printf("[TRACE] subscribeToPendingRequest table %s (%s)", req.Table, req.CallId)
 
 	// create a subscriber
 	subscriber = newSetRequestSubscriber(streamRowFunc, req.CallId, req.StreamContext, pendingSetRequest)
@@ -239,7 +239,6 @@ func (c *QueryCache) startSet(ctx context.Context, req *CacheRequest, streamRowF
 }
 
 func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId string) error {
-	log.Printf("[INFO] IterateSet (%s)", callId)
 	// get the ongoing request
 	c.setRequestMapLock.RLock()
 	req, ok := c.setRequests[callId]

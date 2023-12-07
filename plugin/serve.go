@@ -19,7 +19,6 @@ import (
 
 // ServeOpts are the configurations to serve a plugin.
 type ServeOpts struct {
-	// Deprecated
 	PluginName string
 	PluginFunc PluginFunc
 }
