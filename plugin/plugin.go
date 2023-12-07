@@ -244,8 +244,10 @@ func (p *Plugin) ensureConnectionCache(connectionName string) (*connectionmanage
 		return cache, nil
 	}
 
+	// TACTICAL add one to num connections as this connection may not have been added yet - need to avoid divide by zero
+	numConnections := len(p.ConnectionMap) + 1
 	// add to map of connection caches
-	maxCost := int64(100000 / len(p.ConnectionMap))
+	maxCost := int64(100000 / numConnections)
 	connectionCache, err := connectionmanager.NewConnectionCache(connectionName, maxCost)
 	if err != nil {
 		return nil, err
