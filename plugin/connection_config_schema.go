@@ -142,6 +142,9 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.Connection
 	startPos := hcl.Pos{}
 
 	body, diags := parseConfig(configString, filename, startPos)
+	if diags.HasErrors() {
+		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
+	}
 	evalCtx := &hcl.EvalContext{
 		Variables: make(map[string]cty.Value),
 		Functions: make(map[string]function.Function),
