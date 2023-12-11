@@ -1,3 +1,12 @@
+## v5.8.0 [2023-12-11]
+_What's new?_
+* Encapsulate plugin server so it is possible to use it in-process as well as via GRPC. ([#719](https://github.com/turbot/steampipe-plugin-sdk/issues/719))
+* Add `steampipe` field to `_ctx` column, containing sdk version. ([#712](https://github.com/turbot/steampipe-plugin-sdk/issues/712))
+ 
+_Bug fixes_
+* Remove `plugin has no connections` error when deleting and then re-adding a connection. ([#725](https://github.com/turbot/steampipe-plugin-sdk/issues/725))
+* Fix potential divide by zero bug when setting cache size
+
 ## v5.7.0 [2023-11-28]
 _What's new?_
 * Update `proto.ColumnDefinition` to include column `default` and `hydrate` function name. ([#711](https://github.com/turbot/steampipe-plugin-sdk/issues/711))
