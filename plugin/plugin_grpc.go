@@ -114,13 +114,13 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 
 	// if this plugin does not have dynamic config, we can share table map and schema
 	if p.SchemaMode == SchemaModeStatic {
+		// do we have existing connections for this plugin
+		// (we may not if connecrtions have been removed and re-added)
 		exemplarConnection := p.getExemplarConnectionData()
-		if exemplarConnection == nil {
-			// not expected
-			return nil, fmt.Errorf("plugin has no connections")
+		if exemplarConnection != nil {
+			updateData.exemplarSchema = exemplarConnection.Schema
+			updateData.exemplarTableMap = exemplarConnection.TableMap
 		}
-		updateData.exemplarSchema = exemplarConnection.Schema
-		updateData.exemplarTableMap = exemplarConnection.TableMap
 	}
 
 	// remove deleted connections
