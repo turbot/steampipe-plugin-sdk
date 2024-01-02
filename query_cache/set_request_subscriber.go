@@ -126,7 +126,7 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan str
 				}
 			}
 
-			log.Printf("[INFO] readAndStreamAsync streaming complete (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
+			log.Printf("[TRACE] readAndStreamAsync streaming complete (rows streamed %d) (%s)", s.rowsStreamed, s.callId)
 		}
 
 	}()

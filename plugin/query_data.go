@@ -702,11 +702,10 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 				logging.LogTime("got rowData - calling getRow")
 				// is there any more data?
 				if rowData == nil {
-					log.Printf("[INFO] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
+					log.Printf("[TRACE] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
 					// now we know there will be no more items, close row chan when the wait group is complete
 					// this allows time for all hydrate goroutines to complete
 					d.waitForRowsToComplete(&rowWg, rowChan)
-					log.Printf("[INFO] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
 					return
 				}
