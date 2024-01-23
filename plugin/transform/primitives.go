@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 
-	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"github.com/iancoleman/strcase"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/go-kit/types"
@@ -229,20 +230,33 @@ func UnmarshalYAML(_ context.Context, d *TransformData) (interface{}, error) {
 	if d.Value == nil {
 		return nil, nil
 	}
+
 	inputStr := types.SafeString(d.Value)
 	var result interface{}
 	if inputStr != "" {
-		decoded, err := url.QueryUnescape(inputStr)
-		if err != nil {
-			return nil, err
+
+		// Escape only URLs instead of checking if any % is not followed by two hexadecimal digits.
+		regex := regexp.MustCompile(`(https?://[^\s]+)`)
+
+		// Find all matches in the input string
+		matches := regex.FindAllString(inputStr, -1)
+
+		// Iterate the matched URLs
+		for _, match := range matches {
+			// The `QueryUnescape()` function returns an error if any '%' character is not followed by two hexadecimal digits while unescaping the URL.
+			// The YAML may contain instances where '%' is not followed by two hexadecimal digits, so we need to handle such cases carefully.
+			decoded, err := url.QueryUnescape(match)
+			if err != nil {
+				return nil, err
+			}
+			inputStr = strings.ReplaceAll(inputStr, match, decoded)
 		}
 
-		err = yaml.Unmarshal([]byte(decoded), &result)
+		err := yaml.Unmarshal([]byte(inputStr), &result)
 		if err != nil {
 			return nil, err
 		}
 	}
-
 	return result, nil
 }
 
