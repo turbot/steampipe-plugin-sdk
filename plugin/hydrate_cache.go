@@ -56,13 +56,8 @@ Use it to reduce the number of API calls if the HydrateFunc is used by multiple 
 	}
 */
 func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
-
-	// if this hydrate func is already in the map, it means it has already been memoized
-	//if name, alreadyMemoized := f.getOriginalFuncName(); alreadyMemoized {
-	//	log.Printf("[WARN] Memoize - %s has already been memoized", name)
-	//	// just return the original function (which is already memoized
-	//	return f
-	//}
+	// TODO determine if this is already memoized
+	// if so, return the existing memoized function
 
 	log.Printf("[INFO] Memoize %p %s", f, helpers.GetFunctionName(f))
 
