@@ -10,10 +10,6 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
-//// map of memoized functions to the original function name
-//var memoizedNameMap = make(map[string]string)
-//var memoizedNameMapLock sync.RWMutex
-
 /*
 HydrateFunc is a function that gathers data to build table rows.
 Typically this would make an API call and return the raw API output.
