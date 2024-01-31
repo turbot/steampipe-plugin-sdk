@@ -90,8 +90,11 @@ func (c *ListConfig) initialise(table *Table) {
 	if c.NamedHydrate.empty() {
 		c.NamedHydrate = newNamedHydrateFunc(c.Hydrate)
 	} else {
-		c.Hydrate = c.NamedHydrate.Func
+		// a named hydrate was explicitly specified - probably meaning the hydrate is memoized
+		// call initialize to populate IsMemoized
 		c.NamedHydrate.initialize()
+		// be sure to also set the Hydrate property to the underlying func
+		c.Hydrate = c.NamedHydrate.Func
 	}
 	// add in function name to tags
 	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.NamedHydrate.Name
@@ -100,8 +103,11 @@ func (c *ListConfig) initialise(table *Table) {
 		if c.NamedParentHydrate.empty() {
 			c.NamedParentHydrate = newNamedHydrateFunc(c.ParentHydrate)
 		} else {
+			// a named hydrate was explicitly specified - probably meaning the hydrate is memoized
+			// call initialize to populate IsMemoized
+			c.NamedParentHydrate.initialize()
+			// be sure to also set the Hydrate property to the underlying func
 			c.ParentHydrate = c.NamedParentHydrate.Func
-			c.NamedHydrate.initialize()
 		}
 
 		// add in parent function name to tags

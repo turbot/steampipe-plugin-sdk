@@ -125,12 +125,9 @@ func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		log.Printf("[TRACE] Memoize (connection %s, cache key %s) - no pending call found so calling and caching hydrate", d.Connection.Name, cacheKey)
 		// no call the hydrate function and cache the result
 		return callAndCacheHydrate(ctx, d, h, f, cacheKey, ttl)
-
 	}
 
 	log.Printf("[INFO] Memoize %p %s", f, helpers.GetFunctionName(f))
-	// store the memoized func in the name map
-	//f.setMemoizedFuncName(memoizedFunc)
 
 	return memoizedFunc
 }

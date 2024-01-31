@@ -132,10 +132,11 @@ func (c *GetConfig) initialise(table *Table) {
 		// create a named hydrate func, assuming this function is not memoized
 		c.NamedHydrate = newNamedHydrateFunc(c.Hydrate)
 	} else {
-		c.Hydrate = c.NamedHydrate.Func
-		// named hydrate was explicitly specified - probably meaning the hydrate is memoized
-		// call initialize to populate IsInitialised
+		// a named hydrate was explicitly specified - probably meaning the hydrate is memoized
+		// call initialize to populate IsMemoized
 		c.NamedHydrate.initialize()
+		// be sure to also set the Hydrate property to the underlying func
+		c.Hydrate = c.NamedHydrate.Func
 	}
 
 }
