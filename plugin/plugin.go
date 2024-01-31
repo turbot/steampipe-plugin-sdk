@@ -364,6 +364,8 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 			log.Printf("[INFO] caching is disabled for table %s", table.Name)
 		}
 	}
+	// NOTE: write this back to the executeData so it is passed into QueryData
+	executeData.CacheEnabled = cacheEnabled
 
 	//  if cache NOT disabled, create a fresh context for this scan
 	ctx := streamContext
