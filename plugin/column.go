@@ -75,20 +75,29 @@ type Column struct {
 	Description string
 	// explicitly specify the function which populates this data
 	// - this is only needed if any of the default hydrate functions will NOT return this column
-	Hydrate HydrateFunc
+	Hydrate      HydrateFunc
+	NamedHydrate NamedHydrateFunc
 	// the default column value
 	Default interface{}
 	//  a list of transforms to generate the column value
 	Transform *transform.ColumnTransforms
 }
 
-// QueryColumn is struct storing column name and resolved hydrate name
-// this is used in the query data when the hydrate function has been resolved
-type QueryColumn struct {
-	*Column
-	// the name of the hydrate function which will be used to populate this column
-	// - this may be a default hydrate function
-	hydrateName string
+func (c Column) initialise() {
+	if c.Hydrate == nil && c.NamedHydrate.empty() {
+		return
+	}
+	// populate the named hydrate funcs
+	if c.NamedHydrate.empty() {
+		// create a named hydrate func, assuming this function is not memoized
+		c.NamedHydrate = newNamedHydrateFunc(c.Hydrate)
+	} else {
+		c.Hydrate = c.NamedHydrate.Func
+		// named hydrate was explicitly specified - probably meaning the hydrate is memoized
+		// call initialize to populate IsInitialised
+		c.NamedHydrate.initialize()
+	}
+
 }
 
 // ToColumnValue converts a value of unknown type to a valid protobuf column value.type
@@ -213,7 +222,16 @@ func (c Column) ToColumnValue(val any) (*proto.Column, error) {
 	}
 
 	return columnValue, nil
+}
 
+// TODO REMOVE NOW THAT WE HAV ENAMED HYDRATE
+// QueryColumn is struct storing column name and resolved hydrate name
+// this is used in the query data when the hydrate function has been resolved
+type QueryColumn struct {
+	*Column
+	// the name of the hydrate function which will be used to populate this column
+	// - this may be a default hydrate function
+	hydrateName string
 }
 
 func NewQueryColumn(column *Column, hydrateName string) *QueryColumn {

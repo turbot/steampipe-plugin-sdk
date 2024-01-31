@@ -66,7 +66,7 @@ func (t *Table) executeGetCall(ctx context.Context, queryData *QueryData) (err e
 		// we can now close the item chan
 		queryData.fetchComplete(ctx)
 		if r := recover(); r != nil {
-			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", t.Get.namedHydrate.Name, r))
+			err = status.Error(codes.Internal, fmt.Sprintf("get call %s failed with panic %v", t.Get.NamedHydrate.Name, r))
 		}
 	}()
 
@@ -179,7 +179,7 @@ func (t *Table) doGetForQualValues(ctx context.Context, queryData *QueryData, ke
 // execute a get call for a single key column qual value
 // if a matrix is defined, call for every matrix item
 func (t *Table) doGet(ctx context.Context, queryData *QueryData) (err error) {
-	hydrateKey := t.Get.namedHydrate.Name
+	hydrateKey := t.Get.NamedHydrate.Name
 	defer func() {
 		if p := recover(); p != nil {
 			err = status.Error(codes.Internal, fmt.Sprintf("table '%s': Get hydrate call %s failed with panic %v", t.Name, hydrateKey, p))
@@ -228,7 +228,7 @@ func (t *Table) get(ctx context.Context, queryData *QueryData) (*rowData, error)
 	rd := newRowData(queryData, nil)
 	// just invoke callHydrateWithRetries()
 	var getItem any
-	getItem, err := rd.callHydrateWithRetries(ctx, queryData, t.Get.namedHydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
+	getItem, err := rd.callHydrateWithRetries(ctx, queryData, t.Get.NamedHydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 	rd.item = getItem
 	return rd, err
 }
@@ -280,7 +280,7 @@ func (t *Table) getForEachMatrixItem(ctx context.Context, queryData *QueryData) 
 			matrixRd := newRowData(matrixQueryData, nil)
 
 			// now call hydrate from the matrix rowdata
-			item, err := matrixRd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.namedHydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
+			item, err := matrixRd.callHydrateWithRetries(fetchContext, matrixQueryData, t.Get.NamedHydrate, t.Get.IgnoreConfig, t.Get.RetryConfig)
 
 			if err != nil {
 				log.Printf("[WARN] callHydrateWithRetries returned error %v", err)
@@ -358,7 +358,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	defer log.Printf("[TRACE] executeListCall COMPLETE (%s)", queryData.connectionCallId)
 	defer func() {
 		if r := recover(); r != nil {
-			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", t.List.namedHydrate.Name, r)))
+			queryData.streamError(status.Error(codes.Internal, fmt.Sprintf("list call %s failed with panic %v", t.List.NamedHydrate.Name, r)))
 		}
 		// list call will return when it has streamed all items so close rowDataChan
 		queryData.fetchComplete(ctx)
@@ -373,13 +373,13 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}
 
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
-	var childHydrate *namedHydrateFunc = nil
-	listCall := t.List.namedHydrate
+	var childHydrate NamedHydrateFunc
+	listCall := t.List.NamedHydrate
 	// if there is a parent hydrate function, call that
 	// - the child 'Hydrate' function will be called by QueryData.StreamListItem,
 	if t.List.ParentHydrate != nil {
-		listCall = t.List.namedParentHydrate
-		childHydrate = t.List.namedHydrate
+		listCall = t.List.NamedParentHydrate
+		childHydrate = t.List.NamedHydrate
 	}
 
 	// store the list call and child hydrate call - these will be used later when we call setListMetadata
@@ -390,11 +390,11 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	if listQual := t.getListCallQualValueList(queryData); listQual != nil {
 		log.Printf("[TRACE] one qual with list value will be processed: %v", *listQual)
 		qualValueList := listQual.Value.GetListValue()
-		t.doListForQualValues(ctx, queryData, listQual.Column, qualValueList, *listCall)
+		t.doListForQualValues(ctx, queryData, listQual.Column, qualValueList, listCall)
 		return
 	}
 
-	t.doList(ctx, queryData, *listCall)
+	t.doList(ctx, queryData, listCall)
 }
 
 // if this table defines key columns, and if there is a SINGLE qual with a list value
@@ -448,7 +448,7 @@ func (t *Table) getListCallQualValueList(queryData *QueryData) *quals.Qual {
 }
 
 // doListForQualValues is called when there is an equals qual and the qual value is a list of values
-func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall namedHydrateFunc) {
+func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall NamedHydrateFunc) {
 	var listWg sync.WaitGroup
 
 	log.Printf("[TRACE] doListForQualValues - qual value is a list - executing list for each qual value item, qualValueList: %v", qualValueList)
@@ -473,7 +473,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 	listWg.Wait()
 }
 
-func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall namedHydrateFunc) {
+func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall NamedHydrateFunc) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.doList (%s)", t.Name)
 	defer span.End()
 
@@ -510,7 +510,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall named
 
 // ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData, listCall namedHydrateFunc) {
+func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData, listCall NamedHydrateFunc) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.listForEachMatrixItem (%s)", t.Name)
 	// TODO add matrix item to span
 	defer span.End()

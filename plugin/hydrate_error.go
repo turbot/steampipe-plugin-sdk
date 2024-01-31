@@ -18,7 +18,7 @@ func RetryHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, h
 	return retryNamedHydrate(ctx, d, hydrateData, newNamedHydrateFunc(hydrate), retryConfig)
 }
 
-func retryNamedHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrate namedHydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
+func retryNamedHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateData, hydrate NamedHydrateFunc, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
 	ctx, span := telemetry.StartSpan(ctx, d.Table.Plugin.Name, "RetryHydrate (%s)", d.Table.Name)
 	span.SetAttributes(
 		attribute.String("hydrate-func", hydrate.Name),
@@ -108,7 +108,7 @@ func getBackoff(retryConfig *RetryConfig) (retry.Backoff, error) {
 }
 
 // WrapHydrate is a higher order function which returns a [HydrateFunc] that handles Ignorable errors.
-func WrapHydrate(hydrate namedHydrateFunc, ignoreConfig *IgnoreConfig) namedHydrateFunc {
+func WrapHydrate(hydrate NamedHydrateFunc, ignoreConfig *IgnoreConfig) NamedHydrateFunc {
 	res := hydrate.clone()
 
 	res.Func = func(ctx context.Context, d *QueryData, h *HydrateData) (item interface{}, err error) {

@@ -592,7 +592,7 @@ func (p *Plugin) buildHydrateConfigMap() {
 		h := &p.HydrateConfig[i]
 		// initialise before adding to map
 		h.initialise(nil)
-		funcName := h.namedHydrate.Name
+		funcName := h.NamedHydrate.Name
 		p.hydrateConfigMap[funcName] = h
 	}
 }

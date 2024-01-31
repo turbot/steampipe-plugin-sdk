@@ -76,7 +76,7 @@ type GetConfig struct {
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 	MaxConcurrency    int
-	namedHydrate      namedHydrateFunc
+	NamedHydrate      NamedHydrateFunc
 }
 
 // initialise the GetConfig
@@ -106,7 +106,7 @@ func (c *GetConfig) initialise(table *Table) {
 		c.Tags = make(map[string]string)
 	}
 	// add in function name to tags
-	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
+	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.NamedHydrate.Name
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {
@@ -128,7 +128,15 @@ func (c *GetConfig) initialise(table *Table) {
 	log.Printf("[TRACE] GetConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 
 	// populate the named hydrate func
-	c.namedHydrate = newNamedHydrateFunc(c.Hydrate)
+	if c.NamedHydrate.empty() {
+		// create a named hydrate func, assuming this function is not memoized
+		c.NamedHydrate = newNamedHydrateFunc(c.Hydrate)
+	} else {
+		c.Hydrate = c.NamedHydrate.Func
+		// named hydrate was explicitly specified - probably meaning the hydrate is memoized
+		// call initialize to populate IsInitialised
+		c.NamedHydrate.initialize()
+	}
 
 }
 
