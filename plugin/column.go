@@ -83,7 +83,7 @@ type Column struct {
 	Transform *transform.ColumnTransforms
 }
 
-func (c Column) initialise() {
+func (c *Column) initialise() {
 	if c.Hydrate == nil && c.NamedHydrate.empty() {
 		return
 	}
@@ -102,7 +102,7 @@ func (c Column) initialise() {
 }
 
 // ToColumnValue converts a value of unknown type to a valid protobuf column value.type
-func (c Column) ToColumnValue(val any) (*proto.Column, error) {
+func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			panic(fmt.Errorf("%s: %v", c.Name, r))
