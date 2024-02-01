@@ -27,7 +27,7 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 		// default to empty limiter
 		rateLimiter: rate_limiter.EmptyMultiLimiter(),
 	}
-	res.NamedHydrateFunc = config.NamedHydrate
+	res.NamedHydrateFunc = config.namedHydrate
 
 	for _, f := range config.Depends {
 		res.Depends = append(res.Depends, newNamedHydrateFunc(f))

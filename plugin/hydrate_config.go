@@ -114,7 +114,7 @@ type HydrateConfig struct {
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 
-	NamedHydrate NamedHydrateFunc
+	namedHydrate NamedHydrateFunc
 }
 
 func (c *HydrateConfig) String() string {
@@ -127,7 +127,7 @@ RetryConfig: %s
 IgnoreConfig: %s
 Depends: %s
 ScopeValues: %s`,
-		c.NamedHydrate.Name,
+		c.namedHydrate.Name,
 		c.RetryConfig,
 		c.IgnoreConfig,
 		strings.Join(dependsStrings, ","),
@@ -137,19 +137,10 @@ ScopeValues: %s`,
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
-	// populate the named hydrate funcs
-	if c.NamedHydrate.empty() {
-		// create a named hydrate func, assuming this function is not memoized
-		c.NamedHydrate = newNamedHydrateFunc(c.Func)
-	} else {
-		// a named hydrate was explicitly specified - probably meaning the hydrate is memoized
-		// call initialize to populate IsMemoized
-		c.NamedHydrate.initialize()
-		// be sure to also set the Hydrate property to the underlying func
-		c.Func = c.NamedHydrate.Func
-	}
+	// create a named hydrate func
+	c.namedHydrate = newNamedHydrateFunc(c.Func)
 
-	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.NamedHydrate.Name, table.Name)
+	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.namedHydrate.Name, table.Name)
 
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {
@@ -166,7 +157,7 @@ func (c *HydrateConfig) initialise(table *Table) {
 		c.Tags = make(map[string]string)
 	}
 	// add in function name to tags
-	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.NamedHydrate.Name
+	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
 
 	// copy the (deprecated) top level ShouldIgnoreError property into the ignore config
 	if c.IgnoreConfig.ShouldIgnoreError == nil {

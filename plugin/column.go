@@ -225,8 +225,7 @@ func (c Column) ToColumnValue(val any) (*proto.Column, error) {
 	return columnValue, nil
 }
 
-// TODO REMOVE NOW THAT WE HAV ENAMED HYDRATE
-// QueryColumn is struct storing column name and resolved hydrate name
+// QueryColumn is struct storing column name and resolved hydrate name (including List/Get call)
 // this is used in the query data when the hydrate function has been resolved
 type QueryColumn struct {
 	*Column

@@ -151,7 +151,7 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 	}
 
 	for _, hydrateConfig := range t.hydrateConfigMap {
-		updateDependencyGraph(hydrateConfig.NamedHydrate, hydrateConfig.Depends)
+		updateDependencyGraph(hydrateConfig.namedHydrate, hydrateConfig.Depends)
 	}
 
 	if _, err := dependencyGraph.TopSort("root"); err != nil {

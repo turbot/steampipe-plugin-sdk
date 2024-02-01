@@ -473,7 +473,7 @@ func (d *QueryData) setMatrixItem(matrixItem map[string]interface{}) {
 	log.Printf("[INFO] setMatrixItem %s", matrixItem)
 	for col, value := range matrixItem {
 		qualValue := proto.NewQualValue(value)
-		// replace any existing entry for both Quals and EqualsQuals
+
 		d.EqualsQuals[col] = qualValue
 		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Operator: quals.QualOperatorEqual, Value: qualValue}}}
 	}

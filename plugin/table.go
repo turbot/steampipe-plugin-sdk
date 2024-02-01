@@ -163,7 +163,7 @@ func (t *Table) buildHydrateConfigMap() {
 		// NOTE: initialise the hydrate config
 		h.initialise(t)
 
-		t.hydrateConfigMap[h.NamedHydrate.Name] = h
+		t.hydrateConfigMap[h.namedHydrate.Name] = h
 	}
 	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies
 	for _, d := range t.HydrateDependencies {
