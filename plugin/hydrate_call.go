@@ -11,9 +11,9 @@ import (
 
 // hydrateCall struct encapsulates a hydrate call, its config and dependencies
 type hydrateCall struct {
-	namedHydrateFunc
+	NamedHydrateFunc
 	// the dependencies expressed using function name
-	Depends []namedHydrateFunc
+	Depends []NamedHydrateFunc
 	Config  *HydrateConfig
 
 	queryData   *QueryData
@@ -27,7 +27,7 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 		// default to empty limiter
 		rateLimiter: rate_limiter.EmptyMultiLimiter(),
 	}
-	res.namedHydrateFunc = newNamedHydrateFunc(config.Func)
+	res.NamedHydrateFunc = config.namedHydrate
 
 	for _, f := range config.Depends {
 		res.Depends = append(res.Depends, newNamedHydrateFunc(f))
@@ -38,7 +38,7 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 
 func (h *hydrateCall) shallowCopy() *hydrateCall {
 	return &hydrateCall{
-		namedHydrateFunc: namedHydrateFunc{
+		NamedHydrateFunc: NamedHydrateFunc{
 			Func: h.Func,
 			Name: h.Name,
 		},
@@ -111,7 +111,7 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, d, h.namedHydrateFunc, h.Config)
+		r.callHydrate(ctx, d, h.NamedHydrateFunc, h.Config)
 		h.onFinished()
 	}()
 	// retrieve the concurrencyDelay for the call

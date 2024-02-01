@@ -126,6 +126,10 @@ func (t *Table) initialise(p *Plugin) {
 		log.Printf("[TRACE] t.List.initialise")
 		t.List.initialise(t)
 	}
+	// initialise columns
+	for _, c := range t.Columns {
+		c.initialise()
+	}
 
 	// HydrateConfig contains explicit config for hydrate functions but there may be other hydrate functions
 	// declared for specific columns which do not have config defined
@@ -174,7 +178,7 @@ func (t *Table) buildHydrateConfigMap() {
 	// NOTE: the get config may be used as a column hydrate function so add this into the map
 	if get := t.Get; get != nil {
 		// create and initialise a new hydrate config for the get func
-		t.hydrateConfigMap[get.namedHydrate.Name] = t.hydrateConfigFromGet(t.Get)
+		t.hydrateConfigMap[get.NamedHydrate.Name] = t.hydrateConfigFromGet(t.Get)
 	}
 
 	// now add all hydrate functions with no explicit config
@@ -182,9 +186,8 @@ func (t *Table) buildHydrateConfigMap() {
 		if c.Hydrate == nil {
 			continue
 		}
-		// to get name, create a namedHydrate - this will take care of mapping memoized function namedHydrate
-		hydrateName := newNamedHydrateFunc(c.Hydrate).Name
-
+		// get name
+		hydrateName := c.NamedHydrate.Name
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
 			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(c.Hydrate)
 		}
@@ -215,9 +218,9 @@ func (t *Table) hydrateConfigFromGet(get *GetConfig) *HydrateConfig {
 	return c
 }
 
-func (t *Table) getFetchFunc(fetchType fetchType) namedHydrateFunc {
+func (t *Table) getFetchFunc(fetchType fetchType) NamedHydrateFunc {
 	if fetchType == fetchTypeList {
-		return *t.List.namedHydrate
+		return t.List.NamedHydrate
 	}
-	return t.Get.namedHydrate
+	return t.Get.NamedHydrate
 }

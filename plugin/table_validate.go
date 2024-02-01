@@ -135,8 +135,8 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 	var dependencyGraph = topsort.NewGraph()
 	dependencyGraph.AddNode("root")
 
-	updateDependencyGraph := func(hydrateFunc HydrateFunc, hydrateDepends []HydrateFunc) {
-		name := newNamedHydrateFunc(hydrateFunc).Name
+	updateDependencyGraph := func(namedHydrateFunc NamedHydrateFunc, hydrateDepends []HydrateFunc) {
+		name := namedHydrateFunc.Name
 		if !dependencyGraph.ContainsNode(name) {
 			dependencyGraph.AddNode(name)
 		}
@@ -151,7 +151,7 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 	}
 
 	for _, hydrateConfig := range t.hydrateConfigMap {
-		updateDependencyGraph(hydrateConfig.Func, hydrateConfig.Depends)
+		updateDependencyGraph(hydrateConfig.namedHydrate, hydrateConfig.Depends)
 	}
 
 	if _, err := dependencyGraph.TopSort("root"); err != nil {

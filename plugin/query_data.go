@@ -152,8 +152,8 @@ type QueryData struct {
 
 	fetchMetadata         *hydrateMetadata
 	parentHydrateMetadata *hydrateMetadata
-	listHydrate           *namedHydrateFunc
-	childHydrate          *namedHydrateFunc
+	listHydrate           NamedHydrateFunc
+	childHydrate          NamedHydrateFunc
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -394,7 +394,7 @@ func (d *QueryData) populateMatrixPropertyNames() {
 // first. BEFORE the other hydration functions
 // NOTE2: this function also populates the resolvedHydrateName for each column (used to retrieve column values),
 // and the hydrateColumnMap (used to determine which columns to return)
-func (d *QueryData) populateRequiredHydrateCalls() {
+func (d *QueryData) populateRequiredHydrateCalls() error {
 	t := d.Table
 	colsUsed := d.QueryContext.Columns
 	fetchType := d.FetchType
@@ -424,12 +424,13 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 			hydrateName = fetchFunc.Name
 		} else {
 			// there is a hydrate call registered
-			namedFunc := newNamedHydrateFunc(hydrateFunc)
-			hydrateName = namedFunc.Name
+			hydrateName = column.NamedHydrate.Name
 
 			// if this column was requested in query, add the hydrate call to required calls
 			if helpers.StringSliceContains(colsUsed, column.Name) {
-				requiredCallBuilder.Add(namedFunc, d.connectionCallId)
+				if err := requiredCallBuilder.Add(column.NamedHydrate, d.connectionCallId); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -440,6 +441,7 @@ func (d *QueryData) populateRequiredHydrateCalls() {
 
 	// now we have all the hydrate calls, build a list of all the columns that will be returned by the hydrate functions.
 	// these will be used for the cache
+	return nil
 }
 
 // build list of all columns returned by the fetch call and required hydrate calls
@@ -457,7 +459,6 @@ func (d *QueryData) populateColumns() {
 // get the column returned by the given hydrate call
 func (d *QueryData) addColumnsForHydrate(hydrateName string) {
 	for _, columnName := range d.hydrateColumnMap[hydrateName] {
-
 		// get the column from the table
 		column := d.Table.getColumn(columnName)
 		d.columns[columnName] = NewQueryColumn(column, hydrateName)
@@ -471,7 +472,7 @@ func (d *QueryData) setMatrixItem(matrixItem map[string]interface{}) {
 	log.Printf("[INFO] setMatrixItem %s", matrixItem)
 	for col, value := range matrixItem {
 		qualValue := proto.NewQualValue(value)
-		// replace any existing entry for both Quals and EqualsQuals
+
 		d.EqualsQuals[col] = qualValue
 		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Operator: quals.QualOperatorEqual, Value: qualValue}}}
 	}
@@ -545,13 +546,13 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 	if d.Table.List == nil {
 		return false
 	}
-	listFunction := d.Table.List.namedHydrate.Name
-	listParentFunction := d.Table.List.namedParentHydrate.Name
+	listFunction := d.Table.List.NamedHydrate.Name
+	listParentFunction := d.Table.List.NamedParentHydrate.Name
 	if callingFunction != listFunction && callingFunction != listParentFunction {
 		// if the calling function is NOT one of the other registered hydrate functions,
 		//it must be an anonymous function so let it go
 		for _, c := range d.Table.Columns {
-			if c.Hydrate != nil && newNamedHydrateFunc(c.Hydrate).Name == callingFunction {
+			if c.NamedHydrate.Name == callingFunction {
 				return false
 			}
 		}
@@ -659,7 +660,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 		// set the parent item on the row data
 		rd.parentItem = d.parentItem
 		// NOTE: add the item as the hydrate data for the list call
-		rd.set(d.Table.List.namedHydrate.Name, item)
+		rd.set(d.Table.List.NamedHydrate.Name, item)
 
 		d.rowDataChan <- rd
 	}
@@ -702,11 +703,10 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 				logging.LogTime("got rowData - calling getRow")
 				// is there any more data?
 				if rowData == nil {
-					log.Printf("[INFO] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
+					log.Printf("[TRACE] rowData chan returned nil - wait for rows to complete (%s)", d.connectionCallId)
 					// now we know there will be no more items, close row chan when the wait group is complete
 					// this allows time for all hydrate goroutines to complete
 					d.waitForRowsToComplete(&rowWg, rowChan)
-					log.Printf("[INFO] buildRowsAsync goroutine returning (%s)", d.connectionCallId)
 					// rowData channel closed - nothing more to do
 					return
 				}
@@ -916,7 +916,7 @@ func (d *QueryData) removeReservedColumns(row *proto.Row) {
 	}
 }
 
-func (d *QueryData) setListCalls(listCall, childHydrate *namedHydrateFunc) {
+func (d *QueryData) setListCalls(listCall, childHydrate NamedHydrateFunc) {
 	d.listHydrate = listCall
 	d.childHydrate = childHydrate
 }

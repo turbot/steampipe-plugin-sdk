@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -19,7 +20,7 @@ func newRequiredHydrateCallBuilder(d *QueryData, fetchCallName string) *required
 	}
 }
 
-func (c requiredHydrateCallBuilder) Add(hydrateFunc namedHydrateFunc, callId string) error {
+func (c requiredHydrateCallBuilder) Add(hydrateFunc NamedHydrateFunc, callId string) error {
 	hydrateName := hydrateFunc.Name
 
 	// if the resolved hydrate call is NOT the same as the fetch call, add to the map of hydrate functions to call
@@ -30,7 +31,10 @@ func (c requiredHydrateCallBuilder) Add(hydrateFunc namedHydrateFunc, callId str
 
 		// get the config for this hydrate function
 		config := getHydrateConfig(c, hydrateName)
-
+		if config == nil {
+			log.Printf("[WARN] failed to find hydrate config for %s", hydrateName)
+			return fmt.Errorf("failed to find hydrate config for %s", hydrateName)
+		}
 		call, err := newHydrateCall(config, c.queryData)
 		if err != nil {
 			log.Printf("[WARN] failed to add a hydrate call for %s: %s", hydrateName, err.Error())

@@ -114,7 +114,7 @@ type HydrateConfig struct {
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 
-	namedHydrate namedHydrateFunc
+	namedHydrate NamedHydrateFunc
 }
 
 func (c *HydrateConfig) String() string {
@@ -137,6 +137,7 @@ ScopeValues: %s`,
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
+	// create a named hydrate func
 	c.namedHydrate = newNamedHydrateFunc(c.Func)
 
 	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.namedHydrate.Name, table.Name)

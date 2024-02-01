@@ -4,21 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"reflect"
 	"sync"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
 )
-
-// map of memoized functions to the original function name
-var memoizedNameMap = make(map[uintptr]string)
-var memoizedNameMapLock sync.RWMutex
-
-// map of currently executing memoized hydrate funcs
-
-var memoizedHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
-var memoizedHydrateLock sync.RWMutex
 
 /*
 HydrateFunc is a function that gathers data to build table rows.
@@ -66,6 +56,11 @@ Use it to reduce the number of API calls if the HydrateFunc is used by multiple 
 	}
 */
 func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
+	// TODO determine if this is already memoized
+	// if so, return the existing memoized function
+
+	log.Printf("[INFO] Memoize %p %s", f, helpers.GetFunctionName(f))
+
 	config := newMemoizeConfiguration(f)
 	for _, o := range opts {
 		o(config)
@@ -130,11 +125,9 @@ func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		log.Printf("[TRACE] Memoize (connection %s, cache key %s) - no pending call found so calling and caching hydrate", d.Connection.Name, cacheKey)
 		// no call the hydrate function and cache the result
 		return callAndCacheHydrate(ctx, d, h, f, cacheKey, ttl)
-
 	}
 
-	// store the memoized func in the name map
-	f.setMemoizedFuncName(memoizedFunc)
+	log.Printf("[INFO] Memoize %p %s", f, helpers.GetFunctionName(f))
 
 	return memoizedFunc
 }
@@ -188,28 +181,4 @@ func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydr
 
 	// return the hydrate data
 	return hydrateData, nil
-}
-
-// return the function name
-// if this function has been memoized, return the underlying function name
-func (f HydrateFunc) getOriginalFuncName() (name string, isMemoized bool) {
-	memoizedNameMapLock.RLock()
-	// check if this is a memoized function, if so get the original name
-	p := reflect.ValueOf(f).Pointer()
-	name, isMemoized = memoizedNameMap[p]
-	memoizedNameMapLock.RUnlock()
-
-	if !isMemoized {
-		name = helpers.GetFunctionName(f)
-	}
-
-	return name, isMemoized
-}
-
-func (f HydrateFunc) setMemoizedFuncName(memoizedFunc HydrateFunc) {
-	// add to map
-	memoizedNameMapLock.Lock()
-	p := reflect.ValueOf(memoizedFunc).Pointer()
-	memoizedNameMap[p] = helpers.GetFunctionName(f)
-	memoizedNameMapLock.Unlock()
 }
