@@ -397,8 +397,13 @@ func TestRequiredHydrateCalls(t *testing.T) {
 	logger := hclog.NewNullLogger()
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 
+	var targetTest string
+	//targetTest = "list - 1 hydrate, depends"
 	plugin.initialise(logger)
 	for name, test := range testCasesRequiredHydrateCalls {
+		if targetTest != "" && name != targetTest {
+			continue
+		}
 		test.table.initialise(plugin)
 
 		d, _ := newTestQueryData(plugin, &QueryContext{Columns: test.columns}, test.table, test.fetchType)

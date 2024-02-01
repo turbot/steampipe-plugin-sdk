@@ -459,7 +459,6 @@ func (d *QueryData) populateColumns() {
 // get the column returned by the given hydrate call
 func (d *QueryData) addColumnsForHydrate(hydrateName string) {
 	for _, columnName := range d.hydrateColumnMap[hydrateName] {
-
 		// get the column from the table
 		column := d.Table.getColumn(columnName)
 		d.columns[columnName] = NewQueryColumn(column, hydrateName)
