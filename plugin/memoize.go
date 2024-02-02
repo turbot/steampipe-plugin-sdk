@@ -11,8 +11,15 @@ var memoizedHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
 var memoizedHydrateLock sync.RWMutex
 
 /*
-		MemoizeHydrate creates a memoized version of the supplied hydrate function and returns a NamedHydrateFunc
-	    populated with the original function name.
+MemoizeHydrate ensures the [HydrateFunc] results are saved in the [connection.ConnectionCache].
+
+Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
+
+MemoizeHydrate creates a memoized version of the supplied hydrate function and returns a NamedHydrateFunc
+populated with the original function name.
+
+This allow the plugin execution code to know the original function name, which is used to key the hydrate
+function internally in the SDK.
 
 # Usage
 

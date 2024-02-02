@@ -45,15 +45,9 @@ Memoize ensures the [HydrateFunc] results are saved in the [connection.Connectio
 
 Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
 
-# Usage
-
-	{
-		Name:        "account",
-		Type:        proto.ColumnType_STRING,
-		Hydrate:     plugin.HydrateFunc(getCommonColumns).Memoize(),
-		Description: "The Snowflake account ID.",
-		Transform:   transform.FromCamel(),
-	}
+NOTE: this should only be used to memoize a function which will be manually invoked and requires caching
+It should NOT be used to memoize a hydrate function being passed toi a table definition.
+Instead, use [MemoizeHydrate]
 */
 func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 	// TODO determine if this is already memoized
