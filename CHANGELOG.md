@@ -1,8 +1,16 @@
+## v5.9.0 [tbd]
+_What's new?_
+* Added function `plugin.MemoizeHydrate` which should be used instead of `Memoize` when passing hydrate calls to a table definition. 
+At present, the original function names for `Memoized` hydrate calls are incorrectly resolved. `MemoizeHydrate` returns a `NamedHydrateFunc` which contains the original name. ([#738](https://github.com/turbot/steampipe-plugin-sdk/issues/738))
+
+_Bug fixes_
+* If cache is disabled for the server, but enabled for the client, the query execution code tries to stream to the cache even though there is not active set operation. ([#740](https://github.com/turbot/steampipe-plugin-sdk/issues/740))
+
 ## v5.8.0 [2023-12-11]
 _What's new?_
 * Encapsulate plugin server so it is possible to use it in-process as well as via GRPC. ([#719](https://github.com/turbot/steampipe-plugin-sdk/issues/719))
 * Add `steampipe` field to `_ctx` column, containing sdk version. ([#712](https://github.com/turbot/steampipe-plugin-sdk/issues/712))
- 
+
 _Bug fixes_
 * Remove `plugin has no connections` error when deleting and then re-adding a connection. ([#725](https://github.com/turbot/steampipe-plugin-sdk/issues/725))
 * Fix potential divide by zero bug when setting cache size
