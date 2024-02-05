@@ -398,7 +398,7 @@ func TestRequiredHydrateCalls(t *testing.T) {
 	log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 
 	var targetTest string
-	//targetTest = "list - 1 hydrate, depends"
+	//targetTest = "list - 1 hydrate, depends [HydrateDependencies]"
 	plugin.initialise(logger)
 	for name, test := range testCasesRequiredHydrateCalls {
 		if targetTest != "" && name != targetTest {
@@ -406,7 +406,10 @@ func TestRequiredHydrateCalls(t *testing.T) {
 		}
 		test.table.initialise(plugin)
 
-		d, _ := newTestQueryData(plugin, &QueryContext{Columns: test.columns}, test.table, test.fetchType)
+		d, err := newTestQueryData(plugin, &QueryContext{Columns: test.columns}, test.table, test.fetchType)
+		if err != nil {
+			t.Fatalf("Test: '%s'' FAILED : %v", name, err)
+		}
 		result := d.hydrateCalls
 
 		if len(test.expected) == 0 && len(result) == 0 {
@@ -439,7 +442,9 @@ func newTestQueryData(plugin *Plugin, queryContext *QueryContext, table *Table, 
 	queryContext.ensureColumns(table)
 
 	// build list of required hydrate calls, based on requested columns
-	d.populateRequiredHydrateCalls()
+	if err := d.populateRequiredHydrateCalls(); err != nil {
+		return nil, err
+	}
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
 
