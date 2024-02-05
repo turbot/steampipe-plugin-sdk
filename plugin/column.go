@@ -75,7 +75,11 @@ type Column struct {
 	Description string
 	// explicitly specify the function which populates this data
 	// - this is only needed if any of the default hydrate functions will NOT return this column
-	Hydrate      HydrateFunc
+	Hydrate HydrateFunc
+	// if the hydrate function is memoized, populate this property by using the plugin.NamedHydrateFunc function
+	// this ensures the original plugin name is retained after memoizing the function (which wraps the HydraeFunc in
+	// an anonymous function to handle cache logic))
+	// NOTE: only 1 of HydrateFunc and NamedHydrateFunc should be populated
 	NamedHydrate NamedHydrateFunc
 	// the default column value
 	Default interface{}

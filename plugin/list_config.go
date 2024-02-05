@@ -52,8 +52,8 @@ type ListConfig struct {
 	// Deprecated: Use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 
-	NamedHydrate       NamedHydrateFunc
-	NamedParentHydrate NamedHydrateFunc
+	namedHydrate       NamedHydrateFunc
+	namedParentHydrate NamedHydrateFunc
 }
 
 func (c *ListConfig) initialise(table *Table) {
@@ -87,31 +87,15 @@ func (c *ListConfig) initialise(table *Table) {
 	c.IgnoreConfig.DefaultTo(table.DefaultIgnoreConfig)
 
 	// populate the named hydrate funcs
-	if c.NamedHydrate.empty() {
-		c.NamedHydrate = newNamedHydrateFunc(c.Hydrate)
-	} else {
-		// a named hydrate was explicitly specified - probably meaning the hydrate is memoized
-		// call initialize to populate IsMemoized
-		c.NamedHydrate.initialize()
-		// be sure to also set the Hydrate property to the underlying func
-		c.Hydrate = c.NamedHydrate.Func
-	}
+	c.namedHydrate = newNamedHydrateFunc(c.Hydrate)
 	// add in function name to tags
-	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.NamedHydrate.Name
+	c.Tags[rate_limiter.RateLimiterScopeFunction] = c.namedHydrate.Name
 
 	if c.ParentHydrate != nil {
-		if c.NamedParentHydrate.empty() {
-			c.NamedParentHydrate = newNamedHydrateFunc(c.ParentHydrate)
-		} else {
-			// a named hydrate was explicitly specified - probably meaning the hydrate is memoized
-			// call initialize to populate IsMemoized
-			c.NamedParentHydrate.initialize()
-			// be sure to also set the Hydrate property to the underlying func
-			c.ParentHydrate = c.NamedParentHydrate.Func
-		}
+		c.namedParentHydrate = newNamedHydrateFunc(c.ParentHydrate)
 
 		// add in parent function name to tags
-		c.ParentTags[rate_limiter.RateLimiterScopeFunction] = c.NamedParentHydrate.Name
+		c.ParentTags[rate_limiter.RateLimiterScopeFunction] = c.namedParentHydrate.Name
 	}
 
 	log.Printf("[TRACE] ListConfig.initialise complete: RetryConfig: %s, IgnoreConfig %s", c.RetryConfig.String(), c.IgnoreConfig.String())
@@ -130,7 +114,7 @@ func (c *ListConfig) Validate(table *Table) []string {
 	}
 
 	// ensure that if there is an explicit hydrate config for the list hydrate, it does not declare dependencies
-	listHydrateName := table.List.NamedHydrate.Name
+	listHydrateName := table.List.namedHydrate.Name
 	for _, h := range table.HydrateConfig {
 		if h.namedHydrate.Name == listHydrateName {
 			if len(h.Depends) > 0 {

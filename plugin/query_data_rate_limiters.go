@@ -96,7 +96,7 @@ func (d *QueryData) resolveGetRateLimiters() error {
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
 	getLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.Get.Tags, d)
 	if err != nil {
-		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", d.Table.Get.NamedHydrate.Name, err.Error(), d.connectionCallId)
+		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", d.Table.Get.namedHydrate.Name, err.Error(), d.connectionCallId)
 		return err
 	}
 
@@ -111,7 +111,7 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 	// resolve the parent hydrate rate limiter
 	parentRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.ParentTags, d)
 	if err != nil {
-		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", d.Table.List.NamedParentHydrate.Name, err.Error(), d.connectionCallId)
+		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", d.Table.List.namedParentHydrate.Name, err.Error(), d.connectionCallId)
 		return err
 	}
 	// assign the parent rate limiter to d.fetchLimiters
@@ -120,7 +120,7 @@ func (d *QueryData) resolveParentChildRateLimiters() error {
 	// resolve the child  hydrate rate limiter
 	childRateLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.Tags, d)
 	if err != nil {
-		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", d.Table.List.NamedHydrate.Name, err.Error(), d.connectionCallId)
+		log.Printf("[WARN] resolveParentChildRateLimiters: %s: getHydrateCallRateLimiter failed: %s (%s)", d.Table.List.namedHydrate.Name, err.Error(), d.connectionCallId)
 		return err
 	}
 	d.fetchLimiters.childListRateLimiter = childRateLimiter
@@ -132,7 +132,7 @@ func (d *QueryData) resolveListRateLimiters() error {
 	// NOTE: RateLimit cannot be nil as it is initialized to an empty struct if needed
 	listLimiter, err := d.plugin.getHydrateCallRateLimiter(d.Table.List.Tags, d)
 	if err != nil {
-		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", d.Table.Get.NamedHydrate.Name, err.Error(), d.connectionCallId)
+		log.Printf("[WARN] get call %s getHydrateCallRateLimiter failed: %s (%s)", d.Table.Get.namedHydrate.Name, err.Error(), d.connectionCallId)
 		return err
 	}
 	d.fetchLimiters.rateLimiter = listLimiter
@@ -164,7 +164,7 @@ func (d *QueryData) setListMetadata(fetchDelay time.Duration) {
 func (d *QueryData) setGetLimiterMetadata(fetchDelay time.Duration) {
 	d.fetchMetadata = &hydrateMetadata{
 		Type:         string(fetchTypeGet),
-		FuncName:     d.Table.Get.NamedHydrate.Name,
+		FuncName:     d.Table.Get.namedHydrate.Name,
 		RateLimiters: d.fetchLimiters.rateLimiter.LimiterNames(),
 		ScopeValues:  d.fetchLimiters.rateLimiter.ScopeValues,
 		DelayMs:      fetchDelay.Milliseconds(),
