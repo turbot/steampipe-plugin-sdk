@@ -195,7 +195,7 @@ func (t *Table) buildHydrateConfigMap() {
 }
 
 func (t *Table) newHydrateConfig(namedHydrateFunc NamedHydrateFunc, depends ...HydrateFunc) *HydrateConfig {
-	c := &HydrateConfig{Func: namedHydrateFunc.Func, namedHydrate: namedHydrateFunc}
+	c := &HydrateConfig{Func: namedHydrateFunc.Func, namedHydrate: namedHydrateFunc, Depends: depends}
 	// be sure to initialise the config
 	c.initialise(t)
 	return c
