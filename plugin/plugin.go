@@ -763,3 +763,30 @@ func (p *Plugin) populateConnectionKeyColumns(connections []*proto.ConnectionCon
 
 	return nil
 }
+
+func (p *Plugin) filterConnectionsWithKeyColumns(connectionData map[string]*proto.ExecuteConnectionData, quals map[string]*proto.Quals) map[string]*proto.ExecuteConnectionData {
+	//var res = make(map[string]*proto.ExecuteConnectionData)
+	// if this plugin does not support connectionKeyColumns, nothing to do
+	//if p.ConnectionKeyColumnValuesFunc == nil{
+	return connectionData
+	//}
+
+	//for column, quals := range quals {
+	//	if _, isConnectionKeyColumn := p.connectionKeyColumnsLookup[column]; !isConnectionKeyColumn {
+	//		continue
+	//	}
+	//	// get the connection for the qual value
+	//	for connection, columnValueMap := range p.connectionKeyColumnValuesMap {
+	//		for _, qual := range quals {
+	//
+	//			// check whether this quasl is for a connectionKeyColumn
+	//			if columnValue, ok := columnValueMap[column]; ok {
+	//				// for now assume equals qual
+	//				if qual.Quals. == "=" && quals.Value == columnValue{}
+	//
+	//			}
+	//		}
+	//	}
+	//
+	//}
+}

@@ -3,7 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"golang.org/x/exp/maps"
 	"log"
 	"strings"
 
@@ -13,7 +13,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"golang.org/x/exp/maps"
 )
 
 // ConnectionData is the data stored by the plugin which is connection dependent.
@@ -309,9 +308,8 @@ func (d *ConnectionData) addConnectionKeyColumns(column *proto.ColumnDefinition,
 		kc := &proto.KeyColumn{
 			Name: column.Name,
 			// todo like?
-			Operators:  []string{"="},
-			Require:    plugin.Optional,
-			CacheMatch: "",
+			Operators: []string{"="},
+			Require:   Optional,
 		}
 		// check whether we already have a key column for this column
 		for _, k := range superset.GetCallKeyColumnList {

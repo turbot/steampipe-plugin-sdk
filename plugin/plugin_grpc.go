@@ -221,7 +221,11 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
 	connectionData, _ := p.getConnectionData(req.Connection)
 
+	//connections := p.filterConnectionsWithKeyColumns(req.ExecuteConnectionData, req.Quals)
+
 	for connectionName := range req.ExecuteConnectionData {
+		// if connection key columns are defined, check whether there are any relevant quals which exclude this column
+
 		// if this is an aggregator execution, check whether this child connection supports this table
 		if connectionData != nil && connectionData.AggregatedTablesByConnection != nil {
 			if tablesForConnection, ok := connectionData.AggregatedTablesByConnection[connectionName]; ok {
