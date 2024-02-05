@@ -1,10 +1,9 @@
 package plugin
 
 import (
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
-
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
 /*
@@ -154,7 +153,6 @@ func (t *Table) setColumnNameMap() {
 // build map of all hydrate configs, including those specified in the legacy HydrateDependencies,
 // and those mentioned only in column config
 func (t *Table) buildHydrateConfigMap() {
-	// TODO tidy this up - initialise at end, set name first?
 	t.hydrateConfigMap = make(map[string]*HydrateConfig)
 	for i := range t.HydrateConfig {
 		// as we are converting into a pointer, we cannot use the array value direct from the range as
@@ -163,6 +161,7 @@ func (t *Table) buildHydrateConfigMap() {
 		// NOTE: initialise the hydrate config
 		h.initialise(t)
 
+		log.Printf("[INFO] table %s hydrate config found for : %s", t.Name, h.namedHydrate.Name)
 		t.hydrateConfigMap[h.namedHydrate.Name] = h
 	}
 	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies
@@ -172,7 +171,7 @@ func (t *Table) buildHydrateConfigMap() {
 		// (this is a validation error that will be picked up by the validation check later)
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
 			// create and initialise a new hydrate config for this func
-			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(d.Func, d.Depends...)
+			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(newNamedHydrateFunc(d.Func), d.Depends...)
 		}
 	}
 	// NOTE: the get config may be used as a column hydrate function so add this into the map
@@ -189,13 +188,14 @@ func (t *Table) buildHydrateConfigMap() {
 		// get name
 		hydrateName := c.NamedHydrate.Name
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
-			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(c.Hydrate)
+			log.Printf("[INFO] table %s create hydrate config for : %s", t.Name, hydrateName)
+			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(c.NamedHydrate)
 		}
 	}
 }
 
-func (t *Table) newHydrateConfig(hydrateFunc HydrateFunc, depends ...HydrateFunc) *HydrateConfig {
-	c := &HydrateConfig{Func: hydrateFunc, Depends: depends}
+func (t *Table) newHydrateConfig(namedHydrateFunc NamedHydrateFunc, depends ...HydrateFunc) *HydrateConfig {
+	c := &HydrateConfig{Func: namedHydrateFunc.Func, namedHydrate: namedHydrateFunc, Depends: depends}
 	// be sure to initialise the config
 	c.initialise(t)
 	return c
@@ -206,6 +206,7 @@ func (t *Table) hydrateConfigFromGet(get *GetConfig) *HydrateConfig {
 		return nil
 	}
 	c := &HydrateConfig{
+		namedHydrate:      get.NamedHydrate,
 		Func:              get.Hydrate,
 		IgnoreConfig:      get.IgnoreConfig,
 		RetryConfig:       get.RetryConfig,
