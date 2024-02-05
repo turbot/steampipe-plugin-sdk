@@ -67,9 +67,11 @@ type Plugin struct {
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	// NOTE: it must be NULL for plugins with dynamic schema
-	TableMap         map[string]*Table
-	TableMapFunc     TableMapFunc
-	DefaultTransform *transform.ColumnTransforms
+	TableMap                      map[string]*Table
+	TableMapFunc                  TableMapFunc
+	DefaultTransform              *transform.ColumnTransforms
+	ConnectionKeyColumnValuesFunc ConnectionColumnValuesFunc
+
 	// deprecated - use RateLimiters to control concurrency
 	DefaultConcurrency  *DefaultConcurrencyConfig
 	DefaultRetryConfig  *RetryConfig
@@ -108,6 +110,12 @@ type Plugin struct {
 	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
 
+	// map of column values with a 1-1 mapping with connection name
+	// keyed by connection name
+	connectionKeyColumnValuesMap map[string]map[string]any
+	// lookup of key columns which act as connectionKeyColumns
+	connectionKeyColumnsLookup map[string]struct{}
+
 	// temporary dir for this plugin
 	// this will only created if getSourceFiles is used
 	tempDir string
@@ -137,6 +145,9 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
 	p.Logger = logger
+
+	p.connectionKeyColumnValuesMap = make(map[string]map[string]any)
+	p.connectionKeyColumnsLookup = make(map[string]struct{})
 
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 	p.logMemoryLimit()
@@ -725,4 +736,30 @@ func (p *Plugin) deleteConnectionData(connections []string) {
 		delete(p.ConnectionMap, deletedConnection)
 	}
 	p.connectionMapLock.Unlock()
+}
+
+// populate the values of all columns which have a 1-1 mapping with given connection name.
+func (p *Plugin) populateConnectionKeyColumns(connections []*proto.ConnectionConfig) error {
+	if p.ConnectionKeyColumnValuesFunc == nil {
+		return nil
+	}
+
+	for i, c := range connections {
+		columnValues, err := p.ConnectionKeyColumnValuesFunc(ConnectionKeyColumnValuesData{
+			Connection: p.ConnectionMap[c.Connection].Connection,
+		})
+		if err != nil {
+			return err
+		}
+		p.connectionKeyColumnValuesMap[c.Connection] = columnValues
+
+		// populate connectionKeyColumnsLookup from the first connection
+		if i == 0 {
+			for column := range columnValues {
+				p.connectionKeyColumnsLookup[column] = struct{}{}
+			}
+		}
+	}
+
+	return nil
 }

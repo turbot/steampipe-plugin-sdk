@@ -87,6 +87,13 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		}
 	}
 
+	// if the plugin has registered a ConnectionKeyColumnValuesFunc, call it for each connection
+	if p.ConnectionKeyColumnValuesFunc != nil {
+		if err := p.populateConnectionKeyColumns(configs); err != nil {
+			return updateData.failedConnections, err
+		}
+	}
+
 	// if there are any failed connections, raise an error
 	err = error_helpers.CombineErrors(maps.Values(updateData.failedConnections)...)
 	return updateData.failedConnections, err
@@ -396,7 +403,7 @@ func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) (err err
 	return error_helpers.CombineErrors(errors...)
 }
 
-// return the rate limiter defintions defined by the plugin
+// return the rate limiter definitions defined by the plugin
 func (p *Plugin) getRateLimiters() []*proto.RateLimiterDefinition {
 	if len(p.RateLimiters) == 0 {
 		return nil

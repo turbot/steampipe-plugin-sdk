@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
 	"log"
 	"strings"
 
@@ -113,7 +114,7 @@ func (d *ConnectionData) initAggregatorSchema(aggregatorConfig *proto.Connection
 		return logMessages, err
 	}
 
-	// resolve tables to include by comparing the tablde schemas for each connection
+	// resolve tables to include by comparing the table schemas for each connection
 	// and resolving the aggregator schema, (based on the `Aggregation` property)
 	d.resolveAggregatorTableMap(aggregatorConfig, logMessages)
 
@@ -293,10 +294,43 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 			// ok including this column
 			superset.Columns = append(superset.Columns, column)
 			includedColumns[column.Name] = struct{}{}
+
+			// check whether this column is a connectionKeyColumn and if so, create get and list key columns for the superset schema
+			d.addConnectionKeyColumns(column, superset)
 		}
 	}
 
 	return superset, messages
+}
+
+func (d *ConnectionData) addConnectionKeyColumns(column *proto.ColumnDefinition, superset *proto.TableSchema) {
+	if _, ok := d.Plugin.connectionKeyColumnsLookup[column.Name]; ok {
+		// add to the get and list key columns
+		kc := &proto.KeyColumn{
+			Name: column.Name,
+			// todo like?
+			Operators:  []string{"="},
+			Require:    plugin.Optional,
+			CacheMatch: "",
+		}
+		// check whether we already have a key column for this column
+		for _, k := range superset.GetCallKeyColumnList {
+			if k.Name == column.Name {
+				break
+			}
+
+			// no get key column - add one
+			superset.GetCallKeyColumnList = append(superset.GetCallKeyColumnList, kc)
+		}
+		for _, k := range superset.ListCallKeyColumnList {
+			if k.Name == column.Name {
+				break
+			}
+
+			// no list key column - add one
+			superset.ListCallKeyColumnList = append(superset.ListCallKeyColumnList, kc)
+		}
+	}
 }
 
 func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto.ConnectionConfig, tableName string) (*proto.TableSchema, *proto.TableSchemaDiff, []string) {

@@ -1,0 +1,13 @@
+# Connection Level Quals
+
+A plugin can register one or more columns which have a 1-1 mapping with Steampipe connection.
+Then, when quals are included for these columns for an aggregator query, the plugin execution code can use these quals to filter the connection list which the query is executed against.
+
+# ConnectionColumnValues
+To implement this, the plugin must implement the function `ConnectionColumnValues`
+
+```
+func (p *plugin) ConnectionColumnValues(connection ) map[]string {
+    return []string{"name"}
+}
+```
