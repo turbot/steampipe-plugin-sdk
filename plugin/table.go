@@ -177,7 +177,7 @@ func (t *Table) buildHydrateConfigMap() {
 	// NOTE: the get config may be used as a column hydrate function so add this into the map
 	if get := t.Get; get != nil {
 		// create and initialise a new hydrate config for the get func
-		t.hydrateConfigMap[get.NamedHydrate.Name] = t.hydrateConfigFromGet(t.Get)
+		t.hydrateConfigMap[get.namedHydrate.Name] = t.hydrateConfigFromGet(t.Get)
 	}
 
 	// now add all hydrate functions with no explicit config
@@ -206,7 +206,7 @@ func (t *Table) hydrateConfigFromGet(get *GetConfig) *HydrateConfig {
 		return nil
 	}
 	c := &HydrateConfig{
-		namedHydrate:      get.NamedHydrate,
+		namedHydrate:      get.namedHydrate,
 		Func:              get.Hydrate,
 		IgnoreConfig:      get.IgnoreConfig,
 		RetryConfig:       get.RetryConfig,
@@ -221,7 +221,7 @@ func (t *Table) hydrateConfigFromGet(get *GetConfig) *HydrateConfig {
 
 func (t *Table) getFetchFunc(fetchType fetchType) NamedHydrateFunc {
 	if fetchType == fetchTypeList {
-		return t.List.NamedHydrate
+		return t.List.namedHydrate
 	}
-	return t.Get.NamedHydrate
+	return t.Get.namedHydrate
 }

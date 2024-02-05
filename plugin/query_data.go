@@ -546,8 +546,8 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 	if d.Table.List == nil {
 		return false
 	}
-	listFunction := d.Table.List.NamedHydrate.Name
-	listParentFunction := d.Table.List.NamedParentHydrate.Name
+	listFunction := d.Table.List.namedHydrate.Name
+	listParentFunction := d.Table.List.namedParentHydrate.Name
 	if callingFunction != listFunction && callingFunction != listParentFunction {
 		// if the calling function is NOT one of the other registered hydrate functions,
 		//it must be an anonymous function so let it go
@@ -660,7 +660,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 		// set the parent item on the row data
 		rd.parentItem = d.parentItem
 		// NOTE: add the item as the hydrate data for the list call
-		rd.set(d.Table.List.NamedHydrate.Name, item)
+		rd.set(d.Table.List.namedHydrate.Name, item)
 
 		d.rowDataChan <- rd
 	}
