@@ -221,9 +221,9 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
 	connectionData, _ := p.getConnectionData(req.Connection)
 
-	//connections := p.filterConnectionsWithKeyColumns(req.ExecuteConnectionData, req.Quals)
+	connections := p.filterConnectionsWithKeyColumns(req.ExecuteConnectionData, req.QueryContext.Quals)
 
-	for connectionName := range req.ExecuteConnectionData {
+	for connectionName := range connections {
 		// if connection key columns are defined, check whether there are any relevant quals which exclude this column
 
 		// if this is an aggregator execution, check whether this child connection supports this table

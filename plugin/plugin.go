@@ -745,7 +745,7 @@ func (p *Plugin) populateConnectionKeyColumns(connections []*proto.ConnectionCon
 	}
 
 	for i, c := range connections {
-		columnValues, err := p.ConnectionKeyColumnValuesFunc(ConnectionKeyColumnValuesData{
+		columnValues, err := p.ConnectionKeyColumnValuesFunc(context.Background(), ConnectionKeyColumnValuesData{
 			Connection: p.ConnectionMap[c.Connection].Connection,
 		})
 		if err != nil {
@@ -764,29 +764,44 @@ func (p *Plugin) populateConnectionKeyColumns(connections []*proto.ConnectionCon
 	return nil
 }
 
-func (p *Plugin) filterConnectionsWithKeyColumns(connectionData map[string]*proto.ExecuteConnectionData, quals map[string]*proto.Quals) map[string]*proto.ExecuteConnectionData {
-	//var res = make(map[string]*proto.ExecuteConnectionData)
+func (p *Plugin) filterConnectionsWithKeyColumns(connectionData map[string]*proto.ExecuteConnectionData, qualMap map[string]*proto.Quals) map[string]*proto.ExecuteConnectionData {
+	var res = make(map[string]*proto.ExecuteConnectionData)
 	// if this plugin does not support connectionKeyColumns, nothing to do
-	//if p.ConnectionKeyColumnValuesFunc == nil{
-	return connectionData
-	//}
+	if p.ConnectionKeyColumnValuesFunc == nil {
+		return connectionData
+	}
 
-	//for column, quals := range quals {
-	//	if _, isConnectionKeyColumn := p.connectionKeyColumnsLookup[column]; !isConnectionKeyColumn {
-	//		continue
-	//	}
-	//	// get the connection for the qual value
-	//	for connection, columnValueMap := range p.connectionKeyColumnValuesMap {
-	//		for _, qual := range quals {
-	//
-	//			// check whether this quasl is for a connectionKeyColumn
-	//			if columnValue, ok := columnValueMap[column]; ok {
-	//				// for now assume equals qual
-	//				if qual.Quals. == "=" && quals.Value == columnValue{}
-	//
-	//			}
-	//		}
-	//	}
-	//
-	//}
+	// if any connectionKeyColumnQuals were provided, ONLY return the connections which match the quals
+	filterConnections := false
+
+	for column, quals := range qualMap {
+		if _, isConnectionKeyColumn := p.connectionKeyColumnsLookup[column]; !isConnectionKeyColumn {
+			continue
+		}
+		filterConnections = true
+
+		// get the connection for the qual value
+		for connection, columnValueMap := range p.connectionKeyColumnValuesMap {
+
+			columnValue, ok := columnValueMap[column]
+			if !ok {
+				// no value was provided for this column
+				// TODO should this be validatiopn error?
+				continue
+			}
+			// not sure if in practice we would get multiple quals for a column but the data structure supports it
+			for _, qual := range quals.Quals {
+				if qual.Operator.(*proto.Qual_StringValue).StringValue == "=" && columnValue != grpc.GetQualValue(qual.Value) {
+					res[connection] = connectionData[connection]
+				}
+			}
+		}
+	}
+
+	// no quals were provided for connectionKeyColumns - return all connections
+	if !filterConnections {
+		return connectionData
+	}
+
+	return res
 }
