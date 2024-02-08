@@ -1,5 +1,6 @@
 package telemetry
 
+const EnvOtelInsecure = "STEAMPIPE_OTEL_INSECURE"
 const EnvOtelLevel = "STEAMPIPE_OTEL_LEVEL"
 const EnvOtelEndpoint = "OTEL_EXPORTER_OTLP_ENDPOINT"
 
