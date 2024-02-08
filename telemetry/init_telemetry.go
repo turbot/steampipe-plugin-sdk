@@ -48,7 +48,7 @@ func Init(serviceName string) (func(), error) {
 
 	var opts grpc.DialOption
 	if _, ok := os.LookupEnv(EnvOtelInsecure); ok {
-		log.Printf("[TRACE] STEAMPIPE_OTEL_INSECURE is set - disable security checks")
+		log.Printf("[TRACE] STEAMPIPE_OTEL_INSECURE is set - disable security checks for telemetry endpoint")
 		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
 	} else {
 		opts = grpc.EmptyDialOption{}
