@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sync/semaphore"
 	"log"
 	"strings"
 	"sync"
@@ -19,7 +20,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"golang.org/x/exp/maps"
-	"golang.org/x/sync/semaphore"
 )
 
 /*
@@ -50,6 +50,9 @@ setAllConnectionConfigs sets the connection config for a list of connections.
 This is the handler function for the setAllConnectionConfigs GRPC function.
 */
 func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (_ map[string]error, err error) {
+	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+
+	//time.Sleep(10 * time.Second)
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("setAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
@@ -60,6 +63,7 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	log.Printf("[INFO] setAllConnectionConfigs")
 	// create a struct to populate with exemplar schema and connection failures
 	// this will be passed into update functions and may be mutated
+
 	updateData := NewConnectionUpdateData()
 	p.upsertConnections(configs, updateData)
 
@@ -89,7 +93,7 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 
 	// if the plugin has registered a ConnectionKeyColumnValuesFunc, call it for each connection
 	if p.ConnectionKeyColumnValuesFunc != nil {
-		if err := p.populateConnectionKeyColumns(configs); err != nil {
+		if err := p.populateConnectionKeyColumns(ctx, configs); err != nil {
 			return updateData.failedConnections, err
 		}
 	}
@@ -221,6 +225,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
 	connectionData, _ := p.getConnectionData(req.Connection)
 
+	// (potentially) filter the list of connections bny applying connection key column quals
 	connections := p.filterConnectionsWithKeyColumns(req.ExecuteConnectionData, req.QueryContext.Quals)
 
 	for connectionName := range connections {

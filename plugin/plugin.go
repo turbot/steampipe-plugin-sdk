@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"log"
 	"os"
 	"path"
@@ -111,7 +112,7 @@ type Plugin struct {
 	connectionCacheMapLock sync.Mutex
 
 	// map of column values with a 1-1 mapping with connection name
-	// keyed by connection name
+	// keyed by connection name - there is a map of column values for each connection
 	connectionKeyColumnValuesMap map[string]map[string]any
 	// lookup of key columns which act as connectionKeyColumns
 	connectionKeyColumnsLookup map[string]struct{}
@@ -738,16 +739,28 @@ func (p *Plugin) deleteConnectionData(connections []string) {
 	p.connectionMapLock.Unlock()
 }
 
-// populate the values of all columns which have a 1-1 mapping with given connection name.
-func (p *Plugin) populateConnectionKeyColumns(connections []*proto.ConnectionConfig) error {
+// populate the values of all connection key columns.
+func (p *Plugin) populateConnectionKeyColumns(ctx context.Context, connections []*proto.ConnectionConfig) error {
+	// if this plugin does not support connectionKeyColumns, nothing to do
 	if p.ConnectionKeyColumnValuesFunc == nil {
 		return nil
 	}
 
 	for i, c := range connections {
-		columnValues, err := p.ConnectionKeyColumnValuesFunc(context.Background(), ConnectionKeyColumnValuesData{
-			Connection: p.ConnectionMap[c.Connection].Connection,
-		})
+		// skip aggregators
+		if c.IsAggregator() {
+			continue
+		}
+		connectionCache, err := p.ensureConnectionCache(c.Connection)
+		if err != nil {
+			return err
+		}
+		d := &QueryData{
+			Connection:      p.ConnectionMap[c.Connection].Connection,
+			ConnectionCache: connectionCache,
+		}
+		columnValues, err := p.ConnectionKeyColumnValuesFunc(ctx, d)
+
 		if err != nil {
 			return err
 		}
@@ -764,43 +777,57 @@ func (p *Plugin) populateConnectionKeyColumns(connections []*proto.ConnectionCon
 	return nil
 }
 
+// filterConnectionsWithKeyColumns filters the list of connections by applying any connection
+// key column quals included in qualMap
 func (p *Plugin) filterConnectionsWithKeyColumns(connectionData map[string]*proto.ExecuteConnectionData, qualMap map[string]*proto.Quals) map[string]*proto.ExecuteConnectionData {
-	var res = make(map[string]*proto.ExecuteConnectionData)
+	var res = maps.Clone(connectionData)
 	// if this plugin does not support connectionKeyColumns, nothing to do
 	if p.ConnectionKeyColumnValuesFunc == nil {
 		return connectionData
 	}
 
 	// if any connectionKeyColumnQuals were provided, ONLY return the connections which match the quals
-	filterConnections := false
 
 	for column, quals := range qualMap {
 		if _, isConnectionKeyColumn := p.connectionKeyColumnsLookup[column]; !isConnectionKeyColumn {
 			continue
 		}
-		filterConnections = true
 
 		// get the connection for the qual value
-		for connection, columnValueMap := range p.connectionKeyColumnValuesMap {
+		for connectionName := range connectionData {
 
+			columnValueMap, ok := p.connectionKeyColumnValuesMap[connectionName]
 			columnValue, ok := columnValueMap[column]
+
 			if !ok {
 				// no value was provided for this column
-				// TODO should this be validatiopn error?
+				// TODO should this be validation error?
 				continue
 			}
+
+			var includeConnection = true
+
 			// not sure if in practice we would get multiple quals for a column but the data structure supports it
 			for _, qual := range quals.Quals {
-				if qual.Operator.(*proto.Qual_StringValue).StringValue == "=" && columnValue != grpc.GetQualValue(qual.Value) {
-					res[connection] = connectionData[connection]
+				qualValue := grpc.GetQualValue(qual.Value)
+
+				switch qual.Operator.(*proto.Qual_StringValue).StringValue {
+				case "=":
+					// todo handle IN
+					includeConnection = columnValue == qualValue
+
+				case "!=":
+					// todo handle NOT IN
+					includeConnection = columnValue != qualValue
+					// TODO like
+				default:
+					// unsupported operator ignore
 				}
 			}
+			if !includeConnection {
+				delete(res, connectionName)
+			}
 		}
-	}
-
-	// no quals were provided for connectionKeyColumns - return all connections
-	if !filterConnections {
-		return connectionData
 	}
 
 	return res
