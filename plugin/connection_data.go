@@ -302,32 +302,38 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 	return superset, messages
 }
 
+// add key columns for the `sp_connection_name` column, as well as any other connection key columns defined by the plugin
 func (d *ConnectionData) addConnectionKeyColumns(column *proto.ColumnDefinition, superset *proto.TableSchema) {
-	if _, ok := d.Plugin.connectionKeyColumnsLookup[column.Name]; ok {
-		// add to the get and list key columns
-		kc := &proto.KeyColumn{
-			Name: column.Name,
-			// todo like?
-			Operators: []string{"="},
-			Require:   Optional,
-		}
-		// check whether we already have a key column for this column
-		for _, k := range superset.GetCallKeyColumnList {
-			if k.Name == column.Name {
-				break
-			}
+	_, isConnectionKeyColumn := d.Plugin.connectionKeyColumnsLookup[column.Name]
+	if column.Name == connectionNameColumnName || isConnectionKeyColumn {
+		d.addKeyColumn(column, superset)
+	}
+}
 
-			// no get key column - add one
-			superset.GetCallKeyColumnList = append(superset.GetCallKeyColumnList, kc)
+func (d *ConnectionData) addKeyColumn(column *proto.ColumnDefinition, superset *proto.TableSchema) {
+	// add to the get and list key columns
+	kc := &proto.KeyColumn{
+		Name: column.Name,
+		// todo like?
+		Operators: []string{"="},
+		Require:   Optional,
+	}
+	// check whether we already have a key column for this column
+	for _, k := range superset.GetCallKeyColumnList {
+		if k.Name == column.Name {
+			break
 		}
-		for _, k := range superset.ListCallKeyColumnList {
-			if k.Name == column.Name {
-				break
-			}
 
-			// no list key column - add one
-			superset.ListCallKeyColumnList = append(superset.ListCallKeyColumnList, kc)
+		// no get key column - add one
+		superset.GetCallKeyColumnList = append(superset.GetCallKeyColumnList, kc)
+	}
+	for _, k := range superset.ListCallKeyColumnList {
+		if k.Name == column.Name {
+			break
 		}
+
+		// no list key column - add one
+		superset.ListCallKeyColumnList = append(superset.ListCallKeyColumnList, kc)
 	}
 }
 

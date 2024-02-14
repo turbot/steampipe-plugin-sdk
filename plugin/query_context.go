@@ -39,7 +39,7 @@ func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabl
 	// columns that this table does not provide for this connection)
 	for _, c := range p.Columns {
 		// context column is not in the table column map
-		if _, hasColumn := table.columnNameMap[c]; hasColumn || c == contextColumnName {
+		if _, hasColumn := table.columnNameMap[c]; hasColumn || c == deprecatedContextColumnName {
 			q.Columns = append(q.Columns, c)
 		}
 	}

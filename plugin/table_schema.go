@@ -6,18 +6,36 @@ import (
 	"strings"
 )
 
-const contextColumnName = "_ctx"
-const spcReservedColumnPrefix = "_spc_"
+const deprecatedContextColumnName = "_ctx"
+const contextColumnName = "sp_ctx"
+const connectionNameColumnName = "sp_connection_name"
+
+var spcReservedColumnPrefixes = []string{"_spc_", "sp_"}
 
 func IsReservedColumnName(columnName string) bool {
-	return columnName == contextColumnName || strings.HasPrefix(columnName, spcReservedColumnPrefix)
+	if columnName == deprecatedContextColumnName {
+		return true
+	}
+	for _, prefix := range spcReservedColumnPrefixes {
+		if strings.HasPrefix(columnName, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
-func contextColumnDefinition() *proto.ColumnDefinition {
+func contextColumnDefinition(name string) *proto.ColumnDefinition {
 	return &proto.ColumnDefinition{
-		Name:        contextColumnName,
+		Name:        name,
 		Type:        proto.ColumnType_JSON,
-		Description: "Steampipe context in JSON form, e.g. connection_name.",
+		Description: "Steampipe context in JSON form.",
+	}
+}
+func connectionNameColumnDefinition() *proto.ColumnDefinition {
+	return &proto.ColumnDefinition{
+		Name:        connectionNameColumnName,
+		Type:        proto.ColumnType_STRING,
+		Description: "Steampipe connection name.",
 	}
 }
 
@@ -58,8 +76,10 @@ func (t *Table) GetSchema() (*proto.TableSchema, error) {
 			schema.Columns = append(schema.Columns, columnDef)
 		}
 	}
-	// add _ctx column
-	schema.Columns = append(schema.Columns, contextColumnDefinition())
+	// add _ctx, sp_ctx and sp_connection_name columns
+	schema.Columns = append(schema.Columns, connectionNameColumnDefinition())
+	schema.Columns = append(schema.Columns, contextColumnDefinition(contextColumnName))
+	schema.Columns = append(schema.Columns, contextColumnDefinition(deprecatedContextColumnName))
 
 	// key columns
 	if t.Get != nil && len(t.Get.KeyColumns) > 0 {
