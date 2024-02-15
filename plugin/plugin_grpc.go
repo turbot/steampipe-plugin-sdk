@@ -221,9 +221,11 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
 	connectionData, _ := p.getConnectionData(req.Connection)
 
+	// create a context with the logger
+	loggerCtx := context.WithValue(ctx, context_key.Logger, logger)
 	// (potentially) filter the list of connections by applying connection key column quals
-	connections := p.filterConnectionsWithKeyColumns(ctx, req.ExecuteConnectionData, req.QueryContext.Quals)
-
+	connections := p.filterConnectionsWithKeyColumns(loggerCtx, req.ExecuteConnectionData, req.QueryContext.Quals)
+	log.Printf("[INFO] Executing for connections: %s", strings.Join(maps.Keys(connections), ", "))
 	for connectionName := range connections {
 		// if connection key columns are defined, check whether there are any relevant quals which exclude this column
 

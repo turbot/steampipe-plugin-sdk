@@ -71,8 +71,9 @@ type Plugin struct {
 	TableMap         map[string]*Table
 	TableMapFunc     TableMapFunc
 	DefaultTransform *transform.ColumnTransforms
-	//ConnectionKeyColumnValuesFunc ConnectionColumnValuesFunc
-	ConnectionKeyColumns map[string]ConnectionColumnValueFunc
+	// ConnectionKeyColumns is a map of  function which returns the  the values of all columns which have a
+	// 1-1 mapping with connection name.
+	ConnectionKeyColumns map[string]HydrateFunc
 
 	// deprecated - use RateLimiters to control concurrency
 	DefaultConcurrency  *DefaultConcurrencyConfig
@@ -149,7 +150,7 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 
 	p.connectionKeyColumnValuesMap = make(map[string]map[string]any)
 	if p.ConnectionKeyColumns == nil {
-		p.ConnectionKeyColumns = make(map[string]ConnectionColumnValueFunc)
+		p.ConnectionKeyColumns = make(map[string]HydrateFunc)
 	}
 
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
@@ -744,9 +745,11 @@ func (p *Plugin) deleteConnectionData(connections []string) {
 // filterConnectionsWithKeyColumns filters the list of connections by applying any connection
 // key column quals included in qualMap
 func (p *Plugin) filterConnectionsWithKeyColumns(ctx context.Context, connectionData map[string]*proto.ExecuteConnectionData, qualMap map[string]*proto.Quals) map[string]*proto.ExecuteConnectionData {
+	// add logger to ctx which is passed to plugin
+
 	var res = maps.Clone(connectionData)
 	// if this plugin does not support connectionKeyColumns, nothing to do
-	if len(p.connectionKeyColumnValuesMap) == 0 {
+	if len(p.ConnectionKeyColumns) == 0 {
 		return connectionData
 	}
 
@@ -830,5 +833,6 @@ func (p *Plugin) getConnectionKeyColumnValue(ctx context.Context, connectionName
 		Connection:      p.ConnectionMap[connectionName].Connection,
 		ConnectionCache: connectionCache,
 	}
-	return valueFunc(ctx, d)
+	h := &HydrateData{}
+	return valueFunc(ctx, d, h)
 }
