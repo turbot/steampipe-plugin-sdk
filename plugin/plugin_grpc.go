@@ -50,7 +50,7 @@ setAllConnectionConfigs sets the connection config for a list of connections.
 This is the handler function for the setAllConnectionConfigs GRPC function.
 */
 func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (_ map[string]error, err error) {
-	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
+	//ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 
 	//time.Sleep(10 * time.Second)
 	defer func() {
@@ -91,12 +91,8 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		}
 	}
 
-	// if the plugin has registered a ConnectionKeyColumnValuesFunc, call it for each connection
-	if p.ConnectionKeyColumnValuesFunc != nil {
-		if err := p.populateConnectionKeyColumns(ctx, configs); err != nil {
-			return updateData.failedConnections, err
-		}
-	}
+	// clear connectionKeyColumnValues for these connections
+	p.clearConnectionKeyColumnValues(configs)
 
 	// if there are any failed connections, raise an error
 	err = error_helpers.CombineErrors(maps.Values(updateData.failedConnections)...)
@@ -225,8 +221,8 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
 	connectionData, _ := p.getConnectionData(req.Connection)
 
-	// (potentially) filter the list of connections bny applying connection key column quals
-	connections := p.filterConnectionsWithKeyColumns(req.ExecuteConnectionData, req.QueryContext.Quals)
+	// (potentially) filter the list of connections by applying connection key column quals
+	connections := p.filterConnectionsWithKeyColumns(ctx, req.ExecuteConnectionData, req.QueryContext.Quals)
 
 	for connectionName := range connections {
 		// if connection key columns are defined, check whether there are any relevant quals which exclude this column

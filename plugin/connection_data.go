@@ -304,7 +304,7 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 
 // add key columns for the `sp_connection_name` column, as well as any other connection key columns defined by the plugin
 func (d *ConnectionData) addConnectionKeyColumns(column *proto.ColumnDefinition, superset *proto.TableSchema) {
-	_, isConnectionKeyColumn := d.Plugin.connectionKeyColumnsLookup[column.Name]
+	_, isConnectionKeyColumn := d.Plugin.ConnectionKeyColumns[column.Name]
 	if column.Name == connectionNameColumnName || isConnectionKeyColumn {
 		d.addKeyColumn(column, superset)
 	}

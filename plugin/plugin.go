@@ -68,10 +68,11 @@ type Plugin struct {
 	Logger hclog.Logger
 	// TableMap is a map of all the tables in the plugin, keyed by the table name
 	// NOTE: it must be NULL for plugins with dynamic schema
-	TableMap                      map[string]*Table
-	TableMapFunc                  TableMapFunc
-	DefaultTransform              *transform.ColumnTransforms
-	ConnectionKeyColumnValuesFunc ConnectionColumnValuesFunc
+	TableMap         map[string]*Table
+	TableMapFunc     TableMapFunc
+	DefaultTransform *transform.ColumnTransforms
+	//ConnectionKeyColumnValuesFunc ConnectionColumnValuesFunc
+	ConnectionKeyColumns map[string]ConnectionColumnValueFunc
 
 	// deprecated - use RateLimiters to control concurrency
 	DefaultConcurrency  *DefaultConcurrencyConfig
@@ -113,9 +114,8 @@ type Plugin struct {
 
 	// map of column values with a 1-1 mapping with connection name
 	// keyed by connection name - there is a map of column values for each connection
+	// NOTE: this is lazily populated when an aggregator query uses these columns as quals
 	connectionKeyColumnValuesMap map[string]map[string]any
-	// lookup of key columns which act as connectionKeyColumns
-	connectionKeyColumnsLookup map[string]struct{}
 
 	// temporary dir for this plugin
 	// this will only created if getSourceFiles is used
@@ -148,7 +148,9 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 	p.Logger = logger
 
 	p.connectionKeyColumnValuesMap = make(map[string]map[string]any)
-	p.connectionKeyColumnsLookup = make(map[string]struct{})
+	if p.ConnectionKeyColumns == nil {
+		p.ConnectionKeyColumns = make(map[string]ConnectionColumnValueFunc)
+	}
 
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 	p.logMemoryLimit()
@@ -739,69 +741,31 @@ func (p *Plugin) deleteConnectionData(connections []string) {
 	p.connectionMapLock.Unlock()
 }
 
-// populate the values of all connection key columns.
-func (p *Plugin) populateConnectionKeyColumns(ctx context.Context, connections []*proto.ConnectionConfig) error {
-	// if this plugin does not support connectionKeyColumns, nothing to do
-	if p.ConnectionKeyColumnValuesFunc == nil {
-		return nil
-	}
-
-	for i, c := range connections {
-		// skip aggregators
-		if c.IsAggregator() {
-			continue
-		}
-		connectionCache, err := p.ensureConnectionCache(c.Connection)
-		if err != nil {
-			return err
-		}
-		d := &QueryData{
-			Connection:      p.ConnectionMap[c.Connection].Connection,
-			ConnectionCache: connectionCache,
-		}
-		columnValues, err := p.ConnectionKeyColumnValuesFunc(ctx, d)
-
-		if err != nil {
-			return err
-		}
-		p.connectionKeyColumnValuesMap[c.Connection] = columnValues
-
-		// populate connectionKeyColumnsLookup from the first connection
-		if i == 0 {
-			for column := range columnValues {
-				p.connectionKeyColumnsLookup[column] = struct{}{}
-			}
-		}
-	}
-
-	return nil
-}
-
 // filterConnectionsWithKeyColumns filters the list of connections by applying any connection
 // key column quals included in qualMap
-func (p *Plugin) filterConnectionsWithKeyColumns(connectionData map[string]*proto.ExecuteConnectionData, qualMap map[string]*proto.Quals) map[string]*proto.ExecuteConnectionData {
+func (p *Plugin) filterConnectionsWithKeyColumns(ctx context.Context, connectionData map[string]*proto.ExecuteConnectionData, qualMap map[string]*proto.Quals) map[string]*proto.ExecuteConnectionData {
 	var res = maps.Clone(connectionData)
 	// if this plugin does not support connectionKeyColumns, nothing to do
-	if p.ConnectionKeyColumnValuesFunc == nil {
+	if len(p.connectionKeyColumnValuesMap) == 0 {
 		return connectionData
 	}
 
 	// if any connectionKeyColumnQuals were provided, ONLY return the connections which match the quals
 
 	for column, quals := range qualMap {
-		if _, isConnectionKeyColumn := p.connectionKeyColumnsLookup[column]; !isConnectionKeyColumn {
+		if _, isConnectionKeyColumn := p.ConnectionKeyColumns[column]; !isConnectionKeyColumn {
 			continue
 		}
+		// so this IS a connection key column
 
-		// get the connection for the qual value
+		// iterate over th requested  connections and remove any which do not match the quals
 		for connectionName := range connectionData {
-
-			columnValueMap, ok := p.connectionKeyColumnValuesMap[connectionName]
-			columnValue, ok := columnValueMap[column]
-
-			if !ok {
-				// no value was provided for this column
-				// TODO should this be validation error?
+			// get the column value for this connection (this lazily loads the value into connectionKeyColumnValuesMap)
+			columnValue, err := p.getConnectionKeyColumnValue(ctx, connectionName, column)
+			if err != nil {
+				// if the function fails,
+				// if we cannot get the column value, remove the connection
+				delete(res, connectionName)
 				continue
 			}
 
@@ -831,4 +795,40 @@ func (p *Plugin) filterConnectionsWithKeyColumns(connectionData map[string]*prot
 	}
 
 	return res
+}
+
+// clears the values of connectionKeyColumnValuesMap for the given connections
+// the is called when we sen connection config - used to force a new (lazy) load of the values
+func (p *Plugin) clearConnectionKeyColumnValues(configs []*proto.ConnectionConfig) {
+	for _, c := range configs {
+		delete(p.connectionKeyColumnValuesMap, c.Connection)
+	}
+}
+
+func (p *Plugin) getConnectionKeyColumnValue(ctx context.Context, connectionName string, column string) (any, error) {
+	// get the column value map for this connection
+	columnValueMap, ok := p.connectionKeyColumnValuesMap[connectionName]
+	// create if needed
+	if !ok {
+		columnValueMap = make(map[string]any)
+		p.connectionKeyColumnValuesMap[connectionName] = columnValueMap
+	}
+	columnValue, ok := columnValueMap[column]
+
+	// if we already have the value, return it
+	if ok {
+		return columnValue, nil
+	}
+
+	// we do not yet have the value stored - call the function to get it
+	valueFunc := p.ConnectionKeyColumns[column]
+	connectionCache, err := p.ensureConnectionCache(connectionName)
+	if err != nil {
+		return nil, err
+	}
+	d := &QueryData{
+		Connection:      p.ConnectionMap[connectionName].Connection,
+		ConnectionCache: connectionCache,
+	}
+	return valueFunc(ctx, d)
 }
