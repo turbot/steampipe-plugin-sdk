@@ -11,9 +11,9 @@ import (
 
 // hydrateCall struct encapsulates a hydrate call, its config and dependencies
 type hydrateCall struct {
-	NamedHydrateFunc
+	namedHydrateFunc
 	// the dependencies expressed using function name
-	Depends []NamedHydrateFunc
+	Depends []namedHydrateFunc
 	Config  *HydrateConfig
 
 	queryData   *QueryData
@@ -27,7 +27,7 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 		// default to empty limiter
 		rateLimiter: rate_limiter.EmptyMultiLimiter(),
 	}
-	res.NamedHydrateFunc = config.namedHydrate
+	res.namedHydrateFunc = config.namedHydrate
 
 	for _, f := range config.Depends {
 		res.Depends = append(res.Depends, newNamedHydrateFunc(f))
@@ -38,7 +38,7 @@ func newHydrateCall(config *HydrateConfig, d *QueryData) (*hydrateCall, error) {
 
 func (h *hydrateCall) shallowCopy() *hydrateCall {
 	return &hydrateCall{
-		NamedHydrateFunc: NamedHydrateFunc{
+		namedHydrateFunc: namedHydrateFunc{
 			Func: h.Func,
 			Name: h.Name,
 		},
@@ -53,11 +53,6 @@ func (h *hydrateCall) shallowCopy() *hydrateCall {
 func (h *hydrateCall) initialiseRateLimiter() error {
 	log.Printf("[INFO] hydrateCall %s initialiseRateLimiter (%s)", h.Name, h.queryData.connectionCallId)
 
-	// if this call is memoized, do not assign a rate limiter
-	if h.IsMemoized {
-		log.Printf("[INFO] hydrateCall %s is memoized - assign an empty rate limiter (%s)", h.Name, h.queryData.connectionCallId)
-		return nil
-	}
 	// ask plugin to build a rate limiter for us
 	p := h.queryData.plugin
 
@@ -99,10 +94,6 @@ func (h *hydrateCall) canStart(rowData *rowData) bool {
 // Start starts a hydrate call
 func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.Duration {
 	var rateLimitDelay time.Duration
-	// if we are memoized there is no need to rate limit
-	if !h.IsMemoized {
-		rateLimitDelay = h.rateLimit(ctx, d)
-	}
 
 	// tell the rowData to wait for this call to complete
 	r.wg.Add(1)
@@ -111,7 +102,7 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.
 
 	// call callHydrate async, ignoring return values
 	go func() {
-		r.callHydrate(ctx, d, h.NamedHydrateFunc, h.Config)
+		r.callHydrate(ctx, d, h.namedHydrateFunc, h.Config)
 		h.onFinished()
 	}()
 	// retrieve the concurrencyDelay for the call

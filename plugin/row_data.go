@@ -167,7 +167,7 @@ func (r *rowData) getColumnValues(ctx context.Context) (*proto.Row, error) {
 }
 
 // invoke a hydrate function, and set results on the rowData object. Stream errors on the rowData error channel
-func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrate NamedHydrateFunc, hydrateConfig *HydrateConfig) {
+func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrate namedHydrateFunc, hydrateConfig *HydrateConfig) {
 	// handle panics in the row hydrate function
 	defer func() {
 		if p := recover(); p != nil {
@@ -195,7 +195,7 @@ func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrate NamedHy
 }
 
 // invoke a hydrate function, retrying as required based on the retry config, and return the result and/or error
-func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrate NamedHydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
+func (r *rowData) callHydrateWithRetries(ctx context.Context, d *QueryData, hydrate namedHydrateFunc, ignoreConfig *IgnoreConfig, retryConfig *RetryConfig) (hydrateResult interface{}, err error) {
 	ctx, span := telemetry.StartSpan(ctx, r.table.Plugin.Name, "rowData.callHydrateWithRetries (%s)", r.table.Name)
 
 	span.SetAttributes(

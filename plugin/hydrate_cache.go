@@ -10,6 +10,11 @@ import (
 	"github.com/turbot/go-kit/helpers"
 )
 
+// map of currently executing memoized hydrate funcs
+
+var memoizedHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
+var memoizedHydrateLock sync.RWMutex
+
 /*
 HydrateFunc is a function that gathers data to build table rows.
 Typically this would make an API call and return the raw API output.
@@ -46,8 +51,7 @@ Memoize ensures the [HydrateFunc] results are saved in the [connection.Connectio
 Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
 
 NOTE: this should only be used to memoize a function which will be manually invoked and requires caching
-It should NOT be used to memoize a hydrate function being passed toi a table definition.
-Instead, use [MemoizeHydrate]
+It should NOT be used to memoize a hydrate function being passed to a table definition.
 */
 func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 	// TODO determine if this is already memoized

@@ -76,7 +76,7 @@ type GetConfig struct {
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 	MaxConcurrency    int
-	namedHydrate      NamedHydrateFunc
+	namedHydrate      namedHydrateFunc
 }
 
 // initialise the GetConfig
@@ -127,7 +127,7 @@ func (c *GetConfig) initialise(table *Table) {
 	}
 	log.Printf("[TRACE] GetConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 
-	// create a named hydrate func, assuming this function is not memoized
+	// create a named hydrate func
 	c.namedHydrate = newNamedHydrateFunc(c.Hydrate)
 }
 

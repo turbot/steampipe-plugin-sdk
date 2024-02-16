@@ -373,7 +373,7 @@ func (t *Table) executeListCall(ctx context.Context, queryData *QueryData) {
 	}
 
 	// invoke list call - hydrateResults is nil as list call does not use it (it must comply with HydrateFunc signature)
-	var childHydrate NamedHydrateFunc
+	var childHydrate namedHydrateFunc
 	listCall := t.List.namedHydrate
 	// if there is a parent hydrate function, call that
 	// - the child 'Hydrate' function will be called by QueryData.StreamListItem,
@@ -448,7 +448,7 @@ func (t *Table) getListCallQualValueList(queryData *QueryData) *quals.Qual {
 }
 
 // doListForQualValues is called when there is an equals qual and the qual value is a list of values
-func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall NamedHydrateFunc) {
+func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, keyColumn string, qualValueList *proto.QualValueList, listCall namedHydrateFunc) {
 	var listWg sync.WaitGroup
 
 	log.Printf("[TRACE] doListForQualValues - qual value is a list - executing list for each qual value item, qualValueList: %v", qualValueList)
@@ -473,7 +473,7 @@ func (t *Table) doListForQualValues(ctx context.Context, queryData *QueryData, k
 	listWg.Wait()
 }
 
-func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall NamedHydrateFunc) {
+func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall namedHydrateFunc) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.doList (%s)", t.Name)
 	defer span.End()
 
@@ -510,7 +510,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall Named
 
 // ListForEach executes the provided list call for each of a set of matrixItem
 // enables multi-partition fetching
-func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData, listCall NamedHydrateFunc) {
+func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData, listCall namedHydrateFunc) {
 	ctx, span := telemetry.StartSpan(ctx, t.Plugin.Name, "Table.listForEachMatrixItem (%s)", t.Name)
 	// TODO add matrix item to span
 	defer span.End()

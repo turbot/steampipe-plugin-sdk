@@ -52,8 +52,8 @@ type ListConfig struct {
 	// Deprecated: Use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 
-	namedHydrate       NamedHydrateFunc
-	namedParentHydrate NamedHydrateFunc
+	namedHydrate       namedHydrateFunc
+	namedParentHydrate namedHydrateFunc
 }
 
 func (c *ListConfig) initialise(table *Table) {

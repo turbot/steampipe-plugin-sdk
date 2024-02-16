@@ -43,7 +43,7 @@ func (t *Table) GetSchema() (*proto.TableSchema, error) {
 				Description: column.Description,
 			}
 			if column.Hydrate != nil {
-				columnDef.Hydrate = column.NamedHydrate.Name
+				columnDef.Hydrate = column.namedHydrate.Name
 			}
 			if !helpers.IsNil(column.Default) {
 				// to convert the column default to a proto.Column, call ToColumnValue with a nil value
