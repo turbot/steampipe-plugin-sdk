@@ -217,6 +217,15 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 	return columnValue, nil
 }
 
+// validate the column - ensure the hydrate function is not memoized
+func (c *Column) validate(t *Table) []string {
+	log.Printf("[TRACE] validate column %s", c.Name)
+	if c.Hydrate != nil && isMemoized(c.Hydrate) {
+		return []string{fmt.Sprintf("table '%s' column '%s' is using a memoized hydrate function\n This is not supported. To use a memoized hydrate function for a column hydrate call, wrap the memoized function inside another hydrate function", t.Name, c.Name)}
+	}
+	return nil
+}
+
 // QueryColumn is struct storing column name and resolved hydrate name (including List/Get call)
 // this is used in the query data when the hydrate function has been resolved
 type QueryColumn struct {

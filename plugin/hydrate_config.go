@@ -173,7 +173,7 @@ func (c *HydrateConfig) initialise(table *Table) {
 	log.Printf("[TRACE] HydrateConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 
-func (c *HydrateConfig) Validate(table *Table) []string {
+func (c *HydrateConfig) validate(table *Table) []string {
 	var validationErrors []string
 	if c.Func == nil {
 		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' HydrateConfig does not specify a hydrate function", table.Name))
