@@ -2,14 +2,13 @@ package plugin
 
 import "github.com/turbot/go-kit/helpers"
 
-type NamedHydrateFunc struct {
-	Func       HydrateFunc
-	Name       string
-	IsMemoized bool
+type namedHydrateFunc struct {
+	Func HydrateFunc
+	Name string
 }
 
-func newNamedHydrateFunc(f HydrateFunc) NamedHydrateFunc {
-	res := NamedHydrateFunc{
+func newNamedHydrateFunc(f HydrateFunc) namedHydrateFunc {
+	res := namedHydrateFunc{
 		Func: f,
 		Name: helpers.GetFunctionName(f),
 	}
@@ -17,18 +16,13 @@ func newNamedHydrateFunc(f HydrateFunc) NamedHydrateFunc {
 	return res
 }
 
-func (h NamedHydrateFunc) clone() NamedHydrateFunc {
-	return NamedHydrateFunc{
+func (h namedHydrateFunc) clone() namedHydrateFunc {
+	return namedHydrateFunc{
 		Func: h.Func,
 		Name: h.Name,
 	}
 }
 
-// determine whether we are memoized
-func (h NamedHydrateFunc) initialize() {
-	h.IsMemoized = h.Name == helpers.GetFunctionName(h.Func)
-}
-
-func (h NamedHydrateFunc) empty() bool {
+func (h namedHydrateFunc) empty() bool {
 	return h.Func == nil
 }

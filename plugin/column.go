@@ -76,32 +76,20 @@ type Column struct {
 	// explicitly specify the function which populates this data
 	// - this is only needed if any of the default hydrate functions will NOT return this column
 	Hydrate HydrateFunc
-	// if the hydrate function is memoized, populate this property by using the plugin.NamedHydrateFunc function
-	// this ensures the original plugin name is retained after memoizing the function (which wraps the HydraeFunc in
-	// an anonymous function to handle cache logic))
-	// NOTE: only 1 of HydrateFunc and NamedHydrateFunc should be populated
-	NamedHydrate NamedHydrateFunc
 	// the default column value
 	Default interface{}
 	//  a list of transforms to generate the column value
 	Transform *transform.ColumnTransforms
+
+	namedHydrate namedHydrateFunc
 }
 
 func (c *Column) initialise() {
-	if c.Hydrate == nil && c.NamedHydrate.empty() {
+	if c.Hydrate == nil {
 		return
 	}
-	// populate the named hydrate funcs
-	if c.NamedHydrate.empty() {
-		// create a named hydrate func, assuming this function is not memoized
-		c.NamedHydrate = newNamedHydrateFunc(c.Hydrate)
-	} else {
-		// a named hydrate was explicitly specified - probably meaning the hydrate is memoized
-		// call initialize to populate IsMemoized
-		c.NamedHydrate.initialize()
-		// be sure to also set the Hydrate property to the underlying func
-		c.Hydrate = c.NamedHydrate.Func
-	}
+	// create a named hydrate func
+	c.namedHydrate = newNamedHydrateFunc(c.Hydrate)
 
 }
 
@@ -227,6 +215,15 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 	}
 
 	return columnValue, nil
+}
+
+// validate the column - ensure the hydrate function is not memoized
+func (c *Column) validate(t *Table) []string {
+	log.Printf("[TRACE] validate column %s", c.Name)
+	if c.Hydrate != nil && isMemoized(c.Hydrate) {
+		return []string{fmt.Sprintf("table '%s' column '%s' is using a memoized hydrate function\n This is not supported. To use a memoized hydrate function for a column hydrate call, wrap the memoized function inside another hydrate function", t.Name, c.Name)}
+	}
+	return nil
 }
 
 // QueryColumn is struct storing column name and resolved hydrate name (including List/Get call)

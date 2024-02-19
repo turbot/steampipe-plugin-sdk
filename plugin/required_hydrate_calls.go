@@ -20,7 +20,7 @@ func newRequiredHydrateCallBuilder(d *QueryData, fetchCallName string) *required
 	}
 }
 
-func (c requiredHydrateCallBuilder) Add(hydrateFunc NamedHydrateFunc, callId string) error {
+func (c requiredHydrateCallBuilder) Add(hydrateFunc namedHydrateFunc, callId string) error {
 	hydrateName := hydrateFunc.Name
 
 	// if the resolved hydrate call is NOT the same as the fetch call, add to the map of hydrate functions to call

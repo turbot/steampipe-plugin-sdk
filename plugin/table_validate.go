@@ -32,9 +32,12 @@ func (t *Table) validate(name string, requiredColumns []*Column) (validationWarn
 	validationErrors = append(validationErrors, t.DefaultIgnoreConfig.validate(t)...)
 
 	for _, h := range t.hydrateConfigMap {
-		validationErrors = append(validationErrors, h.Validate(t)...)
+		validationErrors = append(validationErrors, h.validate(t)...)
 	}
 
+	for _, c := range t.Columns {
+		validationErrors = append(validationErrors, c.validate(t)...)
+	}
 	return validationWarnings, validationErrors
 }
 
@@ -135,7 +138,7 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 	var dependencyGraph = topsort.NewGraph()
 	dependencyGraph.AddNode("root")
 
-	updateDependencyGraph := func(namedHydrateFunc NamedHydrateFunc, hydrateDepends []HydrateFunc) {
+	updateDependencyGraph := func(namedHydrateFunc namedHydrateFunc, hydrateDepends []HydrateFunc) {
 		name := namedHydrateFunc.Name
 		if !dependencyGraph.ContainsNode(name) {
 			dependencyGraph.AddNode(name)

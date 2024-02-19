@@ -4,11 +4,21 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 	"sync"
 	"time"
 
 	"github.com/turbot/go-kit/helpers"
 )
+
+// pointer to (all) memoized functions
+// lazily populated, use for isMemoized
+var memoizedFuncPtr uintptr
+
+// map of currently executing memoized hydrate funcs
+
+var memoizedHydrateFunctionsPending = make(map[string]*sync.WaitGroup)
+var memoizedHydrateLock sync.RWMutex
 
 /*
 HydrateFunc is a function that gathers data to build table rows.
@@ -46,14 +56,13 @@ Memoize ensures the [HydrateFunc] results are saved in the [connection.Connectio
 Use it to reduce the number of API calls if the HydrateFunc is used by multiple tables.
 
 NOTE: this should only be used to memoize a function which will be manually invoked and requires caching
-It should NOT be used to memoize a hydrate function being passed toi a table definition.
-Instead, use [MemoizeHydrate]
+It should NOT be used to memoize a hydrate function being passed to a table definition.
 */
 func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
-	// TODO determine if this is already memoized
-	// if so, return the existing memoized function
-
-	log.Printf("[INFO] Memoize %p %s", f, helpers.GetFunctionName(f))
+	if isMemoized(f) {
+		log.Printf("[WARN] Memoize %s - already memoized", helpers.GetFunctionName(f))
+	}
+	log.Printf("[INFO] Memoize %s", helpers.GetFunctionName(f))
 
 	config := newMemoizeConfiguration(f)
 	for _, o := range opts {
@@ -123,6 +132,9 @@ func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 
 	log.Printf("[INFO] Memoize %p %s", f, helpers.GetFunctionName(f))
 
+	if memoizedFuncPtr == 0 {
+		memoizedFuncPtr = reflect.ValueOf(memoizedFunc).Pointer()
+	}
 	return memoizedFunc
 }
 
@@ -175,4 +187,11 @@ func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydr
 
 	// return the hydrate data
 	return hydrateData, nil
+}
+
+// all memoized functions have the same pointer
+// - to determine if a function is memoized, compare the pointer to a memoized function
+func isMemoized(hydrateFunc HydrateFunc) bool {
+	res := reflect.ValueOf(hydrateFunc).Pointer() == memoizedFuncPtr
+	return res
 }

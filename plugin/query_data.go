@@ -152,8 +152,8 @@ type QueryData struct {
 
 	fetchMetadata         *hydrateMetadata
 	parentHydrateMetadata *hydrateMetadata
-	listHydrate           NamedHydrateFunc
-	childHydrate          NamedHydrateFunc
+	listHydrate           namedHydrateFunc
+	childHydrate          namedHydrateFunc
 }
 
 func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
@@ -424,11 +424,11 @@ func (d *QueryData) populateRequiredHydrateCalls() error {
 			hydrateName = fetchFunc.Name
 		} else {
 			// there is a hydrate call registered
-			hydrateName = column.NamedHydrate.Name
+			hydrateName = column.namedHydrate.Name
 
 			// if this column was requested in query, add the hydrate call to required calls
 			if helpers.StringSliceContains(colsUsed, column.Name) {
-				if err := requiredCallBuilder.Add(column.NamedHydrate, d.connectionCallId); err != nil {
+				if err := requiredCallBuilder.Add(column.namedHydrate, d.connectionCallId); err != nil {
 					return err
 				}
 			}
@@ -472,7 +472,7 @@ func (d *QueryData) setMatrixItem(matrixItem map[string]interface{}) {
 	log.Printf("[INFO] setMatrixItem %s", matrixItem)
 	for col, value := range matrixItem {
 		qualValue := proto.NewQualValue(value)
-
+		// replace any existing entry for both Quals and EqualsQuals
 		d.EqualsQuals[col] = qualValue
 		d.Quals[col] = &KeyColumnQuals{Name: col, Quals: []*quals.Qual{{Column: col, Operator: quals.QualOperatorEqual, Value: qualValue}}}
 	}
@@ -552,7 +552,7 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 		// if the calling function is NOT one of the other registered hydrate functions,
 		//it must be an anonymous function so let it go
 		for _, c := range d.Table.Columns {
-			if c.NamedHydrate.Name == callingFunction {
+			if c.namedHydrate.Name == callingFunction {
 				return false
 			}
 		}
@@ -916,7 +916,7 @@ func (d *QueryData) removeReservedColumns(row *proto.Row) {
 	}
 }
 
-func (d *QueryData) setListCalls(listCall, childHydrate NamedHydrateFunc) {
+func (d *QueryData) setListCalls(listCall, childHydrate namedHydrateFunc) {
 	d.listHydrate = listCall
 	d.childHydrate = childHydrate
 }

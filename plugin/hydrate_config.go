@@ -114,7 +114,7 @@ type HydrateConfig struct {
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
 
-	namedHydrate NamedHydrateFunc
+	namedHydrate namedHydrateFunc
 }
 
 func (c *HydrateConfig) String() string {
@@ -137,10 +137,8 @@ ScopeValues: %s`,
 }
 
 func (c *HydrateConfig) initialise(table *Table) {
-	// create a named hydrate func if one is not already set
-	if c.namedHydrate.Func == nil {
-		c.namedHydrate = newNamedHydrateFunc(c.Func)
-	}
+	// create a named hydrate func
+	c.namedHydrate = newNamedHydrateFunc(c.Func)
 
 	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.namedHydrate.Name, table.Name)
 
@@ -175,7 +173,7 @@ func (c *HydrateConfig) initialise(table *Table) {
 	log.Printf("[TRACE] HydrateConfig.initialise complete: RetryConfig: %s, IgnoreConfig: %s", c.RetryConfig.String(), c.IgnoreConfig.String())
 }
 
-func (c *HydrateConfig) Validate(table *Table) []string {
+func (c *HydrateConfig) validate(table *Table) []string {
 	var validationErrors []string
 	if c.Func == nil {
 		validationErrors = append(validationErrors, fmt.Sprintf("table '%s' HydrateConfig does not specify a hydrate function", table.Name))

@@ -1,9 +1,10 @@
 package plugin
 
 import (
+	"log"
+
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
-	"log"
 )
 
 /*
@@ -186,15 +187,15 @@ func (t *Table) buildHydrateConfigMap() {
 			continue
 		}
 		// get name
-		hydrateName := c.NamedHydrate.Name
+		hydrateName := c.namedHydrate.Name
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
 			log.Printf("[INFO] table %s create hydrate config for : %s", t.Name, hydrateName)
-			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(c.NamedHydrate)
+			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(c.namedHydrate)
 		}
 	}
 }
 
-func (t *Table) newHydrateConfig(namedHydrateFunc NamedHydrateFunc, depends ...HydrateFunc) *HydrateConfig {
+func (t *Table) newHydrateConfig(namedHydrateFunc namedHydrateFunc, depends ...HydrateFunc) *HydrateConfig {
 	c := &HydrateConfig{Func: namedHydrateFunc.Func, namedHydrate: namedHydrateFunc, Depends: depends}
 	// be sure to initialise the config
 	c.initialise(t)
@@ -219,7 +220,7 @@ func (t *Table) hydrateConfigFromGet(get *GetConfig) *HydrateConfig {
 	return c
 }
 
-func (t *Table) getFetchFunc(fetchType fetchType) NamedHydrateFunc {
+func (t *Table) getFetchFunc(fetchType fetchType) namedHydrateFunc {
 	if fetchType == fetchTypeList {
 		return t.List.namedHydrate
 	}
