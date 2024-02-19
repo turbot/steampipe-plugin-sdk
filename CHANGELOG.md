@@ -1,7 +1,6 @@
 ## v5.9.0 [2024-02-15]
 _What's new?_
-* Added function `plugin.MemoizeHydrate` which should be used instead of `Memoize` when passing hydrate calls to a table definition. 
-At present, the original function names for `Memoized` hydrate calls are incorrectly resolved. `MemoizeHydrate` returns a `NamedHydrateFunc` which contains the original name. ([#738](https://github.com/turbot/steampipe-plugin-sdk/issues/738))
+* Remove support for Memoized functions to be directly assigned as column hydrate functions. Instead require a wrapper hydrate function. (#756) ([#738](https://github.com/turbot/steampipe-plugin-sdk/issues/738))
 
 _Bug fixes_
 * If cache is disabled for the server, but enabled for the client, the query execution code tries to stream to the cache even though there is not active set operation. ([#740](https://github.com/turbot/steampipe-plugin-sdk/issues/740))
