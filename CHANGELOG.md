@@ -1,4 +1,4 @@
-## v5.9.0 [2024-02-15]
+## v5.9.0 [2024-02-26]
 _What's new?_
 * Remove support for Memoized functions to be directly assigned as column hydrate functions. Instead require a wrapper hydrate function. (#756) ([#738](https://github.com/turbot/steampipe-plugin-sdk/issues/738))
 
