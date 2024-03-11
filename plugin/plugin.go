@@ -3,6 +3,8 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/exp/maps"
 	"log"
 	"os"
@@ -71,7 +73,7 @@ type Plugin struct {
 	TableMap         map[string]*Table
 	TableMapFunc     TableMapFunc
 	DefaultTransform *transform.ColumnTransforms
-	// ConnectionKeyColumns is a map of  function which returns the  the values of all columns which have a
+	// ConnectionKeyColumns is a map of function which returns the the values of all columns which have a
 	// 1-1 mapping with connection name.
 	ConnectionKeyColumns map[string]HydrateFunc
 
@@ -742,12 +744,12 @@ func (p *Plugin) deleteConnectionData(connections []string) {
 	p.connectionMapLock.Unlock()
 }
 
-// filterConnectionsWithKeyColumns filters the list of connections by applying any connection
-// key column quals included in qualMap
+// filterConnectionsWithKeyColumns filters the list of connections
+// by applying any connection key column quals included in qualMap
 func (p *Plugin) filterConnectionsWithKeyColumns(ctx context.Context, connectionData map[string]*proto.ExecuteConnectionData, qualMap map[string]*proto.Quals) map[string]*proto.ExecuteConnectionData {
-	// add logger to ctx which is passed to plugin
-
+	// shallow clone the connection data to return
 	var res = maps.Clone(connectionData)
+
 	// if this plugin does not support connectionKeyColumns, nothing to do
 	if len(p.ConnectionKeyColumns) == 0 {
 		return connectionData
@@ -801,7 +803,7 @@ func (p *Plugin) filterConnectionsWithKeyColumns(ctx context.Context, connection
 }
 
 // clears the values of connectionKeyColumnValuesMap for the given connections
-// the is called when we sen connection config - used to force a new (lazy) load of the values
+// the is called when we set connection config - used to force a new (lazy) load of the values
 func (p *Plugin) clearConnectionKeyColumnValues(configs []*proto.ConnectionConfig) {
 	for _, c := range configs {
 		delete(p.connectionKeyColumnValuesMap, c.Connection)

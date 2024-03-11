@@ -50,9 +50,6 @@ setAllConnectionConfigs sets the connection config for a list of connections.
 This is the handler function for the setAllConnectionConfigs GRPC function.
 */
 func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxCacheSizeMb int) (_ map[string]error, err error) {
-	//ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
-
-	//time.Sleep(10 * time.Second)
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("setAllConnectionConfigs failed: %s", helpers.ToError(r).Error())
@@ -63,7 +60,6 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	log.Printf("[INFO] setAllConnectionConfigs")
 	// create a struct to populate with exemplar schema and connection failures
 	// this will be passed into update functions and may be mutated
-
 	updateData := NewConnectionUpdateData()
 	p.upsertConnections(configs, updateData)
 
@@ -223,12 +219,12 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 
 	// create a context with the logger
 	loggerCtx := context.WithValue(ctx, context_key.Logger, logger)
+	// if connection key columns are defined, check whether there are any relevant quals which exclude this column
 	// (potentially) filter the list of connections by applying connection key column quals
 	connections := p.filterConnectionsWithKeyColumns(loggerCtx, req.ExecuteConnectionData, req.QueryContext.Quals)
+
 	log.Printf("[INFO] Executing for connections: %s", strings.Join(maps.Keys(connections), ", "))
 	for connectionName := range connections {
-		// if connection key columns are defined, check whether there are any relevant quals which exclude this column
-
 		// if this is an aggregator execution, check whether this child connection supports this table
 		if connectionData != nil && connectionData.AggregatedTablesByConnection != nil {
 			if tablesForConnection, ok := connectionData.AggregatedTablesByConnection[connectionName]; ok {
