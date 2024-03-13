@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"golang.org/x/exp/maps"
 	"log"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"golang.org/x/exp/maps"
 )
 
 // ConnectionData is the data stored by the plugin which is connection dependent.

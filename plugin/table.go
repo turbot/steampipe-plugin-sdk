@@ -162,7 +162,7 @@ func (t *Table) buildHydrateConfigMap() {
 		// NOTE: initialise the hydrate config
 		h.initialise(t)
 
-		log.Printf("[INFO] table %s hydrate config found for : %s", t.Name, h.namedHydrate.Name)
+		log.Printf("[TRACE] table %s hydrate config found for : %s", t.Name, h.namedHydrate.Name)
 		t.hydrateConfigMap[h.namedHydrate.Name] = h
 	}
 	// add in hydrate config for all hydrate dependencies declared using legacy property HydrateDependencies
@@ -189,7 +189,7 @@ func (t *Table) buildHydrateConfigMap() {
 		// get name
 		hydrateName := c.namedHydrate.Name
 		if _, ok := t.hydrateConfigMap[hydrateName]; !ok {
-			log.Printf("[INFO] table %s create hydrate config for : %s", t.Name, hydrateName)
+			log.Printf("[TRACE] table %s create hydrate config for : %s", t.Name, hydrateName)
 			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(c.namedHydrate)
 		}
 	}

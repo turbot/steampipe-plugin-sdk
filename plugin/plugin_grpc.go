@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 	"log"
 	"strings"
@@ -19,7 +20,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
-	"golang.org/x/exp/maps"
 )
 
 /*

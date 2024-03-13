@@ -3,8 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/danwakefield/fnmatch"
 	"golang.org/x/exp/maps"
 	"log"
 	"os"
@@ -19,11 +18,13 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
+	typeHelpers "github.com/turbot/go-kit/types"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
@@ -755,15 +756,15 @@ func (p *Plugin) filterConnectionsWithKeyColumns(ctx context.Context, connection
 		return connectionData
 	}
 
-	// if any connectionKeyColumnQuals were provided, ONLY return the connections which match the quals
+	// if any connectionKeyColumnQuals were provided, ONLY return the connections which match the qualList
 
-	for column, quals := range qualMap {
-		if _, isConnectionKeyColumn := p.ConnectionKeyColumns[column]; !isConnectionKeyColumn {
+	for column, qualList := range qualMap {
+		if !p.isConnectionKeyColumn(column) {
 			continue
 		}
 		// so this IS a connection key column
 
-		// iterate over th requested  connections and remove any which do not match the quals
+		// iterate over the requested  connections and remove any which do not match the qualList
 		for connectionName := range connectionData {
 			// get the column value for this connection (this lazily loads the value into connectionKeyColumnValuesMap)
 			columnValue, err := p.getConnectionKeyColumnValue(ctx, connectionName, column)
@@ -776,19 +777,29 @@ func (p *Plugin) filterConnectionsWithKeyColumns(ctx context.Context, connection
 
 			var includeConnection = true
 
-			// not sure if in practice we would get multiple quals for a column but the data structure supports it
-			for _, qual := range quals.Quals {
-				qualValue := grpc.GetQualValue(qual.Value)
+			// not sure if in practice we would get multiple qualList for a column but the data structure supports it
+			for _, qual := range qualList.Quals {
+
+				v := []*proto.QualValue{qual.Value}
+				// handle 'in' (in which case the value will be a list)
+				if listValue := qual.Value.GetListValue(); listValue != nil {
+					v = listValue.Values
+				}
 
 				switch qual.Operator.(*proto.Qual_StringValue).StringValue {
 				case "=":
-					// todo handle IN
-					includeConnection = columnValue == qualValue
-
+					includeConnection = qualValuesContainValue(v, columnValue)
 				case "!=":
-					// todo handle NOT IN
-					includeConnection = columnValue != qualValue
-					// TODO like
+					includeConnection = !qualValuesContainValue(v, columnValue)
+				case quals.QualOperatorLike:
+					includeConnection = SqlLike(typeHelpers.ToString(columnValue), qual.Value.GetStringValue(), true)
+				case quals.QualOperatorILike:
+					includeConnection = SqlLike(typeHelpers.ToString(columnValue), qual.Value.GetStringValue(), false)
+				case quals.QualOperatorNotLike:
+					includeConnection = !SqlLike(typeHelpers.ToString(columnValue), qual.Value.GetStringValue(), true)
+				case quals.QualOperatorNotILike:
+					includeConnection = !SqlLike(typeHelpers.ToString(columnValue), qual.Value.GetStringValue(), false)
+
 				default:
 					// unsupported operator ignore
 				}
@@ -802,6 +813,17 @@ func (p *Plugin) filterConnectionsWithKeyColumns(ctx context.Context, connection
 	return res
 }
 
+func qualValuesContainValue(qualValues []*proto.QualValue, value any) bool {
+	for _, v := range qualValues {
+		v := grpc.GetQualValue(v)
+		if value == v {
+			return true
+		}
+	}
+	return false
+
+}
+
 // clears the values of connectionKeyColumnValuesMap for the given connections
 // the is called when we set connection config - used to force a new (lazy) load of the values
 func (p *Plugin) clearConnectionKeyColumnValues(configs []*proto.ConnectionConfig) {
@@ -811,6 +833,10 @@ func (p *Plugin) clearConnectionKeyColumnValues(configs []*proto.ConnectionConfi
 }
 
 func (p *Plugin) getConnectionKeyColumnValue(ctx context.Context, connectionName string, column string) (any, error) {
+	// special case for `sp_connection_name`
+	if column == connectionNameColumnName {
+		return connectionName, nil
+	}
 	// get the column value map for this connection
 	columnValueMap, ok := p.connectionKeyColumnValuesMap[connectionName]
 	// create if needed
@@ -836,5 +862,52 @@ func (p *Plugin) getConnectionKeyColumnValue(ctx context.Context, connectionName
 		ConnectionCache: connectionCache,
 	}
 	h := &HydrateData{}
-	return valueFunc(ctx, d, h)
+	val, err := valueFunc(ctx, d, h)
+	if err != nil {
+		return nil, err
+	}
+	// store the value
+	columnValueMap[column] = val
+	return val, nil
+}
+
+func (p *Plugin) isConnectionKeyColumn(column string) bool {
+	// special case for `sp_connection_name`
+	if column == connectionNameColumnName {
+		return true
+	}
+
+	_, isConnectionKeyColumn := p.ConnectionKeyColumns[column]
+	return isConnectionKeyColumn
+
+}
+
+// TODO this is duplicated from pipe-fittings - only exists here until AWS plugin is updated to latest sdk so we can reference pipe-fittings
+
+// SqlLike simulates SQL LIKE pattern matching using fnmatch, with an option for case sensitivity.
+func SqlLike(input, pattern string, caseSensitive bool) bool {
+	flag := 0
+	if !caseSensitive {
+		flag = fnmatch.FNM_CASEFOLD
+	}
+	// convert he sql pattern to fnmatch pattern
+	fnmatchPattern := sqlLikeToFnmatch(pattern)
+	return fnmatch.Match(fnmatchPattern, input, flag)
+
+}
+
+// sqlLikeToFnmatch converts a SQL LIKE pattern to an fnmatch pattern
+func sqlLikeToFnmatch(pattern string) string {
+	// Replace SQL '%' wildcard with fnmatch '*' wildcard
+	pattern = strings.ReplaceAll(pattern, "%", "*")
+
+	// Replace SQL '_' wildcard with fnmatch '?' wildcard
+	pattern = strings.ReplaceAll(pattern, "_", "?")
+
+	// Handle escaped '%' and '_' characters
+	// This example assumes '\' is used as the escape character in the SQL pattern
+	pattern = strings.ReplaceAll(pattern, "\\%", "%")
+	pattern = strings.ReplaceAll(pattern, "\\_", "_")
+
+	return pattern
 }

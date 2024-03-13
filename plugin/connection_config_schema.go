@@ -2,13 +2,14 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/hashicorp/hcl/v2/json"
+	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"log"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/hashicorp/hcl/v2/json"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
@@ -119,11 +120,11 @@ func (c *ConnectionConfigSchema) parseConfigWithCtyTags(config *proto.Connection
 
 	file, diags := hclsyntax.ParseConfig(configString, filename, startPos)
 	if diags.HasErrors() {
-		return nil, DiagsToError("Failed to parse connection config", diags)
+		return nil, error_helpers.HclDiagsToError("Failed to parse connection config", diags)
 	}
 	value, diags := hcldec.Decode(file.Body, spec, nil)
 	if diags.HasErrors() {
-		return nil, DiagsToError(fmt.Sprintf("failed to decode connection config for connection '%s'", config.Connection), diags)
+		return nil, error_helpers.HclDiagsToError(fmt.Sprintf("failed to decode connection config for connection '%s'", config.Connection), diags)
 	}
 
 	// decode into the provided struct
@@ -143,7 +144,7 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.Connection
 
 	body, diags := parseConfig(configString, filename, startPos)
 	if diags.HasErrors() {
-		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
+		return nil, error_helpers.HclDiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
 	}
 	evalCtx := &hcl.EvalContext{
 		Variables: make(map[string]cty.Value),
@@ -153,7 +154,7 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.Connection
 	moreDiags := gohcl.DecodeBody(body, evalCtx, configStruct)
 	diags = append(diags, moreDiags...)
 	if diags.HasErrors() {
-		return nil, DiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
+		return nil, error_helpers.HclDiagsToError(fmt.Sprintf("failed to parse connection config for connection '%s'", config.Connection), diags)
 	}
 	// return the struct by value
 	return helpers.DereferencePointer(configStruct), nil
