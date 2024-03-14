@@ -151,7 +151,7 @@ func (p *Plugin) getConnectionKeyColumnValue(ctx context.Context, connectionName
 	}
 
 	// we do not yet have the value stored - call the function to get it
-	valueFunc := p.ConnectionKeyColumns[column]
+	valueFunc := p.ConnectionKeyColumns[column].Hydrate
 	connectionCache, err := p.ensureConnectionCache(connectionName)
 	if err != nil {
 		return nil, err

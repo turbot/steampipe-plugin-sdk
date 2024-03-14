@@ -73,7 +73,7 @@ type Plugin struct {
 	DefaultTransform *transform.ColumnTransforms
 	// ConnectionKeyColumns is a map of function which returns the the values of all columns which have a
 	// 1-1 mapping with connection name.
-	ConnectionKeyColumns map[string]HydrateFunc
+	ConnectionKeyColumns map[string]ConnectionKeyColumn
 
 	// deprecated - use RateLimiters to control concurrency
 	DefaultConcurrency  *DefaultConcurrencyConfig
@@ -150,7 +150,10 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 
 	p.connectionKeyColumnValuesMap = make(map[string]map[string]any)
 	if p.ConnectionKeyColumns == nil {
-		p.ConnectionKeyColumns = make(map[string]HydrateFunc)
+		p.ConnectionKeyColumns = make(map[string]ConnectionKeyColumn)
+	}
+	for column, k := range p.ConnectionKeyColumns {
+		k.initialise(column)
 	}
 
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())

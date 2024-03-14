@@ -149,6 +149,11 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		p.queryCache.PluginSchemaMap = p.buildConnectionSchemaMap()
 	}
 
+	// clear connectionKeyColumnValues for these connections
+	allChanged := append(added, changed...)
+	allChanged = append(allChanged, deleted...)
+	p.clearConnectionKeyColumnValues(allChanged)
+
 	return updateData.failedConnections, nil
 }
 
