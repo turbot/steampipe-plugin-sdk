@@ -220,6 +220,7 @@ func (p *Plugin) parseConnectionConfig(config *proto.ConnectionConfig) (any, err
 }
 
 func (p *Plugin) getConnectionSchema(c *Connection) (map[string]*Table, *grpc.PluginSchema, error) {
+	log.Printf("[INFO] getConnectionSchema for connection %s", c.Name)
 	ctx := context.WithValue(context.Background(), context_key.Logger, p.Logger)
 
 	// initialiseTables - if the plugin defines a TableMapFunc func, call it now

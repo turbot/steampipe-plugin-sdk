@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"log"
 
 	"github.com/hashicorp/hcl/v2"
@@ -11,6 +10,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/json"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
 	"github.com/zclconf/go-cty/cty"

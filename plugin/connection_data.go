@@ -294,48 +294,10 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 			superset.Columns = append(superset.Columns, column)
 			includedColumns[column.Name] = struct{}{}
 
-			// check whether this column is a connectionKeyColumn and if so, create get and list key columns for the superset schema
-			d.addConnectionKeyColumns(column, superset)
 		}
 	}
 
 	return superset, messages
-}
-
-// if this column is defined by the plugin as a conneciton key column (or is the 'column sp_connection_name')
-// add key column it
-func (d *ConnectionData) addConnectionKeyColumns(column *proto.ColumnDefinition, superset *proto.TableSchema) {
-	_, isConnectionKeyColumn := d.Plugin.ConnectionKeyColumns[column.Name]
-	if column.Name == connectionNameColumnName || isConnectionKeyColumn {
-		d.addKeyColumn(column, superset)
-	}
-}
-
-func (d *ConnectionData) addKeyColumn(column *proto.ColumnDefinition, superset *proto.TableSchema) {
-	// add to the get and list key columns
-	kc := &proto.KeyColumn{
-		Name: column.Name,
-		// todo like?
-		Operators: []string{"="},
-		Require:   Optional,
-	}
-	// check whether we already have a key column for this column
-	for _, k := range superset.GetCallKeyColumnList {
-		if k.Name == column.Name {
-			break
-		}
-
-		// no get key column - add one
-		superset.GetCallKeyColumnList = append(superset.GetCallKeyColumnList, kc)
-	}
-	for _, k := range superset.ListCallKeyColumnList {
-		if k.Name == column.Name {
-			break
-		}
-
-		// no list key column - add one
-		superset.ListCallKeyColumnList = append(superset.ListCallKeyColumnList, kc)
-	}
 }
 
 func (d *ConnectionData) getSchemaDiffBetweenConnections(aggregatorConfig *proto.ConnectionConfig, tableName string) (*proto.TableSchema, *proto.TableSchemaDiff, []string) {

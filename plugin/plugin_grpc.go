@@ -198,10 +198,6 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	defer p.clearCallId(req.CallId)
 
 	log.Printf("[INFO] Plugin execute table name: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
-	log.Printf("[INFO] Executing for %d %s: %s", len(req.ExecuteConnectionData),
-		pluralize.NewClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
-		strings.Join(maps.Keys(req.ExecuteConnectionData), "'"))
-
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
@@ -223,7 +219,9 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	// (potentially) filter the list of connections by applying connection key column quals
 	connections := p.filterConnectionsWithKeyColumns(loggerCtx, req.ExecuteConnectionData, req.QueryContext.Quals)
 
-	log.Printf("[INFO] Executing for connections: %s", strings.Join(maps.Keys(connections), ", "))
+	// log the resulting connections which we will execute
+	p.logExecuteConnections(req, connections)
+
 	for connectionName := range connections {
 		// if this is an aggregator execution, check whether this child connection supports this table
 		if connectionData != nil && connectionData.AggregatedTablesByConnection != nil {
@@ -247,7 +245,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 		go func(c string) {
 			defer outputWg.Done()
 
-			log.Printf("[TRACE] Plugin execute goroutine for connection %s", connectionName)
+			log.Printf("[TRACE] Plugin execute goroutine for connection %s", c)
 			if err := sem.Acquire(ctx, 1); err != nil {
 				return
 			}
@@ -305,11 +303,32 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 		}
 	}
 
-	log.Printf("[INFO] Plugin execute table: %s closing error chan and output chan  (%s)", req.Table, req.CallId)
+	log.Printf("[INFO] Plugin execute table: %s closing error chan and output chan (%s)", req.Table, req.CallId)
 	close(outputChan)
 	close(errorChan)
 
 	return helpers.CombineErrors(errors...)
+}
+
+func (p *Plugin) logExecuteConnections(req *proto.ExecuteRequest, connections map[string]*proto.ExecuteConnectionData) {
+	if len(connections) == 0 {
+		log.Printf("[INFO] No connections to execute for table: %s (%s)", req.Table, req.CallId)
+	} else {
+		if len(connections) == len(req.ExecuteConnectionData) {
+			log.Printf("[INFO] Executing for %d %s: %s (%s)",
+				len(connections),
+				pluralize.NewClient().Pluralize("connection", len(connections), false),
+				strings.Join(maps.Keys(connections), ", "),
+				req.CallId)
+		} else {
+			log.Printf("[INFO] Executing for %d of %d %s: %s (%s)",
+				len(connections),
+				len(req.ExecuteConnectionData),
+				pluralize.NewClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
+				strings.Join(maps.Keys(connections), ", "),
+				req.CallId)
+		}
+	}
 }
 
 /*

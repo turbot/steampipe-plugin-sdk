@@ -6,9 +6,11 @@ import (
 	"strings"
 )
 
-const deprecatedContextColumnName = "_ctx"
-const contextColumnName = "sp_ctx"
-const connectionNameColumnName = "sp_connection_name"
+const (
+	deprecatedContextColumnName = "_ctx"
+	contextColumnName           = "sp_ctx"
+	connectionNameColumnName    = "sp_connection_name"
+)
 
 var spcReservedColumnPrefixes = []string{"_spc_", "sp_"}
 
