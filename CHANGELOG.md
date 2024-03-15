@@ -1,6 +1,11 @@
+## v5.10.0 [tbd]
+_What's new?_
+* Add support for connection key columns. ([#768](https://github.com/turbot/steampipe-plugin-sdk/issues/768)) 
+* Add `sp_ctx` and `sp_connection_name` columns to all tables. ([#769](https://github.com/turbot/steampipe-plugin-sdk/issues/769))
+
 ## v5.9.0 [2024-02-26]
 _What's new?_
-* Remove support for Memoized functions to be directly assigned as column hydrate functions. Instead require a wrapper hydrate function. (#756) ([#738](https://github.com/turbot/steampipe-plugin-sdk/issues/738))
+* Remove support for Memoized functions to be directly assigned as column hydrate functions. Instead require a wrapper hydrate function.  ([#738](https://github.com/turbot/steampipe-plugin-sdk/issues/738))
 
 _Bug fixes_
 * If cache is disabled for the server, but enabled for the client, the query execution code tries to stream to the cache even though there is not active set operation. ([#740](https://github.com/turbot/steampipe-plugin-sdk/issues/740))
