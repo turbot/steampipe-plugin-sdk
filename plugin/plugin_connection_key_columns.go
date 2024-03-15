@@ -49,7 +49,7 @@ func (p *Plugin) filterConnectionsWithKeyColumns(ctx context.Context, connection
 	var res = maps.Clone(connectionData)
 
 	// if this plugin does not support connectionKeyColumns, nothing to do
-	if len(p.ConnectionKeyColumns) == 0 {
+	if len(p.connectionKeyColumnsMap) == 0 {
 		return connectionData
 	}
 
@@ -151,7 +151,7 @@ func (p *Plugin) getConnectionKeyColumnValue(ctx context.Context, connectionName
 	}
 
 	// we do not yet have the value stored - call the function to get it
-	valueFunc := p.ConnectionKeyColumns[column].Hydrate
+	valueFunc := p.connectionKeyColumnsMap[column].Hydrate
 	connectionCache, err := p.ensureConnectionCache(connectionName)
 	if err != nil {
 		return nil, err
@@ -176,6 +176,6 @@ func (p *Plugin) isConnectionKeyColumn(column string) bool {
 		return true
 	}
 
-	_, isConnectionKeyColumn := p.ConnectionKeyColumns[column]
+	_, isConnectionKeyColumn := p.connectionKeyColumnsMap[column]
 	return isConnectionKeyColumn
 }

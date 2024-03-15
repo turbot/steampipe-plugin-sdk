@@ -34,7 +34,7 @@ import (
 /*
 Plugin is the primary struct that defines a Steampipe GRPC plugin.
 
-Set plugin name using [plugin.Plugin.Name].
+Set plugin Name using [plugin.Plugin.Name].
 
 The tables provided by the plugin are specified by setting either [plugin.Plugin.TableMap] or [plugin.Plugin.TableMapFunc]:
 
@@ -71,9 +71,11 @@ type Plugin struct {
 	TableMap         map[string]*Table
 	TableMapFunc     TableMapFunc
 	DefaultTransform *transform.ColumnTransforms
-	// ConnectionKeyColumns is a map of function which returns the the values of all columns which have a
-	// 1-1 mapping with connection name.
-	ConnectionKeyColumns map[string]ConnectionKeyColumn
+
+	// ConnectionKeyColumns ia a list of [ConnectionKeyColumn] structs which define columns whose value map
+	// directly to a Steampipe connection. These are used to filter connections when executing an aggregator query.
+	// See [ConnectionKeyColumn] for more details.
+	ConnectionKeyColumns []ConnectionKeyColumn
 
 	// deprecated - use RateLimiters to control concurrency
 	DefaultConcurrency  *DefaultConcurrencyConfig
@@ -113,6 +115,9 @@ type Plugin struct {
 	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
 
+	// this is ConnectionKeyColumns converted to a map keyed by column name
+	// NOTE: we do not need locking as we only write to this during plugin initialisation
+	connectionKeyColumnsMap map[string]ConnectionKeyColumn
 	// map of column values with a 1-1 mapping with connection name
 	// keyed by connection name - there is a map of column values for each connection
 	// NOTE: this is lazily populated when an aggregator query uses these columns as quals
@@ -149,11 +154,11 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 	p.Logger = logger
 
 	p.connectionKeyColumnValuesMap = make(map[string]map[string]any)
-	if p.ConnectionKeyColumns == nil {
-		p.ConnectionKeyColumns = make(map[string]ConnectionKeyColumn)
-	}
-	for column, k := range p.ConnectionKeyColumns {
-		k.initialise(column)
+
+	// initialise connectionKeyColumnsMap - convert ConnectionKeyColumns to a map
+	p.connectionKeyColumnsMap = make(map[string]ConnectionKeyColumn)
+	for _, k := range p.ConnectionKeyColumns {
+		p.connectionKeyColumnsMap[k.Name] = k
 	}
 
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())

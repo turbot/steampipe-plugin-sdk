@@ -220,11 +220,14 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 
 	// create a context with the logger
 	loggerCtx := context.WithValue(ctx, context_key.Logger, logger)
-	// if connection key columns are defined, check whether there are any relevant quals which exclude this column
-	// (potentially) filter the list of connections by applying connection key column quals
-	connections := p.filterConnectionsWithKeyColumns(loggerCtx, req.ExecuteConnectionData, req.QueryContext.Quals)
 
-	// log the resulting connections which we will execute
+	connections := req.ExecuteConnectionData
+	if len(connections) > 0 {
+		// if the plugin defines connection key columns
+		// check whether there are any relevant quals which will reduce the number of connections we must execute for
+		connections = p.filterConnectionsWithKeyColumns(loggerCtx, req.ExecuteConnectionData, req.QueryContext.Quals)
+	}
+	// log the resulting connections for which we will execute
 	p.logExecuteConnections(req, connections)
 
 	for connectionName := range connections {
