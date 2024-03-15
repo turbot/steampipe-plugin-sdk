@@ -24,7 +24,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.23.1 // indirect
 	go.opentelemetry.io/otel/trace v1.23.1
 	google.golang.org/grpc v1.62.1
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 )
 
 require (
