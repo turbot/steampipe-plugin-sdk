@@ -3,6 +3,8 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"golang.org/x/exp/maps"
+	"golang.org/x/sync/semaphore"
 	"log"
 	"strings"
 	"sync"
@@ -18,8 +20,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
-	"golang.org/x/exp/maps"
-	"golang.org/x/sync/semaphore"
 )
 
 /*
@@ -87,6 +87,9 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 		}
 	}
 
+	// clear connectionKeyColumnValues for these connections
+	p.clearConnectionKeyColumnValues(configs)
+
 	// if there are any failed connections, raise an error
 	err = error_helpers.CombineErrors(maps.Values(updateData.failedConnections)...)
 	return updateData.failedConnections, err
@@ -146,6 +149,11 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		p.queryCache.PluginSchemaMap = p.buildConnectionSchemaMap()
 	}
 
+	// clear connectionKeyColumnValues for these connections
+	allChanged := append(added, changed...)
+	allChanged = append(allChanged, deleted...)
+	p.clearConnectionKeyColumnValues(allChanged)
+
 	return updateData.failedConnections, nil
 }
 
@@ -195,10 +203,6 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	defer p.clearCallId(req.CallId)
 
 	log.Printf("[INFO] Plugin execute table name: %s quals: %s (%s)", req.Table, grpc.QualMapToLogLine(req.QueryContext.Quals), req.CallId)
-	log.Printf("[INFO] Executing for %d %s: %s", len(req.ExecuteConnectionData),
-		pluralize.NewClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
-		strings.Join(maps.Keys(req.ExecuteConnectionData), "'"))
-
 	defer log.Printf("[INFO]  Plugin execute complete (%s)", req.CallId)
 
 	outputChan := make(chan *proto.ExecuteResponse, len(req.ExecuteConnectionData))
@@ -214,7 +218,19 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	// NOTE: req.Connection may be empty (for pre v0.19 steampipe versions)
 	connectionData, _ := p.getConnectionData(req.Connection)
 
-	for connectionName := range req.ExecuteConnectionData {
+	// create a context with the logger
+	loggerCtx := context.WithValue(ctx, context_key.Logger, logger)
+
+	connections := req.ExecuteConnectionData
+	if len(connections) > 0 {
+		// if the plugin defines connection key columns
+		// check whether there are any relevant quals which will reduce the number of connections we must execute for
+		connections = p.filterConnectionsWithKeyColumns(loggerCtx, req.ExecuteConnectionData, req.QueryContext.Quals)
+	}
+	// log the resulting connections for which we will execute
+	p.logExecuteConnections(req, connections)
+
+	for connectionName := range connections {
 		// if this is an aggregator execution, check whether this child connection supports this table
 		if connectionData != nil && connectionData.AggregatedTablesByConnection != nil {
 			if tablesForConnection, ok := connectionData.AggregatedTablesByConnection[connectionName]; ok {
@@ -237,7 +253,7 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 		go func(c string) {
 			defer outputWg.Done()
 
-			log.Printf("[TRACE] Plugin execute goroutine for connection %s", connectionName)
+			log.Printf("[TRACE] Plugin execute goroutine for connection %s", c)
 			if err := sem.Acquire(ctx, 1); err != nil {
 				return
 			}
@@ -295,11 +311,32 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 		}
 	}
 
-	log.Printf("[INFO] Plugin execute table: %s closing error chan and output chan  (%s)", req.Table, req.CallId)
+	log.Printf("[INFO] Plugin execute table: %s closing error chan and output chan (%s)", req.Table, req.CallId)
 	close(outputChan)
 	close(errorChan)
 
 	return helpers.CombineErrors(errors...)
+}
+
+func (p *Plugin) logExecuteConnections(req *proto.ExecuteRequest, connections map[string]*proto.ExecuteConnectionData) {
+	if len(connections) == 0 {
+		log.Printf("[INFO] No connections to execute for table: %s (%s)", req.Table, req.CallId)
+	} else {
+		if len(connections) == len(req.ExecuteConnectionData) {
+			log.Printf("[INFO] Executing for %d %s: %s (%s)",
+				len(connections),
+				pluralize.NewClient().Pluralize("connection", len(connections), false),
+				strings.Join(maps.Keys(connections), ", "),
+				req.CallId)
+		} else {
+			log.Printf("[INFO] Executing for %d of %d %s: %s (%s)",
+				len(connections),
+				len(req.ExecuteConnectionData),
+				pluralize.NewClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
+				strings.Join(maps.Keys(connections), ", "),
+				req.CallId)
+		}
+	}
 }
 
 /*
@@ -396,7 +433,7 @@ func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) (err err
 	return error_helpers.CombineErrors(errors...)
 }
 
-// return the rate limiter defintions defined by the plugin
+// return the rate limiter definitions defined by the plugin
 func (p *Plugin) getRateLimiters() []*proto.RateLimiterDefinition {
 	if len(p.RateLimiters) == 0 {
 		return nil

@@ -113,7 +113,7 @@ func (d *ConnectionData) initAggregatorSchema(aggregatorConfig *proto.Connection
 		return logMessages, err
 	}
 
-	// resolve tables to include by comparing the tablde schemas for each connection
+	// resolve tables to include by comparing the table schemas for each connection
 	// and resolving the aggregator schema, (based on the `Aggregation` property)
 	d.resolveAggregatorTableMap(aggregatorConfig, logMessages)
 
@@ -293,6 +293,7 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 			// ok including this column
 			superset.Columns = append(superset.Columns, column)
 			includedColumns[column.Name] = struct{}{}
+
 		}
 	}
 

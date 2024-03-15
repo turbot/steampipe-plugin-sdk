@@ -2,12 +2,14 @@ package plugin
 
 import (
 	"fmt"
+	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 )
 
-// DiagsToError converts tfdiags diags into an error
+// DiagsToError converts error  diags into a single error
+// deprecated this is duplicated from pipe-fittings - only exists here until AWS plugin is updated to latest sdk so we can reference pipe-fittings
 func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 	if !diags.HasErrors() {
 		return nil
@@ -20,15 +22,10 @@ func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 		if len(errStrings) > 1 {
 			res += "\n"
 		}
-		return fmt.Errorf("%s:\n%s", prefix, res)
+		return sperr.New(fmt.Sprintf("%s: %s", prefix, res))
 	}
 
 	return diags.Errs()[0]
-}
-
-// DiagsToWarnings converts warning diags into a list of warning strings
-func DiagsToWarnings(diags hcl.Diagnostics) []string {
-	return diagsToString(diags, hcl.DiagWarning)
 }
 
 func diagsToString(diags hcl.Diagnostics, severity hcl.DiagnosticSeverity) []string { // convert the first diag into an error
@@ -37,7 +34,7 @@ func diagsToString(diags hcl.Diagnostics, severity hcl.DiagnosticSeverity) []str
 	var strs []string
 	for _, diag := range diags {
 		if diag.Severity == severity {
-			str := fmt.Sprintf("%s", diag.Summary)
+			str := diag.Summary
 			if diag.Detail != "" {
 				str += fmt.Sprintf(": %s", diag.Detail)
 			}
@@ -55,4 +52,11 @@ func diagsToString(diags hcl.Diagnostics, severity hcl.DiagnosticSeverity) []str
 	}
 
 	return strs
+}
+
+// DiagsToWarnings converts warning diags into a list of warning strings
+// deprecated
+// this is duplicated from pipe-fittings - only exists here until AWS plugin is updated to latest sdk so we can reference pipe-fittings
+func DiagsToWarnings(diags hcl.Diagnostics) []string {
+	return diagsToString(diags, hcl.DiagWarning)
 }

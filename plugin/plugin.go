@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"github.com/danwakefield/fnmatch"
 	"log"
 	"os"
 	"path"
@@ -70,6 +71,12 @@ type Plugin struct {
 	TableMap         map[string]*Table
 	TableMapFunc     TableMapFunc
 	DefaultTransform *transform.ColumnTransforms
+
+	// ConnectionKeyColumns ia a list of [ConnectionKeyColumn] structs which define columns whose value map
+	// directly to a Steampipe connection. These are used to filter connections when executing an aggregator query.
+	// See [ConnectionKeyColumn] for more details.
+	ConnectionKeyColumns []ConnectionKeyColumn
+
 	// deprecated - use RateLimiters to control concurrency
 	DefaultConcurrency  *DefaultConcurrencyConfig
 	DefaultRetryConfig  *RetryConfig
@@ -108,6 +115,15 @@ type Plugin struct {
 	connectionCacheMap     map[string]*connectionmanager.ConnectionCache
 	connectionCacheMapLock sync.Mutex
 
+	// this is ConnectionKeyColumns converted to a map keyed by column name
+	// NOTE: we do not need locking as we only write to this during plugin initialisation
+	connectionKeyColumnsMap map[string]ConnectionKeyColumn
+	// map of column values with a 1-1 mapping with connection name
+	// keyed by connection name - there is a map of column values for each connection
+	// NOTE: this is lazily populated when an aggregator query uses these columns as quals
+	connectionKeyColumnValuesMap     map[string]map[string]any
+	connectionKeyColumnValuesMapLock sync.Mutex
+
 	// temporary dir for this plugin
 	// this will only created if getSourceFiles is used
 	tempDir string
@@ -137,6 +153,14 @@ func (p *Plugin) initialise(logger hclog.Logger) {
 	p.ConnectionMap = make(map[string]*ConnectionData)
 	p.connectionCacheMap = make(map[string]*connectionmanager.ConnectionCache)
 	p.Logger = logger
+
+	p.connectionKeyColumnValuesMap = make(map[string]map[string]any)
+
+	// initialise connectionKeyColumnsMap - convert ConnectionKeyColumns to a map
+	p.connectionKeyColumnsMap = make(map[string]ConnectionKeyColumn)
+	for _, k := range p.ConnectionKeyColumns {
+		p.connectionKeyColumnsMap[k.Name] = k
+	}
 
 	log.Printf("[INFO] initialise plugin '%s', using sdk version %s", p.Name, version.String())
 	p.logMemoryLimit()
@@ -635,6 +659,9 @@ func (p *Plugin) buildSchema(tableMap map[string]*Table) (*grpc.PluginSchema, er
 		}
 		schema.Schema[tableName] = tableSchema
 		tables = append(tables, tableName)
+
+		// check whether this column is a connectionKeyColumn and if so, create get and list key columns for the superset schema
+		p.addConnectionKeyColumns(tableName, tableSchema)
 	}
 
 	return schema, nil
@@ -725,4 +752,34 @@ func (p *Plugin) deleteConnectionData(connections []string) {
 		delete(p.ConnectionMap, deletedConnection)
 	}
 	p.connectionMapLock.Unlock()
+}
+
+// TODO this is duplicated from pipe-fittings - only exists here until AWS plugin is updated to latest sdk so we can reference pipe-fittings
+
+// SqlLike simulates SQL LIKE pattern matching using fnmatch, with an option for case sensitivity.
+func SqlLike(input, pattern string, caseSensitive bool) bool {
+	flag := 0
+	if !caseSensitive {
+		flag = fnmatch.FNM_CASEFOLD
+	}
+	// convert he sql pattern to fnmatch pattern
+	fnmatchPattern := sqlLikeToFnmatch(pattern)
+	return fnmatch.Match(fnmatchPattern, input, flag)
+
+}
+
+// sqlLikeToFnmatch converts a SQL LIKE pattern to an fnmatch pattern
+func sqlLikeToFnmatch(pattern string) string {
+	// Replace SQL '%' wildcard with fnmatch '*' wildcard
+	pattern = strings.ReplaceAll(pattern, "%", "*")
+
+	// Replace SQL '_' wildcard with fnmatch '?' wildcard
+	pattern = strings.ReplaceAll(pattern, "_", "?")
+
+	// Handle escaped '%' and '_' characters
+	// This example assumes '\' is used as the escape character in the SQL pattern
+	pattern = strings.ReplaceAll(pattern, "\\%", "%")
+	pattern = strings.ReplaceAll(pattern, "\\_", "_")
+
+	return pattern
 }

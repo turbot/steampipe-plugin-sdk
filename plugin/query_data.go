@@ -882,7 +882,9 @@ func (d *QueryData) addContextData(row *proto.Row, rowData *rowData) {
 		return
 	}
 
+	row.Columns[connectionNameColumnName] = &proto.Column{Value: &proto.Column_StringValue{StringValue: rowCtxData.Connection}}
 	row.Columns[contextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
+	row.Columns[deprecatedContextColumnName] = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: jsonValue}}
 }
 
 func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *proto.Row) {
@@ -907,7 +909,7 @@ func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
 
 // return the names of all columns that will be returned, adding in the _ctx column
 func (d *QueryData) getColumnNames() []string {
-	return append(maps.Keys(d.columns), contextColumnName)
+	return append(maps.Keys(d.columns), deprecatedContextColumnName)
 }
 
 func (d *QueryData) removeReservedColumns(row *proto.Row) {
