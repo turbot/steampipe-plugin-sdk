@@ -125,6 +125,8 @@ func qualValuesContainValue(qualValues []*proto.QualValue, value any) bool {
 // clears the values of connectionKeyColumnValuesMap for the given connections
 // the is called when we set connection config - used to force a new (lazy) load of the values
 func (p *Plugin) clearConnectionKeyColumnValues(configs []*proto.ConnectionConfig) {
+	p.connectionKeyColumnValuesMapLock.Lock()
+	defer p.connectionKeyColumnValuesMapLock.Unlock()
 	for _, c := range configs {
 		delete(p.connectionKeyColumnValuesMap, c.Connection)
 	}
@@ -135,6 +137,11 @@ func (p *Plugin) getConnectionKeyColumnValue(ctx context.Context, connectionName
 	if column == connectionNameColumnName {
 		return connectionName, nil
 	}
+
+	// lock the map
+	p.connectionKeyColumnValuesMapLock.Lock()
+	// ensure we unlock it
+	defer p.connectionKeyColumnValuesMapLock.Unlock()
 
 	// get the column value map for this connection
 	columnValueMap, ok := p.connectionKeyColumnValuesMap[connectionName]

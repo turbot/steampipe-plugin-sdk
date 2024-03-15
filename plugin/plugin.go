@@ -34,7 +34,7 @@ import (
 /*
 Plugin is the primary struct that defines a Steampipe GRPC plugin.
 
-Set plugin Name using [plugin.Plugin.Name].
+Set plugin name using [plugin.Plugin.Name].
 
 The tables provided by the plugin are specified by setting either [plugin.Plugin.TableMap] or [plugin.Plugin.TableMapFunc]:
 
@@ -121,7 +121,8 @@ type Plugin struct {
 	// map of column values with a 1-1 mapping with connection name
 	// keyed by connection name - there is a map of column values for each connection
 	// NOTE: this is lazily populated when an aggregator query uses these columns as quals
-	connectionKeyColumnValuesMap map[string]map[string]any
+	connectionKeyColumnValuesMap     map[string]map[string]any
+	connectionKeyColumnValuesMapLock sync.Mutex
 
 	// temporary dir for this plugin
 	// this will only created if getSourceFiles is used
