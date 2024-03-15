@@ -1,4 +1,4 @@
-package error_helpers
+package plugin
 
 import (
 	"fmt"
@@ -8,8 +8,9 @@ import (
 	"github.com/hashicorp/hcl/v2"
 )
 
-// TODO this is duplicated from pipe-fittings - only exists here until AWS plugin is updated to latest sdk so we can reference pipe-fittings
-func HclDiagsToError(prefix string, diags hcl.Diagnostics) error {
+// DiagsToError converts error  diags into a single error
+// deprecated this is duplicated from pipe-fittings - only exists here until AWS plugin is updated to latest sdk so we can reference pipe-fittings
+func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 	if !diags.HasErrors() {
 		return nil
 	}
@@ -53,7 +54,9 @@ func diagsToString(diags hcl.Diagnostics, severity hcl.DiagnosticSeverity) []str
 	return strs
 }
 
-// HclDiagsToWarnings converts warning diags into a list of warning strings
-func HclDiagsToWarnings(diags hcl.Diagnostics) []string {
+// DiagsToWarnings converts warning diags into a list of warning strings
+// deprecated
+// this is duplicated from pipe-fittings - only exists here until AWS plugin is updated to latest sdk so we can reference pipe-fittings
+func DiagsToWarnings(diags hcl.Diagnostics) []string {
 	return diagsToString(diags, hcl.DiagWarning)
 }
