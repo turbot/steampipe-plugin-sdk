@@ -20,9 +20,9 @@ require (
 	github.com/stevenle/topsort v0.2.0
 	github.com/turbot/go-kit v0.9.0
 	github.com/zclconf/go-cty v1.14.2
-	go.opentelemetry.io/otel v1.23.1
-	go.opentelemetry.io/otel/metric v1.23.1 // indirect
-	go.opentelemetry.io/otel/trace v1.23.1
+	go.opentelemetry.io/otel v1.24.0
+	go.opentelemetry.io/otel/metric v1.24.0 // indirect
+	go.opentelemetry.io/otel/trace v1.24.0
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.32.0
 )
