@@ -186,7 +186,7 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 
 func (req *setRequest) readPageFromCacheWithRetries(ctx context.Context, pageIdx int) (*sdkproto.QueryResult, error) {
 	pageKey := getPageKey(req.resultKeyRoot, pageIdx)
-	log.Printf("[TRACE] getRowsSince reading page %d key %s", pageIdx, pageKey)
+	log.Printf("[INFO] readPageFromCacheWithRetries reading page %d key %s", pageIdx, pageKey)
 
 	var cachedResult = &sdkproto.QueryResult{}
 	var maxRetries uint64 = 10

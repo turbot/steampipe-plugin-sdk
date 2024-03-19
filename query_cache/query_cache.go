@@ -2,6 +2,7 @@ package query_cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -14,10 +15,12 @@ import (
 	"github.com/eko/gocache/lib/v4/store"
 	bigcache_store "github.com/eko/gocache/store/bigcache/v4"
 	"github.com/gertd/go-pluralize"
+	"github.com/sethvargo/go-retry"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"go.opentelemetry.io/otel/attribute"
+	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -392,6 +395,23 @@ func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setReq
 
 // write a page of rows to the cache
 func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest, finalPage bool) error {
+	// if the request only has 1 subscriber, wait for it to read all buffered data
+	req.requestLock.RLock()
+	subscribers := maps.Keys(req.subscribers)
+	req.requestLock.RUnlock()
+	if len(subscribers) == 1 {
+		for subscriber := range req.subscribers {
+			// TODO should we timeout?
+			_ = retry.Do(ctx, retry.NewConstant(50*time.Millisecond), func(ctx context.Context) error {
+				log.Printf("[WARN] writePageToCache - checking subscriber has read all rows %v (%s)", subscribers, req.CallId)
+				if subscriber.allAvailableRowsStreamed(req.rowCount) {
+					return nil
+				}
+				return retry.RetryableError(errors.New("subscriber has not read all rows"))
+			})
+		}
+	}
+
 	// now lock the request
 	req.requestLock.Lock()
 
