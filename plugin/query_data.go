@@ -154,10 +154,13 @@ type QueryData struct {
 	parentHydrateMetadata *hydrateMetadata
 	listHydrate           namedHydrateFunc
 	childHydrate          namedHydrateFunc
+	sortOrder             []SortColumn
 }
 
-func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, executeData *proto.ExecuteConnectionData, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
+func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext, table *Table, connectionData *ConnectionData, req *proto.ExecuteRequest, outputChan chan *proto.ExecuteResponse) (*QueryData, error) {
 	var wg sync.WaitGroup
+
+	executeData := req.ExecuteConnectionData[connectionData.Connection.Name]
 
 	// create a connection cache wrapper
 	connectionCache, err := p.ensureConnectionCache(connectionData.Connection.Name)
@@ -196,6 +199,8 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 		matrixColLookup: make(map[string]struct{}),
 	}
 
+	// set the sort order for the query - this converts from proto.SortOrder to the internal sort order
+	d.setSortOrder(req.Sort)
 	d.StreamListItem = d.streamListItem
 	// for legacy compatibility - plugins should no longer call StreamLeafListItem directly
 	d.StreamLeafListItem = d.streamLeafListItem
@@ -921,4 +926,17 @@ func (d *QueryData) removeReservedColumns(row *proto.Row) {
 func (d *QueryData) setListCalls(listCall, childHydrate namedHydrateFunc) {
 	d.listHydrate = listCall
 	d.childHydrate = childHydrate
+}
+
+func (d *QueryData) setSortOrder(sort []*proto.SortColumn) {
+	d.sortOrder = make([]SortColumn, len(sort))
+	for i, s := range sort {
+		d.sortOrder[i] = newSortColumn(s)
+	}
+	if len(d.sortOrder) > 0 {
+		log.Printf("[INFO] sort order:")
+		for _, s := range d.sortOrder {
+			log.Printf("[INFO] %s %s", s.Column, s.Order.String())
+		}
+	}
 }

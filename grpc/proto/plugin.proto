@@ -101,6 +101,12 @@ message ExecuteRequest {
   string call_id = 6;
   TraceContext trace_context = 7;
   map<string, ExecuteConnectionData> executeConnectionData = 8;
+  repeated SortColumn sort = 9;
+}
+
+message SortColumn{
+    string column = 1;
+    SortOrder order = 2;
 }
 
 message ExecuteConnectionData {
@@ -199,6 +205,12 @@ message TableSchema
   repeated KeyColumn listCallKeyColumnList = 7;
 }
 
+enum SortOrder {
+    None = 0;
+    Asc = 1;
+    Desc = 2;
+    All = 3;
+}
 // a set of Key Columns, required for get/list calls
 // deprecated - kept for compatibility
 message KeyColumnsSet
@@ -264,6 +276,7 @@ message ColumnDefinition {
   string description = 3;
   string hydrate = 4;
   Column default = 5;
+  SortOrder sort_order = 6;
 }
 
 enum ColumnType {
