@@ -61,6 +61,7 @@ func (t *Table) GetSchema() (*proto.TableSchema, error) {
 				Name:        column.Name,
 				Type:        column.Type,
 				Description: column.Description,
+				SortOrder:   column.Sort.toProto(),
 			}
 			if column.Hydrate != nil {
 				columnDef.Hydrate = column.namedHydrate.Name

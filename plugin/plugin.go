@@ -419,7 +419,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 		executeSpan.End()
 	}()
 
-	queryData, err := newQueryData(connectionCallId, p, queryContext, table, connectionData, executeData, outputChan)
+	queryData, err := newQueryData(connectionCallId, p, queryContext, table, connectionData, req, outputChan)
 	if err != nil {
 		return err
 	}

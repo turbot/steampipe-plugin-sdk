@@ -12,6 +12,65 @@ import (
 	"net"
 )
 
+type SortColumn struct {
+	Column string
+	Order  SortOrder
+}
+
+func newSortColumn(column *proto.SortColumn) SortColumn {
+	return SortColumn{Column: column.Column, Order: fromProtoSortOrder(column.Order)}
+}
+
+type SortOrder int
+
+const (
+	SortNone SortOrder = iota
+	SortAsc
+	SortDesc
+	SortAll
+)
+
+// convert proto SortOrder to SortOrder
+func fromProtoSortOrder(s proto.SortOrder) SortOrder {
+	switch s {
+	case proto.SortOrder_Asc:
+		return SortAsc
+	case proto.SortOrder_Desc:
+		return SortDesc
+	case proto.SortOrder_All:
+		return SortAll
+	default:
+		return SortNone
+	}
+}
+
+// method to convert to proto SortOrder
+func (s SortOrder) toProto() proto.SortOrder {
+	switch s {
+	case SortAsc:
+		return proto.SortOrder_Asc
+	case SortDesc:
+		return proto.SortOrder_Desc
+	case SortAll:
+		return proto.SortOrder_All
+	default:
+		return proto.SortOrder_None
+	}
+}
+
+func (s SortOrder) String() string {
+	switch s {
+	case SortAsc:
+		return "asc"
+	case SortDesc:
+		return "desc"
+	case SortAll:
+		return "asc or desc"
+	default:
+		return "none"
+	}
+}
+
 /*
 Column defines a column of a table.
 
@@ -82,6 +141,7 @@ type Column struct {
 	Transform *transform.ColumnTransforms
 
 	namedHydrate namedHydrateFunc
+	Sort         SortOrder
 }
 
 func (c *Column) initialise() {
