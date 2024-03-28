@@ -26,7 +26,7 @@ func (b *IndexBucket) Get(req *CacheRequest, keyColumns map[string]*proto.KeyCol
 	log.Printf("[TRACE] IndexBucket.Get %d items", len(b.Items))
 	for _, item := range b.Items {
 		log.Printf("[TRACE] IndexBucket.Get key %s limit %d (%s)", item.Key, item.Limit, req.CallId)
-		satisfiedRequest := item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns)
+		satisfiedRequest := item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, req.SortOrder, keyColumns)
 		satisfiesTtl := item.satisfiesTtl(req.TtlSeconds)
 
 		log.Printf("[TRACE] satisfiedRequest: %v, satisfiesTtl: %v ttlSec: %d (%s)", satisfiedRequest, satisfiesTtl, req.TtlSeconds, req.CallId)
@@ -57,6 +57,7 @@ func (b *IndexBucket) AsProto() *proto.IndexBucket {
 			Columns:       item.Columns,
 			Limit:         item.Limit,
 			PageCount:     item.PageCount,
+			SortOrder:     item.SortOrder,
 			InsertionTime: timestamppb.New(item.InsertionTime),
 		}
 	}

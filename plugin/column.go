@@ -12,13 +12,10 @@ import (
 	"net"
 )
 
+// SortColumn is used to specify the sort order that a column supports
 type SortColumn struct {
 	Column string
 	Order  SortOrder
-}
-
-func newSortColumn(column *proto.SortColumn) SortColumn {
-	return SortColumn{Column: column.Column, Order: fromProtoSortOrder(column.Order)}
 }
 
 type SortOrder int
@@ -29,20 +26,6 @@ const (
 	SortDesc
 	SortAll
 )
-
-// convert proto SortOrder to SortOrder
-func fromProtoSortOrder(s proto.SortOrder) SortOrder {
-	switch s {
-	case proto.SortOrder_Asc:
-		return SortAsc
-	case proto.SortOrder_Desc:
-		return SortDesc
-	case proto.SortOrder_All:
-		return SortAll
-	default:
-		return SortNone
-	}
-}
 
 // method to convert to proto SortOrder
 func (s SortOrder) toProto() proto.SortOrder {

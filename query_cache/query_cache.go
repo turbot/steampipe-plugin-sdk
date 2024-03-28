@@ -484,12 +484,13 @@ func (c *QueryCache) buildResultKey(req *CacheRequest) string {
 	if len(req.QualMap) > 0 {
 		qualString = fmt.Sprintf("_%s", c.formatQualMapForKey(req.QualMap))
 	}
-	str := c.sanitiseKey(fmt.Sprintf("%s_%s%s_%s_%d",
+	str := c.sanitiseKey(fmt.Sprintf("%s_%s%s_%s_%d_%s",
 		req.ConnectionName,
 		req.Table,
 		qualString,
 		strings.Join(req.Columns, ","),
-		req.Limit))
+		req.Limit,
+		req.sortOrderString()))
 	return str
 }
 
