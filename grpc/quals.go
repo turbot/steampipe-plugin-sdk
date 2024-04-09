@@ -70,7 +70,7 @@ type SerializableQual struct {
 	Value    any    `json:"value"`
 }
 
-func QualMapToSerialzableSlice(qualMap map[string]*proto.Quals) []SerializableQual {
+func QualMapToSerializableSlice(qualMap map[string]*proto.Quals) []SerializableQual {
 	if len(qualMap) == 0 {
 		return nil
 	}
