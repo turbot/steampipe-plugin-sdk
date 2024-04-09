@@ -35,6 +35,9 @@ type rowData struct {
 
 	delayMapMut             sync.RWMutex
 	hydrateConcurrencyDelay map[string]*hydrateConcurrencyDelay
+
+	// wait group to ensure correct row ordering
+	orderingWg sync.WaitGroup
 }
 
 // newRowData creates an empty rowData object

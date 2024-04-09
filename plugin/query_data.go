@@ -660,7 +660,9 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 		// set the parent item on the row data
 		rd.parentItem = d.parentItem
 		// NOTE: add the item as the hydrate data for the list call
-		rd.set(d.Table.List.namedHydrate.Name, item)
+		// we do not expect this to fail as we just created the rowdata
+		// (it only fails for duplicate hydrate func values)
+		_= rd.set(d.Table.List.namedHydrate.Name, item)
 
 		d.rowDataChan <- rd
 	}
@@ -693,6 +695,8 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 
 	// start goroutine to read items from item chan and generate row data
 	go func() {
+		// wait group used to ensure row ordering
+		var prevRowOrderingWg *sync.WaitGroup
 		for {
 			// wait for either an rowData or an error
 			select {
@@ -715,7 +719,6 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 					//log.Printf("[INFO] buildRowsAsync acquire semaphore (%s)", d.connectionCallId)
 					if err := rowSemaphore.Acquire(ctx, 1); err != nil {
 						log.Printf("[INFO] SEMAPHORE ERROR %s", err)
-						// TODO KAI does this quit??
 						d.errorChan <- err
 						return
 					}
@@ -724,7 +727,12 @@ func (d *QueryData) buildRowsAsync(ctx context.Context, rowChan chan *proto.Row,
 					}
 				}
 				rowWg.Add(1)
-				d.buildRowAsync(ctx, rowData, rowChan, &rowWg, rowSemaphore)
+
+				// increment ordering wg
+				rowData.orderingWg.Add(1)
+				d.buildRowAsync(ctx, rowData, rowChan, &rowWg, rowSemaphore, prevRowOrderingWg)
+				// update the wait group
+				prevRowOrderingWg = &rowData.orderingWg
 			}
 		}
 	}()
@@ -839,7 +847,7 @@ func (d *QueryData) streamError(err error) {
 
 // TODO KAI this seems to get called even after cancellation
 // execute necessary hydrate calls to populate row data
-func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup, sem *semaphore.Weighted) {
+func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan chan *proto.Row, wg *sync.WaitGroup, sem *semaphore.Weighted, prevRowWg *sync.WaitGroup) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -867,7 +875,14 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 				// NOTE: add the Steampipecontext data to the row
 				d.addContextData(row, rowData)
 			}
+			// if ordering is being applied, wait until prev row is ready to ensure ordering
+			if len(d.QueryContext.SortOrder) > 0 && prevRowWg != nil {
+			//if  prevRowWg != nil {
+				prevRowWg.Wait()
+			}
+
 			rowChan <- row
+			rowData.orderingWg.Done()
 		}
 	}()
 }
