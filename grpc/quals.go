@@ -1,8 +1,6 @@
 package grpc
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -66,32 +64,27 @@ func QualMapsEqual(l map[string]*proto.Quals, r map[string]*proto.Quals) bool {
 	return true
 }
 
-func QualMapToJSONString(qualMap map[string]*proto.Quals) (string, error) {
-	var res []map[string]interface{}
-	if len(qualMap) == 0 {
-		return "[]", nil
-	}
+type SerializableQual struct {
+	Column   string `json:"column"`
+	Operator string `json:"operator"`
+	Value    any    `json:"value"`
+}
 
+func QualMapToSerialzableSlice(qualMap map[string]*proto.Quals) []SerializableQual {
+	if len(qualMap) == 0 {
+		return nil
+	}
+	var res []SerializableQual
 	for _, quals := range qualMap {
 		for _, q := range quals.GetQuals() {
-			res = append(res, map[string]interface{}{
-				"column":   q.FieldName,
-				"operator": q.GetStringValue(),
-				"value":    GetQualValue(q.Value),
+			res = append(res, SerializableQual{
+				Column:   q.FieldName,
+				Operator: q.GetStringValue(),
+				Value:    GetQualValue(q.Value),
 			})
-
 		}
 	}
-	writeBuffer := bytes.NewBufferString("")
-	encoder := json.NewEncoder(writeBuffer)
-	encoder.SetIndent("", " ")
-	encoder.SetEscapeHTML(false)
-
-	if err := encoder.Encode(res); err != nil {
-		return "", err
-	}
-
-	return writeBuffer.String(), nil
+	return res
 }
 
 func QualToString(q *proto.Qual) string {
