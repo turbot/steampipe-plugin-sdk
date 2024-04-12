@@ -662,7 +662,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 		// NOTE: add the item as the hydrate data for the list call
 		// we do not expect this to fail as we just created the rowdata
 		// (it only fails for duplicate hydrate func values)
-		_= rd.set(d.Table.List.namedHydrate.Name, item)
+		_ = rd.set(d.Table.List.namedHydrate.Name, item)
 
 		d.rowDataChan <- rd
 	}
@@ -876,8 +876,8 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 				d.addContextData(row, rowData)
 			}
 			// if ordering is being applied, wait until prev row is ready to ensure ordering
-			if len(d.QueryContext.SortOrder) > 0 && prevRowWg != nil {
-			//if  prevRowWg != nil {
+			//if len(d.QueryContext.SortOrder) > 0 && prevRowWg != nil {
+			if prevRowWg != nil {
 				prevRowWg.Wait()
 			}
 

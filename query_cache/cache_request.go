@@ -3,9 +3,10 @@ package query_cache
 import (
 	"context"
 	"fmt"
-	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"strings"
 	"time"
+
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
 type CacheRequest struct {
