@@ -876,12 +876,12 @@ func (d *QueryData) buildRowAsync(ctx context.Context, rowData *rowData, rowChan
 				d.addContextData(row, rowData)
 			}
 			// if ordering is being applied, wait until prev row is ready to ensure ordering
-			//if len(d.QueryContext.SortOrder) > 0 && prevRowWg != nil {
-			if prevRowWg != nil {
+			if len(d.QueryContext.SortOrder) > 0 && prevRowWg != nil {
 				prevRowWg.Wait()
 			}
 
 			rowChan <- row
+			// close our own wait group
 			rowData.orderingWg.Done()
 		}
 	}()
