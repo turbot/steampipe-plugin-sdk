@@ -16,6 +16,7 @@ type IndexItem struct {
 	Columns       []string
 	Key           string
 	Limit         int64
+	SortOrder     []*proto.SortColumn
 	Quals         map[string]*proto.Quals
 	InsertionTime time.Time
 	PageCount     int64
@@ -27,24 +28,26 @@ func NewIndexItem(req *CacheRequest) *IndexItem {
 		Key:           req.resultKeyRoot,
 		Limit:         req.Limit,
 		Quals:         req.QualMap,
+		SortOrder:     req.SortOrder,
 		InsertionTime: time.Now(),
 		PageCount:     req.pageCount,
 	}
 }
 
-func (i IndexItem) satisfiesRequest(columns []string, limit int64, qualMap map[string]*proto.Quals, keyColumns map[string]*proto.KeyColumn) bool {
+func (i IndexItem) satisfiesRequest(columns []string, limit int64, qualMap map[string]*proto.Quals, sortOrder []*proto.SortColumn, keyColumns map[string]*proto.KeyColumn) bool {
 	satisfiedColumns := i.satisfiesColumns(columns)
 	satisfiesLimit := i.satisfiesLimit(limit)
 	satisfiesQuals := i.satisfiesQuals(qualMap, keyColumns)
+	satisfiesSortOrder := i.satisfiesSortOrder(sortOrder)
 
-	log.Printf("[TRACE] IndexItem satisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v", satisfiedColumns, satisfiesLimit, satisfiesQuals)
-	return satisfiedColumns && satisfiesLimit && satisfiesQuals
+	log.Printf("[TRACE] IndexItem satisfiesRequest: satisfiedColumns %v satisfiesLimit %v satisfiesQuals %v satisfiesSortOrder %v", satisfiedColumns, satisfiesLimit, satisfiesQuals, satisfiesSortOrder)
+	return satisfiedColumns && satisfiesLimit && satisfiesQuals && satisfiesSortOrder
 }
 
 func (i IndexItem) satisfiedByRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
 	// make an index item for the request
 	requestIndexItem := NewIndexItem(req)
-	return requestIndexItem.satisfiesRequest(i.Columns, i.Limit, i.Quals, keyColumns)
+	return requestIndexItem.satisfiesRequest(i.Columns, i.Limit, i.Quals, i.SortOrder, keyColumns)
 }
 
 // satisfiesColumns returns whether this index item satisfies the given columns
@@ -151,5 +154,18 @@ func (i IndexItem) satisfiesTtl(ttlSeconds int64) bool {
 	log.Printf("[TRACE] satisfiesTtl: cache ttl %d has NOT expired (%fs)", ttlSeconds, timeSince.Seconds())
 
 	return true
+}
 
+// does this item satisfy the sort order
+// if an order was specified, this item must implement the exact same order
+func (i IndexItem) satisfiesSortOrder(sortOrder []*proto.SortColumn) bool {
+	if len(sortOrder) != len(i.SortOrder) {
+		return false
+	}
+	for idx, o := range sortOrder {
+		if !o.Equals(i.SortOrder[idx]) {
+			return false
+		}
+	}
+	return true
 }

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"log"
 )
 
 /*
@@ -21,6 +22,7 @@ type QueryContext struct {
 	Limit        *int64
 	CacheEnabled bool
 	CacheTTL     int64
+	SortOrder 	   []*proto.SortColumn
 }
 
 // NewQueryContext maps from a [proto.QueryContext] to a [plugin.QueryContext].
@@ -29,6 +31,7 @@ func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabl
 		UnsafeQuals:  p.Quals,
 		CacheEnabled: cacheEnabled,
 		CacheTTL:     cacheTTL,
+		SortOrder:    p.SortOrder,
 	}
 	if limit != nil {
 		q.Limit = &limit.Value
@@ -42,6 +45,10 @@ func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabl
 		if _, hasColumn := table.columnNameMap[c]; hasColumn || c == deprecatedContextColumnName {
 			q.Columns = append(q.Columns, c)
 		}
+	}
+
+	if len(q.SortOrder) > 0 {
+		log.Printf("[INFO] Sort order pushed down:  (%d), %v:", len(q.SortOrder), q.SortOrder)
 	}
 	return q
 }

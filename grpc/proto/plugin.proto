@@ -82,6 +82,8 @@ message QueryContext {
   repeated string columns = 1;
   map<string, Quals> quals = 2;
   NullableInt limit = 3 [deprecated = true];
+  repeated SortColumn sort_order = 4;
+
 }
 
 message NullableInt {
@@ -101,6 +103,11 @@ message ExecuteRequest {
   string call_id = 6;
   TraceContext trace_context = 7;
   map<string, ExecuteConnectionData> executeConnectionData = 8;
+}
+
+message SortColumn{
+    string column = 1;
+    SortOrder order = 2;
 }
 
 message ExecuteConnectionData {
@@ -199,6 +206,12 @@ message TableSchema
   repeated KeyColumn listCallKeyColumnList = 7;
 }
 
+enum SortOrder {
+    None = 0;
+    Asc = 1;
+    Desc = 2;
+    All = 3;
+}
 // a set of Key Columns, required for get/list calls
 // deprecated - kept for compatibility
 message KeyColumnsSet
@@ -264,6 +277,7 @@ message ColumnDefinition {
   string description = 3;
   string hydrate = 4;
   Column default = 5;
+  SortOrder sort_order = 6;
 }
 
 enum ColumnType {
@@ -297,6 +311,7 @@ message IndexItem{
   int64 limit = 5;
   int64 page_count = 6;
   google.protobuf.Timestamp insertion_time =7;
+  repeated SortColumn sort_order = 8;
 }
 
 message SetCacheOptionsRequest {

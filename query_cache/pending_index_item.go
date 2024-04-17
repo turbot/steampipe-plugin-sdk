@@ -82,7 +82,7 @@ func newPendingIndexItem(pendingSetRequest *setRequest) *pendingIndexItem {
 
 // SatisfiesRequest returns whether our index item satisfies the given cache request
 func (i *pendingIndexItem) SatisfiesRequest(req *CacheRequest, keyColumns map[string]*proto.KeyColumn) bool {
-	return i.item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, keyColumns)
+	return i.item.satisfiesRequest(req.Columns, req.Limit, req.QualMap, req.SortOrder, keyColumns)
 }
 
 // SatisfiedByRequest returns whether our index item would be satisfied by the given cache request

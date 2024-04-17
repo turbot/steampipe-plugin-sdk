@@ -397,6 +397,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	if cacheEnabled {
 		// get a fresh context which includes telemetry data and logger
 		ctx, cancel = context.WithCancel(context.Background())
+		defer cancel()
 	}
 	ctx = p.buildExecuteContext(ctx, req, logger)
 
@@ -454,6 +455,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 		ConnectionName: connectionName,
 		TtlSeconds:     queryContext.CacheTTL,
 		CallId:         connectionCallId,
+		SortOrder:     queryContext.SortOrder,
 		StreamContext:  streamContext,
 	}
 	// can we satisfy this request from the cache?

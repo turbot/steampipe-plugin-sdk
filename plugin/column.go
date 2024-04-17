@@ -12,6 +12,48 @@ import (
 	"net"
 )
 
+// SortColumn is used to specify the sort order that a column supports
+type SortColumn struct {
+	Column string
+	Order  SortOrder
+}
+
+type SortOrder int
+
+const (
+	SortNone SortOrder = iota
+	SortAsc
+	SortDesc
+	SortAll
+)
+
+// method to convert to proto SortOrder
+func (s SortOrder) toProto() proto.SortOrder {
+	switch s {
+	case SortAsc:
+		return proto.SortOrder_Asc
+	case SortDesc:
+		return proto.SortOrder_Desc
+	case SortAll:
+		return proto.SortOrder_All
+	default:
+		return proto.SortOrder_None
+	}
+}
+
+func (s SortOrder) String() string {
+	switch s {
+	case SortAsc:
+		return "asc"
+	case SortDesc:
+		return "desc"
+	case SortAll:
+		return "asc or desc"
+	default:
+		return "none"
+	}
+}
+
 /*
 Column defines a column of a table.
 
@@ -82,6 +124,7 @@ type Column struct {
 	Transform *transform.ColumnTransforms
 
 	namedHydrate namedHydrateFunc
+	Sort         SortOrder
 }
 
 func (c *Column) initialise() {
