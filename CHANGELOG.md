@@ -1,6 +1,10 @@
+## v5.11.0 [tbd]
+  _What's new?_
+* Add support for pushing down sort order. ([#596](https://github.com/turbot/steampipe-plugin-sdk/issues/596))
+
 ## v5.10.0 [2024-04-10]
-_What's new?_
-* Add support for connection key columns. ([#768](https://github.com/turbot/steampipe-plugin-sdk/issues/768)) 
+  _What's new?_
+* Add support for connection key columns. ([#768](https://github.com/turbot/steampipe-plugin-sdk/issues/768))
 * Add `sp_ctx` and `sp_connection_name` columns to all tables. ([#769](https://github.com/turbot/steampipe-plugin-sdk/issues/769))
 
 ## v5.9.0 [2024-02-26]
