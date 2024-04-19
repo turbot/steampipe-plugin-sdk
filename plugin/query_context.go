@@ -1,8 +1,10 @@
 package plugin
 
 import (
+	"fmt"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
+	"strings"
 )
 
 /*
@@ -22,7 +24,7 @@ type QueryContext struct {
 	Limit        *int64
 	CacheEnabled bool
 	CacheTTL     int64
-	SortOrder 	   []*proto.SortColumn
+	SortOrder    []*SortColumn
 }
 
 // NewQueryContext maps from a [proto.QueryContext] to a [plugin.QueryContext].
@@ -31,11 +33,15 @@ func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabl
 		UnsafeQuals:  p.Quals,
 		CacheEnabled: cacheEnabled,
 		CacheTTL:     cacheTTL,
-		SortOrder:    p.SortOrder,
 	}
 	if limit != nil {
 		q.Limit = &limit.Value
 	}
+
+	for _, sortColumn := range p.SortOrder {
+		q.SortOrder = append(q.SortOrder, SortColumnFromProto(sortColumn))
+	}
+
 	// set columns
 	// NOTE: only set columns which are supported by this table
 	// (in the case of dynamic aggregators, the query may request
@@ -48,7 +54,11 @@ func NewQueryContext(p *proto.QueryContext, limit *proto.NullableInt, cacheEnabl
 	}
 
 	if len(q.SortOrder) > 0 {
-		log.Printf("[INFO] Sort order pushed down:  (%d), %v:", len(q.SortOrder), q.SortOrder)
+		var sortOrderStrings []string
+		for _, sortColumn := range q.SortOrder {
+			sortOrderStrings = append(sortOrderStrings, fmt.Sprintf("%s %s", sortColumn.Column, sortColumn.Order))
+		}
+		log.Printf("[INFO] Sort order pushed down: %s", strings.Join(sortOrderStrings, ", "))
 	}
 	return q
 }

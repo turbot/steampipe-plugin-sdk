@@ -455,8 +455,11 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 		ConnectionName: connectionName,
 		TtlSeconds:     queryContext.CacheTTL,
 		CallId:         connectionCallId,
-		SortOrder:     queryContext.SortOrder,
 		StreamContext:  streamContext,
+	}
+	// convert back to proto.SortColumn
+	for _, sortColumn := range queryContext.SortOrder {
+		cacheRequest.SortOrder = append(cacheRequest.SortOrder, sortColumn.ToProto())
 	}
 	// can we satisfy this request from the cache?
 	if cacheEnabled {

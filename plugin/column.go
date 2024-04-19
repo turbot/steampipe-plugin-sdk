@@ -18,6 +18,20 @@ type SortColumn struct {
 	Order  SortOrder
 }
 
+func SortColumnFromProto(p *proto.SortColumn) *SortColumn {
+	return &SortColumn{
+		Column: p.Column,
+		Order:  sortOrderFromProto(p.Order),
+	}
+}
+
+func (s *SortColumn) ToProto() *proto.SortColumn {
+	return &proto.SortColumn{
+		Column: s.Column,
+		Order:  s.Order.toProto(),
+	}
+}
+
 type SortOrder int
 
 const (
@@ -26,6 +40,19 @@ const (
 	SortDesc
 	SortAll
 )
+
+func sortOrderFromProto(order proto.SortOrder) SortOrder {
+	switch order {
+	case proto.SortOrder_Asc:
+		return SortAsc
+	case proto.SortOrder_Desc:
+		return SortDesc
+	case proto.SortOrder_All:
+		return SortAll
+	default:
+		return SortNone
+	}
+}
 
 // method to convert to proto SortOrder
 func (s SortOrder) toProto() proto.SortOrder {
