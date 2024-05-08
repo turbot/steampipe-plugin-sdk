@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	typeHelpers "github.com/turbot/go-kit/types"
+	connection_manager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
@@ -164,9 +165,11 @@ func (p *Plugin) getConnectionKeyColumnValue(ctx context.Context, connectionName
 		return nil, err
 	}
 	d := &QueryData{
-		Connection:      p.ConnectionMap[connectionName].Connection,
-		ConnectionCache: connectionCache,
+		Connection:        p.ConnectionMap[connectionName].Connection,
+		ConnectionCache:   connectionCache,
+		ConnectionManager: connection_manager.NewManager(connectionCache),
 	}
+
 	h := &HydrateData{}
 	val, err := valueFunc(ctx, d, h)
 	if err != nil {
