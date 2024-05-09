@@ -1,4 +1,4 @@
-## v5.10.1 [2024-05-08]
+## v5.10.1 [2024-05-09]
 _Bug fixes_
 * Ensure QueryData passed to ConnectionKeyColumns value callback is populated with ConnectionManager. ([#797](https://github.com/turbot/steampipe-plugin-sdk/issues/797)) 
 
