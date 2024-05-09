@@ -1,6 +1,10 @@
 ## v5.11.0 [tbd]
-  _What's new?_
+_What's new?_
 * Add support for pushing down sort order. ([#596](https://github.com/turbot/steampipe-plugin-sdk/issues/596))
+
+## v5.10.1 [2024-05-09]
+_Bug fixes_
+* Ensure QueryData passed to ConnectionKeyColumns value callback is populated with ConnectionManager. ([#797](https://github.com/turbot/steampipe-plugin-sdk/issues/797)) 
 
 ## v5.10.0 [2024-04-10]
   _What's new?_
