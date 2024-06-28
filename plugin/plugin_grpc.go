@@ -357,6 +357,7 @@ func (p *Plugin) establishMessageStream(stream proto.WrapperPlugin_EstablishMess
 
 	log.Printf("[TRACE] plugin.establishMessageStream set on plugin: plugin.messageStream %p", p.messageStream)
 
+	// TODO should we close this at shutdown???
 	// hold stream open
 	select {}
 

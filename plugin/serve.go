@@ -19,7 +19,6 @@ import (
 
 // ServeOpts are the configurations to serve a plugin.
 type ServeOpts struct {
-	PluginName string
 	PluginFunc PluginFunc
 }
 
@@ -28,7 +27,6 @@ type NewPluginOptions struct {
 	ConnectionConfig string
 }
 type PluginFunc func(context.Context) *Plugin
-type CreatePlugin func(context.Context, string) (*Plugin, error)
 
 /*
 	Serve creates and starts the GRPC server which serves the plugin,
