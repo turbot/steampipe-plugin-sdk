@@ -1,3 +1,7 @@
+## v5.10.2 [2024-08-02]
+_Bug fixes_
+* Remove unnecessary INFO log statements in Memoize func. This fixes logging in the plugin export tools. ([#813](https://github.com/turbot/steampipe-plugin-sdk/issues/813))
+
 ## v5.10.1 [2024-05-09]
 _Bug fixes_
 * Ensure QueryData passed to ConnectionKeyColumns value callback is populated with ConnectionManager. ([#797](https://github.com/turbot/steampipe-plugin-sdk/issues/797)) 
