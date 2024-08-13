@@ -1,3 +1,7 @@
+## v5.10.3 [2024-08-13]
+_What's new?_
+* Compiled with Go 1.22. ([#811](https://github.com/turbot/steampipe-plugin-sdk/issues/811))
+
 ## v5.10.2 [2024-08-02]
 _Bug fixes_
 * Remove unnecessary INFO log statements in Memoize func. This fixes logging in the plugin export tools. ([#813](https://github.com/turbot/steampipe-plugin-sdk/issues/813))
