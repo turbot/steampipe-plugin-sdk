@@ -1,8 +1,6 @@
 module github.com/turbot/steampipe-plugin-sdk/v5
 
-go 1.21.0
-
-toolchain go1.21.3
+go 1.22.4
 
 //replace github.com/turbot/pipe-fittings => ../pipe-fittings
 

@@ -2,6 +2,18 @@
 _What's new?_
 * Add support for pushing down sort order. ([#596](https://github.com/turbot/steampipe-plugin-sdk/issues/596))
 
+## v5.10.4 [2024-08-29]
+_What's new?_
+* Updated `hashicorp/go-getter` dependency to v1.7.5.
+
+## v5.10.3 [2024-08-13]
+_What's new?_
+* Compiled with Go 1.22. ([#811](https://github.com/turbot/steampipe-plugin-sdk/issues/811))
+
+## v5.10.2 [2024-08-02]
+_Bug fixes_
+* Remove unnecessary INFO log statements in Memoize func. This fixes logging in the plugin export tools. ([#813](https://github.com/turbot/steampipe-plugin-sdk/issues/813))
+
 ## v5.10.1 [2024-05-09]
 _Bug fixes_
 * Ensure QueryData passed to ConnectionKeyColumns value callback is populated with ConnectionManager. ([#797](https://github.com/turbot/steampipe-plugin-sdk/issues/797)) 
