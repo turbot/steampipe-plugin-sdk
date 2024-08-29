@@ -1,3 +1,7 @@
+## v5.10.4 [2024-08-29]
+_What's new?_
+* Updated `hashicorp/go-getter` dependency to v1.7.5.
+
 ## v5.10.3 [2024-08-13]
 _What's new?_
 * Compiled with Go 1.22. ([#811](https://github.com/turbot/steampipe-plugin-sdk/issues/811))
