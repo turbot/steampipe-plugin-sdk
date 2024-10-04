@@ -2,7 +2,7 @@ module github.com/turbot/steampipe-plugin-sdk/v5
 
 go 1.22.4
 
-replace github.com/turbot/pipe-fittings => ../pipe-fittings
+// replace github.com/turbot/pipe-fittings => ../pipe-fittings
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -35,7 +35,8 @@ require (
 	github.com/eko/gocache/store/ristretto/v4 v4.2.1
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/hashicorp/go-getter v1.7.5
-	github.com/turbot/pipe-fittings v0.0.0-00010101000000-000000000000
+	// v1.6.x d0901d32 (Remove SteampipeWorkspaceProfile args, options and update snapshot output format.)
+	github.com/turbot/pipe-fittings v1.6.0-beta.1.0.20241004093702-d0901d32f327
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.26.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.24.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
@@ -48,7 +49,6 @@ require (
 
 require (
 	cloud.google.com/go v0.112.1 // indirect
-	cloud.google.com/go/compute v1.24.0 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.6 // indirect
 	cloud.google.com/go/storage v1.38.0 // indirect
@@ -65,6 +65,7 @@ require (
 	github.com/btubbs/datetime v0.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/containerd v1.7.18 // indirect
+	github.com/containerd/errdefs v0.1.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/fatih/color v1.17.0 // indirect
@@ -146,7 +147,6 @@ require (
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/api v0.171.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
