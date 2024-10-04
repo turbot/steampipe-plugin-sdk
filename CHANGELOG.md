@@ -1,3 +1,7 @@
+## v5.10.5 [tbd]
+_What's new?_
+* Added RateLimiterFromProto and RateLimiterAsProto functions. ([#826](https://github.com/turbot/steampipe-plugin-sdk/issues/826))
+
 ## v5.10.4 [2024-08-29]
 _What's new?_
 * Updated `hashicorp/go-getter` dependency to v1.7.5.
