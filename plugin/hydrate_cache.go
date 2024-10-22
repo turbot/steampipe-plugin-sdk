@@ -62,7 +62,6 @@ func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 	if isMemoized(f) {
 		log.Printf("[WARN] Memoize %s - already memoized", helpers.GetFunctionName(f))
 	}
-	log.Printf("[INFO] Memoize %s", helpers.GetFunctionName(f))
 
 	config := newMemoizeConfiguration(f)
 	for _, o := range opts {
@@ -129,8 +128,6 @@ func (f HydrateFunc) Memoize(opts ...MemoizeOption) HydrateFunc {
 		// no call the hydrate function and cache the result
 		return callAndCacheHydrate(ctx, d, h, f, cacheKey, ttl)
 	}
-
-	log.Printf("[INFO] Memoize %p %s", f, helpers.GetFunctionName(f))
 
 	if memoizedFuncPtr == 0 {
 		memoizedFuncPtr = reflect.ValueOf(memoizedFunc).Pointer()
