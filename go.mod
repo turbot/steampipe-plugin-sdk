@@ -35,8 +35,7 @@ require (
 	github.com/eko/gocache/store/ristretto/v4 v4.2.1
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/hashicorp/go-getter v1.7.5
-	// v1.6.x d0901d32 (Remove SteampipeWorkspaceProfile args, options and update snapshot output format.)
-	github.com/turbot/pipe-fittings v1.6.0-beta.1.0.20241004093702-d0901d32f327
+	github.com/turbot/pipe-fittings v1.6.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.26.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.24.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
