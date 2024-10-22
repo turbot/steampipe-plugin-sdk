@@ -1,4 +1,4 @@
-## v5.11.0 [tbd]
+## v5.11.0 [2024-10-22]
 _What's new?_
 * Add support for pushing down sort order. ([#596](https://github.com/turbot/steampipe-plugin-sdk/issues/596))
 * Added RateLimiterFromProto and RateLimiterAsProto functions. ([#826](https://github.com/turbot/steampipe-plugin-sdk/issues/826))
