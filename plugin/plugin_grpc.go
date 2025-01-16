@@ -12,6 +12,7 @@ import (
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/pipe-fittings/sperr"
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -19,7 +20,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 )
 
 /*

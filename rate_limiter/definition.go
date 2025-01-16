@@ -2,11 +2,13 @@ package rate_limiter
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"golang.org/x/time/rate"
 	"log"
 	"regexp"
 	"strings"
+
+	"github.com/turbot/pipe-fittings/filter"
+	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
 
 type Definition struct {
@@ -23,7 +25,7 @@ type Definition struct {
 
 	// filter used to target the limiter
 	Where        string
-	parsedFilter *scopeFilter
+	parsedFilter *filter.SqlFilter
 }
 
 // DefinitionFromProto converts the proto format RateLimiterDefinition into a Defintion
@@ -56,7 +58,7 @@ func (d *Definition) ToProto() *proto.RateLimiterDefinition {
 func (d *Definition) Initialise() error {
 	log.Printf("[INFO] initialise rate limiter Definition")
 	if d.Where != "" {
-		scopeFilter, err := newScopeFilter(d.Where)
+		scopeFilter, err := filter.NewSqlFilter(d.Where)
 		if err != nil {
 			log.Printf("[WARN] failed to parse scope filter: %s", err.Error())
 			return err
@@ -107,5 +109,5 @@ func (d *Definition) SatisfiesFilters(scopeValues map[string]string) bool {
 		return true
 	}
 
-	return d.parsedFilter.satisfied(scopeValues)
+	return d.parsedFilter.Satisfied(scopeValues)
 }
