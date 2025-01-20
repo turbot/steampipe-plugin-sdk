@@ -1,3 +1,7 @@
+## v5.11.1 [2025-01-20]
+_Dependencies_
+- Upgrade `crypto` and `net` packages to remediate critical and high vulnerabilities.
+
 ## v5.11.0 [2024-10-22]
 _What's new?_
 * Add support for pushing down sort order. ([#596](https://github.com/turbot/steampipe-plugin-sdk/issues/596))
