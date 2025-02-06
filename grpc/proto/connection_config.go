@@ -1,8 +1,6 @@
 package proto
 
-import (
-	"github.com/turbot/go-kit/helpers"
-)
+import "slices"
 
 func (x *ConnectionConfig) Equals(other *ConnectionConfig) bool {
 	res := x.Connection == other.Connection &&
@@ -21,7 +19,7 @@ func (x *ConnectionConfig) childConnectionsEqual(other *ConnectionConfig) bool {
 
 	// ignore ordering
 	for _, c := range x.ChildConnections {
-		if !helpers.StringSliceContains(other.ChildConnections, c) {
+		if !slices.Contains(other.ChildConnections, c) {
 			return false
 		}
 	}

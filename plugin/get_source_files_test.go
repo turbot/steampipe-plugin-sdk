@@ -6,10 +6,10 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 )
 
@@ -208,7 +208,7 @@ func TestGetSourceFiles(t *testing.T) {
 	ignoreBlocks := []string{"github", "bitbucket", "gitlab", "s3", "http"}
 
 	for block, cases := range getSourceFilesTestCases {
-		if helpers.StringSliceContains(ignoreBlocks, block) {
+		if slices.Contains(ignoreBlocks, block) {
 			continue
 		}
 		for name, test := range cases {

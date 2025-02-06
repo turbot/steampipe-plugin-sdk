@@ -2,10 +2,10 @@ package query_cache
 
 import (
 	"log"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 )
@@ -54,7 +54,7 @@ func (i IndexItem) satisfiedByRequest(req *CacheRequest, keyColumns map[string]*
 // used when determining whether this IndexItem satisfies a cache reques
 func (i IndexItem) satisfiesColumns(columns []string) bool {
 	for _, c := range columns {
-		if !helpers.StringSliceContains(i.Columns, c) {
+		if !slices.Contains(i.Columns, c) {
 			log.Printf("[TRACE] satisfiesColumns returning false - %s missing from %s", c, strings.Join(i.Columns, ","))
 			return false
 		}

@@ -2,10 +2,10 @@ package plugin
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
@@ -158,7 +158,7 @@ func (k *KeyColumn) Validate() []string {
 	var res []string
 
 	for _, op := range k.Operators {
-		if !helpers.StringSliceContains(validOperators, op) {
+		if !slices.Contains(validOperators, op) {
 			res = append(res, fmt.Sprintf("operator %s is not valid, it must be one of: %s", op, strings.Join(validOperators, ",")))
 		}
 	}
@@ -167,7 +167,7 @@ func (k *KeyColumn) Validate() []string {
 	if k.Require == "" {
 		k.Require = Required
 	}
-	if !helpers.StringSliceContains(validRequire, k.Require) {
+	if !slices.Contains(validRequire, k.Require) {
 		res = append(res, fmt.Sprintf("Require value '%s' is not valid, it must be one of: %s", k.Require, strings.Join(validRequire, ",")))
 	}
 
@@ -175,7 +175,7 @@ func (k *KeyColumn) Validate() []string {
 	if k.CacheMatch == "" {
 		k.CacheMatch = query_cache.CacheMatchSubset
 	}
-	if !helpers.StringSliceContains(validCacheMatch, k.CacheMatch) {
+	if !slices.Contains(validCacheMatch, k.CacheMatch) {
 		res = append(res, fmt.Sprintf("CacheMatch value '%s' is not valid, it must be one of: %s", k.CacheMatch, strings.Join(validCacheMatch, ",")))
 	}
 

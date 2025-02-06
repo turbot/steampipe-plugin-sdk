@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
-	"github.com/turbot/go-kit/helpers"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -28,8 +28,8 @@ func Init(serviceName string) (func(), error) {
 
 	// is telemetry enabled
 	telemetryEnvStr := strings.ToLower(os.Getenv(EnvOtelLevel))
-	tracingEnabled := helpers.StringSliceContains([]string{OtelAll, OtelTrace}, telemetryEnvStr)
-	metricsEnabled := helpers.StringSliceContains([]string{OtelAll, OtelMetrics}, telemetryEnvStr)
+	tracingEnabled := slices.Contains([]string{OtelAll, OtelTrace}, telemetryEnvStr)
+	metricsEnabled := slices.Contains([]string{OtelAll, OtelMetrics}, telemetryEnvStr)
 
 	log.Printf("[TRACE] telemetry.Init service '%s', tracingEnabled: %v, metricsEnabled: %v", serviceName, tracingEnabled, metricsEnabled)
 
