@@ -645,8 +645,8 @@ github.com/tkrajina/go-reflector v0.5.6 h1:hKQ0gyocG7vgMD2M3dRlYN6WBBOmdoOzJ6njQ
 github.com/tkrajina/go-reflector v0.5.6/go.mod h1:ECbqLgccecY5kPmPmXg1MrHW585yMcDkVl6IvJe64T4=
 github.com/turbot/go-kit v1.0.0 h1:TeVYepMyPMpiQ8GxmZcth9h1CzKRshWK+X9JGKAnXOo=
 github.com/turbot/go-kit v1.0.0/go.mod h1:vPk4gTUM8HhYGdzfKKLrPeZgnjLVBin41uqxjHScz6k=
-github.com/turbot/pipe-fittings/v2 v2.0.1-rc.2 h1:3DF4UphtMsN3j2MpB9tlCTWoPokGTPlOkPF3UkDkJ5s=
-github.com/turbot/pipe-fittings/v2 v2.0.1-rc.2/go.mod h1:3IhxCwrixYbOGo/MkUPm14Y6e8epgU2cHVL5r2IEnDI=
+github.com/turbot/pipe-fittings/v2 v2.1.1 h1:sV6bviX7WH3zivi45n29+ui+I9tJLlFNCNA2rOpw6/U=
+github.com/turbot/pipe-fittings/v2 v2.1.1/go.mod h1:mGFH8dfDQOdv+d1fNL2r3ex+qlnVrTi3xGKZRVxoCEU=
 github.com/turbot/terraform-components v0.0.0-20231213122222-1f3526cab7a7 h1:qDMxFVd8Zo0rIhnEBdCIbR+T6WgjwkxpFZMN8zZmmjg=
 github.com/turbot/terraform-components v0.0.0-20231213122222-1f3526cab7a7/go.mod h1:5hzpfalEjfcJWp9yq75/EZoEu2Mzm34eJAPm3HOW2tw=
 github.com/ulikunitz/xz v0.5.10 h1:t92gobL9l3HE202wg3rlk19F6X+JOxl9BBrCCMYEYd8=
