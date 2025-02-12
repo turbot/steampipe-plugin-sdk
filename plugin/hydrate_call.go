@@ -2,11 +2,12 @@ package plugin
 
 import (
 	"context"
-	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 	"log"
+	"slices"
 	"sync/atomic"
 	"time"
+
+	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 )
 
 // hydrateCall struct encapsulates a hydrate call, its config and dependencies
@@ -74,7 +75,7 @@ func (h *hydrateCall) initialiseRateLimiter() error {
 func (h *hydrateCall) canStart(rowData *rowData) bool {
 	// check whether all hydrate functions we depend on have saved their results
 	for _, dep := range h.Depends {
-		if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep.Name) {
+		if !slices.Contains(rowData.getHydrateKeys(), dep.Name) {
 			return false
 		}
 	}

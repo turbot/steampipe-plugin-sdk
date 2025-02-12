@@ -1,9 +1,9 @@
 package plugin
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"slices"
 
-	"github.com/turbot/go-kit/helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 )
 
 /*
@@ -45,7 +45,7 @@ func (k KeyColumnQuals) SatisfiesKeyColumn(keyColumn *KeyColumn) bool {
 		return false
 	}
 	for _, q := range k.Quals {
-		if helpers.StringSliceContains(keyColumn.Operators, q.Operator) {
+		if slices.Contains(keyColumn.Operators, q.Operator) {
 			return true
 		}
 	}

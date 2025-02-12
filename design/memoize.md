@@ -57,7 +57,7 @@ GetConfig/ListConfig/HydrateConfig has a map ot tags which is auto populated wit
 
 // check whether all hydrate functions we depend on have saved their results
 for _, dep := range h.Depends {
-    if !helpers.StringSliceContains(rowData.getHydrateKeys(), dep.Name) {
+    if !slices.Contains(rowData.getHydrateKeys(), dep.Name) {
         return false
     }
 }

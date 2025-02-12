@@ -1,3 +1,7 @@
+## v5.11.3 [2025-02-11]
+_Dependencies_
+- Upgrade `pipe-fittings` to v2.1.1.
+
 ## v5.11.2 [2025-02-05]
 _Dependencies_
 - Upgrade `pipe-fittings` to v1.6.8.

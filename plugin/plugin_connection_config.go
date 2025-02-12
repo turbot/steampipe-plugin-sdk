@@ -3,6 +3,11 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"log"
+	"reflect"
+	"slices"
+	"strings"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
@@ -10,9 +15,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
 	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
-	"log"
-	"reflect"
-	"strings"
 )
 
 func (p *Plugin) setAggregatorSchemas() (logMessages map[string][]string, err error) {
@@ -266,7 +268,7 @@ func (p *Plugin) extractWatchPaths(config interface{}) []string {
 		if steampipeTag != "" {
 			steampipeTagLabels := strings.Split(steampipeTag, ",")
 			// does the tag have a 'watch' label?
-			if helpers.StringSliceContains(steampipeTagLabels, "watch") {
+			if slices.Contains(steampipeTagLabels, "watch") {
 				// get property value
 				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
 					if arrayVal, ok := value.([]string); ok {

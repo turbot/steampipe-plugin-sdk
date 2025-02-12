@@ -3,11 +3,11 @@ package plugin
 import (
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 
-	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
 )
@@ -172,7 +172,7 @@ func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*
 	var res []*proto.Qual
 	for _, q := range columnQuals.Quals {
 		operator := q.GetStringValue()
-		if helpers.StringSliceContains(keyColumn.Operators, operator) {
+		if slices.Contains(keyColumn.Operators, operator) {
 			res = append(res, q)
 		}
 	}
