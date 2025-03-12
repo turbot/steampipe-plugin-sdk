@@ -759,7 +759,7 @@ func (p *Plugin) deleteConnectionData(connections []string) {
 	p.connectionMapLock.Unlock()
 }
 
-// TODO this is duplicated from pipe-fittings - only exists here until AWS plugin is updated to latest sdk so we can reference pipe-fittings
+// NOTE: this is duplicated from pipe-fittings
 
 // SqlLike simulates SQL LIKE pattern matching using fnmatch, with an option for case sensitivity.
 func SqlLike(input, pattern string, caseSensitive bool) bool {
