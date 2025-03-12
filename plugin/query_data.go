@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"time"
 
@@ -427,7 +428,7 @@ func (d *QueryData) populateRequiredHydrateCalls() error {
 			hydrateName = column.namedHydrate.Name
 
 			// if this column was requested in query, add the hydrate call to required calls
-			if helpers.StringSliceContains(colsUsed, column.Name) {
+			if slices.Contains(colsUsed, column.Name) {
 				if err := requiredCallBuilder.Add(column.namedHydrate, d.connectionCallId); err != nil {
 					return err
 				}

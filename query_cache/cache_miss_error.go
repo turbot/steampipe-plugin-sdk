@@ -1,6 +1,6 @@
 package query_cache
 
-import "github.com/turbot/go-kit/helpers"
+import "slices"
 
 type CacheMissError struct{}
 
@@ -12,5 +12,5 @@ func IsCacheMiss(err error) bool {
 	}
 	// BigCache returns "Entry not found"
 	errorStrings := []string{CacheMissError{}.Error(), "Entry not found"}
-	return helpers.StringSliceContains(errorStrings, err.Error())
+	return slices.Contains(errorStrings, err.Error())
 }

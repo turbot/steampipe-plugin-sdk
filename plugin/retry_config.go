@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 
 	"github.com/turbot/go-kit/helpers"
@@ -92,7 +93,7 @@ func (c *RetryConfig) validate(table *Table) []string {
 		res = append(res, fmt.Sprintf("%sboth ShouldRetryError and ShouldRetryErrorFunc are defined", tablePrefix))
 	}
 
-	if c.BackoffAlgorithm != "" && !helpers.StringSliceContains(validBackoffAlgorithm, c.BackoffAlgorithm) {
+	if c.BackoffAlgorithm != "" && !slices.Contains(validBackoffAlgorithm, c.BackoffAlgorithm) {
 		res = append(res, fmt.Sprintf("%sBackoffAlgorithm value '%s' is not valid, it must be one of: %s", tablePrefix, c.BackoffAlgorithm, strings.Join(validBackoffAlgorithm, ",")))
 	}
 

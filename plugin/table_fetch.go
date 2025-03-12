@@ -3,6 +3,11 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"log"
+	"slices"
+	"strings"
+	"sync"
+
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -13,9 +18,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log"
-	"strings"
-	"sync"
 )
 
 type fetchType string
@@ -342,7 +344,7 @@ func buildSingleError(errors []error) error {
 	errStrings := []string{}
 	for _, err := range errors {
 		msg := err.Error()
-		if !helpers.StringSliceContains(errStrings, msg) {
+		if !slices.Contains(errStrings, msg) {
 			errStrings = append(errStrings, msg)
 		}
 

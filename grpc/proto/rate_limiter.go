@@ -1,7 +1,7 @@
 package proto
 
 import (
-	"github.com/turbot/pipe-fittings/plugin"
+	"github.com/turbot/pipe-fittings/v2/plugin"
 )
 
 // RateLimiterFromProto converts the proto format RateLimiterDefinition into a Defintion
