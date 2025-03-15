@@ -92,9 +92,9 @@ Examples:
 */
 type HydrateConfig struct {
 	Func HydrateFunc
-	// a function which will return whenther to ignore a given error
+	// a function which will return whether to ignore a given error
 	IgnoreConfig *IgnoreConfig
-	// a function which will return whenther to retry the call if an error is returned
+	// a function which will return whether to retry the call if an error is returned
 	RetryConfig *RetryConfig
 	Depends     []HydrateFunc
 
