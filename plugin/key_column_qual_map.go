@@ -173,7 +173,7 @@ func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*
 	for _, q := range columnQuals.Quals {
 		operator := q.GetStringValue()
 
-		// when a boolean qual is passed as false, postgres translates it as `<> true`
+		// TACTICAL: when a boolean qual is passed as false, postgres translates it as `<> true`
 		// this results in the EqualsQuals always returning nil when the value is false
 		// so we handle this case explicitly by converting `<> true` to `= false` by
 		// inverting the operator and value
