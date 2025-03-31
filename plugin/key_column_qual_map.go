@@ -172,6 +172,33 @@ func getMatchingQuals(keyColumn *KeyColumn, qualMap map[string]*proto.Quals) []*
 	var res []*proto.Qual
 	for _, q := range columnQuals.Quals {
 		operator := q.GetStringValue()
+
+		// TACTICAL: when a boolean qual is passed as false, postgres translates it as `<> true`
+		// this results in the EqualsQuals always returning nil when the value is false
+		// so we handle this case explicitly by converting `<> true` to `= false` by
+		// inverting the operator and value
+
+		// Handle boolean qualifiers with <> operator
+		if operator == quals.QualOperatorNotEqual {
+			switch q.Value.Value.(type) {
+			case *proto.QualValue_BoolValue:
+				// Create a new qual with inverted operator and value
+				invertedQual := &proto.Qual{
+					FieldName: q.FieldName,
+					Operator: &proto.Qual_StringValue{
+						StringValue: quals.QualOperatorEqual,
+					},
+					Value: &proto.QualValue{
+						Value: &proto.QualValue_BoolValue{
+							BoolValue: !q.Value.GetBoolValue(),
+						},
+					},
+				}
+				res = append(res, invertedQual)
+				continue
+			}
+		}
+
 		if slices.Contains(keyColumn.Operators, operator) {
 			res = append(res, q)
 		}
