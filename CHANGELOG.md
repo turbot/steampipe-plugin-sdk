@@ -1,3 +1,10 @@
+## v5.11.5 [2025-03-31]
+_Bug fixes_
+- Fix issue where `EqualsQuals` was not evaluating bool columns correctly. ([#847](https://github.com/turbot/steampipe-plugin-sdk/issues/847))
+
+_Dependencies_
+- Upgrade `golang.org/x/net` package to remediate moderate vulnerabilities.
+
 ## v5.11.4 [2025-03-12]
 _Dependencies_
 - Remove dependency on `pipe-fittings`.
