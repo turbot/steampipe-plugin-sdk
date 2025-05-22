@@ -1,3 +1,7 @@
+## v5.11.6 [2025-05-22]
+_Bug fixes_
+- Fixed issue where errors from plugins during data streaming were not affecting the Export CLI's exit code. Now, any errors encountered during streaming will properly set a non-zero exit code. ([#851](https://github.com/turbot/steampipe-plugin-sdk/issues/851))
+
 ## v5.11.5 [2025-03-31]
 _Bug fixes_
 - Fix issue where `EqualsQuals` was not evaluating bool columns correctly. ([#847](https://github.com/turbot/steampipe-plugin-sdk/issues/847))
