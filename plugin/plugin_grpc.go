@@ -3,11 +3,12 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"golang.org/x/exp/maps"
-	"golang.org/x/sync/semaphore"
 	"log"
 	"strings"
 	"sync"
+
+	"golang.org/x/exp/maps"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
@@ -296,6 +297,13 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 				}
 				// fall through to send empty row (required if using local stream)
 				log.Printf("[INFO] Sending nil row")
+				if err := stream.Send(row); err != nil {
+					// ignore context cancellation - they will get picked up further downstream
+					if !error_helpers.IsContextCancelledError(err) {
+						errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
+					}
+				}
+				break
 			}
 			if err := stream.Send(row); err != nil {
 				// ignore context cancellation - they will get picked up further downstream
