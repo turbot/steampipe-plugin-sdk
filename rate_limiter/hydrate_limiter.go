@@ -34,16 +34,16 @@ func newLimiter(l *Definition, scopeValues map[string]string) *HydrateLimiter {
 	}
 	return res
 }
-func (d *HydrateLimiter) String() string {
+func (l *HydrateLimiter) String() string {
 	limiterString := ""
 	concurrencyString := ""
-	if d.limiter != nil {
-		limiterString = fmt.Sprintf("Limit(/s): %v, Burst: %d", d.limiter.Limit(), d.limiter.Burst())
+	if l.limiter != nil {
+		limiterString = fmt.Sprintf("Limit(/s): %v, Burst: %d", l.limiter.Limit(), l.limiter.Burst())
 	}
-	if d.maxConcurrency >= 0 {
-		concurrencyString = fmt.Sprintf("MaxConcurrency: %d", d.maxConcurrency)
+	if l.maxConcurrency >= 0 {
+		concurrencyString = fmt.Sprintf("MaxConcurrency: %d", l.maxConcurrency)
 	}
-	return fmt.Sprintf("%s ScopeValues: %s", strings.Join([]string{limiterString, concurrencyString}, " "), d.scopeValues)
+	return fmt.Sprintf("%s ScopeValues: %s", strings.Join([]string{limiterString, concurrencyString}, " "), l.scopeValues)
 }
 
 func (l *HydrateLimiter) tryToAcquireSemaphore() bool {
