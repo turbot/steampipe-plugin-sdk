@@ -30,7 +30,6 @@ jobs:
             go clean -testcache
             go test -timeout 600s ./... -test.v
 
-
   buildChaosPlugin:
     name: Run chaos acceptance tests
     needs: sdkUnitTests
