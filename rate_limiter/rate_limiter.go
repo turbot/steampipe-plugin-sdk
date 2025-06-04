@@ -30,10 +30,6 @@ func EmptyMultiLimiter() *MultiLimiter {
 }
 
 func (m *MultiLimiter) Wait(ctx context.Context) time.Duration {
-	n := time.Now()
-	log.Printf("[DEBUG] MultiLimiter.Wait()")
-	defer log.Printf("[DEBUG] MultiLimiter.Wait() took %s", time.Since(n))
-
 	// short circuit if we have no limiters
 	if len(m.Limiters) == 0 {
 		log.Printf("[DEBUG] MultiLimiter.Wait() no limiters, returning immediately")
@@ -49,24 +45,19 @@ func (m *MultiLimiter) Wait(ctx context.Context) time.Duration {
 	// find the max delay from all the limiters
 	for _, l := range m.Limiters {
 		if l.hasLimiter() {
-			log.Printf("[DEBUG] rate limiter %s has a limiter, fill rate %f, burst %d", l.Name, l.limiter.Limit(), l.limiter.Burst())
 			r := l.reserve()
 			reservations = append(reservations, r)
 			d := r.Delay()
-			log.Printf("[DEBUG] rate limiter %s has delay %dms", l.Name, d.Milliseconds())
-			if  d > maxDelay {
+			if d > maxDelay {
 				maxDelay = d
-				log.Printf("[DEBUG] rate limiter %s has max delay %dms", l.Name, d.Milliseconds())
 			}
 		}
 	}
 
 	if maxDelay == 0 {
-		log.Printf("[DEBUG] rate limiter max delay is 0, returning immediately")
 		return 0
 	}
 
-	log.Printf("[DEBUG] rate limiter waiting %dms", maxDelay.Milliseconds())
 	// wait for the max delay time
 	t := time.NewTimer(maxDelay)
 	defer t.Stop()
