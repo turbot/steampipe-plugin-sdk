@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"slices"
 	"sync/atomic"
@@ -94,7 +95,10 @@ func (h *hydrateCall) canStart(rowData *rowData) bool {
 
 // Start starts a hydrate call
 func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.Duration {
+	
 	rateLimitDelay := h.rateLimit(ctx, d)
+	fmt.Println("hydrateCall after rate limit, rateLimitDelay", rateLimitDelay.Milliseconds(), "ms",  h.Name, d.connectionCallId)
+
 
 	// tell the rowData to wait for this call to complete
 	r.wg.Add(1)
