@@ -64,7 +64,7 @@ func (p *Plugin) setAllConnectionConfigs(configs []*proto.ConnectionConfig, maxC
 	updateData := NewConnectionUpdateData()
 	p.upsertConnections(configs, updateData)
 
-	// TODO report log messages back somewhzere
+	// TODO report log messages back somewhere
 	_, err = p.setAggregatorSchemas()
 	if err != nil {
 		return updateData.failedConnections, err
