@@ -1,3 +1,7 @@
+## v5.11.7 [2025-06-04]
+_Bug fixes_
+- Fix issue where rate limiters were not working for column hydrate functions. ([#838](https://github.com/turbot/steampipe-plugin-sdk/issues/838))
+
 ## v5.11.6 [2025-05-22]
 _Bug fixes_
 - Fixed issue where errors from plugins during data streaming were not affecting the Export CLI's exit code. Now, any errors encountered during streaming will properly set a non-zero exit code. ([#851](https://github.com/turbot/steampipe-plugin-sdk/issues/851))
