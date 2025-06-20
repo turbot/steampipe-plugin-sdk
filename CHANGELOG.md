@@ -1,3 +1,7 @@
+## v5.12.0 [2025-06-20]
+_What's new?_
+- Add `UnmarshalJSON` transform. ([#867](https://github.com/turbot/steampipe-plugin-sdk/issues/867))
+
 ## v5.11.7 [2025-06-04]
 _Bug fixes_
 - Fix issue where rate limiters were not working for column hydrate functions. ([#838](https://github.com/turbot/steampipe-plugin-sdk/issues/838))
