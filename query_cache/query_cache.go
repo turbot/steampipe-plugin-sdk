@@ -94,7 +94,7 @@ func (c *QueryCache) createCacheStore(maxCacheStorageMb int, maxTtl time.Duratio
 
 func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamUncachedRowFunc, streamCachedRowFunc func(row *sdkproto.Row)) error {
 	cacheHit := false
-	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", req.Table)
+	ctx, span := telemetry.StartSpan(ctx, "QueryCache.Get (%s)", "%s", req.Table)
 	defer func() {
 		span.SetAttributes(attribute.Bool("cache-hit", cacheHit))
 		span.End()

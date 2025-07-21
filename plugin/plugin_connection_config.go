@@ -208,7 +208,7 @@ func (p *Plugin) parseConnectionConfig(config *proto.ConnectionConfig) (any, err
 	if p.ConnectionConfigSchema == nil {
 		msg := fmt.Sprintf("connection config has been set for connection '%s', but plugin '%s' does not define connection config schema", config.Connection, p.Name)
 		log.Println("[WARN]", msg)
-		return nil, sperr.New(msg)
+		return nil, sperr.New("%s", msg)
 
 	}
 	// parse the config into a struct

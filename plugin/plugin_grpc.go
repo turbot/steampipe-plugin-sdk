@@ -376,7 +376,7 @@ func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) (err err
 		if r := recover(); r != nil {
 			msg := fmt.Sprintf("setCacheOptions experienced unhandled exception: %s", helpers.ToError(r).Error())
 			log.Println("[WARN]", msg)
-			err = fmt.Errorf(msg)
+			err = fmt.Errorf("%s", msg)
 		}
 	}()
 
@@ -388,7 +388,7 @@ func (p *Plugin) setConnectionCacheOptions(request *proto.SetConnectionCacheOpti
 		if r := recover(); r != nil {
 			msg := fmt.Sprintf("setConnectionCacheOptions experienced unhandled exception: %s", helpers.ToError(r).Error())
 			log.Println("[WARN]", msg)
-			err = fmt.Errorf(msg)
+			err = fmt.Errorf("%s", msg)
 		}
 	}()
 
@@ -406,7 +406,7 @@ func (p *Plugin) setRateLimiters(request *proto.SetRateLimitersRequest) (err err
 		if r := recover(); r != nil {
 			msg := fmt.Sprintf("setRateLimiters experienced unhandled exception: %s", helpers.ToError(r).Error())
 			log.Println("[WARN]", msg)
-			err = fmt.Errorf(msg)
+			err = fmt.Errorf("%s", msg)
 		}
 	}()
 	var errors []error

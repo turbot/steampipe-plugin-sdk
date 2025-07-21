@@ -2,8 +2,9 @@ package error_helpers
 
 import (
 	"fmt"
-	"golang.org/x/exp/maps"
 	"strings"
+
+	"golang.org/x/exp/maps"
 )
 
 func allErrorsNil(errors ...error) bool {
@@ -41,7 +42,7 @@ func CombineErrorsWithPrefix(prefix string, errors ...error) error {
 		combinedErrorStrings[e.Error()] = struct{}{}
 	}
 
-	return fmt.Errorf(strings.Join(maps.Keys(combinedErrorStrings), "\n\t"))
+	return fmt.Errorf("%s", strings.Join(maps.Keys(combinedErrorStrings), "\n\t"))
 }
 
 func CombineErrors(errors ...error) error {
