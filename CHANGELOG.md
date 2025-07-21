@@ -1,6 +1,7 @@
 ## v5.13.0 [2025-07-21]
 _What's new?_
 - Compiled with Go 1.24.
+- Upgrade `golang.org/x/oauth2` package to remediate high vulnerabilities.
 
 ## v5.12.0 [2025-06-20]
 _What's new?_
