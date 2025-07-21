@@ -1,3 +1,7 @@
+## v5.13.0 [2025-07-21]
+_What's new?_
+- Compiled with Go 1.24.
+
 ## v5.12.0 [2025-06-20]
 _What's new?_
 - Add `UnmarshalJSON` transform. ([#867](https://github.com/turbot/steampipe-plugin-sdk/issues/867))
