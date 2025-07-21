@@ -281,7 +281,7 @@ func (r *rowData) GetColumnData(column *QueryColumn) (interface{}, error) {
 		} else {
 			errorString = fmt.Sprintf("table '%s' column '%s' requires hydrate data from %s but none is available.\n", r.table.Name, column.Name, column.hydrateName)
 		}
-		return nil, fmt.Errorf(errorString)
+		return nil, fmt.Errorf("%s", errorString)
 	} else {
 		return hydrateItem, nil
 	}

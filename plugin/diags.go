@@ -2,8 +2,9 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 	"strings"
+
+	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
 
 	"github.com/hashicorp/hcl/v2"
 )
@@ -22,7 +23,7 @@ func DiagsToError(prefix string, diags hcl.Diagnostics) error {
 		if len(errStrings) > 1 {
 			res += "\n"
 		}
-		return sperr.New(fmt.Sprintf("%s: %s", prefix, res))
+		return sperr.New("%s: %s", prefix, res)
 	}
 
 	return diags.Errs()[0]
