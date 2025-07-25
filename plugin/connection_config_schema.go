@@ -10,10 +10,10 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/json"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/funcs"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/function"
 	"github.com/zclconf/go-cty/cty/gocty"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -121,11 +121,7 @@ func (c *ConnectionConfigSchema) parseConfigWithCtyTags(config *proto.Connection
 	if diags.HasErrors() {
 		return nil, DiagsToError("Failed to parse connection config", diags)
 	}
-	evalCtx := &hcl.EvalContext{
-		Variables: make(map[string]cty.Value),
-		Functions: funcs.ContextFunctions(),
-	}
-	value, diags := hcldec.Decode(file.Body, spec, evalCtx)
+	value, diags := hcldec.Decode(file.Body, spec, nil)
 	if diags.HasErrors() {
 		return nil, DiagsToError(fmt.Sprintf("failed to decode connection config for connection '%s'", config.Connection), diags)
 	}
@@ -151,7 +147,7 @@ func (c *ConnectionConfigSchema) parseConfigWithHclTags(config *proto.Connection
 	}
 	evalCtx := &hcl.EvalContext{
 		Variables: make(map[string]cty.Value),
-		Functions: funcs.ContextFunctions(),
+		Functions: make(map[string]function.Function),
 	}
 
 	moreDiags := gohcl.DecodeBody(body, evalCtx, configStruct)
