@@ -14,7 +14,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.20.1
 	github.com/iancoleman/strcase v0.3.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/sethvargo/go-retry v0.2.4
+	github.com/sethvargo/go-retry v0.3.0
 	github.com/stevenle/topsort v0.2.0
 	github.com/turbot/go-kit v1.1.0
 	github.com/zclconf/go-cty v1.14.4
