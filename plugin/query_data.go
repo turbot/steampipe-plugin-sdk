@@ -843,7 +843,7 @@ func (d *QueryData) streamRow(row *proto.Row) {
 
 func (d *QueryData) streamError(err error) {
 	log.Printf("[WARN] QueryData StreamError %v (%s)", err, d.connectionCallId)
-	d.errorChan <- sperr.WrapWithMessage(err, d.Connection.Name)
+	d.errorChan <- sperr.WrapWithMessage(err, "%s", d.Connection.Name)
 }
 
 // TODO KAI this seems to get called even after cancellation

@@ -32,6 +32,7 @@ func EmptyMultiLimiter() *MultiLimiter {
 func (m *MultiLimiter) Wait(ctx context.Context) time.Duration {
 	// short circuit if we have no limiters
 	if len(m.Limiters) == 0 {
+		log.Printf("[DEBUG] MultiLimiter.Wait() no limiters, returning immediately")
 		return 0
 	}
 
@@ -46,7 +47,8 @@ func (m *MultiLimiter) Wait(ctx context.Context) time.Duration {
 		if l.hasLimiter() {
 			r := l.reserve()
 			reservations = append(reservations, r)
-			if d := r.Delay(); d > maxDelay {
+			d := r.Delay()
+			if d > maxDelay {
 				maxDelay = d
 			}
 		}
@@ -56,7 +58,6 @@ func (m *MultiLimiter) Wait(ctx context.Context) time.Duration {
 		return 0
 	}
 
-	log.Printf("[TRACE] rate limiter waiting %dms", maxDelay.Milliseconds())
 	// wait for the max delay time
 	t := time.NewTimer(maxDelay)
 	defer t.Stop()

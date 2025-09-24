@@ -3,6 +3,7 @@ package transform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -238,6 +239,28 @@ func UnmarshalYAML(_ context.Context, d *TransformData) (interface{}, error) {
 		}
 
 		err = yaml.Unmarshal([]byte(decoded), &result)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+// UnmarshalJSON parse the json-encoded data and return the result
+func UnmarshalJSON(_ context.Context, d *TransformData) (interface{}, error) {
+	if d.Value == nil {
+		return nil, nil
+	}
+	inputStr := types.SafeString(d.Value)
+	var result interface{}
+	if inputStr != "" {
+		decoded, err := url.QueryUnescape(inputStr)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal([]byte(decoded), &result)
 		if err != nil {
 			return nil, err
 		}

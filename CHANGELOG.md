@@ -1,3 +1,23 @@
+## v5.13.0 [2025-07-21]
+_What's new?_
+- Compiled with Go 1.24.
+- Upgrade `golang.org/x/oauth2` package to remediate high vulnerabilities.
+
+## v5.12.0 [2025-06-20]
+_What's new?_
+- Add `UnmarshalJSON` transform. ([#867](https://github.com/turbot/steampipe-plugin-sdk/issues/867))
+
+## v5.11.7 [2025-06-04]
+_Bug fixes_
+- Fix issue where rate limiters were not working for column hydrate functions. ([#838](https://github.com/turbot/steampipe-plugin-sdk/issues/838))
+
+## v5.11.6 [2025-05-22]
+_Bug fixes_
+- Fixed issue where errors from plugins during data streaming were not affecting the Export CLI's exit code. Now, any errors encountered during streaming will properly set a non-zero exit code. ([#851](https://github.com/turbot/steampipe-plugin-sdk/issues/851))
+
+_Enhancements_
+- Show panic stack trace in error logs. ([#850](https://github.com/turbot/steampipe-plugin-sdk/pull/850))
+
 ## v5.11.5 [2025-03-31]
 _Bug fixes_
 - Fix issue where `EqualsQuals` was not evaluating bool columns correctly. ([#847](https://github.com/turbot/steampipe-plugin-sdk/issues/847))

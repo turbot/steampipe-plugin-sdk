@@ -132,7 +132,10 @@ func (s PluginServer) CallExecuteAsync(req *proto.ExecuteRequest, stream *anywhe
 		err := s.executeFunc(req, stream)
 		if err != nil {
 			stream.Error(err)
+			return
 		}
+		// Signal completion by sending nil
+		stream.Send(nil)
 	}()
 }
 

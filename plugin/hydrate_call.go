@@ -94,7 +94,7 @@ func (h *hydrateCall) canStart(rowData *rowData) bool {
 
 // Start starts a hydrate call
 func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.Duration {
-	var rateLimitDelay time.Duration
+	rateLimitDelay := h.rateLimit(ctx, d)
 
 	// tell the rowData to wait for this call to complete
 	r.wg.Add(1)

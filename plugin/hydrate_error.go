@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"runtime/debug"
 	"time"
 
 	"github.com/sethvargo/go-retry"
@@ -127,7 +128,7 @@ func WrapHydrate(hydrate namedHydrateFunc, ignoreConfig *IgnoreConfig) namedHydr
 
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[WARN] recovered a panic from a wrapped hydrate function: %v\n", r)
+				log.Printf("[WARN] recovered a panic from a wrapped hydrate function: %v\n%s", r, debug.Stack())
 				err = status.Error(codes.Internal, fmt.Sprintf("hydrate function %s failed with panic %v", hydrate.Name, r))
 			}
 		}()

@@ -2,7 +2,7 @@
 
 This SDK makes it easy to write Steampipe [plugins](https://hub.steampipe.io/plugins).
 
-* **[Go Documentation →](https://steampipe.io/docs/develop/overview)**
+* **[Go Documentation →](https://pkg.go.dev/github.com/turbot/steampipe-plugin-sdk/v5)**
 
 ## Getting Started
 
