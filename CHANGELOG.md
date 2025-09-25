@@ -1,3 +1,7 @@
+## v5.13.1 [2025-09-25]
+_Dependencies_
+- Upgrade `hashicorp/go-getter` and  `ulikunitz/xz` packages to remediate vulnerabilities.
+
 ## v5.13.0 [2025-07-21]
 _What's new?_
 - Compiled with Go 1.24.
