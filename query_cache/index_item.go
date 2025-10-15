@@ -51,7 +51,7 @@ func (i IndexItem) satisfiedByRequest(req *CacheRequest, keyColumns map[string]*
 }
 
 // satisfiesColumns returns whether this index item satisfies the given columns
-// used when determining whether this IndexItem satisfies a cache reques
+// used when determining whether this IndexItem satisfies a cache request
 func (i IndexItem) satisfiesColumns(columns []string) bool {
 	for _, c := range columns {
 		if !slices.Contains(i.Columns, c) {
@@ -63,7 +63,7 @@ func (i IndexItem) satisfiesColumns(columns []string) bool {
 }
 
 // satisfiesLimit returns whether this index item satisfies the given limit
-// used when determining whether this IndexItem satisfies a cache reques
+// used when determining whether this IndexItem satisfies a cache request
 func (i IndexItem) satisfiesLimit(limit int64) bool {
 	// if index item has is no limit, it will be -1
 	if i.Limit == -1 {
