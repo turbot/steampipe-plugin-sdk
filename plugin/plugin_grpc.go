@@ -145,9 +145,9 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 		}
 	}
 
-	// update the query cache schema map
+	// update the query cache schema map (atomic swap for thread safety)
 	if p.queryCache.Enabled {
-		p.queryCache.PluginSchemaMap = p.buildConnectionSchemaMap()
+		p.queryCache.SetPluginSchemaMap(p.buildConnectionSchemaMap())
 	}
 
 	// clear connectionKeyColumnValues for these connections
