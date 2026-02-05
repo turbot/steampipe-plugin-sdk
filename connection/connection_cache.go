@@ -14,8 +14,9 @@ import (
 // ConnectionCache is a simple cache wrapper - multiple connections use the same underlying cache (owned by the plugin)
 // ConnectionCache modifies the cache keys to include the connection name and uses the underlying shared cache
 type ConnectionCache struct {
-	connectionName string
-	cache          *cache.Cache[any]
+	connectionName  string
+	cache           *cache.Cache[any]
+	ristrettoCache  *ristretto.Cache
 }
 
 func NewConnectionCache(connectionName string, maxCost int64) (*ConnectionCache, error) {
@@ -34,6 +35,7 @@ func NewConnectionCache(connectionName string, maxCost int64) (*ConnectionCache,
 	cache := &ConnectionCache{
 		connectionName: connectionName,
 		cache:          connectionCacheStore,
+		ristrettoCache: ristrettoCache,
 	}
 
 	log.Printf("[INFO] Created connection cache for connection '%s'", connectionName)
@@ -57,7 +59,7 @@ func (c *ConnectionCache) SetWithTTL(ctx context.Context, key string, value inte
 	)
 
 	// wait for value to pass through buffers (necessary for ristretto)
-	time.Sleep(10 * time.Millisecond)
+	c.ristrettoCache.Wait()
 
 	if err != nil {
 		log.Printf("[WARN] SetWithTTL (connection %s, cache key %s) failed - error %v", c.connectionName, key, err)
