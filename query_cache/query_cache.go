@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/allegro/bigcache/v3"
@@ -36,8 +37,8 @@ const (
 type QueryCache struct {
 	Stats      *CacheStats
 	pluginName string
-	// map of connection name to plugin schema
-	PluginSchemaMap map[string]*grpc.PluginSchema
+	// map of connection name to plugin schema (accessed atomically for thread safety)
+	pluginSchemaMap atomic.Pointer[map[string]*grpc.PluginSchema]
 	// map of pending cache transfers, keyed by index bucket key
 	pendingData     map[string]*pendingIndexBucket
 	pendingDataLock sync.RWMutex
@@ -51,18 +52,25 @@ type QueryCache struct {
 
 func NewQueryCache(pluginName string, pluginSchemaMap map[string]*grpc.PluginSchema, opts *QueryCacheOptions) (*QueryCache, error) {
 	queryCache := &QueryCache{
-		Stats:           &CacheStats{},
-		pluginName:      pluginName,
-		PluginSchemaMap: pluginSchemaMap,
-		pendingData:     make(map[string]*pendingIndexBucket),
-		setRequests:     make(map[string]*setRequest),
-		Enabled:         opts.Enabled,
+		Stats:       &CacheStats{},
+		pluginName:  pluginName,
+		pendingData: make(map[string]*pendingIndexBucket),
+		setRequests: make(map[string]*setRequest),
+		Enabled:     opts.Enabled,
 	}
+	// Store the schema map atomically
+	queryCache.pluginSchemaMap.Store(&pluginSchemaMap)
 	if err := queryCache.createCache(opts.MaxSizeMb, opts.Ttl); err != nil {
 		return nil, err
 	}
 	log.Printf("[INFO] query cache created, max size %dMb", opts.MaxSizeMb)
 	return queryCache, nil
+}
+
+// SetPluginSchemaMap atomically updates the plugin schema map.
+// This is safe to call concurrently with cache reads.
+func (c *QueryCache) SetPluginSchemaMap(schemaMap map[string]*grpc.PluginSchema) {
+	c.pluginSchemaMap.Store(&schemaMap)
 }
 
 func (c *QueryCache) createCache(maxCacheStorageMb int, maxTtl time.Duration) error {
@@ -523,7 +531,12 @@ func (c *QueryCache) formatQualMapForKey(qualMap map[string]*sdkproto.Quals) str
 // return a map of key column for the given table
 func (c *QueryCache) getKeyColumnsForTable(table string, connectionName string) map[string]*sdkproto.KeyColumn {
 	res := make(map[string]*sdkproto.KeyColumn)
-	schema, ok := c.PluginSchemaMap[connectionName]
+	// Load the schema map atomically to avoid race with updateConnectionConfigs
+	schemaMapPtr := c.pluginSchemaMap.Load()
+	if schemaMapPtr == nil {
+		return res
+	}
+	schema, ok := (*schemaMapPtr)[connectionName]
 	if !ok {
 		return res
 	}
