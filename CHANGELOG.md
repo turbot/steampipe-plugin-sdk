@@ -1,3 +1,13 @@
+## v5.13.2 [2026-02-06]
+_Bug fixes_
+- Fix race condition in `PluginSchemaMap` access using atomic pointer. ([#913](https://github.com/turbot/steampipe-plugin-sdk/issues/913))
+
+_Performance_
+- Replace 10ms sleep with Ristretto `Wait()` in `ConnectionCache` for significantly faster cache writes. ([#911](https://github.com/turbot/steampipe-plugin-sdk/issues/911))
+
+_Dependencies_
+- Upgrade `golang.org/x/crypto` package to remediate medium vulnerabilities.
+
 ## v5.13.1 [2025-09-25]
 _Dependencies_
 - Upgrade `hashicorp/go-getter` and  `ulikunitz/xz` packages to remediate vulnerabilities.
