@@ -1,3 +1,11 @@
+## v5.14.0 [2026-02-25]
+_What's new?_
+- Compiled with Go 1.26.
+
+_Bug fixes_
+- Fix cache key to only consider actually requested columns. ([#897](https://github.com/turbot/steampipe-plugin-sdk/pull/897))
+- Fix issue where filtered matrix items were not always included in cache key. ([#898](https://github.com/turbot/steampipe-plugin-sdk/pull/898))
+
 ## v5.13.2 [2026-02-06]
 _Bug fixes_
 - Fix race condition in `PluginSchemaMap` access using atomic pointer. ([#913](https://github.com/turbot/steampipe-plugin-sdk/issues/913))
