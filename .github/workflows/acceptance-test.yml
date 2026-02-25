@@ -47,10 +47,17 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           path: sdk
 
+      - name: Get latest Steampipe release tag
+        id: steampipe-release
+        run: |
+          tag=$(curl -s https://api.github.com/repos/turbot/steampipe/releases/latest | jq -r '.tag_name')
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+
       - name: Checkout Steampipe
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: turbot/steampipe
+          ref: ${{ steps.steampipe-release.outputs.tag }}
           path: steampipe
 
       - name: Update go.mod and build Steampipe
