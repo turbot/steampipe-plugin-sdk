@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/danwakefield/fnmatch"
 	"log"
 	"os"
 	"path"
@@ -13,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/danwakefield/fnmatch"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
@@ -450,7 +450,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	cacheRequest := &query_cache.CacheRequest{
 		Table:          table.Name,
 		QualMap:        cacheQualMap,
-		Columns:        queryData.getColumnNames(), // all column names returned by the required hydrate functions
+		Columns:        queryContext.Columns,
 		Limit:          limit,
 		ConnectionName: connectionName,
 		TtlSeconds:     queryContext.CacheTTL,
