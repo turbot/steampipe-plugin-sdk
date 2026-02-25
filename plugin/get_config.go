@@ -67,9 +67,9 @@ type GetConfig struct {
 	Hydrate HydrateFunc
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
 	KeyColumns KeyColumnSlice
-	// a function which will return whenther to ignore a given error
+	// a function which will return whether to ignore a given error
 	IgnoreConfig *IgnoreConfig
-	// a function which will return whenther to retry the call if an error is returned
+	// a function which will return whether to retry the call if an error is returned
 	RetryConfig *RetryConfig
 	Tags        map[string]string
 

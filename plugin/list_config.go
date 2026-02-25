@@ -2,9 +2,10 @@ package plugin
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/gertd/go-pluralize"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
-	"log"
 )
 
 /*
@@ -41,9 +42,9 @@ type ListConfig struct {
 	KeyColumns KeyColumnSlice
 	// the parent list function - if we list items with a parent-child relationship, this will list the parent items
 	ParentHydrate HydrateFunc
-	// a function which will return whenther to ignore a given error
+	// a function which will return whether to ignore a given error
 	IgnoreConfig *IgnoreConfig
-	// a function which will return whenther to retry the call if an error is returned
+	// a function which will return whether to retry the call if an error is returned
 	RetryConfig *RetryConfig
 
 	Tags       map[string]string

@@ -362,9 +362,7 @@ func (d *QueryData) filterMatrixItems() {
 				if matrixQuals.SingleEqualsQual() {
 					includeMatrixItem = d.shouldIncludeMatrixItem(matrixQuals, val)
 					// store this column - we will need this when building a cache key
-					if !includeMatrixItem {
-						d.filteredMatrixColumns = append(d.filteredMatrixColumns, col)
-					}
+					d.filteredMatrixColumns = append(d.filteredMatrixColumns, col)
 				}
 			} else {
 				log.Printf("[TRACE] quals found for matrix column: %s", col)
@@ -520,7 +518,7 @@ func (d *QueryData) setQuals(qualMap KeyColumnQualMap) {
 }
 
 func (d *QueryData) shouldIncludeMatrixItem(quals *KeyColumnQuals, matrixVal interface{}) bool {
-	log.Printf("[TRACE] there is a single equals qual")
+	log.Printf("[TRACE] shouldIncludeMatrixItem - there is a single equals qual")
 
 	// if the value is an array, this is an IN query - check whether the array contains the matrix value
 	if listValue := quals.Quals[0].Value.GetListValue(); listValue != nil {
@@ -913,13 +911,14 @@ func (d *QueryData) waitForRowsToComplete(rowWg *sync.WaitGroup, rowChan chan *p
 // this will include all key column quals, and also any quals which were used to filter the matrix items
 func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
 	res := d.Quals.ToProtoQualMap()
-	// now add in any additional (non-keycolumn) quals which were used to folter the matrix
+	// now add in any additional (non-keycolumn) quals which were used to filter the matrix
 	for _, col := range d.filteredMatrixColumns {
 		if _, ok := res[col]; !ok {
 			log.Printf("[TRACE] getCacheQualMap - adding non-key column qual %s as it was used to filter the matrix items", col)
 			res[col] = d.QueryContext.UnsafeQuals[col]
 		}
 	}
+	log.Printf("[TRACE] getCacheQualMap - res=%#q", res)
 	return res
 }
 
