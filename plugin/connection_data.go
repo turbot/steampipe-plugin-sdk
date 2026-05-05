@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/filewatcher"
 	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
@@ -178,7 +177,7 @@ func (d *ConnectionData) resolveAggregatorTableMap(aggregatorConfig *proto.Conne
 					connectionName,
 					tableName,
 					msgCount,
-					pluralize.NewClient().Pluralize("message", msgCount, false))
+					pluralizeClient().Pluralize("message", msgCount, false))
 
 				for _, m := range messages {
 					log.Println("[INFO]", m)
@@ -209,7 +208,7 @@ func (d *ConnectionData) setAggregatedTablesByConnection(aggregatorConfig *proto
 			log.Printf("[INFO] Child connection %s excluded %d %s",
 				c,
 				exclusionCount,
-				pluralize.NewClient().Pluralize("table", exclusionCount, false))
+				pluralizeClient().Pluralize("table", exclusionCount, false))
 
 			for t, reason := range exclusionReasons {
 				log.Printf("[INFO] - %s : %s", t, reason)

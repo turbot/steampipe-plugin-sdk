@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
@@ -94,7 +93,7 @@ func (t *Table) buildMissingKeyColumnError(operation string, unsatisfiedColumns 
 		operation,
 		t.Name,
 		len(unsatisfiedColumns),
-		pluralize.NewClient().Pluralize("qual", len(unsatisfiedColumns), false),
+		pluralizeClient().Pluralize("qual", len(unsatisfiedColumns), false),
 		unsatisfied,
 	))
 	return err
@@ -417,7 +416,7 @@ func (t *Table) getListCallQualValueList(queryData *QueryData) *quals.Qual {
 	if numQualsWithListValues > 0 {
 		log.Printf("[TRACE] %d %s have list values",
 			numQualsWithListValues,
-			pluralize.NewClient().Pluralize("qual", numQualsWithListValues, false))
+			pluralizeClient().Pluralize("qual", numQualsWithListValues, false))
 
 		// if we have more than one qual with list values, extract the required ones
 		// if more than one of these is required, this is an error
