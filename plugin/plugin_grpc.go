@@ -10,7 +10,6 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 
-	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
@@ -333,14 +332,14 @@ func (p *Plugin) logExecuteConnections(req *proto.ExecuteRequest, connections ma
 		if len(connections) == len(req.ExecuteConnectionData) {
 			log.Printf("[INFO] Executing for %d %s: %s (%s)",
 				len(connections),
-				pluralize.NewClient().Pluralize("connection", len(connections), false),
+				pluralizeClient().Pluralize("connection", len(connections), false),
 				strings.Join(maps.Keys(connections), ", "),
 				req.CallId)
 		} else {
 			log.Printf("[INFO] Executing for %d of %d %s: %s (%s)",
 				len(connections),
 				len(req.ExecuteConnectionData),
-				pluralize.NewClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
+				pluralizeClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
 				strings.Join(maps.Keys(connections), ", "),
 				req.CallId)
 		}

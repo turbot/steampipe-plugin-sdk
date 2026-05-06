@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
 )
@@ -165,7 +164,7 @@ func (c *GetConfig) Validate(table *Table) []string {
 				table.Name,
 				getHydrateName,
 				numDeps,
-				pluralize.NewClient().Pluralize("dependency", numDeps, false)))
+				pluralizeClient().Pluralize("dependency", numDeps, false)))
 			break
 		}
 	}

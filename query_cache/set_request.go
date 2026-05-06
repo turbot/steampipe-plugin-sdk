@@ -3,7 +3,6 @@ package query_cache
 import (
 	"context"
 	"fmt"
-	"github.com/gertd/go-pluralize"
 	"github.com/sethvargo/go-retry"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"log"
@@ -222,7 +221,7 @@ func (req *setRequest) readPageFromCacheWithRetries(ctx context.Context, pageIdx
 	log.Printf("[INFO] getRowsSince read page %d after %d %s  - key %s (%s)",
 		pageIdx,
 		retries,
-		pluralize.NewClient().Pluralize("retry", retries, false),
+		pluralizeClient().Pluralize("retry", retries, false),
 		pageKey,
 		req.CallId)
 
