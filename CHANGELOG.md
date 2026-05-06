@@ -1,3 +1,7 @@
+## v5.14.1 [2026-05-06]
+_Performance_
+- Cache `pluralize.Client` at package level via `sync.OnceValue` to eliminate per-call rule registration and `regexp.MustCompile` allocations across 16 callsites. ([#935](https://github.com/turbot/steampipe-plugin-sdk/pull/935))
+
 ## v5.14.0 [2026-02-25]
 _What's new?_
 - Compiled with Go 1.26.
