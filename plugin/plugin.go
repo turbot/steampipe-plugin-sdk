@@ -14,7 +14,6 @@ import (
 
 	"github.com/danwakefield/fnmatch"
 	"github.com/fsnotify/fsnotify"
-	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
 	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
@@ -633,7 +632,7 @@ func logValidationWarning(connection *Connection, warnings []string) {
 	log.Printf("[WARN] connection %s, has %d table validation %s",
 		connection.Name,
 		count,
-		pluralize.NewClient().Pluralize("warning", count, false))
+		pluralizeClient().Pluralize("warning", count, false))
 
 	for _, w := range warnings {
 		log.Printf("[WARN] %s", w)

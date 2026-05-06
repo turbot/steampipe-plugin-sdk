@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
 	"log"
 )
@@ -37,9 +36,9 @@ func (p *Plugin) validate(tableMap map[string]*Table) (validationWarnings, valid
 
 	log.Printf("[INFO] plugin validation result: %d %s %d %s",
 		len(validationWarnings),
-		pluralize.NewClient().Pluralize("warning", len(validationWarnings), false),
+		pluralizeClient().Pluralize("warning", len(validationWarnings), false),
 		len(validationErrors),
-		pluralize.NewClient().Pluralize("error", len(validationErrors), false))
+		pluralizeClient().Pluralize("error", len(validationErrors), false))
 
 	// dedupe the errors and warnins
 	validationWarnings = helpers.SortedMapKeys(helpers.SliceToLookup(validationWarnings))
