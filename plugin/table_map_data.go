@@ -1,6 +1,6 @@
 package plugin
 
-import "github.com/turbot/steampipe-plugin-sdk/v5/connection"
+import "github.com/turbot/steampipe-plugin-sdk/v6/connection"
 
 type TableMapData struct {
 	Connection      *Connection

@@ -3,7 +3,7 @@ package query_cache
 import (
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

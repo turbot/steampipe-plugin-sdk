@@ -5,11 +5,11 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/anywhere"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	pluginshared "github.com/turbot/steampipe-plugin-sdk/v5/grpc/shared"
-	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
-	"github.com/turbot/steampipe-plugin-sdk/v5/version"
+	"github.com/turbot/steampipe-plugin-sdk/v6/anywhere"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	pluginshared "github.com/turbot/steampipe-plugin-sdk/v6/grpc/shared"
+	"github.com/turbot/steampipe-plugin-sdk/v6/row_stream"
+	"github.com/turbot/steampipe-plugin-sdk/v6/version"
 )
 
 type ExecuteFunc func(req *proto.ExecuteRequest, stream row_stream.Sender) error

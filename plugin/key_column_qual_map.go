@@ -6,10 +6,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/quals"
 )
 
 // KeyColumnQualMap is a map of [KeyColumnQuals] keyed by column name

@@ -10,10 +10,10 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
 )
 
 func (p *Plugin) setAggregatorSchemas() (logMessages map[string][]string, err error) {
@@ -151,7 +151,7 @@ func (p *Plugin) upsertConnectionData(config *proto.ConnectionConfig, updateData
 	}
 
 	// set config struct (may be nil)
-	d.Connection.Config = configStruct
+	d.Connection.SetConfig(configStruct)
 
 	// set the schema
 

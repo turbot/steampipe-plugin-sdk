@@ -10,8 +10,8 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/json"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/schema"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/function"
 	"github.com/zclconf/go-cty/cty/gocty"
@@ -88,6 +88,27 @@ func (c Connection) shallowCopy() *Connection {
 		Name:   c.Name,
 		Config: c.Config,
 	}
+}
+
+// GetConfig returns the connection-specific configuration value.
+//
+// Plugin authors should type-assert the returned value to their plugin's
+// config struct, e.g. cfg, _ := connection.GetConfig().(awsConfig).
+//
+// In v6 this is the only safe way to read the configuration. The previous
+// public Config field is removed in a follow-up commit because direct field
+// access could race with the SDK's connection-update goroutine.
+func (c *Connection) GetConfig() any {
+	return c.Config
+}
+
+// SetConfig stores the connection-specific configuration value.
+//
+// Called by the SDK from upsertConnectionData when a new ConnectionConfig
+// arrives via UpdateConnectionConfigs. Plugin authors should not need to
+// call this directly.
+func (c *Connection) SetConfig(cfg any) {
+	c.Config = cfg
 }
 
 // parse function parses the hcl config string into a connection config struct.

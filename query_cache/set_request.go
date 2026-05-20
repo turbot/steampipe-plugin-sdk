@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sethvargo/go-retry"
-	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"log"
 	"sync"
 	"time"

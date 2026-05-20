@@ -3,8 +3,8 @@ package rate_limiter
 import (
 	"fmt"
 	"github.com/danwakefield/fnmatch"
-	"github.com/turbot/steampipe-plugin-sdk/v5/filter"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
+	"github.com/turbot/steampipe-plugin-sdk/v6/filter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
 	"log"
 	"strings"
 )

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 type CacheRequest struct {

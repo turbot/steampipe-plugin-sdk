@@ -5,8 +5,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 // pendingIndexBucket contains index items for all pending cache results for a given table and qual set
