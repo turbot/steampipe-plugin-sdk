@@ -101,7 +101,8 @@ func (c *Connection) GetConfig() any {
 }
 
 // SetConfig stores the connection configuration. Plugin authors should
-// not need to call this directly.
+// not need to call this directly. The SDK stores value types only — the
+// parse path dereferences pointers before SetConfig is called.
 func (c *Connection) SetConfig(cfg any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

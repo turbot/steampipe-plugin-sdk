@@ -1,11 +1,30 @@
 package plugin
 
 import (
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+// raceTestDuration is how long TestConnectionConfig_Race lets the readers
+// and writer interleave before stopping. 100ms is enough for the race
+// detector to fire on a developer machine; CI runners under load can
+// override with STEAMPIPE_SDK_RACE_TEST_DURATION=250ms (or any duration
+// parseable by time.ParseDuration).
+func raceTestDuration() time.Duration {
+	const fallback = 100 * time.Millisecond
+	v := os.Getenv("STEAMPIPE_SDK_RACE_TEST_DURATION")
+	if v == "" {
+		return fallback
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return fallback
+	}
+	return d
+}
 
 // TestConnectionConfig_Race exercises concurrent reads and writes of the
 // connection configuration through GetConfig/SetConfig. Regression test
@@ -37,7 +56,7 @@ func TestConnectionConfig_Race(t *testing.T) {
 		}
 	}()
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(raceTestDuration())
 	stop.Store(true)
 	wg.Wait()
 }
