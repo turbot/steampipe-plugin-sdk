@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/stevenle/topsort"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"strings"
 )
 

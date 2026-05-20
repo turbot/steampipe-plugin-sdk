@@ -3,7 +3,7 @@ package plugin
 import (
 	"slices"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/quals"
 )
 
 /*

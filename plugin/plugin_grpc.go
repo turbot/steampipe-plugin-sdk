@@ -12,14 +12,14 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
-	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
+	"github.com/turbot/steampipe-plugin-sdk/v6/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/row_stream"
+	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
 )
 
 /*

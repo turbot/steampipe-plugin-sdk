@@ -2,9 +2,9 @@ package plugin
 
 import (
 	"context"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
 	"log"
 	"time"
 )

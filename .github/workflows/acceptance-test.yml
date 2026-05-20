@@ -36,6 +36,11 @@ jobs:
   buildChaosPlugin:
     name: Run chaos acceptance tests
     needs: sdkUnitTests
+    # Skip on v6.x — the steampipe CLI still imports /v5, so the
+    # `go mod edit -replace .../v5=...` step below can't substitute a /v6
+    # SDK into it. Re-enable once steampipe is migrated to v6 (or the
+    # workflow is updated to swap both module paths).
+    if: github.base_ref != 'v6.x' && github.head_ref != 'v6.x'
     runs-on: ubuntu-latest
     steps:
 

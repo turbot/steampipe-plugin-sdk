@@ -1,6 +1,6 @@
 package plugin
 
-import "github.com/turbot/steampipe-plugin-sdk/v5/version"
+import "github.com/turbot/steampipe-plugin-sdk/v6/version"
 
 type hydrateMetadata struct {
 	Type         string            `json:"type"`

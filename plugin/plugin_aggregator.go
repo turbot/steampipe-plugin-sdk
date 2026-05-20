@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 // create a connectionData for the aggregator connection but DO NOT set the schema yet -

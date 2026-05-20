@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
 )
 
 /*

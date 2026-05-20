@@ -5,7 +5,7 @@ import (
 	"path"
 
 	filehelpers "github.com/turbot/go-kit/files"
-	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/getter"
 )
 
 // getSourceFiles accept a source path downloads files if necessary, and returns a list of local file paths

@@ -8,9 +8,9 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/filewatcher"
-	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/getter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"golang.org/x/exp/maps"
 )
 
