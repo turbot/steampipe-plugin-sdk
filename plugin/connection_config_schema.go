@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -21,7 +22,7 @@ import (
 
 /*
 ConnectionConfigSchema is a struct that defines custom arguments in the plugin spc file
-that are passed to the plugin as [plugin.Connection.Config].
+that are passed to the plugin and accessed via [plugin.Connection.GetConfig].
 
 A plugin that uses custom connection config must set [plugin.Plugin.ConnectionConfigSchema].
 
@@ -78,16 +79,17 @@ Plugin examples:
 */
 type Connection struct {
 	Name string
-	// the connection config
-	// NOTE: we always pass and store connection config BY VALUE
-	Config any
+	// config holds the connection-specific configuration value. It is
+	// guarded by mu and MUST only be accessed via GetConfig / SetConfig.
+	// Direct field access would race with the SDK's connection-update goroutine.
+	config any
+	mu     sync.RWMutex
 }
 
-func (c Connection) shallowCopy() *Connection {
-	return &Connection{
-		Name:   c.Name,
-		Config: c.Config,
-	}
+func (c *Connection) shallowCopy() *Connection {
+	clone := &Connection{Name: c.Name}
+	clone.SetConfig(c.GetConfig())
+	return clone
 }
 
 // GetConfig returns the connection-specific configuration value.
@@ -95,11 +97,14 @@ func (c Connection) shallowCopy() *Connection {
 // Plugin authors should type-assert the returned value to their plugin's
 // config struct, e.g. cfg, _ := connection.GetConfig().(awsConfig).
 //
-// In v6 this is the only safe way to read the configuration. The previous
-// public Config field is removed in a follow-up commit because direct field
-// access could race with the SDK's connection-update goroutine.
+// This is the only safe way to read the configuration — the underlying
+// field is mutated in place by the SDK when UpdateConnectionConfigs
+// delivers a new ConnectionConfig (e.g. credential rotation), so an
+// unsynchronized direct read could observe a torn value.
 func (c *Connection) GetConfig() any {
-	return c.Config
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.config
 }
 
 // SetConfig stores the connection-specific configuration value.
@@ -108,7 +113,9 @@ func (c *Connection) GetConfig() any {
 // arrives via UpdateConnectionConfigs. Plugin authors should not need to
 // call this directly.
 func (c *Connection) SetConfig(cfg any) {
-	c.Config = cfg
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.config = cfg
 }
 
 // parse function parses the hcl config string into a connection config struct.

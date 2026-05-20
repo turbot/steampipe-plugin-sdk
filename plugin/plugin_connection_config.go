@@ -239,7 +239,7 @@ func (p *Plugin) getConnectionSchema(c *Connection) (map[string]*Table, *grpc.Pl
 }
 
 func (p *Plugin) updateConnectionWatchPaths(c *Connection) error {
-	watchPaths := p.extractWatchPaths(c.Config)
+	watchPaths := p.extractWatchPaths(c.GetConfig())
 	if len(watchPaths) == 0 {
 		return nil
 	}
