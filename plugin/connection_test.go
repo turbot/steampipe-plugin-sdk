@@ -7,13 +7,9 @@ import (
 	"time"
 )
 
-// TestConnectionConfig_Race exercises concurrent reads and writes of
-// Connection.Config. Under `go test -race`, the race detector should
-// flag the unsynchronized access in v6's commit 1 (accessors-without-lock)
-// and pass cleanly after commit 2 adds the RWMutex.
-//
-// This is the regression test for the race surfaced during code review
-// of steampipe-plugin-aws PR #2756.
+// TestConnectionConfig_Race exercises concurrent reads and writes of the
+// connection configuration through GetConfig/SetConfig. Regression test
+// for a torn-read race when the SDK rotates credentials mid-query.
 func TestConnectionConfig_Race(t *testing.T) {
 	c := &Connection{Name: "test"}
 	c.SetConfig("initial")

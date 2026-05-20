@@ -92,26 +92,16 @@ func (c *Connection) shallowCopy() *Connection {
 	return clone
 }
 
-// GetConfig returns the connection-specific configuration value.
-//
-// Plugin authors should type-assert the returned value to their plugin's
-// config struct, e.g. cfg, _ := connection.GetConfig().(awsConfig).
-//
-// This is the only safe way to read the configuration — the underlying
-// field is mutated in place by the SDK when UpdateConnectionConfigs
-// delivers a new ConnectionConfig (e.g. credential rotation), so an
-// unsynchronized direct read could observe a torn value.
+// GetConfig returns the connection configuration. The lock prevents
+// observing a torn value while the SDK is rotating credentials.
 func (c *Connection) GetConfig() any {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.config
 }
 
-// SetConfig stores the connection-specific configuration value.
-//
-// Called by the SDK from upsertConnectionData when a new ConnectionConfig
-// arrives via UpdateConnectionConfigs. Plugin authors should not need to
-// call this directly.
+// SetConfig stores the connection configuration. Plugin authors should
+// not need to call this directly.
 func (c *Connection) SetConfig(cfg any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

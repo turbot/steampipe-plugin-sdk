@@ -140,7 +140,7 @@ func (p *Plugin) upsertConnectionData(config *proto.ConnectionConfig, updateData
 	// if there is already connection data in the map for this connection, update it
 	// (and specifically - update the Connection object instead of replacing it)
 	// this is because its possible a query is executing already with the Connection object in it's QueryData
-	// if we replace the Connection with a new struct, any update we make to the Connection.Config will not be
+	// if we replace the Connection with a new struct, any update we make via SetConfig will not be
 	// picked up by those running queries
 	// worst case scenario is that (for example) the Aws plugin may refresh the Client using the previous credentials
 	d, alreadyHaveConnectionData := p.getConnectionData(connectionName)
