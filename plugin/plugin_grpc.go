@@ -322,6 +322,20 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	close(outputChan)
 	close(errorChan)
 
+	// Drain any errors the select loop did not consume. errorChan is buffered and
+	// every connection goroutine writes its error before signalling completion
+	// (outputWg.Done), so by the time the completion nil reached outputChan all
+	// errors were already buffered. Both channels can be ready at once, so the
+	// select above may have taken the completion nil and broken out before reading
+	// a pending error — without this drain that error is silently lost and Execute
+	// returns nil for a failed scan.
+	for err := range errorChan {
+		if !error_helpers.IsContextCancelledError(err) {
+			log.Printf("[WARN] error channel received (drain) %s", err.Error())
+		}
+		errors = append(errors, err)
+	}
+
 	return helpers.CombineErrors(errors...)
 }
 
