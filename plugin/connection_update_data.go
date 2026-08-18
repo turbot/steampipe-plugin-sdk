@@ -1,6 +1,6 @@
 package plugin
 
-import "github.com/turbot/steampipe-plugin-sdk/v5/grpc"
+import "github.com/turbot/steampipe-plugin-sdk/v6/grpc"
 
 type connectionUpdateData struct {
 	failedConnections map[string]error

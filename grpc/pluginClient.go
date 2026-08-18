@@ -2,14 +2,14 @@ package grpc
 
 import (
 	"context"
-	pluginshared "github.com/turbot/steampipe-plugin-sdk/v5/grpc/shared"
+	pluginshared "github.com/turbot/steampipe-plugin-sdk/v6/grpc/shared"
 	"io/ioutil"
 	"log"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
 )
 
 // PluginClient is the client object used by clients of the plugin

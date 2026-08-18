@@ -8,14 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -94,7 +93,7 @@ func (t *Table) buildMissingKeyColumnError(operation string, unsatisfiedColumns 
 		operation,
 		t.Name,
 		len(unsatisfiedColumns),
-		pluralize.NewClient().Pluralize("qual", len(unsatisfiedColumns), false),
+		pluralizeClient().Pluralize("qual", len(unsatisfiedColumns), false),
 		unsatisfied,
 	))
 	return err
@@ -210,7 +209,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData) (err error) {
 		// NOTE: explicitly set the get hydrate results on rowData
 		rd.set(hydrateKey, rd.item)
 		// set the rowsStreamed to 1
-		queryData.queryStatus.rowsStreamed = 1
+		queryData.queryStatus.rowsStreamed.Store(1)
 		// send the result down the stream
 		queryData.rowDataChan <- rd
 	}
@@ -417,7 +416,7 @@ func (t *Table) getListCallQualValueList(queryData *QueryData) *quals.Qual {
 	if numQualsWithListValues > 0 {
 		log.Printf("[TRACE] %d %s have list values",
 			numQualsWithListValues,
-			pluralize.NewClient().Pluralize("qual", numQualsWithListValues, false))
+			pluralizeClient().Pluralize("qual", numQualsWithListValues, false))
 
 		// if we have more than one qual with list values, extract the required ones
 		// if more than one of these is required, this is an error

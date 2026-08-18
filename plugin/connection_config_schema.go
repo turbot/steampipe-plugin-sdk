@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -10,8 +11,8 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/json"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/schema"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/function"
 	"github.com/zclconf/go-cty/cty/gocty"
@@ -21,7 +22,7 @@ import (
 
 /*
 ConnectionConfigSchema is a struct that defines custom arguments in the plugin spc file
-that are passed to the plugin as [plugin.Connection.Config].
+that are passed to the plugin and accessed via [plugin.Connection.GetConfig].
 
 A plugin that uses custom connection config must set [plugin.Plugin.ConnectionConfigSchema].
 
@@ -78,16 +79,34 @@ Plugin examples:
 */
 type Connection struct {
 	Name string
-	// the connection config
-	// NOTE: we always pass and store connection config BY VALUE
-	Config any
+	// config holds the connection-specific configuration value. It is
+	// guarded by mu and MUST only be accessed via GetConfig / SetConfig.
+	// Direct field access would race with the SDK's connection-update goroutine.
+	config any
+	mu     sync.RWMutex
 }
 
-func (c Connection) shallowCopy() *Connection {
-	return &Connection{
-		Name:   c.Name,
-		Config: c.Config,
-	}
+func (c *Connection) shallowCopy() *Connection {
+	clone := &Connection{Name: c.Name}
+	clone.SetConfig(c.GetConfig())
+	return clone
+}
+
+// GetConfig returns the connection configuration. The lock prevents
+// observing a torn value while the SDK is rotating credentials.
+func (c *Connection) GetConfig() any {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.config
+}
+
+// SetConfig stores the connection configuration. Plugin authors should
+// not need to call this directly. The SDK stores value types only — the
+// parse path dereferences pointers before SetConfig is called.
+func (c *Connection) SetConfig(cfg any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.config = cfg
 }
 
 // parse function parses the hcl config string into a connection config struct.

@@ -9,12 +9,11 @@ import (
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
 )
 
 func (p *Plugin) setAggregatorSchemas() (logMessages map[string][]string, err error) {
@@ -105,7 +104,7 @@ func (p *Plugin) upsertConnections(configs []*proto.ConnectionConfig, updateData
 
 	log.Printf("[INFO] upsertConnections adding %d connection %s",
 		len(configs),
-		pluralize.NewClient().Pluralize("connection", len(configs), false))
+		pluralizeClient().Pluralize("connection", len(configs), false))
 
 	for _, config := range configs {
 		if config.IsAggregator() {
@@ -141,7 +140,7 @@ func (p *Plugin) upsertConnectionData(config *proto.ConnectionConfig, updateData
 	// if there is already connection data in the map for this connection, update it
 	// (and specifically - update the Connection object instead of replacing it)
 	// this is because its possible a query is executing already with the Connection object in it's QueryData
-	// if we replace the Connection with a new struct, any update we make to the Connection.Config will not be
+	// if we replace the Connection with a new struct, any update we make via SetConfig will not be
 	// picked up by those running queries
 	// worst case scenario is that (for example) the Aws plugin may refresh the Client using the previous credentials
 	d, alreadyHaveConnectionData := p.getConnectionData(connectionName)
@@ -152,7 +151,7 @@ func (p *Plugin) upsertConnectionData(config *proto.ConnectionConfig, updateData
 	}
 
 	// set config struct (may be nil)
-	d.Connection.Config = configStruct
+	d.Connection.SetConfig(configStruct)
 
 	// set the schema
 
@@ -240,7 +239,7 @@ func (p *Plugin) getConnectionSchema(c *Connection) (map[string]*Table, *grpc.Pl
 }
 
 func (p *Plugin) updateConnectionWatchPaths(c *Connection) error {
-	watchPaths := p.extractWatchPaths(c.Config)
+	watchPaths := p.extractWatchPaths(c.GetConfig())
 	if len(watchPaths) == 0 {
 		return nil
 	}

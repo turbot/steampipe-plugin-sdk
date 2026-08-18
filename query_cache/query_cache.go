@@ -14,10 +14,9 @@ import (
 	"github.com/eko/gocache/lib/v4/cache"
 	"github.com/eko/gocache/lib/v4/store"
 	bigcache_store "github.com/eko/gocache/store/bigcache/v4"
-	"github.com/gertd/go-pluralize"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/proto"
 )
@@ -338,7 +337,7 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	log.Printf("[WARN] QueryCache AbortSet - aborting request  with error %s (%d %s) (%s)",
 		err.Error(),
 		len(req.subscribers),
-		pluralize.NewClient().Pluralize("subscriber", len(req.subscribers), false),
+		pluralizeClient().Pluralize("subscriber", len(req.subscribers), false),
 		req.CallId)
 
 	req.state = requestError

@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
 )
 
 /*
@@ -67,9 +66,9 @@ type GetConfig struct {
 	Hydrate HydrateFunc
 	// key or keys which are used to uniquely identify rows - used to determine whether  a query is a 'get' call
 	KeyColumns KeyColumnSlice
-	// a function which will return whenther to ignore a given error
+	// a function which will return whether to ignore a given error
 	IgnoreConfig *IgnoreConfig
-	// a function which will return whenther to retry the call if an error is returned
+	// a function which will return whether to retry the call if an error is returned
 	RetryConfig *RetryConfig
 	Tags        map[string]string
 
@@ -165,7 +164,7 @@ func (c *GetConfig) Validate(table *Table) []string {
 				table.Name,
 				getHydrateName,
 				numDeps,
-				pluralize.NewClient().Pluralize("dependency", numDeps, false)))
+				pluralizeClient().Pluralize("dependency", numDeps, false)))
 			break
 		}
 	}

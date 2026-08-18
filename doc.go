@@ -21,7 +21,7 @@ This function must call [plugin.Serve] to instantiate your plugin's gRPC server,
 
 	import (
 		"github.com/turbot/steampipe-plugin-aws/aws"
-		"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+		"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 	)
 
 	func main() {
@@ -161,9 +161,9 @@ Use [dynamic_tables] when you cannot know a table's schema in advance, e.g. the 
 package steampipe_plugin_sdk
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/docs/dynamic_tables"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v6/docs/dynamic_tables"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
 )
 
 var forceImportDynamicPlugin dynamic_tables.ForceImport

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/getter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/getter"
 )
 
 type getSourceFilesTest struct {

@@ -1,9 +1,8 @@
 package plugin
 
 import (
-	"github.com/gertd/go-pluralize"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
 	"golang.org/x/exp/maps"
 	"log"
 	"strings"
@@ -35,7 +34,7 @@ func (p *Plugin) getHydrateCallRateLimiter(hydrateCallTags map[string]string, qu
 
 	log.Printf("[INFO] found %d matching %s",
 		len(limiters),
-		pluralize.NewClient().Pluralize("limiter", len(limiters), false))
+		pluralizeClient().Pluralize("limiter", len(limiters), false))
 
 	// finally package them into a multi-limiter
 	res = rate_limiter.NewMultiLimiter(limiters, rateLimiterScopeValues)

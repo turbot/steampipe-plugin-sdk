@@ -10,17 +10,16 @@ import (
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 
-	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
-	"github.com/turbot/steampipe-plugin-sdk/v5/row_stream"
-	"github.com/turbot/steampipe-plugin-sdk/v5/sperr"
+	"github.com/turbot/steampipe-plugin-sdk/v6/error_helpers"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/row_stream"
+	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
 )
 
 /*
@@ -285,24 +284,13 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	for !complete {
 		select {
 		case row := <-outputChan:
-			// nil row means that one connection is done streaming
+			// nil row means that one connection is done streaming. Just exit the
+			// loop here; the terminal nil sentinel for local streams is sent below,
+			// after errorChan is drained, so it can be suppressed when the scan
+			// errored (see the nil-send race note there).
 			if row == nil {
 				log.Printf("[INFO] empty row on output channel - we are done ")
 				complete = true
-
-				// if the stream is a grpc stream, no need to send a nil item - break out
-				if _, ok := stream.(proto.WrapperPlugin_ExecuteServer); ok {
-					log.Printf("[INFO] return without streaming nil row as this is GRPC stream")
-					break
-				}
-				// fall through to send empty row (required if using local stream)
-				log.Printf("[INFO] Sending nil row")
-				if err := stream.Send(row); err != nil {
-					// ignore context cancellation - they will get picked up further downstream
-					if !error_helpers.IsContextCancelledError(err) {
-						errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
-					}
-				}
 				break
 			}
 			if err := stream.Send(row); err != nil {
@@ -323,6 +311,33 @@ func (p *Plugin) execute(req *proto.ExecuteRequest, stream row_stream.Sender) (e
 	close(outputChan)
 	close(errorChan)
 
+	// Drain any errors the select loop did not consume. errorChan is buffered and
+	// every connection goroutine writes its error before signalling completion
+	// (outputWg.Done), so by the time the completion nil reached outputChan all
+	// errors were already buffered. Both channels can be ready at once, so the
+	// select above may have taken the completion nil and broken out before reading
+	// a pending error — without this drain that error is silently lost and Execute
+	// returns nil for a failed scan.
+	for err := range errorChan {
+		if !error_helpers.IsContextCancelledError(err) {
+			log.Printf("[WARN] error channel received (drain) %s", err.Error())
+		}
+		errors = append(errors, err)
+	}
+
+	// Terminal nil sentinel for a local stream (a grpc stream needs none). Send it
+	// only on a clean scan: on error the executeFunc-return path delivers the error
+	// via stream.Error after this Execute returns, and a nil sentinel here would
+	// reach the receiver first and be read as a clean EOF — masking the failure.
+	// Gating on the fully drained errors makes the success and failure terminals
+	// mutually exclusive.
+	if _, ok := stream.(proto.WrapperPlugin_ExecuteServer); !ok && len(errors) == 0 {
+		log.Printf("[INFO] Sending nil row (local stream completion)")
+		if err := stream.Send(nil); err != nil && !error_helpers.IsContextCancelledError(err) {
+			errors = append(errors, grpc.HandleGrpcError(err, p.Name, "stream.Send"))
+		}
+	}
+
 	return helpers.CombineErrors(errors...)
 }
 
@@ -333,14 +348,14 @@ func (p *Plugin) logExecuteConnections(req *proto.ExecuteRequest, connections ma
 		if len(connections) == len(req.ExecuteConnectionData) {
 			log.Printf("[INFO] Executing for %d %s: %s (%s)",
 				len(connections),
-				pluralize.NewClient().Pluralize("connection", len(connections), false),
+				pluralizeClient().Pluralize("connection", len(connections), false),
 				strings.Join(maps.Keys(connections), ", "),
 				req.CallId)
 		} else {
 			log.Printf("[INFO] Executing for %d of %d %s: %s (%s)",
 				len(connections),
 				len(req.ExecuteConnectionData),
-				pluralize.NewClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
+				pluralizeClient().Pluralize("connection", len(req.ExecuteConnectionData), false),
 				strings.Join(maps.Keys(connections), ", "),
 				req.CallId)
 		}

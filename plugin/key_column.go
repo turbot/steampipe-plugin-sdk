@@ -5,10 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gertd/go-pluralize"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v6/query_cache"
 )
 
 const (
@@ -113,7 +112,7 @@ type KeyColumn struct {
 }
 
 func (k *KeyColumn) String() string {
-	return fmt.Sprintf("column:'%s' %s: %s", k.Name, pluralize.NewClient().Pluralize("operator", len(k.Operators), false), strings.Join(k.Operators, ","))
+	return fmt.Sprintf("column:'%s' %s: %s", k.Name, pluralizeClient().Pluralize("operator", len(k.Operators), false), strings.Join(k.Operators, ","))
 }
 
 // ToProtobuf converts the KeyColumn to a protobuf object.

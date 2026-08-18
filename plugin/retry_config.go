@@ -128,8 +128,8 @@ func (c *RetryConfig) GetListRetryConfig() *RetryConfig {
 	listRetryConfig := &RetryConfig{}
 	if c.ShouldRetryErrorFunc != nil {
 		listRetryConfig.ShouldRetryErrorFunc = func(ctx context.Context, d *QueryData, h *HydrateData, err error) bool {
-			if d.queryStatus.rowsStreamed != 0 {
-				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.queryStatus.rowsStreamed)
+			if rowsStreamed := d.queryStatus.rowsStreamed.Load(); rowsStreamed != 0 {
+				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", rowsStreamed)
 				return false
 			}
 			res := c.ShouldRetryErrorFunc(ctx, d, h, err)
@@ -137,8 +137,8 @@ func (c *RetryConfig) GetListRetryConfig() *RetryConfig {
 		}
 	} else if c.ShouldRetryError != nil {
 		listRetryConfig.ShouldRetryErrorFunc = func(ctx context.Context, d *QueryData, h *HydrateData, err error) bool {
-			if d.queryStatus.rowsStreamed != 0 {
-				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", d.queryStatus.rowsStreamed)
+			if rowsStreamed := d.queryStatus.rowsStreamed.Load(); rowsStreamed != 0 {
+				log.Printf("[TRACE] shouldRetryError we have started streaming rows (%d) - return false", rowsStreamed)
 				return false
 			}
 			// call the legacy function

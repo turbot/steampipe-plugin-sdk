@@ -3,30 +3,28 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/danwakefield/fnmatch"
 	"log"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/danwakefield/fnmatch"
 	"github.com/fsnotify/fsnotify"
-	"github.com/gertd/go-pluralize"
 	"github.com/hashicorp/go-hclog"
 	"github.com/turbot/go-kit/helpers"
-	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v5/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
-	"github.com/turbot/steampipe-plugin-sdk/v5/query_cache"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
-	"github.com/turbot/steampipe-plugin-sdk/v5/version"
+	connectionmanager "github.com/turbot/steampipe-plugin-sdk/v6/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v6/query_cache"
+	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/version"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -450,7 +448,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 	cacheRequest := &query_cache.CacheRequest{
 		Table:          table.Name,
 		QualMap:        cacheQualMap,
-		Columns:        queryData.getColumnNames(), // all column names returned by the required hydrate functions
+		Columns:        queryContext.Columns,
 		Limit:          limit,
 		ConnectionName: connectionName,
 		TtlSeconds:     queryContext.CacheTTL,
@@ -470,7 +468,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 		streamCachedRowFunc := func(row *proto.Row) {
 			// if row is not nil (indicating completion), increment cachedRowsFetched
 			if row != nil {
-				atomic.AddInt64(&queryData.queryStatus.cachedRowsFetched, 1)
+				queryData.queryStatus.cachedRowsFetched.Add(1)
 			}
 			streamUncachedRowFunc(row)
 		}
@@ -633,7 +631,7 @@ func logValidationWarning(connection *Connection, warnings []string) {
 	log.Printf("[WARN] connection %s, has %d table validation %s",
 		connection.Name,
 		count,
-		pluralize.NewClient().Pluralize("warning", count, false))
+		pluralizeClient().Pluralize("warning", count, false))
 
 	for _, w := range warnings {
 		log.Printf("[WARN] %s", w)

@@ -3,11 +3,11 @@
 package plugin
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/connection"
-	"github.com/turbot/steampipe-plugin-sdk/v5/docs/dynamic_tables"
-	"github.com/turbot/steampipe-plugin-sdk/v5/docs/error_handling"
-	"github.com/turbot/steampipe-plugin-sdk/v5/docs/key_columns"
-	"github.com/turbot/steampipe-plugin-sdk/v5/docs/matrix_items"
+	"github.com/turbot/steampipe-plugin-sdk/v6/connection"
+	"github.com/turbot/steampipe-plugin-sdk/v6/docs/dynamic_tables"
+	"github.com/turbot/steampipe-plugin-sdk/v6/docs/error_handling"
+	"github.com/turbot/steampipe-plugin-sdk/v6/docs/key_columns"
+	"github.com/turbot/steampipe-plugin-sdk/v6/docs/matrix_items"
 )
 
 // ForceImport is a mechanism to ensure godoc can reference all required packages
