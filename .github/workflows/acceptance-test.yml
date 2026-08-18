@@ -28,10 +28,12 @@ jobs:
             version: v2.10.1
             args: --timeout=15m --config=.golangci.yml
 
+        # -race is required: the SDK's race regression tests only fail under
+        # the race detector, so without it they assert nothing.
         - name: Run SDK Unit Tests
           run: |
             go clean -testcache
-            go test -timeout 600s ./... -test.v
+            go test -race -timeout 900s ./... -test.v
 
   buildChaosPlugin:
     name: Run chaos acceptance tests
@@ -47,27 +49,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
           path: sdk
 
-      - name: Get latest Steampipe release tag
-        id: steampipe-release
-        run: |
-          tag=$(curl -s https://api.github.com/repos/turbot/steampipe/releases/latest | jq -r '.tag_name')
-          echo "tag=$tag" >> $GITHUB_OUTPUT
-
+      # develop, not the latest release: the released steampipe still requires
+      # steampipe-plugin-sdk/v5, so there is no /v6 requirement to replace and
+      # the SDK under test would be silently left out of the build. Pin back to
+      # a release tag once a steampipe release ships on /v6 — tracking develop
+      # means an unrelated break there turns this job red.
       - name: Checkout Steampipe
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: turbot/steampipe
-          ref: ${{ steps.steampipe-release.outputs.tag }}
+          ref: develop
           path: steampipe
 
       - name: Update go.mod and build Steampipe
         run: |
           echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
-          go mod edit -replace github.com/turbot/steampipe-plugin-sdk/v5=/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
+          go mod edit -replace github.com/turbot/steampipe-plugin-sdk/v6=/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
           go mod tidy
           go build -o /home/runner/steampipe
 
@@ -86,7 +86,7 @@ jobs:
         run: |
           echo "PATH=$PATH:$HOME/build::/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
           cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
-          go mod edit -replace github.com/turbot/steampipe-plugin-sdk/v5=/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
+          go mod edit -replace github.com/turbot/steampipe-plugin-sdk/v6=/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
           go mod tidy
           make
 

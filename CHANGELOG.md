@@ -1,3 +1,17 @@
+## v6.1.0 [2026-08-18]
+_Bug fixes_
+- Fix three data races in the in-process `Execute` path that could drop or corrupt a scan result. A failed scan is now reported as an error rather than as a clean empty result; the local plugin stream no longer sends its nil sentinel on a failed scan, with the pending error guarded by a mutex; and the per-query stats counters are now `atomic.Int64`. ([#942](https://github.com/turbot/steampipe-plugin-sdk/pull/942))
+
+_Behaviour change_
+- A failed scan on the in-process path now surfaces an error where it previously returned an empty result. Consumers may see errors they did not see before.
+
+## v6.0.0 [2026-05-20]
+_Breaking changes_
+- The `plugin.Connection.Config` field is no longer exported. Plugins must read it via the new `Connection.GetConfig()` accessor — e.g. replace `connection.Config.(awsConfig)` with `connection.GetConfig().(awsConfig)`. Plugins on v5 are unaffected. ([#938](https://github.com/turbot/steampipe-plugin-sdk/pull/938))
+
+_Bug fixes_
+- Fix data race on `Connection.Config` between the SDK's connection-update goroutine and plugin worker goroutines reading config during signing or hydrate execution. Reads and writes now go through `GetConfig` / `SetConfig`, protected by a per-connection `sync.RWMutex`. ([#937](https://github.com/turbot/steampipe-plugin-sdk/issues/937))
+
 ## v5.14.1 [2026-05-06]
 _Performance_
 - Cache `pluralize.Client` at package level via `sync.OnceValue` to eliminate per-call rule registration and `regexp.MustCompile` allocations across 16 callsites. ([#935](https://github.com/turbot/steampipe-plugin-sdk/pull/935))

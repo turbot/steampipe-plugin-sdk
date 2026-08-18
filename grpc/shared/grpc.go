@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 // defaultAdminRPCTimeout bounds the administrative unary RPCs made to the

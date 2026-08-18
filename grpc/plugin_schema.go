@@ -1,6 +1,6 @@
 package grpc
 
-import "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+import "github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 
 type PluginSchema struct {
 	Schema       map[string]*proto.TableSchema

@@ -9,12 +9,12 @@ import (
 	"sync"
 
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
-	"github.com/turbot/steampipe-plugin-sdk/v5/logging"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/logging"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -209,7 +209,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData) (err error) {
 		// NOTE: explicitly set the get hydrate results on rowData
 		rd.set(hydrateKey, rd.item)
 		// set the rowsStreamed to 1
-		queryData.queryStatus.rowsStreamed = 1
+		queryData.queryStatus.rowsStreamed.Store(1)
 		// send the result down the stream
 		queryData.rowDataChan <- rd
 	}

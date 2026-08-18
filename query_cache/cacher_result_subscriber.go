@@ -3,8 +3,8 @@ package query_cache
 import (
 	"context"
 	"github.com/turbot/go-kit/helpers"
-	"github.com/turbot/steampipe-plugin-sdk/v5/error_helpers"
-	sdkproto "github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/error_helpers"
+	sdkproto "github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"golang.org/x/sync/semaphore"
 	"log"
 	"sync"

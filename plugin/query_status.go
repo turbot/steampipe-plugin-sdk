@@ -3,13 +3,19 @@ package plugin
 import (
 	"context"
 	"math"
+	"sync/atomic"
 )
 
 type queryStatus struct {
-	rowsRequired      int64
-	rowsStreamed      int64
-	hydrateCalls      int64
-	cachedRowsFetched int64
+	rowsRequired int64
+	// counters mutated and read concurrently: the streaming goroutine stamps
+	// running totals onto each row's metadata (QueryData.streamRow) while the
+	// list goroutine and the per-row hydrate goroutines increment them. They are
+	// atomic.Int64 so those accesses never race (a plain field is trivially
+	// read non-atomically by mistake; the type makes that a compile error).
+	rowsStreamed      atomic.Int64
+	hydrateCalls      atomic.Int64
+	cachedRowsFetched atomic.Int64
 	// flag which is true when we have streamed enough rows (or the context is cancelled)
 	StreamingComplete bool
 }
@@ -33,6 +39,6 @@ func (s *queryStatus) RowsRemaining(ctx context.Context) int64 {
 	if IsCancelled(ctx) {
 		return 0
 	}
-	rowsRemaining := s.rowsRequired - s.rowsStreamed
+	rowsRemaining := s.rowsRequired - s.rowsStreamed.Load()
 	return rowsRemaining
 }

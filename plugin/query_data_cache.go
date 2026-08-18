@@ -4,7 +4,7 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 // inspect the result row to build a full list of columns

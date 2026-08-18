@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 // IndexItem stores the columns and cached index for a single cached query result

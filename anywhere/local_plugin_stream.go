@@ -2,8 +2,9 @@ package anywhere
 
 import (
 	"context"
+	"sync"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 const localPluginStreamBuffer = 1024
@@ -12,7 +13,10 @@ const localPluginStreamBuffer = 1024
 type LocalPluginStream struct {
 	ctx  context.Context
 	rows chan *proto.ExecuteResponse
-	err  error
+	// mu guards err, which is written by Error and read/cleared by Recv,
+	// potentially from different goroutines.
+	mu  sync.Mutex
+	err error
 	// this channel is closed whenever the local plugin stream receives its first row or error
 	// this is to make sure either it waits for the first row or error before returning from Recv
 	ready chan struct{}
@@ -52,12 +56,23 @@ func (s *LocalPluginStream) Send(r *proto.ExecuteResponse) error {
 	}
 }
 
+// takeErr returns any pending error and clears it, under s.mu.
+func (s *LocalPluginStream) takeErr() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := s.err
+	s.err = nil
+	return err
+}
+
 func (s *LocalPluginStream) Error(err error) {
 	select {
 	case <-s.done:
 		return
 	default:
+		s.mu.Lock()
 		s.err = err
+		s.mu.Unlock()
 		// Ensure ready channel is closed
 		select {
 		case <-s.ready:
@@ -71,39 +86,50 @@ func (s *LocalPluginStream) Error(err error) {
 
 func (s *LocalPluginStream) Recv() (*proto.ExecuteResponse, error) {
 	// Check for error first
-	if err := s.err; err != nil {
-		s.err = nil
+	if err := s.takeErr(); err != nil {
 		return nil, err
 	}
 
-	// Check if done
+	// Check if done. Error() sets s.err before close(s.done), so observing the
+	// done close happens-after that write: a done with a pending error must return
+	// the error, not a clean (nil, nil) EOF.
 	select {
 	case <-s.done:
+		if err := s.takeErr(); err != nil {
+			return nil, err
+		}
 		return nil, nil
 	case <-s.ctx.Done():
 		return nil, s.ctx.Err()
 	default:
 	}
 
-	// Wait for ready or context cancellation
+	// Wait for ready or context cancellation. ready and done can be closed at the
+	// same instant (Error() closes both), so a done win here must likewise surface
+	// any pending error rather than a clean EOF.
 	select {
 	case <-s.ready:
 		// ready channel closed, proceed
 	case <-s.ctx.Done():
 		return nil, s.ctx.Err()
 	case <-s.done:
+		if err := s.takeErr(); err != nil {
+			return nil, err
+		}
 		return nil, nil
 	}
 
 	// Check for error again after ready
-	if err := s.err; err != nil {
-		s.err = nil
+	if err := s.takeErr(); err != nil {
 		return nil, err
 	}
 
 	// Try to get a row
 	select {
 	case <-s.done:
+		if err := s.takeErr(); err != nil {
+			return nil, err
+		}
 		return nil, nil
 	case <-s.ctx.Done():
 		return nil, s.ctx.Err()

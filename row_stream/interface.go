@@ -2,7 +2,7 @@ package row_stream
 
 import (
 	"context"
-	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
+	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
 // interfaces to encapsulate the streaming of rows from the plugin to the FDW

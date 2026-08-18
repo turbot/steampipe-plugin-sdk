@@ -3,8 +3,8 @@ package plugin
 import (
 	"log"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
-	"github.com/turbot/steampipe-plugin-sdk/v5/rate_limiter"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
 )
 
 /*

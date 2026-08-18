@@ -3,7 +3,7 @@ package transform
 import (
 	"context"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/quals"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/quals"
 )
 
 // TransformData is the input to a transform function.

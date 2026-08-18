@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/sethvargo/go-retry"
-	"github.com/turbot/steampipe-plugin-sdk/v5/telemetry"
+	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
 	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
