@@ -2,8 +2,37 @@ package shared
 
 import (
 	"context"
+	"os"
+	"time"
+
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
+
+// defaultAdminRPCTimeout bounds the administrative unary RPCs made to the
+// plugin (schema fetch, connection-config updates, cache and rate-limiter
+// options). These calls were previously issued on the long-lived plugin
+// context with no deadline, so a plugin that never answered blocked the
+// caller forever. In Steampipe that permanently wedges RefreshConnections
+// (which is single-flight with a single queued slot), silently disabling all
+// future connection refreshes until the process is restarted.
+//
+// The default is deliberately generous — well above the default plugin start
+// timeout (240s) — so legitimately slow operations (e.g. SetAllConnectionConfigs
+// for hundreds of connections) are unaffected; the goal is only to convert
+// "blocked forever" into an error the caller can surface and retry.
+const defaultAdminRPCTimeout = 5 * time.Minute
+
+// adminRPCTimeout is the effective deadline for administrative unary RPCs,
+// overridable via the STEAMPIPE_ADMIN_RPC_TIMEOUT environment variable
+// (a Go duration string, e.g. "90s" or "10m").
+var adminRPCTimeout = func() time.Duration {
+	if v := os.Getenv("STEAMPIPE_ADMIN_RPC_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return defaultAdminRPCTimeout
+}()
 
 // GRPCClient is an implementation of
 // WrapperPluginClient service that talks over RPC.
@@ -15,12 +44,21 @@ type GRPCClient struct {
 	ctx context.Context
 }
 
+// adminContext derives a deadline-bounded context for administrative unary
+// RPCs. Streaming RPCs (Execute, EstablishMessageStream) are long-lived by
+// design and intentionally do NOT use this.
+func (c *GRPCClient) adminContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(c.ctx, adminRPCTimeout)
+}
+
 func (c *GRPCClient) EstablishMessageStream() (proto.WrapperPlugin_EstablishMessageStreamClient, error) {
 	return c.client.EstablishMessageStream(c.ctx, &proto.EstablishMessageStreamRequest{})
 }
 
 func (c *GRPCClient) GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error) {
-	return c.client.GetSchema(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.GetSchema(ctx, req)
 }
 
 func (c *GRPCClient) Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error) {
@@ -30,35 +68,51 @@ func (c *GRPCClient) Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_Exe
 }
 
 func (c *GRPCClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) {
-	return c.client.SetConnectionConfig(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.SetConnectionConfig(ctx, req)
 }
 
 func (c *GRPCClient) SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error) {
-	return c.client.SetAllConnectionConfigs(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.SetAllConnectionConfigs(ctx, req)
 }
 
 func (c *GRPCClient) UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error) {
-	return c.client.UpdateConnectionConfigs(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.UpdateConnectionConfigs(ctx, req)
 }
 
 func (c *GRPCClient) GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error) {
-	return c.client.GetSupportedOperations(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.GetSupportedOperations(ctx, req)
 }
 
 func (c *GRPCClient) SetCacheOptions(req *proto.SetCacheOptionsRequest) (*proto.SetCacheOptionsResponse, error) {
-	return c.client.SetCacheOptions(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.SetCacheOptions(ctx, req)
 }
 
 func (c *GRPCClient) SetConnectionCacheOptions(req *proto.SetConnectionCacheOptionsRequest) (*proto.SetConnectionCacheOptionsResponse, error) {
-	return c.client.SetConnectionCacheOptions(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.SetConnectionCacheOptions(ctx, req)
 }
 
 func (c *GRPCClient) SetRateLimiters(req *proto.SetRateLimitersRequest) (*proto.SetRateLimitersResponse, error) {
-	return c.client.SetRateLimiters(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.SetRateLimiters(ctx, req)
 }
 
 func (c *GRPCClient) GetRateLimiters(req *proto.GetRateLimitersRequest) (*proto.GetRateLimitersResponse, error) {
-	return c.client.GetRateLimiters(c.ctx, req)
+	ctx, cancel := c.adminContext()
+	defer cancel()
+	return c.client.GetRateLimiters(ctx, req)
 }
 
 // GRPCServer is the gRPC server that GRPCClient talks to.
