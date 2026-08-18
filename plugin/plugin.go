@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/danwakefield/fnmatch"
@@ -469,7 +468,7 @@ func (p *Plugin) executeForConnection(streamContext context.Context, req *proto.
 		streamCachedRowFunc := func(row *proto.Row) {
 			// if row is not nil (indicating completion), increment cachedRowsFetched
 			if row != nil {
-				atomic.AddInt64(&queryData.queryStatus.cachedRowsFetched, 1)
+				queryData.queryStatus.cachedRowsFetched.Add(1)
 			}
 			streamUncachedRowFunc(row)
 		}

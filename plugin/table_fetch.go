@@ -209,7 +209,7 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData) (err error) {
 		// NOTE: explicitly set the get hydrate results on rowData
 		rd.set(hydrateKey, rd.item)
 		// set the rowsStreamed to 1
-		queryData.queryStatus.rowsStreamed = 1
+		queryData.queryStatus.rowsStreamed.Store(1)
 		// send the result down the stream
 		queryData.rowDataChan <- rd
 	}

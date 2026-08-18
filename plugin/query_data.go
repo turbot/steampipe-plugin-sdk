@@ -300,7 +300,7 @@ func (d *QueryData) RowsRemaining(ctx context.Context) int64 {
 	if IsCancelled(ctx) {
 		return 0
 	}
-	rowsRemaining := d.queryStatus.rowsRequired - d.queryStatus.rowsStreamed
+	rowsRemaining := d.queryStatus.rowsRequired - d.queryStatus.rowsStreamed.Load()
 	return rowsRemaining
 }
 
@@ -650,7 +650,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 			continue
 		}
 		// increment the stream count
-		d.queryStatus.rowsStreamed++
+		d.queryStatus.rowsStreamed.Add(1)
 
 		// create rowData, passing matrixItem from context
 		rd := newRowData(d, item)
@@ -669,7 +669,7 @@ func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}
 
 // if a free memory interval has been set, check if we have reached it
 func (d *QueryData) shouldFreeMemory() bool {
-	return d.freeMemInterval != 0 && d.queryStatus.rowsStreamed%d.freeMemInterval == 0
+	return d.freeMemInterval != 0 && d.queryStatus.rowsStreamed.Load()%d.freeMemInterval == 0
 }
 
 // called when all items have been fetched - close the item chan
@@ -828,10 +828,10 @@ func (d *QueryData) streamRow(row *proto.Row) {
 	resp := &proto.ExecuteResponse{
 		Row: row,
 		Metadata: &proto.QueryMetadata{
-			HydrateCalls: d.queryStatus.hydrateCalls,
+			HydrateCalls: d.queryStatus.hydrateCalls.Load(),
 			// only 1 of these will be non zero
-			RowsFetched: d.queryStatus.rowsStreamed + d.queryStatus.cachedRowsFetched,
-			CacheHit:    d.queryStatus.cachedRowsFetched > 0,
+			RowsFetched: d.queryStatus.rowsStreamed.Load() + d.queryStatus.cachedRowsFetched.Load(),
+			CacheHit:    d.queryStatus.cachedRowsFetched.Load() > 0,
 		},
 		Connection: d.Connection.Name,
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"slices"
-	"sync/atomic"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
@@ -99,7 +98,7 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.
 	// tell the rowData to wait for this call to complete
 	r.wg.Add(1)
 	// update the hydrate count
-	atomic.AddInt64(&d.queryStatus.hydrateCalls, 1)
+	d.queryStatus.hydrateCalls.Add(1)
 
 	// call callHydrate async, ignoring return values
 	go func() {
