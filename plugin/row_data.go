@@ -193,9 +193,8 @@ func (r *rowData) callHydrate(ctx context.Context, d *QueryData, hydrate namedHy
 		// (it may legitimately be nil if the hydrate function returned an ignored error)
 		// if we do not set it for nil values, we will get error that required hydrate functions hav enot been called
 		if setErr := r.set(hydrate.Name, hydrateData); setErr != nil {
-			log.Printf("[ERROR] callHydrate %s failed to set result: %v\n", hydrate.Name, setErr)
-			r.setError(hydrate.Name, setErr)
-			r.errorChan <- setErr
+			// a duplicate hydrate key - log for visibility but do not fail the row; see #969
+			log.Printf("[WARN] callHydrate %s failed to set result: %v\n", hydrate.Name, setErr)
 		}
 	}
 	logging.LogTime(hydrate.Name + " end")

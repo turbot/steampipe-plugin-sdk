@@ -408,7 +408,11 @@ func (p *Plugin) setConnectionCacheOptions(request *proto.SetConnectionCacheOpti
 	}()
 
 	log.Printf("[INFO] setConnectionCacheOptions clearing connection cache for connection '%s'", request.ClearCacheForConnection)
-	return p.ClearConnectionCache(context.Background(), request.ClearCacheForConnection)
+	if clearErr := p.ClearConnectionCache(context.Background(), request.ClearCacheForConnection); clearErr != nil {
+		// see #969
+		log.Printf("[WARN] setConnectionCacheOptions failed to clear connection cache for connection '%s': %v", request.ClearCacheForConnection, clearErr)
+	}
+	return nil
 }
 
 // clear current rate limiter definitions and instances and repopulate resolvedRateLimiterDefs using the

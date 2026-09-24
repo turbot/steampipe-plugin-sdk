@@ -203,7 +203,8 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 
 	// build list of required hydrate calls, based on requested columns
 	if err := d.populateRequiredHydrateCalls(); err != nil {
-		return nil, err
+		// see #969
+		log.Printf("[WARN] populateRequiredHydrateCalls failed: %v", err)
 	}
 
 	// build list of all columns returned by these hydrate calls (and the fetch call)
