@@ -24,7 +24,8 @@ var Handshake = plugin.HandshakeConfig{
 type WrapperPluginServer interface {
 	GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
-	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+	//nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 	SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
@@ -38,7 +39,8 @@ type WrapperPluginServer interface {
 type WrapperPluginClient interface {
 	GetSchema(request *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error)
-	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+	//nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 	SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error)
 	GetSupportedOperations(req *proto.GetSupportedOperationsRequest) (*proto.GetSupportedOperationsResponse, error)
