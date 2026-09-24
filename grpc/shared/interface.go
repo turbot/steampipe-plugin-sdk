@@ -24,7 +24,7 @@ var Handshake = plugin.HandshakeConfig{
 type WrapperPluginServer interface {
 	GetSchema(req *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest, stream proto.WrapperPlugin_ExecuteServer) error
-	//nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+	//nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature; see #970
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 	SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error)
@@ -39,7 +39,7 @@ type WrapperPluginServer interface {
 type WrapperPluginClient interface {
 	GetSchema(request *proto.GetSchemaRequest) (*proto.GetSchemaResponse, error)
 	Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_ExecuteClient, context.Context, context.CancelFunc, error)
-	//nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+	//nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature; see #970
 	SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error)
 	SetAllConnectionConfigs(req *proto.SetAllConnectionConfigsRequest) (*proto.SetConnectionConfigResponse, error)
 	UpdateConnectionConfigs(req *proto.UpdateConnectionConfigsRequest) (*proto.UpdateConnectionConfigsResponse, error)

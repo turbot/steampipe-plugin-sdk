@@ -71,7 +71,7 @@ func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlug
 	return c.Stub.Execute(req)
 }
 
-func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) error { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) error { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature; see #970
 	_, err := c.Stub.SetConnectionConfig(req)
 	if err != nil {
 		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility

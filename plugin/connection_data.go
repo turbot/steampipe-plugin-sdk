@@ -230,9 +230,9 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 	//  build a superset schema
 	var superset = &proto.TableSchema{
 		Description:                exemplarSchema.Description,
-		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,          //nolint:staticcheck // deprecated field copied through unchanged; the SDK itself only ever sets the *KeyColumnList replacement, so this is nil-to-nil today but preserves whatever an exemplarSchema carries
-		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,         //nolint:staticcheck // deprecated field copied through unchanged; the SDK itself only ever sets the *KeyColumnList replacement, so this is nil-to-nil today but preserves whatever an exemplarSchema carries
-		ListCallOptionalKeyColumns: exemplarSchema.ListCallOptionalKeyColumns, //nolint:staticcheck // deprecated field copied through unchanged; the SDK itself only ever sets the *KeyColumnList replacement, so this is nil-to-nil today but preserves whatever an exemplarSchema carries
+		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,          //nolint:staticcheck // deprecated field copied through unchanged; the SDK itself only ever sets the *KeyColumnList replacement, so this is nil-to-nil today but preserves whatever an exemplarSchema carries; see #970
+		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,         //nolint:staticcheck // deprecated field copied through unchanged; the SDK itself only ever sets the *KeyColumnList replacement, so this is nil-to-nil today but preserves whatever an exemplarSchema carries; see #970
+		ListCallOptionalKeyColumns: exemplarSchema.ListCallOptionalKeyColumns, //nolint:staticcheck // deprecated field copied through unchanged; the SDK itself only ever sets the *KeyColumnList replacement, so this is nil-to-nil today but preserves whatever an exemplarSchema carries; see #970
 		GetCallKeyColumnList:       exemplarSchema.GetCallKeyColumnList,
 		ListCallKeyColumnList:      exemplarSchema.ListCallKeyColumnList,
 	}

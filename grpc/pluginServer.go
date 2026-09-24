@@ -110,9 +110,9 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 		}
 		req.ExecuteConnectionData = map[string]*proto.ExecuteConnectionData{
 			req.Connection: {
-				Limit:        req.QueryContext.Limit, //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above
-				CacheEnabled: req.CacheEnabled,       //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above
-				CacheTtl:     req.CacheTtl,           //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above
+				Limit:        req.QueryContext.Limit, //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above; see #970
+				CacheEnabled: req.CacheEnabled,       //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above; see #970
+				CacheTtl:     req.CacheTtl,           //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above; see #970
 			},
 		}
 	}
@@ -140,7 +140,7 @@ func (s PluginServer) CallExecuteAsync(req *proto.ExecuteRequest, stream *anywhe
 	}()
 }
 
-func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature; see #970
 	defer func() {
 		if r := recover(); r != nil {
 			err = helpers.ToError(r)

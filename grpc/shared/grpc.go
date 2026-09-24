@@ -67,7 +67,7 @@ func (c *GRPCClient) Execute(req *proto.ExecuteRequest) (proto.WrapperPlugin_Exe
 	return client, ctx, cancel, err
 }
 
-func (c *GRPCClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+func (c *GRPCClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature; see #970
 	ctx, cancel := c.adminContext()
 	defer cancel()
 	return c.client.SetConnectionConfig(ctx, req)
@@ -131,7 +131,7 @@ func (m *GRPCServer) Execute(req *proto.ExecuteRequest, server proto.WrapperPlug
 
 }
 
-func (m *GRPCServer) SetConnectionConfig(_ context.Context, req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
+func (m *GRPCServer) SetConnectionConfig(_ context.Context, req *proto.SetConnectionConfigRequest) (*proto.SetConnectionConfigResponse, error) { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature; see #970
 	return m.Impl.SetConnectionConfig(req)
 }
 

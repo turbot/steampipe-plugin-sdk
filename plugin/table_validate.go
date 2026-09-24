@@ -70,7 +70,7 @@ func columnTypeToString(columnType proto.ColumnType) string {
 		return "ColumnType_STRING"
 	case proto.ColumnType_JSON:
 		return "ColumnType_BOOL"
-	case proto.ColumnType_DATETIME: //nolint:staticcheck // deprecated but still a valid enum value that needs a string representation in validation messages
+	case proto.ColumnType_DATETIME: //nolint:staticcheck // deprecated but still a valid enum value that needs a string representation in validation messages; see #970
 		return "ColumnType_DATETIME"
 	case proto.ColumnType_IPADDR:
 		return "ColumnType_IPADDR"

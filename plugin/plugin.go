@@ -542,16 +542,16 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 	ctx, span := telemetry.StartSpan(ctx, p.Name, "Plugin.Execute (%s)", req.Table)
 
 	span.SetAttributes(
-		attribute.Bool("cache-enabled", req.CacheEnabled), //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry
-		attribute.Int64("cache-ttl", req.CacheTtl),        //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry
+		attribute.Bool("cache-enabled", req.CacheEnabled), //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry; see #970
+		attribute.Int64("cache-ttl", req.CacheTtl),        //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry; see #970
 		attribute.String("connection", req.Connection),
 		attribute.String("call-id", req.CallId),
 		attribute.String("table", req.Table),
 		attribute.StringSlice("columns", req.QueryContext.Columns),
 		attribute.String("quals", grpc.QualMapToString(req.QueryContext.Quals, false)),
 	)
-	if req.QueryContext.Limit != nil { //nolint:staticcheck // deprecated field, but still how callers convey the limit; read here for telemetry
-		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value)) //nolint:staticcheck // deprecated field, but still how callers convey the limit; read here for telemetry
+	if req.QueryContext.Limit != nil { //nolint:staticcheck // deprecated field, but still how callers convey the limit; read here for telemetry; see #970
+		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value)) //nolint:staticcheck // deprecated field, but still how callers convey the limit; read here for telemetry; see #970
 	}
 	return ctx, span
 }

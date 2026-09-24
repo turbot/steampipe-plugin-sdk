@@ -222,7 +222,7 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 			}
 			columnValue = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: res}}
 		}
-	case proto.ColumnType_DATETIME, proto.ColumnType_TIMESTAMP: //nolint:staticcheck // ColumnType_DATETIME is deprecated but still a valid wire value plugins may set; handled the same as TIMESTAMP for backward compatibility
+	case proto.ColumnType_DATETIME, proto.ColumnType_TIMESTAMP: //nolint:staticcheck // ColumnType_DATETIME is deprecated but still a valid wire value plugins may set; handled the same as TIMESTAMP for backward compatibility; see #970
 		// cast val to time
 		var timeVal, err = types.ToTime(val)
 		if err != nil {
