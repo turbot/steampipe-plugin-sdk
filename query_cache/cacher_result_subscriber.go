@@ -67,9 +67,10 @@ func (s *cacheResultSubscriber) waitUntilDone(ctx context.Context) error {
 	for ; pageIdx < int(s.indexItem.PageCount); pageIdx++ {
 		if err := maxReadSem.Acquire(ctx, 1); err != nil {
 			// context was cancelled before we acquired a slot - do not spawn a
-			// goroutine that would release a slot it never held
-			errorChan <- err
-			break
+			// goroutine that would release a slot it never held; skip this page
+			// and let the existing context-cancellation handling in streamRows/
+			// doGet surface the failure as it always did
+			continue
 		}
 		wg.Add(1)
 		// construct the page key, _using the index item key as the root_
