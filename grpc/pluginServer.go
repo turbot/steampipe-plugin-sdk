@@ -52,7 +52,7 @@ func NewPluginServer(pluginName string,
 	setRateLimitersFunc SetRateLimitersFunc,
 	getRateLimitersFunc GetRateLimitersFunc,
 	setConnectionCacheOptionsFunc SetConnectionCacheOptionsFunc,
-	GetSchemaModeFunc GetSchemaModeFunc,
+	getSchemaModeFunc GetSchemaModeFunc,
 ) *PluginServer {
 
 	return &PluginServer{
@@ -67,7 +67,7 @@ func NewPluginServer(pluginName string,
 		setRateLimitersFunc:           setRateLimitersFunc,
 		getRateLimitersFunc:           getRateLimitersFunc,
 		setConnectionCacheOptionsFunc: setConnectionCacheOptionsFunc,
-		getSchemaModeFunc:             GetSchemaModeFunc,
+		getSchemaModeFunc:             getSchemaModeFunc,
 	}
 }
 

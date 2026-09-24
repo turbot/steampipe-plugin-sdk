@@ -552,8 +552,8 @@ func (c *QueryCache) getKeyColumnsForTable(table string, connectionName string) 
 }
 
 func (c *QueryCache) sanitiseKey(str string) string {
-	str = strings.Replace(str, "\n", "", -1)
-	str = strings.Replace(str, "\t", "", -1)
+	str = strings.ReplaceAll(str, "\n", "")
+	str = strings.ReplaceAll(str, "\t", "")
 	return str
 }
 

@@ -81,7 +81,8 @@ type QueryData struct {
 	Matrix []map[string]interface{}
 
 	// object to handle caching of connection specific data
-	// deprecated use ConnectionCache
+	//
+	// Deprecated: use ConnectionCache
 	ConnectionManager *connection_manager.Manager
 	ConnectionCache   *connection_manager.ConnectionCache
 
@@ -762,16 +763,14 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				log.Printf("[WARN] streamRows execution has failed: %s - calling queryCache.AbortSet (%s)", d.connectionCallId, err.Error())
 			}
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
-		} else {
+		} else if d.cacheEnabled {
 			// if we are caching call EndSet to write to the cache
-			if d.cacheEnabled {
-				cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
-				if cacheErr != nil {
-					// just log error, do not fail
-					log.Printf("[WARN] cache EndSet failed: %v", cacheErr)
-				} else {
-					log.Printf("[TRACE] cache EndSet succeeded")
-				}
+			cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
+			if cacheErr != nil {
+				// just log error, do not fail
+				log.Printf("[WARN] cache EndSet failed: %v", cacheErr)
+			} else {
+				log.Printf("[TRACE] cache EndSet succeeded")
 			}
 		}
 	}()

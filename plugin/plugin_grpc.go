@@ -150,7 +150,9 @@ func (p *Plugin) updateConnectionConfigs(added []*proto.ConnectionConfig, delete
 	}
 
 	// clear connectionKeyColumnValues for these connections
-	allChanged := append(added, changed...)
+	allChanged := make([]*proto.ConnectionConfig, 0, len(added)+len(changed)+len(deleted))
+	allChanged = append(allChanged, added...)
+	allChanged = append(allChanged, changed...)
 	allChanged = append(allChanged, deleted...)
 	p.clearConnectionKeyColumnValues(allChanged)
 
