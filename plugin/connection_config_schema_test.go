@@ -15,23 +15,6 @@ type parseConfigTest struct {
 }
 
 // legacy struct versions using cty tags
-type childStructCty struct {
-	Name string `cty:"name" cty:"name"`
-}
-type structPropertyCty struct {
-	Name childStructCty `cty:"name"`
-}
-type structSlicePropertyCty struct {
-	Tables []configTableCty `cty:"tables"`
-}
-type configColumnCty struct {
-	Name string `cty:"name"`
-	Type string `cty:"type"`
-}
-type configTableCty struct {
-	Name    string            `cty:"name"`
-	Columns []configColumnCty `cty:"columns"`
-}
 type arrayPropertyCty struct {
 	Regions []string `cty:"regions"`
 }
@@ -53,11 +36,6 @@ type allTypesCty struct {
 	Region  string   `cty:"region"`
 	Count   int      `cty:"count"`
 	Pi      float64  `cty:"pi"`
-}
-type allTypesMissingPropertyCty struct {
-	Region string  `cty:"region"`
-	Count  int     `cty:"count"`
-	Pi     float64 `cty:"pi"`
 }
 type extraPropertyNoAnnotationCty struct {
 	Foo     int

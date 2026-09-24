@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/turbot/go-kit/filewatcher"
 	"github.com/turbot/steampipe-plugin-sdk/v6/getter"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
-	"golang.org/x/exp/maps"
 )
 
 // ConnectionData is the data stored by the plugin which is connection dependent.
@@ -116,28 +114,7 @@ func (d *ConnectionData) initAggregatorSchema(aggregatorConfig *proto.Connection
 	// and resolving the aggregator schema, (based on the `Aggregation` property)
 	d.resolveAggregatorTableMap(aggregatorConfig, logMessages)
 
-	// log out the schema init process
-	// this is very verbose
-	//d.logInitAggregatorSchema(aggregatorConfig)
-
 	return logMessages, nil
-}
-
-func (d *ConnectionData) logInitAggregatorSchema(aggregatorConfig *proto.ConnectionConfig) {
-	log.Printf("[INFO] -------------------------------")
-	log.Printf("[INFO] Initialising aggregator schema ")
-	log.Printf("[INFO] -------------------------------")
-	log.Printf("[INFO] Aggregator: '%s'", aggregatorConfig.Connection)
-	log.Printf("[INFO] ")
-	log.Printf("[INFO] ")
-	log.Printf("[INFO] Tables provided by child connections:")
-	for c, tables := range d.AggregatedTablesByConnection {
-		log.Printf("[INFO] \t%s: %s", c, strings.Join(maps.Keys(tables), ","))
-	}
-	log.Printf("[INFO] ")
-	log.Printf("[INFO] ")
-	log.Printf("[INFO] Schema tables: %s", strings.Join(maps.Keys(d.TableMap), ","))
-	log.Printf("[INFO] ")
 }
 
 // for each table in AggregatedTablesByConnection, verify all connections have the key columns, and if so,

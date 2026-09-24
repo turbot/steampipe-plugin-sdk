@@ -23,9 +23,6 @@ func listHydrate(context.Context, *QueryData, *HydrateData) (interface{}, error)
 func getHydrate(context.Context, *QueryData, *HydrateData) (interface{}, error) {
 	return nil, nil
 }
-func itemFromKey(context.Context, *QueryData, *HydrateData) (interface{}, error) {
-	return nil, nil
-}
 func isNotFound(error) bool { return false }
 func hydrate1(context.Context, *QueryData, *HydrateData) (interface{}, error) {
 	return nil, nil

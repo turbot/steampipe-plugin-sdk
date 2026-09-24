@@ -23,7 +23,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
 	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
-	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -128,12 +127,6 @@ type QueryData struct {
 	cacheTtl int64
 
 	cacheEnabled bool
-	// if data is being cached, this will contain the id used to send rows to the cache
-	cacheResultKey string
-	// the names of all the columns which are actually being returned
-	cacheColumns []string
-	// buffer rows before sending to the cache in chunks
-	cacheRows []*proto.Row
 
 	// map of hydrate function name to columns it provides
 	// (this is in queryData not Table as it gets modified per query)
@@ -920,11 +913,6 @@ func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
 	}
 	log.Printf("[TRACE] getCacheQualMap - res=%#q", res)
 	return res
-}
-
-// return the names of all columns that will be returned, adding in the _ctx column
-func (d *QueryData) getColumnNames() []string {
-	return append(maps.Keys(d.columns), deprecatedContextColumnName)
 }
 
 func (d *QueryData) removeReservedColumns(row *proto.Row) {
