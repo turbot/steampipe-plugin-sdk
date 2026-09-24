@@ -134,8 +134,9 @@ func (s PluginServer) CallExecuteAsync(req *proto.ExecuteRequest, stream *anywhe
 			stream.Error(err)
 			return
 		}
-		// Signal completion by sending nil
-		stream.Send(nil)
+		// Signal completion by sending nil; an error here just means the
+		// receiving context is already gone, nothing further to do
+		_ = stream.Send(nil)
 	}()
 }
 

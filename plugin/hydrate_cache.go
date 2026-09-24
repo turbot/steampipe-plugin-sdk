@@ -180,7 +180,9 @@ func callAndCacheHydrate(ctx context.Context, d *QueryData, h *HydrateData, hydr
 	}
 
 	// so we have a hydrate result - add to the cache
-	d.ConnectionCache.SetWithTTL(ctx, cacheKey, hydrateData, ttl)
+	if err := d.ConnectionCache.SetWithTTL(ctx, cacheKey, hydrateData, ttl); err != nil {
+		log.Printf("[WARN] callAndCacheHydrate failed to cache result for key %s: %v", cacheKey, err)
+	}
 
 	// return the hydrate data
 	return hydrateData, nil

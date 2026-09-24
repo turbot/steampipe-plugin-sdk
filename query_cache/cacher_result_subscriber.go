@@ -65,7 +65,12 @@ func (s *cacheResultSubscriber) waitUntilDone(ctx context.Context) error {
 
 	// now fetch the rest (if any), in parallel maxReadThreads at a time
 	for ; pageIdx < int(s.indexItem.PageCount); pageIdx++ {
-		maxReadSem.Acquire(ctx, 1)
+		if err := maxReadSem.Acquire(ctx, 1); err != nil {
+			// context was cancelled before we acquired a slot - do not spawn a
+			// goroutine that would release a slot it never held
+			errorChan <- err
+			break
+		}
 		wg.Add(1)
 		// construct the page key, _using the index item key as the root_
 		p := getPageKey(s.indexItem.Key, pageIdx)

@@ -209,7 +209,9 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	queryContext.ensureColumns(table)
 
 	// build list of required hydrate calls, based on requested columns
-	d.populateRequiredHydrateCalls()
+	if err := d.populateRequiredHydrateCalls(); err != nil {
+		return nil, err
+	}
 
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()

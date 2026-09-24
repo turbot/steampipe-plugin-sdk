@@ -68,7 +68,9 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 			// in which case there will be an error in updateData
 			continue
 		}
-		p.ConnectionConfigChangedFunc(ctx, p, existingConnections[c], connectionData.Connection)
+		if err := p.ConnectionConfigChangedFunc(ctx, p, existingConnections[c], connectionData.Connection); err != nil {
+			log.Printf("[WARN] ConnectionConfigChangedFunc failed for connection '%s': %v", c, err)
+		}
 	}
 	return
 }

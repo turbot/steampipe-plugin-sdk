@@ -510,7 +510,9 @@ func TestValidate(t *testing.T) {
 		log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 
 		test.plugin.initialise(logger)
-		test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
+		// initialiseTables runs the same validation as test.plugin.validate below and several test
+		// cases are deliberately invalid, so its error is expected and checked via validate, not here
+		_, _ = test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
 
 		_, validationErrors := test.plugin.validate(test.plugin.TableMap)
 
