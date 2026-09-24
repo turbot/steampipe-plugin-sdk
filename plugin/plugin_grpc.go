@@ -382,8 +382,6 @@ func (p *Plugin) establishMessageStream(stream proto.WrapperPlugin_EstablishMess
 
 	// hold stream open
 	select {}
-
-	return nil
 }
 
 func (p *Plugin) setCacheOptions(request *proto.SetCacheOptionsRequest) (err error) {

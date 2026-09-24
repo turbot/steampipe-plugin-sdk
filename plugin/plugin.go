@@ -712,8 +712,6 @@ func (p *Plugin) getUniqueCallId(callId string) string {
 		idx++
 
 	}
-	p.callIdLookupMut.RUnlock()
-	return callId
 }
 
 func (p *Plugin) getConnectionCallId(callId string, connectionName string) string {
