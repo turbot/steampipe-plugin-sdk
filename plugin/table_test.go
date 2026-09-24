@@ -12,9 +12,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
 
-func TestIsGet(t *testing.T) {
-}
-
 // requiredHydrateCallBuilder
 
 // declared in plugin_test
