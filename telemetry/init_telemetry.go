@@ -53,7 +53,7 @@ func Init(serviceName string) (func(), error) {
 	} else {
 		opts = grpc.EmptyDialOption{}
 	}
-	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr, opts) //nolint:staticcheck // grpc.NewClient has different target-resolution and connection-establishment semantics; not a safe drop-in replacement here
+	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr, opts) //nolint:staticcheck // grpc.NewClient has different target-resolution and connection-establishment semantics than DialContext in general; not swapping without dedicated testing against a live OTEL collector, since every plugin loads this code path
 	if err != nil {
 		return nil, err
 	}

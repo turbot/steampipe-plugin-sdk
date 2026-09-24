@@ -133,13 +133,13 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 		if !dependencyGraph.ContainsNode(name) {
 			dependencyGraph.AddNode(name)
 		}
-		_ = dependencyGraph.AddEdge("root", name) // always nil: both nodes already exist
+		_ = dependencyGraph.AddEdge("root", name) // topsort.Graph.AddEdge never returns an error
 		for _, dep := range hydrateDepends {
 			depName := newNamedHydrateFunc(dep).Name
 			if !dependencyGraph.ContainsNode(depName) {
 				dependencyGraph.AddNode(depName)
 			}
-			_ = dependencyGraph.AddEdge(name, depName) // always nil: both nodes already exist
+			_ = dependencyGraph.AddEdge(name, depName) // topsort.Graph.AddEdge never returns an error
 		}
 	}
 

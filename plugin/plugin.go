@@ -550,8 +550,8 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 		attribute.StringSlice("columns", req.QueryContext.Columns),
 		attribute.String("quals", grpc.QualMapToString(req.QueryContext.Quals, false)),
 	)
-	if req.QueryContext.Limit != nil { //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry
-		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value)) //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry
+	if req.QueryContext.Limit != nil { //nolint:staticcheck // deprecated field, but still how callers convey the limit; read here for telemetry
+		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value)) //nolint:staticcheck // deprecated field, but still how callers convey the limit; read here for telemetry
 	}
 	return ctx, span
 }
