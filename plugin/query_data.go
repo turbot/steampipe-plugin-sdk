@@ -419,7 +419,6 @@ func (d *QueryData) populateRequiredHydrateCalls() error {
 			// so there is NO hydrate call registered for the column
 			// the column is provided by the fetch call
 			// do not add to map of hydrate functions as the fetch call will always be called
-			hydrateFunc = fetchFunc.Func
 			hydrateName = fetchFunc.Name
 		} else {
 			// there is a hydrate call registered
