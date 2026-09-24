@@ -44,9 +44,9 @@ func TestRetryNamedHydrateNegativeMaxAttemptsUsesDefault(t *testing.T) {
 	_, _ = retryNamedHydrate(context.Background(), d, hydrateData, hydrate, retryConfig)
 
 	// go-retry's WithMaxRetries allows the initial attempt plus up to
-	// MaxAttempts retries, so the default of 10 means at most 11 calls.
-	// Give a little headroom without getting anywhere near bailOutAfter.
-	if attempts > 15 {
-		t.Fatalf("expected retryNamedHydrate to fall back to the default of 10 retries for a negative MaxAttempts, got %d attempts", attempts)
+	// MaxAttempts retries, so the default of 10 means exactly 11 calls.
+	const expectedAttempts = 11
+	if attempts != expectedAttempts {
+		t.Fatalf("expected retryNamedHydrate to fall back to the default of 10 retries for a negative MaxAttempts (%d calls), got %d attempts", expectedAttempts, attempts)
 	}
 }
