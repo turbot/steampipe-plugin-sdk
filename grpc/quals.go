@@ -45,7 +45,7 @@ func QualMapToLogLine(qualMap map[string]*proto.Quals) string {
 	var line strings.Builder
 	for column, quals := range qualMap {
 		for _, q := range quals.Quals {
-			line.WriteString(fmt.Sprintf("%s %s %s, ", column, q.Operator, q.Value.String()))
+			fmt.Fprintf(&line, "%s %s %s, ", column, q.Operator, q.Value.String())
 		}
 	}
 	return line.String()

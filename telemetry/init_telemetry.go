@@ -53,7 +53,7 @@ func Init(serviceName string) (func(), error) {
 	} else {
 		opts = grpc.EmptyDialOption{}
 	}
-	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr, opts)
+	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr, opts) //nolint:staticcheck // grpc.NewClient has different target-resolution and connection-establishment semantics; not a safe drop-in replacement here
 	if err != nil {
 		return nil, err
 	}

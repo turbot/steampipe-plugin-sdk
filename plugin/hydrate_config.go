@@ -140,7 +140,12 @@ func (c *HydrateConfig) initialise(table *Table) {
 	// create a named hydrate func
 	c.namedHydrate = newNamedHydrateFunc(c.Func)
 
-	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.namedHydrate.Name, table.Name)
+	// table is nil for plugin-level (as opposed to table-level) hydrate config
+	var tableName string
+	if table != nil {
+		tableName = table.Name
+	}
+	log.Printf("[TRACE] HydrateConfig.initialise func %s, table %s", c.namedHydrate.Name, tableName)
 
 	// create RetryConfig if needed
 	if c.RetryConfig == nil {

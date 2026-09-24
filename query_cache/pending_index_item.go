@@ -54,7 +54,7 @@ func (b *pendingIndexBucket) GetItemsSatisfiedByRequest(req *CacheRequest, keyCo
 func (b *pendingIndexBucket) String() any {
 	var sb strings.Builder
 	for itemKey, item := range b.Items {
-		sb.WriteString(fmt.Sprintf("item: %p, key:%s\n", item, itemKey))
+		fmt.Fprintf(&sb, "item: %p, key:%s\n", item, itemKey)
 	}
 	return sb.String()
 }

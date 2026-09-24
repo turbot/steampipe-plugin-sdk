@@ -3,7 +3,7 @@ package grpc
 import (
 	"context"
 	pluginshared "github.com/turbot/steampipe-plugin-sdk/v6/grpc/shared"
-	"io/ioutil"
+	"io"
 	"log"
 
 	"github.com/hashicorp/go-hclog"
@@ -50,7 +50,7 @@ func NewPluginClientFromReattach(reattach *plugin.ReattachConfig, pluginName str
 		pluginName: &pluginshared.WrapperPlugin{},
 	}
 	// discard logging from the client (plugin logs will still flow through to the log file as the plugin manager set this up)
-	logger := logging.NewLogger(&hclog.LoggerOptions{Name: "plugin", Output: ioutil.Discard})
+	logger := logging.NewLogger(&hclog.LoggerOptions{Name: "plugin", Output: io.Discard})
 
 	// create grpc client
 	client := plugin.NewClient(&plugin.ClientConfig{
@@ -71,7 +71,7 @@ func (c *PluginClient) Execute(req *proto.ExecuteRequest) (str proto.WrapperPlug
 	return c.Stub.Execute(req)
 }
 
-func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) error {
+func (c *PluginClient) SetConnectionConfig(req *proto.SetConnectionConfigRequest) error { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature
 	_, err := c.Stub.SetConnectionConfig(req)
 	if err != nil {
 		// create a new cleaner error, ignoring Not Implemented errors for backwards compatibility

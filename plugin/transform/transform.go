@@ -17,9 +17,7 @@ func FromMethod(methodName string) *ColumnTransforms {
 // FromField generates a value by retrieving a field or a set of fields from the source item
 func FromField(fieldNames ...string) *ColumnTransforms {
 	var fieldNameArray []string
-	for _, fieldName := range fieldNames {
-		fieldNameArray = append(fieldNameArray, fieldName)
-	}
+	fieldNameArray = append(fieldNameArray, fieldNames...)
 	return &ColumnTransforms{Transforms: []*TransformCall{{Transform: FieldValue, Param: fieldNameArray}}}
 }
 

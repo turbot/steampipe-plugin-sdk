@@ -225,7 +225,6 @@ func (p *Plugin) logMemoryLimit() {
 func (p *Plugin) initialiseRateLimits() {
 	p.rateLimiterInstances = rate_limiter.NewLimiterMap()
 	p.populatePluginRateLimiters()
-	return
 }
 
 // populate resolvedRateLimiterDefs map with plugin rate limiter definitions
@@ -543,16 +542,16 @@ func (p *Plugin) startExecuteSpan(ctx context.Context, req *proto.ExecuteRequest
 	ctx, span := telemetry.StartSpan(ctx, p.Name, "Plugin.Execute (%s)", req.Table)
 
 	span.SetAttributes(
-		attribute.Bool("cache-enabled", req.CacheEnabled),
-		attribute.Int64("cache-ttl", req.CacheTtl),
+		attribute.Bool("cache-enabled", req.CacheEnabled), //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry
+		attribute.Int64("cache-ttl", req.CacheTtl),        //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry
 		attribute.String("connection", req.Connection),
 		attribute.String("call-id", req.CallId),
 		attribute.String("table", req.Table),
 		attribute.StringSlice("columns", req.QueryContext.Columns),
 		attribute.String("quals", grpc.QualMapToString(req.QueryContext.Quals, false)),
 	)
-	if req.QueryContext.Limit != nil {
-		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value))
+	if req.QueryContext.Limit != nil { //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry
+		span.SetAttributes(attribute.Int64("limit", req.QueryContext.Limit.Value)) //nolint:staticcheck // deprecated field still set by older callers, retained for telemetry
 	}
 	return ctx, span
 }
@@ -654,14 +653,12 @@ func (p *Plugin) ensureCache(connectionSchemaMap map[string]*grpc.PluginSchema, 
 func (p *Plugin) buildSchema(tableMap map[string]*Table) (*grpc.PluginSchema, error) {
 	schema := grpc.NewPluginSchema(p.SchemaMode)
 
-	var tables []string
 	for tableName, table := range tableMap {
 		tableSchema, err := table.GetSchema()
 		if err != nil {
 			return nil, err
 		}
 		schema.Schema[tableName] = tableSchema
-		tables = append(tables, tableName)
 
 		// check whether this column is a connectionKeyColumn and if so, create get and list key columns for the superset schema
 		p.addConnectionKeyColumns(tableName, tableSchema)

@@ -230,9 +230,9 @@ func (d *ConnectionData) buildAggregatorTableSchema(aggregatorConfig *proto.Conn
 	//  build a superset schema
 	var superset = &proto.TableSchema{
 		Description:                exemplarSchema.Description,
-		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,
-		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,
-		ListCallOptionalKeyColumns: exemplarSchema.ListCallOptionalKeyColumns,
+		GetCallKeyColumns:          exemplarSchema.GetCallKeyColumns,          //nolint:staticcheck // deprecated field populated alongside its replacement for backward compatibility with older clients
+		ListCallKeyColumns:         exemplarSchema.ListCallKeyColumns,         //nolint:staticcheck // deprecated field populated alongside its replacement for backward compatibility with older clients
+		ListCallOptionalKeyColumns: exemplarSchema.ListCallOptionalKeyColumns, //nolint:staticcheck // deprecated field populated alongside its replacement for backward compatibility with older clients
 		GetCallKeyColumnList:       exemplarSchema.GetCallKeyColumnList,
 		ListCallKeyColumnList:      exemplarSchema.ListCallKeyColumnList,
 	}

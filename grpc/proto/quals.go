@@ -14,9 +14,7 @@ func (x *Quals) Clone() *Quals {
 	res := &Quals{
 		Quals: make([]*Qual, len(x.Quals)),
 	}
-	for i, q := range x.Quals {
-		res.Quals[i] = q
-	}
+	copy(res.Quals, x.Quals)
 	return res
 }
 
