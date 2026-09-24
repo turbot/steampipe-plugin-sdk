@@ -53,16 +53,16 @@ func DisplayProfileData(minTime time.Duration) {
 			var itemData []string
 			itemData = append(itemData, logEntry.Operation)
 
-			timeStr := fmt.Sprintf("%s", logEntry.Time.Format(time.StampMilli))
+			timeStr := logEntry.Time.Format(time.StampMilli)
 			itemData = append(itemData, timeStr)
 
-			intervalStr := fmt.Sprintf("%s", logEntry.Interval)
+			intervalStr := logEntry.Interval.String()
 			if logEntry.Interval < minTime {
 				intervalStr = minString
 			}
 			itemData = append(itemData, intervalStr)
 
-			cumulativeStr := fmt.Sprintf("%s", logEntry.Cumulative)
+			cumulativeStr := logEntry.Cumulative.String()
 			if logEntry.Cumulative < minTime {
 				cumulativeStr = minString
 			}

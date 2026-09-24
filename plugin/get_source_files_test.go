@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -212,7 +211,7 @@ func TestGetSourceFiles(t *testing.T) {
 			continue
 		}
 		for name, test := range cases {
-			fmt.Printf(" %s\n", name)
+			t.Logf("%s", name)
 			filePaths, err := q.GetSourceFiles(test.Input)
 			if err != nil {
 				if strings.Contains(err.Error(), "NoCredentialProviders") {
@@ -275,7 +274,7 @@ func TestGetSourceFilesWithFolderJail(t *testing.T) {
 		permittedAbsPaths := []string{}
 		var envPermittedPaths string
 
-		fmt.Printf("\n >>> %s\n", name)
+		t.Logf(">>> %s", name)
 
 		// convert into absolute paths
 		for _, v := range test.PermittedFileRoots {
@@ -284,7 +283,7 @@ func TestGetSourceFilesWithFolderJail(t *testing.T) {
 
 		// create a comma separated string of permitted paths
 		envPermittedPaths = strings.Join(permittedAbsPaths, ",")
-		fmt.Printf("Permitted absolute paths: %s", envPermittedPaths)
+		t.Logf("Permitted absolute paths: %s", envPermittedPaths)
 
 		// set the env for STEAMPIPE_SDK_PERMITTED_ROOT_PATHS
 		err := os.Setenv(getter.EnvPermittedFileRoots, envPermittedPaths)

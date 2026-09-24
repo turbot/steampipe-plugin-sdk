@@ -184,8 +184,3 @@ func (s *setRequestSubscriber) waitUntilDone() error {
 		return err
 	}
 }
-
-// wait until this subscriber has streamed all available rows
-func (s *setRequestSubscriber) allAvailableRowsStreamed(availableRows int) bool {
-	return s.rowsStreamed == availableRows
-}

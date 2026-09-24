@@ -31,7 +31,7 @@ func Init(serviceName string) (func(), error) {
 	tracingEnabled := slices.Contains([]string{OtelAll, OtelTrace}, telemetryEnvStr)
 	metricsEnabled := slices.Contains([]string{OtelAll, OtelMetrics}, telemetryEnvStr)
 
-	log.Printf("[TRACE] telemetry.Init service '%s', tracingEnabled: %v, metricsEnabled: %v", serviceName, tracingEnabled, metricsEnabled)
+	log.Printf("[TRACE] telemetry.Init service '%s', tracingEnabled: %v, metricsEnabled: %v", serviceName, tracingEnabled, metricsEnabled) //nolint:gosec // serviceName is the plugin's own name, not attacker-controlled
 
 	if !tracingEnabled && !metricsEnabled {
 		log.Printf("[TRACE] metrics and tracing disabled' - returning")
@@ -53,7 +53,7 @@ func Init(serviceName string) (func(), error) {
 	} else {
 		opts = grpc.EmptyDialOption{}
 	}
-	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr, opts)
+	grpcConn, err := grpc.DialContext(ctx, otelAgentAddr, opts) //nolint:staticcheck // grpc.NewClient has different target-resolution and connection-establishment semantics than DialContext in general; not swapping without dedicated testing against a live OTEL collector, since every plugin loads this code path; see #970
 	if err != nil {
 		return nil, err
 	}

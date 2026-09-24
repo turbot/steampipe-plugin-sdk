@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"fmt"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/schema"
 	"reflect"
@@ -16,23 +15,6 @@ type parseConfigTest struct {
 }
 
 // legacy struct versions using cty tags
-type childStructCty struct {
-	Name string `cty:"name" cty:"name"`
-}
-type structPropertyCty struct {
-	Name childStructCty `cty:"name"`
-}
-type structSlicePropertyCty struct {
-	Tables []configTableCty `cty:"tables"`
-}
-type configColumnCty struct {
-	Name string `cty:"name"`
-	Type string `cty:"type"`
-}
-type configTableCty struct {
-	Name    string            `cty:"name"`
-	Columns []configColumnCty `cty:"columns"`
-}
 type arrayPropertyCty struct {
 	Regions []string `cty:"regions"`
 }
@@ -54,11 +36,6 @@ type allTypesCty struct {
 	Region  string   `cty:"region"`
 	Count   int      `cty:"count"`
 	Pi      float64  `cty:"pi"`
-}
-type allTypesMissingPropertyCty struct {
-	Region string  `cty:"region"`
-	Count  int     `cty:"count"`
-	Pi     float64 `cty:"pi"`
 }
 type extraPropertyNoAnnotationCty struct {
 	Foo     int
@@ -737,7 +714,6 @@ func TestParseConnectionConfig(t *testing.T) {
 			}
 		} else {
 			if !reflect.DeepEqual(config, test.expected) {
-				fmt.Printf("")
 				t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.expected, config)
 			}
 		}

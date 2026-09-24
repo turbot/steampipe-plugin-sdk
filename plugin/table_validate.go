@@ -70,7 +70,7 @@ func columnTypeToString(columnType proto.ColumnType) string {
 		return "ColumnType_STRING"
 	case proto.ColumnType_JSON:
 		return "ColumnType_BOOL"
-	case proto.ColumnType_DATETIME:
+	case proto.ColumnType_DATETIME: //nolint:staticcheck // deprecated but still a valid enum value that needs a string representation in validation messages; see #970
 		return "ColumnType_DATETIME"
 	case proto.ColumnType_IPADDR:
 		return "ColumnType_IPADDR"
@@ -124,16 +124,6 @@ func (t *Table) validateHydrateDependencies() []string {
 	return validationErrors
 }
 
-// ensure that no hydrate config is declared for a hydrate func which has global hydrate config
-func (t *Table) validateHydrateConfig() {
-	var validationErrors []string
-	for funcName := range t.hydrateConfigMap {
-		if _, globalConfigExists := t.Plugin.hydrateConfigMap[funcName]; globalConfigExists {
-			validationErrors = append(validationErrors, fmt.Sprintf("table '%s' declares HydrateConfig for '%s' which also has global HydrateConfig declared by the plugin", t.Name, funcName))
-		}
-	}
-}
-
 func (t *Table) detectCyclicHydrateDependencies() string {
 	var dependencyGraph = topsort.NewGraph()
 	dependencyGraph.AddNode("root")
@@ -143,13 +133,13 @@ func (t *Table) detectCyclicHydrateDependencies() string {
 		if !dependencyGraph.ContainsNode(name) {
 			dependencyGraph.AddNode(name)
 		}
-		dependencyGraph.AddEdge("root", name)
+		_ = dependencyGraph.AddEdge("root", name) // topsort.Graph.AddEdge never returns an error
 		for _, dep := range hydrateDepends {
 			depName := newNamedHydrateFunc(dep).Name
 			if !dependencyGraph.ContainsNode(depName) {
 				dependencyGraph.AddNode(depName)
 			}
-			dependencyGraph.AddEdge(name, depName)
+			_ = dependencyGraph.AddEdge(name, depName) // topsort.Graph.AddEdge never returns an error
 		}
 	}
 

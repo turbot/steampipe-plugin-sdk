@@ -61,11 +61,3 @@ func attributeTypeToCty(attr *Attribute) cty.Type {
 		panic(fmt.Sprintf("invalid attribute type %v", attr.Type))
 	}
 }
-
-func attributeTypeMapToCty(attrTypes map[string]*Attribute) map[string]cty.Type {
-	res := make(map[string]cty.Type, len(attrTypes))
-	for k, v := range attrTypes {
-		res[k] = attributeTypeToCty(v)
-	}
-	return res
-}

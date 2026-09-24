@@ -52,7 +52,7 @@ func NewPluginServer(pluginName string,
 	setRateLimitersFunc SetRateLimitersFunc,
 	getRateLimitersFunc GetRateLimitersFunc,
 	setConnectionCacheOptionsFunc SetConnectionCacheOptionsFunc,
-	GetSchemaModeFunc GetSchemaModeFunc,
+	getSchemaModeFunc GetSchemaModeFunc,
 ) *PluginServer {
 
 	return &PluginServer{
@@ -67,7 +67,7 @@ func NewPluginServer(pluginName string,
 		setRateLimitersFunc:           setRateLimitersFunc,
 		getRateLimitersFunc:           getRateLimitersFunc,
 		setConnectionCacheOptionsFunc: setConnectionCacheOptionsFunc,
-		getSchemaModeFunc:             GetSchemaModeFunc,
+		getSchemaModeFunc:             getSchemaModeFunc,
 	}
 }
 
@@ -110,9 +110,9 @@ func (s PluginServer) Execute(req *proto.ExecuteRequest, stream proto.WrapperPlu
 		}
 		req.ExecuteConnectionData = map[string]*proto.ExecuteConnectionData{
 			req.Connection: {
-				Limit:        req.QueryContext.Limit,
-				CacheEnabled: req.CacheEnabled,
-				CacheTtl:     req.CacheTtl,
+				Limit:        req.QueryContext.Limit, //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above; see #970
+				CacheEnabled: req.CacheEnabled,       //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above; see #970
+				CacheTtl:     req.CacheTtl,           //nolint:staticcheck // set by pre-v16 Steampipe clients, see the compatibility note above; see #970
 			},
 		}
 	}
@@ -134,12 +134,13 @@ func (s PluginServer) CallExecuteAsync(req *proto.ExecuteRequest, stream *anywhe
 			stream.Error(err)
 			return
 		}
-		// Signal completion by sending nil
-		stream.Send(nil)
+		// Signal completion by sending nil; an error here just means the
+		// receiving context is already gone, nothing further to do
+		_ = stream.Send(nil)
 	}()
 }
 
-func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) {
+func (s PluginServer) SetConnectionConfig(req *proto.SetConnectionConfigRequest) (res *proto.SetConnectionConfigResponse, err error) { //nolint:staticcheck // SetConnectionConfigRequest is the generated wire type for the WrapperPlugin gRPC service and must match its signature; see #970
 	defer func() {
 		if r := recover(); r != nil {
 			err = helpers.ToError(r)
