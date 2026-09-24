@@ -216,9 +216,9 @@ func (p *Plugin) logMemoryLimit() {
 	maxMemoryStr := os.Getenv("GOMEMLIMIT")
 	maxMemoryBytes, err := strconv.ParseInt(maxMemoryStr, 10, 64)
 	if err != nil {
-		log.Printf("[INFO] GOMEMLIMIT=%s", maxMemoryStr)
+		log.Printf("[INFO] GOMEMLIMIT=%s", maxMemoryStr) //nolint:gosec // local env var set by the operator running the plugin, not attacker-controlled
 	} else {
-		log.Printf("[INFO] GOMEMLIMIT=%s (%dMb)", maxMemoryStr, maxMemoryBytes/1024/1024)
+		log.Printf("[INFO] GOMEMLIMIT=%s (%dMb)", maxMemoryStr, maxMemoryBytes/1024/1024) //nolint:gosec // local env var set by the operator running the plugin, not attacker-controlled
 	}
 }
 

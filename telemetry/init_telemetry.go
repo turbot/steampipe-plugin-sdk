@@ -31,7 +31,7 @@ func Init(serviceName string) (func(), error) {
 	tracingEnabled := slices.Contains([]string{OtelAll, OtelTrace}, telemetryEnvStr)
 	metricsEnabled := slices.Contains([]string{OtelAll, OtelMetrics}, telemetryEnvStr)
 
-	log.Printf("[TRACE] telemetry.Init service '%s', tracingEnabled: %v, metricsEnabled: %v", serviceName, tracingEnabled, metricsEnabled)
+	log.Printf("[TRACE] telemetry.Init service '%s', tracingEnabled: %v, metricsEnabled: %v", serviceName, tracingEnabled, metricsEnabled) //nolint:gosec // serviceName is the plugin's own name, not attacker-controlled
 
 	if !tracingEnabled && !metricsEnabled {
 		log.Printf("[TRACE] metrics and tracing disabled' - returning")

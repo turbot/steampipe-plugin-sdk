@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" //nolint:gosec // pprof is only served when STEAMPIPE_PPROF is set, bound to a localhost-only listener below
 	"os"
 
 	"github.com/hashicorp/go-hclog"
@@ -84,7 +84,7 @@ func Server(opts *ServeOpts) *grpc.PluginServer {
 				return
 			}
 			log.Printf("[INFO] Check http://localhost:%d/debug/pprof/", listener.Addr().(*net.TCPAddr).Port)
-			log.Println(http.Serve(listener, nil))
+			log.Println(http.Serve(listener, nil)) //nolint:gosec // localhost-only debug pprof listener, opt-in via STEAMPIPE_PPROF
 		}()
 	}
 	// TODO add context into all of these handlers
