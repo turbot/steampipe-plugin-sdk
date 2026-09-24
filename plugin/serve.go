@@ -110,7 +110,7 @@ func Serve(opts *ServeOpts) {
 			msg := fmt.Sprintf("%s%s", PluginStartupFailureMessage, helpers.ToError(r).Error())
 			log.Println("[WARN]", msg)
 			// write to stdout so the plugin manager can extract the error message
-			fmt.Println(msg)
+			fmt.Println(msg) //nolint:forbidigo // stdout is the protocol channel the plugin manager reads startup failures from
 		}
 	}()
 

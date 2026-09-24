@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"fmt"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/schema"
 	"reflect"
@@ -737,7 +736,6 @@ func TestParseConnectionConfig(t *testing.T) {
 			}
 		} else {
 			if !reflect.DeepEqual(config, test.expected) {
-				fmt.Printf("")
 				t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.expected, config)
 			}
 		}
