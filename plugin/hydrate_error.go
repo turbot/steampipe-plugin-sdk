@@ -35,7 +35,7 @@ func retryNamedHydrate(ctx context.Context, d *QueryData, hydrateData *HydrateDa
 
 	// Defaults
 	maxAttempts := uint64(10) // default set to 10
-	if retryConfig.MaxAttempts != 0 {
+	if retryConfig.MaxAttempts > 0 {
 		maxAttempts = uint64(retryConfig.MaxAttempts)
 	}
 

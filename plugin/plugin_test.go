@@ -12,7 +12,7 @@ import (
 )
 
 type validateTest struct {
-	plugin   Plugin
+	plugin   *Plugin
 	expected []string
 }
 
@@ -21,9 +21,6 @@ func listHydrate(context.Context, *QueryData, *HydrateData) (interface{}, error)
 	return nil, nil
 }
 func getHydrate(context.Context, *QueryData, *HydrateData) (interface{}, error) {
-	return nil, nil
-}
-func itemFromKey(context.Context, *QueryData, *HydrateData) (interface{}, error) {
 	return nil, nil
 }
 func isNotFound(error) bool { return false }
@@ -42,7 +39,7 @@ func hydrate4(context.Context, *QueryData, *HydrateData) (interface{}, error) {
 
 var testCasesValidate = map[string]validateTest{
 	"valid": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -79,7 +76,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{""},
 	},
 	"invalid limiter name": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -123,7 +120,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"invalid rate limiter name '1invalid' - names can contain letters, digits, underscores (_), and hyphens (-), and cannot start with a digit"},
 	},
 	"get with hydrate dependency": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -155,7 +152,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' Get hydrate function 'getHydrate' has 1 dependency - Get hydrate functions cannot have dependencies"},
 	},
 	"get with explicit hydrate config": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -187,7 +184,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' Get hydrate function 'getHydrate' defines dependendencies in its `HydrateConfig`"},
 	},
 	"list with hydrate dependency": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -219,7 +216,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' List hydrate function 'listHydrate' has 1 dependency - List hydrate functions cannot have dependencies"},
 	},
 	"list with explicit hydrate config": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -292,7 +289,7 @@ var testCasesValidate = map[string]validateTest{
 	//	expected: []string{"Hydration dependencies contains cycle: : hydrate1 -> hydrate2 -> hydrate1",
 	//},
 	"no get key": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -323,7 +320,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' GetConfig does not specify a KeyColumn"},
 	},
 	"no get hydrate": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -354,7 +351,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' GetConfig does not specify a hydrate function\ntable 'table' HydrateConfig does not specify a hydrate function"},
 	},
 	"no list hydrate": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -384,7 +381,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' ListConfig does not specify a hydrate function"},
 	},
 	"no list or get config": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -408,7 +405,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' does not have either GetConfig or ListConfig - one of these must be provided"},
 	},
 	"required column wrong type": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -440,7 +437,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' required column 'name' should be type 'ColumnType_STRING' but is type 'ColumnType_INT'"},
 	},
 	"missing required column": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -472,7 +469,7 @@ var testCasesValidate = map[string]validateTest{
 		expected: []string{"table 'table' does not implement required column 'missing'"},
 	},
 	"missing get key": {
-		plugin: Plugin{
+		plugin: &Plugin{
 			Name: "plugin",
 			TableMap: map[string]*Table{
 				"table": {
@@ -510,7 +507,9 @@ func TestValidate(t *testing.T) {
 		log.SetOutput(logger.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 
 		test.plugin.initialise(logger)
-		test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
+		// initialiseTables runs the same validation as test.plugin.validate below and several test
+		// cases are deliberately invalid, so its error is expected and checked via validate, not here
+		_, _ = test.plugin.initialiseTables(context.Background(), &Connection{Name: "test"})
 
 		_, validationErrors := test.plugin.validate(test.plugin.TableMap)
 

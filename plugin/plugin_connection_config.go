@@ -68,9 +68,10 @@ func (p *Plugin) updateConnections(ctx context.Context, changed []*proto.Connect
 			// in which case there will be an error in updateData
 			continue
 		}
-		p.ConnectionConfigChangedFunc(ctx, p, existingConnections[c], connectionData.Connection)
+		if err := p.ConnectionConfigChangedFunc(ctx, p, existingConnections[c], connectionData.Connection); err != nil {
+			log.Printf("[WARN] ConnectionConfigChangedFunc failed for connection '%s': %v", c, err)
+		}
 	}
-	return
 }
 
 func (p *Plugin) getExemplarConnectionData() *ConnectionData {
@@ -176,7 +177,6 @@ func (p *Plugin) upsertConnectionData(config *proto.ConnectionConfig, updateData
 		log.Printf("[WARN] SetAllConnectionConfigs failed to update the watched paths for connection %s: %s", connectionName, err.Error())
 		updateData.failedConnections[connectionName] = err
 	}
-	return
 }
 
 func (p *Plugin) getExemplarSchemaFromUpdateData(updateData *connectionUpdateData, c *Connection) (*grpc.PluginSchema, map[string]*Table, error) {
@@ -271,9 +271,7 @@ func (p *Plugin) extractWatchPaths(config interface{}) []string {
 				// get property value
 				if value, ok := helpers.GetFieldValueFromInterface(config, valType.Field(i).Name); ok {
 					if arrayVal, ok := value.([]string); ok {
-						for _, val := range arrayVal {
-							watchedProperties = append(watchedProperties, val)
-						}
+						watchedProperties = append(watchedProperties, arrayVal...)
 					} else if stringVal, ok := value.(string); ok {
 						watchedProperties = append(watchedProperties, stringVal)
 					}

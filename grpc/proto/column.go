@@ -2,7 +2,9 @@ package proto
 
 import (
 	"encoding/json"
-	"github.com/golang/protobuf/ptypes"
+	"fmt"
+	"time"
+
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -15,7 +17,11 @@ func (x *Column) ValueToInterface() (any, error) {
 		}
 	} else if timestamp := x.GetTimestampValue(); timestamp != nil {
 		// convert from protobuf timestamp to a RFC 3339 time string
-		val = ptypes.TimestampString(timestamp)
+		if err := timestamp.CheckValid(); err != nil {
+			val = fmt.Sprintf("(%v)", err)
+		} else {
+			val = timestamp.AsTime().Format(time.RFC3339Nano)
+		}
 	} else {
 		// get the first field descriptor and value (we only expect x message to contain a single field
 		x.ProtoReflect().Range(func(descriptor protoreflect.FieldDescriptor, v protoreflect.Value) bool {

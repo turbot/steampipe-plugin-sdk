@@ -352,7 +352,9 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	// remove all pages that have already been written
 	for i := 0; i < int(req.pageCount); i++ {
 		pageKey := getPageKey(req.resultKeyRoot, i)
-		c.cache.Delete(ctx, pageKey)
+		if err := c.cache.Delete(ctx, pageKey); err != nil {
+			log.Printf("[WARN] QueryCache AbortSet failed to delete page %s: %v", pageKey, err)
+		}
 	}
 	log.Printf("[INFO] QueryCache AbortSet done (%s)", req.CallId)
 }
@@ -552,8 +554,8 @@ func (c *QueryCache) getKeyColumnsForTable(table string, connectionName string) 
 }
 
 func (c *QueryCache) sanitiseKey(str string) string {
-	str = strings.Replace(str, "\n", "", -1)
-	str = strings.Replace(str, "\t", "", -1)
+	str = strings.ReplaceAll(str, "\n", "")
+	str = strings.ReplaceAll(str, "\t", "")
 	return str
 }
 

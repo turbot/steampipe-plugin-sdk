@@ -93,7 +93,9 @@ func TestHydrateCallsCounterRace(t *testing.T) {
 
 	// Disable the query cache: not required for the race, but keeps the run a
 	// pure provider-side scan with deterministic stats.
-	server.SetCacheOptions(&proto.SetCacheOptionsRequest{Enabled: false, MaxSizeMb: 32})
+	if _, err := server.SetCacheOptions(&proto.SetCacheOptionsRequest{Enabled: false, MaxSizeMb: 32}); err != nil {
+		t.Fatalf("SetCacheOptions failed: %v", err)
+	}
 
 	cfg := &proto.ConnectionConfig{
 		Connection:      raceConnection,

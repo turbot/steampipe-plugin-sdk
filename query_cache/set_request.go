@@ -64,14 +64,6 @@ func (req *setRequest) getPageResultKey() string {
 	return getPageKey(req.resultKeyRoot, int(req.pageCount-1))
 }
 
-func (req *setRequest) getPrevPageResultKeys() []string {
-	var res []string
-	for i := 0; i < int(req.pageCount); i++ {
-		res = append(res, getPageKey(req.resultKeyRoot, int(req.pageCount-1)))
-	}
-	return res
-}
-
 // return all rows available after the given row count
 func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int) ([]*sdkproto.Row, error) {
 	/*

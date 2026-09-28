@@ -1,7 +1,7 @@
 package rate_limiter
 
 import (
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // used only to build a non-cryptographic map key, not for security
 	"encoding/hex"
 	"sync"
 )
@@ -67,7 +67,7 @@ func (m *LimiterMap) Clear() {
 func buildLimiterKey(name string, values map[string]string) (string, error) {
 	// build the key for this rate limiter
 	// map key is the hash of the name and string representation of the value map
-	hash := md5.Sum([]byte(name + ScopeValuesString(values)))
+	hash := md5.Sum([]byte(name + ScopeValuesString(values))) //nolint:gosec // used only to build a non-cryptographic map key, not for security
 	key := hex.EncodeToString(hash[:])
 
 	return key, nil

@@ -145,7 +145,7 @@ func resolveGlobAndSourcePath(sourcePath string) (remoteSourcePath, glob string,
 	}
 
 	// rebuild the source path without any query params
-	remoteSourcePath = removeQueryParams(u, remoteSourcePath)
+	remoteSourcePath = removeQueryParams(u)
 
 	// extract the glob
 	// e.g. for github.com/turbot/steampipe-plugin-alicloud//*.tf"
@@ -163,8 +163,8 @@ func resolveGlobAndSourcePath(sourcePath string) (remoteSourcePath, glob string,
 	return remoteSourcePath, globPattern, u, nil
 }
 
-func removeQueryParams(u *url.URL, remoteSourcePath string) string {
-
+func removeQueryParams(u *url.URL) string {
+	var remoteSourcePath string
 	if u.Scheme == "" {
 		// no scheme specified
 		// e.g. gitlab.com/subhajit7/example-files//terraform-examples//*.tf

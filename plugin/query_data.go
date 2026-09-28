@@ -23,7 +23,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v6/rate_limiter"
 	"github.com/turbot/steampipe-plugin-sdk/v6/sperr"
 	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
-	"golang.org/x/exp/maps"
 	"golang.org/x/sync/semaphore"
 )
 
@@ -81,7 +80,8 @@ type QueryData struct {
 	Matrix []map[string]interface{}
 
 	// object to handle caching of connection specific data
-	// deprecated use ConnectionCache
+	//
+	// Deprecated: use ConnectionCache
 	ConnectionManager *connection_manager.Manager
 	ConnectionCache   *connection_manager.ConnectionCache
 
@@ -127,12 +127,6 @@ type QueryData struct {
 	cacheTtl int64
 
 	cacheEnabled bool
-	// if data is being cached, this will contain the id used to send rows to the cache
-	cacheResultKey string
-	// the names of all the columns which are actually being returned
-	cacheColumns []string
-	// buffer rows before sending to the cache in chunks
-	cacheRows []*proto.Row
 
 	// map of hydrate function name to columns it provides
 	// (this is in queryData not Table as it gets modified per query)
@@ -208,7 +202,10 @@ func newQueryData(connectionCallId string, p *Plugin, queryContext *QueryContext
 	queryContext.ensureColumns(table)
 
 	// build list of required hydrate calls, based on requested columns
-	d.populateRequiredHydrateCalls()
+	if err := d.populateRequiredHydrateCalls(); err != nil {
+		// see #969
+		log.Printf("[WARN] populateRequiredHydrateCalls failed: %v", err)
+	}
 
 	// build list of all columns returned by these hydrate calls (and the fetch call)
 	d.populateColumns()
@@ -419,7 +416,6 @@ func (d *QueryData) populateRequiredHydrateCalls() error {
 			// so there is NO hydrate call registered for the column
 			// the column is provided by the fetch call
 			// do not add to map of hydrate functions as the fetch call will always be called
-			hydrateFunc = fetchFunc.Func
 			hydrateName = fetchFunc.Name
 		} else {
 			// there is a hydrate call registered
@@ -763,16 +759,14 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 				log.Printf("[WARN] streamRows execution has failed: %s - calling queryCache.AbortSet (%s)", d.connectionCallId, err.Error())
 			}
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
-		} else {
+		} else if d.cacheEnabled {
 			// if we are caching call EndSet to write to the cache
-			if d.cacheEnabled {
-				cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
-				if cacheErr != nil {
-					// just log error, do not fail
-					log.Printf("[WARN] cache EndSet failed: %v", cacheErr)
-				} else {
-					log.Printf("[TRACE] cache EndSet succeeded")
-				}
+			cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
+			if cacheErr != nil {
+				// just log error, do not fail
+				log.Printf("[WARN] cache EndSet failed: %v", cacheErr)
+			} else {
+				log.Printf("[TRACE] cache EndSet succeeded")
 			}
 		}
 	}()
@@ -920,11 +914,6 @@ func (d *QueryData) getCacheQualMap() map[string]*proto.Quals {
 	}
 	log.Printf("[TRACE] getCacheQualMap - res=%#q", res)
 	return res
-}
-
-// return the names of all columns that will be returned, adding in the _ctx column
-func (d *QueryData) getColumnNames() []string {
-	return append(maps.Keys(d.columns), deprecatedContextColumnName)
 }
 
 func (d *QueryData) removeReservedColumns(row *proto.Row) {
