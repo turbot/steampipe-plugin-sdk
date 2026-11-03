@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 )
 
 type timeLog struct {
@@ -93,11 +94,17 @@ func DisplayProfileData(minTime time.Duration) {
 }
 
 func displayTable(out io.Writer, data [][]string) {
-	table := tablewriter.NewWriter(out)
-	table.SetHeader([]string{"Operation", "Time", "Elapsed", "Cumulative"})
-	table.SetBorder(true)
-	table.SetColWidth(50)
-	table.AppendBulk(data)
-	table.SetAutoWrapText(false)
-	table.Render()
+	// rows are never wrapped or truncated, whatever their width.
+	// ASCII borders: DisplayProfileData re-encodes the output byte by byte, which garbles multibyte characters
+	table := tablewriter.NewTable(out,
+		tablewriter.WithRowAutoWrap(tw.WrapNone),
+		tablewriter.WithSymbols(tw.NewSymbols(tw.StyleASCII)))
+	table.Header("Operation", "Time", "Elapsed", "Cumulative")
+	if err := table.Bulk(data); err != nil {
+		log.Printf("[WARN] failed to add timing rows to table: %s", err.Error())
+		return
+	}
+	if err := table.Render(); err != nil {
+		log.Printf("[WARN] failed to render timing table: %s", err.Error())
+	}
 }
