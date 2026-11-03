@@ -94,8 +94,11 @@ func DisplayProfileData(minTime time.Duration) {
 }
 
 func displayTable(out io.Writer, data [][]string) {
-	// rows are never wrapped or truncated, whatever their width
-	table := tablewriter.NewTable(out, tablewriter.WithRowAutoWrap(tw.WrapNone))
+	// rows are never wrapped or truncated, whatever their width.
+	// ASCII borders: DisplayProfileData re-encodes the output byte by byte, which garbles multibyte characters
+	table := tablewriter.NewTable(out,
+		tablewriter.WithRowAutoWrap(tw.WrapNone),
+		tablewriter.WithSymbols(tw.NewSymbols(tw.StyleASCII)))
 	table.Header("Operation", "Time", "Elapsed", "Cumulative")
 	if err := table.Bulk(data); err != nil {
 		log.Printf("[WARN] failed to add timing rows to table: %s", err.Error())
