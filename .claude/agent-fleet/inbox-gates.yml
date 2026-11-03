@@ -23,7 +23,7 @@ checks:
 
 kinds:
   code:
-    paths: ["**/*.go", "go.mod", "go.sum", "grpc/**", "plugin/**", "Makefile", ".golangci.yml"]
+    paths: ["**/*.go", "go.mod", "go.sum", "grpc/**", "plugin/**", "filter/**", "Makefile", ".golangci.yml"]
     checks: [build, unit]
     show: [test]
   workflows:
