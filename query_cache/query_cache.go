@@ -407,8 +407,10 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest, fina
 	// ask the request for it's currently buffered rows
 	rows := req.getBufferedRows()
 
-	// reset the row buffer index and increment the page count
+	// start a new buffer for the next page, and increment the page count
 	// (BEFORE building pageKey)
+	// Do not reuse the old buffer: subscribers may still be streaming rows from it.
+	req.pageBuffer = make([]*sdkproto.Row, rowBufferSize)
 	req.bufferIndex = 0
 	req.pageCount++
 
