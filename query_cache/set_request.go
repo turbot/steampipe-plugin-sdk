@@ -147,31 +147,18 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 		return bufferedRows[startOffset:], nil
 	}
 
-	// so we must load some data from the cache
-
-	// build result rows
-	var res = make([]*sdkproto.Row, 0, req.rowCount-rowsAlreadyStreamed)
-
-	// load previously cache pages`
-	for pageIdx := startPage; pageIdx < int(req.pageCount); pageIdx++ {
-		// sometimes the cached page is not available to read immediately - retry if needed
-		cachedResult, cacheErr := req.readPageFromCacheWithRetries(ctx, pageIdx)
-		if cacheErr != nil {
-			return nil, cacheErr
-		}
-
-		// copy cached rows into res - taking into account start offset if this is the first page
-		idx := 0
-		if pageIdx == startPage {
-			idx = startOffset
-		}
-		res = append(res, cachedResult.Rows[idx:]...)
+	// so we must load data from the cache.
+	// Return one page per call - the subscriber calls again for the rest.
+	// (Loading every page since startPage at once held a lagging subscriber's whole backlog
+	// in memory, which for a large table is hundreds of MB, while holding the request lock.)
+	// sometimes the cached page is not available to read immediately - retry if needed
+	cachedResult, cacheErr := req.readPageFromCacheWithRetries(ctx, startPage)
+	if cacheErr != nil {
+		return nil, cacheErr
 	}
+	res := cachedResult.Rows[startOffset:]
 
-	// now add any rows from the page buffer
-	res = append(res, req.getBufferedRows()...)
-
-	log.Printf("[TRACE] setRequest getRowsSince returning %d", len(res))
+	log.Printf("[TRACE] setRequest getRowsSince returning %d from page %d", len(res), startPage)
 	return res, nil
 }
 
