@@ -81,18 +81,45 @@ func (c *QueryCache) createCache(maxCacheStorageMb int, maxTtl time.Duration) er
 	return nil
 }
 
-func (c *QueryCache) createCacheStore(maxCacheStorageMb int, maxTtl time.Duration) (store.StoreInterface, error) {
-	config := bigcache.DefaultConfig(maxTtl)
-	// ensure each shard is at least 5Mb
-	config.Shards = 1024
-	for maxCacheStorageMb/config.Shards < 5 {
-		config.Shards = config.Shards / 2
-		if config.Shards == 2 {
-			break
-		}
+const (
+	// each page of up to rowBufferSize rows is one cache entry, and an entry larger than a shard
+	// cannot be written (which fails the scan), so shards must hold large pages.
+	// A limit below 2*minShardSizeMb gets one shard of the whole limit.
+	// Fewer shards also cost less memory: each shard keeps a write buffer as big as the
+	// largest entry it has written.
+	minShardSizeMb = 64
+	// shard count when there is no size limit
+	unlimitedCacheShards = 8
+	// bigcache allocates MaxEntriesInWindow*MaxEntrySize bytes when it is created
+	// (286 MiB with its defaults), whatever the size limit; start each shard small instead
+	// and let it grow up to its share of the limit as data arrives
+	initialEntriesPerShard = 10
+)
+
+// cacheShardCount returns the number of bigcache shards for a size limit (0 means no limit)
+func cacheShardCount(maxCacheStorageMb int) int {
+	if maxCacheStorageMb <= 0 {
+		return unlimitedCacheShards
 	}
-	config.HardMaxCacheSize = maxCacheStorageMb
-	log.Printf("[INFO] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
+	shards := 1024
+	for shards > 1 && maxCacheStorageMb/shards < minShardSizeMb {
+		shards /= 2
+	}
+	return shards
+}
+
+// cacheConfig returns the bigcache config for a size limit (0 means no limit)
+func cacheConfig(maxCacheStorageMb int, maxTtl time.Duration) bigcache.Config {
+	config := bigcache.DefaultConfig(maxTtl)
+	config.Shards = cacheShardCount(maxCacheStorageMb)
+	config.HardMaxCacheSize = max(maxCacheStorageMb, 0)
+	config.MaxEntriesInWindow = config.Shards * initialEntriesPerShard
+	return config
+}
+
+func (c *QueryCache) createCacheStore(maxCacheStorageMb int, maxTtl time.Duration) (store.StoreInterface, error) {
+	config := cacheConfig(maxCacheStorageMb, maxTtl)
+	log.Printf("[INFO] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %dMb", c.pluginName, config.HardMaxCacheSize, config.Shards, config.HardMaxCacheSize/config.Shards)
 
 	bigcacheClient, _ := bigcache.New(context.Background(), config)
 	bigcacheStore := bigcache_store.NewBigcache(bigcacheClient)
