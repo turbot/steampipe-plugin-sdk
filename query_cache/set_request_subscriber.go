@@ -150,7 +150,8 @@ func (s *setRequestSubscriber) getRowsToStream(ctx context.Context) ([]*sdkproto
 	s.publisher.requestLock.RUnlock()
 
 	if requestState == requestError {
-		return nil, s.publisher.err
+		// err holds publisher.err, read under the lock
+		return nil, err
 	}
 
 	if len(rowsToStream) == 0 {
