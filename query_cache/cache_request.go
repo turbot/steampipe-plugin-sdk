@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 )
@@ -23,10 +22,6 @@ type CacheRequest struct {
 	pageCount     int64
 	rowCount      int
 	StreamContext context.Context
-}
-
-func (req *CacheRequest) ttl() time.Duration {
-	return time.Duration(req.TtlSeconds) * time.Second
 }
 
 func (req *CacheRequest) sortOrderString() string {

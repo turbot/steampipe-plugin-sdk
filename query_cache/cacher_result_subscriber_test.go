@@ -59,7 +59,7 @@ func runSemaphoreOverReleaseScenario(t *testing.T) {
 	// in-memory cache store does not consult ctx)
 	for i := 0; i < pageCount; i++ {
 		pageKey := getPageKey(indexItem.Key, i)
-		if err := doSet[*sdkproto.QueryResult](context.Background(), pageKey, &sdkproto.QueryResult{}, time.Hour, queryCache.cache, nil); err != nil {
+		if err := doSet[*sdkproto.QueryResult](pageKey, &sdkproto.QueryResult{}, queryCache.cache, nil); err != nil {
 			t.Fatalf("failed to seed cache page %d: %v", i, err)
 		}
 	}
