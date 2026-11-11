@@ -42,7 +42,7 @@ func TestQueryCache_IterateSetAndReaderShareTheErrorSafely(t *testing.T) {
 			case <-stop:
 				return
 			default:
-				rows, _ := reader.getRowsToStream(ctx)
+				rows, _ := reader.getRowsToStream()
 				reader.rowsStreamed += len(rows)
 			}
 		}

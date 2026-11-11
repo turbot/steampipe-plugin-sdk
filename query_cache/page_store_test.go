@@ -21,6 +21,16 @@ func checkInvariants(t *testing.T, s *pageStore) {
 	for el := s.order.Front(); el != nil; el = el.Next() {
 		e := el.Value.(*storeEntry)
 		size += e.cost()
+		if e.pins < 0 {
+			t.Fatalf("entry %q has %d pins", e.key, e.pins)
+		}
+		if e.dropped && e.pins == 0 {
+			t.Fatalf("entry %q is dropped and unpinned, but still stored", e.key)
+		}
+		// over the limit, the store keeps only pinned entries, and the entry it stored last
+		if s.limit > 0 && s.size > s.limit && e.pins == 0 && el != s.order.Back() {
+			t.Fatalf("size %d is over the limit %d, but unpinned entry %q is still stored", s.size, s.limit, e.key)
+		}
 		if s.entries[e.key] != el {
 			t.Fatalf("entry %q is in the order list but not in the map", e.key)
 		}
@@ -35,9 +45,6 @@ func checkInvariants(t *testing.T, s *pageStore) {
 	}
 	if len(s.entries) != s.order.Len() {
 		t.Fatalf("map has %d entries, list has %d", len(s.entries), s.order.Len())
-	}
-	if s.limit > 0 && s.size > s.limit {
-		t.Fatalf("size %d is over the limit %d", s.size, s.limit)
 	}
 	for tag, keys := range s.tagKeys {
 		for key := range keys {
@@ -56,7 +63,7 @@ func storeSize(s *pageStore) (int64, int) {
 
 func mustSet(t *testing.T, s *pageStore, key string, value []byte, tags ...string) {
 	t.Helper()
-	if err := s.set(key, value, tags); err != nil {
+	if err := s.set(key, value, tags, 0); err != nil {
 		t.Fatalf("set %q: %v", key, err)
 	}
 }
@@ -111,7 +118,7 @@ func TestPageStore_RejectsEntryBiggerThanLimit(t *testing.T) {
 	s := newPageStore(1, time.Hour)
 	mustSet(t, s, "small", kb(10))
 
-	if err := s.set("big", kb(2048), nil); err == nil {
+	if err := s.set("big", kb(2048), nil, 0); err == nil {
 		t.Fatal("an entry bigger than the whole limit was accepted")
 	}
 	// the store does not empty itself trying to make room
@@ -233,7 +240,7 @@ func TestPageStore_ConcurrentUse(t *testing.T) {
 				case 1:
 					s.invalidateTag(tag)
 				case 2, 3, 4:
-					_ = s.set(key, kb(r.Intn(64)+1), []string{tag})
+					_ = s.set(key, kb(r.Intn(64)+1), []string{tag}, 0)
 				default:
 					s.get(key)
 				}

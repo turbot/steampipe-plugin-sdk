@@ -39,7 +39,7 @@ func TestSetRequest_BufferedRowsAreNotOverwrittenByNextPage(t *testing.T) {
 
 	// the scan has produced 500 rows; the subscriber takes them from the buffer
 	add(0, 500)
-	got, err := req.getRowsSince(ctx, 0)
+	got, err := req.getRowsSince(0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -17,6 +17,9 @@ const entryOverheadBytes = 200
 //     entries first to make room.
 //   - It removes each entry maxTtl after it was written.
 //   - Removed entries are freed, so their memory goes back to the Go runtime.
+//   - A reader that still needs an entry pins it. The store does not evict, expire or
+//     delete a pinned entry until the last pin is released, so the store can go over its
+//     limit while readers are behind.
 //
 // Every entry has the same lifetime, so the oldest entry is also the first to expire.
 // One list in write order serves for both eviction and expiry.
@@ -40,6 +43,11 @@ type storeEntry struct {
 	value   []byte
 	tags    []string
 	expires time.Time
+	// the number of readers that still need this entry
+	pins int
+	// set when the entry is deleted, or is bigger than the limit, while it is pinned:
+	// the last unpin removes it
+	dropped bool
 }
 
 func (e *storeEntry) cost() int64 {
@@ -69,12 +77,19 @@ func (s *pageStore) get(key string) ([]byte, bool) {
 	return el.Value.(*storeEntry).value, true
 }
 
-// set stores value for key, replacing any value already there.
+// set stores value for key, replacing any value already there, and pins it pins times.
+// A value bigger than the limit is kept only for its pins: it is removed when the last
+// pin is released, and set returns an error.
 // The store keeps value, so the caller must not change it afterwards.
-func (s *pageStore) set(key string, value []byte, tags []string) error {
-	e := &storeEntry{key: key, value: value, tags: tags}
+func (s *pageStore) set(key string, value []byte, tags []string, pins int) error {
+	e := &storeEntry{key: key, value: value, tags: tags, pins: pins}
+	var err error
 	if s.limit > 0 && e.cost() > s.limit {
-		return fmt.Errorf("cache entry of %d bytes is bigger than the cache limit of %d bytes", e.cost(), s.limit)
+		err = fmt.Errorf("cache entry of %d bytes is bigger than the cache limit of %d bytes", e.cost(), s.limit)
+		if pins == 0 {
+			return err
+		}
+		e.dropped = true
 	}
 
 	s.mu.Lock()
@@ -98,26 +113,81 @@ func (s *pageStore) set(key string, value []byte, tags []string) error {
 		keys[key] = struct{}{}
 	}
 	s.scheduleSweepLocked()
-	return nil
+	return err
 }
 
+// pin pins the entries for all of keys, or for none of them if one of them is not stored,
+// has expired or is dropped. It returns whether it pinned them.
+func (s *pageStore) pin(keys []string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	for _, key := range keys {
+		el, ok := s.entries[key]
+		if !ok {
+			return false
+		}
+		if e := el.Value.(*storeEntry); e.dropped || !now.Before(e.expires) {
+			return false
+		}
+	}
+	for _, key := range keys {
+		s.entries[key].Value.(*storeEntry).pins++
+	}
+	return true
+}
+
+// unpin releases one pin on the entry for each of keys. Then the store removes the entries
+// that are now unpinned and dropped or expired, and evicts entries if it is over its limit.
+func (s *pageStore) unpin(keys ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, key := range keys {
+		el, ok := s.entries[key]
+		if !ok {
+			continue
+		}
+		e := el.Value.(*storeEntry)
+		e.pins--
+		if e.pins == 0 && e.dropped {
+			s.removeLocked(el)
+		}
+	}
+	s.removeExpiredLocked()
+	s.evictLocked(0)
+}
+
+// delete removes the entry for key. A pinned entry is removed when its last pin is released.
 func (s *pageStore) delete(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if el, ok := s.entries[key]; ok {
-		s.removeLocked(el)
+		s.dropLocked(el)
 	}
 }
 
-// invalidateTag removes every entry stored with tag.
+// invalidateTag removes every entry stored with tag. A pinned entry is removed when its
+// last pin is released.
 func (s *pageStore) invalidateTag(tag string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	for key := range s.tagKeys[tag] {
-		s.removeLocked(s.entries[key])
+		s.dropLocked(s.entries[key])
 	}
+}
+
+// dropLocked removes an entry now, or marks it to be removed when its last pin is released.
+// s.mu must be held.
+func (s *pageStore) dropLocked(el *list.Element) {
+	if e := el.Value.(*storeEntry); e.pins > 0 {
+		e.dropped = true
+		return
+	}
+	s.removeLocked(el)
 }
 
 // removeLocked removes one entry. s.mu must be held.
@@ -134,36 +204,47 @@ func (s *pageStore) removeLocked(el *list.Element) {
 	}
 }
 
-// removeExpiredLocked removes the entries whose lifetime has passed. s.mu must be held.
+// removeExpiredLocked removes the unpinned entries whose lifetime has passed. s.mu must be held.
 func (s *pageStore) removeExpiredLocked() {
 	now := time.Now()
-	for el := s.order.Front(); el != nil && !now.Before(el.Value.(*storeEntry).expires); el = s.order.Front() {
-		s.removeLocked(el)
+	for el := s.order.Front(); el != nil && !now.Before(el.Value.(*storeEntry).expires); {
+		next := el.Next()
+		if el.Value.(*storeEntry).pins == 0 {
+			s.removeLocked(el)
+		}
+		el = next
 	}
 }
 
-// evictLocked removes the oldest entries until there is room for needed more bytes.
-// s.mu must be held.
+// evictLocked removes the oldest unpinned entries until there is room for needed more bytes,
+// or no unpinned entry is left. s.mu must be held.
 func (s *pageStore) evictLocked(needed int64) {
 	if s.limit == 0 {
 		return
 	}
-	for s.size+needed > s.limit && s.order.Len() > 0 {
-		s.removeLocked(s.order.Front())
+	for el := s.order.Front(); el != nil && s.size+needed > s.limit; {
+		next := el.Next()
+		if el.Value.(*storeEntry).pins == 0 {
+			s.removeLocked(el)
+		}
+		el = next
 	}
 }
 
-// scheduleSweepLocked starts a timer for when the oldest entry expires, unless one is
-// already running. s.mu must be held.
+// scheduleSweepLocked starts a timer for when the oldest entry that has not expired expires,
+// unless one is already running. An expired entry that is still there is pinned: the last
+// unpin removes it. s.mu must be held.
 func (s *pageStore) scheduleSweepLocked() {
 	if s.sweep != nil {
 		return
 	}
-	front := s.order.Front()
-	if front == nil {
-		return
+	now := time.Now()
+	for el := s.order.Front(); el != nil; el = el.Next() {
+		if expires := el.Value.(*storeEntry).expires; now.Before(expires) {
+			s.sweep = time.AfterFunc(expires.Sub(now), s.runSweep)
+			return
+		}
 	}
-	s.sweep = time.AfterFunc(time.Until(front.Value.(*storeEntry).expires), s.runSweep)
 }
 
 func (s *pageStore) runSweep() {
