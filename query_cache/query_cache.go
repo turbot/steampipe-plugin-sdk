@@ -266,7 +266,11 @@ func (c *QueryCache) IterateSet(ctx context.Context, row *sdkproto.Row, callId s
 	if req.bufferIndex == rowBufferSize {
 		// reset index and update page count
 		log.Printf("[TRACE] IterateSet writing 1 page of %d rows. Page count %d (%s)", rowBufferSize, req.pageCount, req.CallId)
-		req.err = c.writePageToCache(ctx, req, false)
+		err := c.writePageToCache(ctx, req, false)
+		// readers of this scan read err under the lock
+		req.requestLock.Lock()
+		req.err = err
+		req.requestLock.Unlock()
 	}
 
 	return nil
