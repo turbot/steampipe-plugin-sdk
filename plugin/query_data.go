@@ -760,11 +760,11 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 			}
 			d.plugin.queryCache.AbortSet(ctx, d.connectionCallId, err)
 		} else if d.cacheEnabled {
-			// if we are caching call EndSet to write to the cache
-			cacheErr := d.plugin.queryCache.EndSet(ctx, d.connectionCallId)
-			if cacheErr != nil {
-				// just log error, do not fail
-				log.Printf("[WARN] cache EndSet failed: %v", cacheErr)
+			// if we are caching call EndSet to write to the cache.
+			// EndSet returns an error only if this query could not read every row
+			// back from the cache: then the query fails, rather than end with part of its rows
+			if err = d.plugin.queryCache.EndSet(ctx, d.connectionCallId); err != nil {
+				log.Printf("[WARN] cache EndSet failed: %v", err)
 			} else {
 				log.Printf("[TRACE] cache EndSet succeeded")
 			}

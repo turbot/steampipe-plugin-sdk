@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"strings"
 	"sync"
 	"testing"
@@ -83,6 +84,22 @@ func scanRow(scan string, i, rowBytes int) *sdkproto.Row {
 		"id":   {Value: &sdkproto.Column_StringValue{StringValue: fmt.Sprintf("%s-%d", scan, i)}},
 		"data": {Value: &sdkproto.Column_StringValue{StringValue: strings.Repeat("x", rowBytes)}},
 	}}
+}
+
+// checkNoPins checks that, with every query done, no page is still pinned or waiting
+// to be removed, and the cache is within its limit.
+func checkNoPins(t *testing.T, c *QueryCache) {
+	t.Helper()
+	c.cache.mu.Lock()
+	defer c.cache.mu.Unlock()
+	for el := c.cache.order.Front(); el != nil; el = el.Next() {
+		if e := el.Value.(*storeEntry); e.pins != 0 || e.dropped {
+			t.Errorf("with every query done, %s has %d pins (dropped: %v)", e.key, e.pins, e.dropped)
+		}
+	}
+	if c.cache.limit > 0 && c.cache.size > c.cache.limit {
+		t.Errorf("with every query done, the cache holds %d bytes, over its limit of %d", c.cache.size, c.cache.limit)
+	}
 }
 
 // newQueryRequest makes a request for the one query that all these tests use.
@@ -226,6 +243,7 @@ func TestQueryCache_LateReaderGetsEveryRowWhenTheScanFillsTheCache(t *testing.T)
 	}
 	late.checkRows(t, "late query", "scan", scan.rows)
 	own.checkRows(t, "scan's own query", "scan", scan.rows)
+	checkNoPins(t, c)
 }
 
 // The query that started a scan is a reader of the scan too. It stops for a while, and the scan
@@ -249,6 +267,7 @@ func TestQueryCache_ScanOwnReaderGetsEveryRowWhenTheScanFillsTheCache(t *testing
 		t.Errorf("EndSet: %v", err)
 	}
 	own.checkRows(t, "scan's own query", "scan", scan.rows)
+	checkNoPins(t, c)
 }
 
 // If the scan's own reader cannot read a page, its query must fail. A query that ends
@@ -278,6 +297,7 @@ func TestQueryCache_ScanFailsWhenItsOwnReaderLosesAPage(t *testing.T) {
 	if err := waitFor(t, "EndSet", ended); err == nil {
 		t.Fatalf("EndSet returned no error, but the scan's own query lost page 1 and got %d of %d rows", own.rowCount(), scan.rows)
 	}
+	checkNoPins(t, c)
 }
 
 // A page bigger than the cache limit cannot be cached. The query must still get every row,
@@ -301,6 +321,7 @@ func TestQueryCache_PageBiggerThanTheCacheDoesNotFailTheQuery(t *testing.T) {
 		t.Errorf("second query: got %d rows and error %v, want a cache miss with no rows", again.rowCount(), err)
 	}
 	c.AbortSet(context.Background(), "again", errors.New("test done"))
+	checkNoPins(t, c)
 }
 
 // A query that reads a cached result must get all of it, even if the cache evicts the result's
@@ -332,6 +353,7 @@ func TestQueryCache_CacheHitGetsWholeResultWhenItsPagesAreEvicted(t *testing.T) 
 		c.AbortSet(context.Background(), "hit", errors.New("test done"))
 	}
 	hit.checkRows(t, "cache hit query", "scan", scan.rows)
+	checkNoPins(t, c)
 }
 
 // A new scan of a query must not change a cached result of the same query that a query is reading.
@@ -365,6 +387,7 @@ func TestQueryCache_NewScanDoesNotChangeACachedResultBeingRead(t *testing.T) {
 		t.Errorf("cache hit query: %v", err)
 	}
 	hit.checkRows(t, "cache hit query", "scan1", scan1.rows)
+	checkNoPins(t, c)
 }
 
 // A query that joins a running scan whose first pages the cache no longer has cannot read
@@ -390,4 +413,122 @@ func TestQueryCache_LateQueryScansAgainWhenTheScansFirstPageIsGone(t *testing.T)
 		t.Errorf("EndSet: %v", err)
 	}
 	own.checkRows(t, "scan's own query", "scan", scan.rows)
+	checkNoPins(t, c)
+}
+
+// randN returns a random number from 0 to n-1, to vary the timing and the choices of a test.
+func randN(n int) int {
+	return rand.IntN(n) //nolint:gosec // G404: varies test timing, not used for security
+}
+
+// stressReader is a query in TestQueryCache_ConcurrentQueriesGetExactlyOneScansRows.
+// It lags now and then, and it can cancel its query after cancelAt rows.
+type stressReader struct {
+	mu       sync.Mutex
+	ids      []string
+	cancelAt int
+	cancel   context.CancelFunc
+}
+
+func (r *stressReader) stream(row *sdkproto.Row) {
+	r.mu.Lock()
+	r.ids = append(r.ids, row.Columns["id"].GetStringValue())
+	n := len(r.ids)
+	r.mu.Unlock()
+	if n == r.cancelAt {
+		r.cancel()
+	}
+	if n%250 == 0 && randN(4) == 0 {
+		time.Sleep(time.Duration(randN(3)) * time.Millisecond)
+	}
+}
+
+// Many queries run at once through a cache that holds a few pages: each starts a scan, joins
+// a running scan, or reads a cached result, and some cancel part way through. Every query
+// that is not cancelled gets all the rows of one scan, once each. When all are done, no page
+// is still pinned.
+func TestQueryCache_ConcurrentQueriesGetExactlyOneScansRows(t *testing.T) {
+	c := newTestQueryCache(t, 2, time.Hour)
+	var scanRows sync.Map // scan call id -> rows written
+
+	query := func(callId string) {
+		r := &stressReader{}
+		streamCtx, cancelStream := context.WithCancel(context.Background())
+		defer cancelStream()
+		if randN(4) == 0 {
+			r.cancelAt = 1 + randN(4000)
+			r.cancel = cancelStream
+		}
+		ttl := int64(3600)
+		if randN(2) == 0 {
+			ttl = 0
+		}
+		req := newQueryRequest(callId, ttl)
+		req.StreamContext = streamCtx
+		// the context of the plugin's execute call, which ends when the query is done
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err := c.Get(ctx, req, r.stream, r.stream)
+		if IsCacheMiss(err) {
+			// this query scans: write the rows, about 400 bytes each, as the plugin does
+			rows := 3000 + randN(3000)
+			for i := 0; i < rows; i++ {
+				if err = c.IterateSet(ctx, scanRow(callId, i, 400), callId); err != nil {
+					break
+				}
+				if i%500 == 0 {
+					time.Sleep(time.Duration(randN(2)) * time.Millisecond)
+				}
+			}
+			if err != nil {
+				c.AbortSet(ctx, callId, err)
+			} else {
+				scanRows.Store(callId, rows)
+				err = c.EndSet(ctx, callId)
+			}
+		}
+		if r.cancelAt > 0 {
+			// a cancelled query may end with any rows and any error
+			return
+		}
+		if err != nil {
+			t.Errorf("%s: %v", callId, err)
+			return
+		}
+
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if len(r.ids) == 0 {
+			t.Errorf("%s got no rows", callId)
+			return
+		}
+		scan := r.ids[0][:strings.LastIndex(r.ids[0], "-")]
+		want, ok := scanRows.Load(scan)
+		if !ok {
+			t.Errorf("%s got rows from %s, which did not finish", callId, scan)
+			return
+		}
+		got := &testReader{ids: r.ids}
+		got.checkRows(t, callId, scan, want.(int))
+	}
+
+	var wg sync.WaitGroup
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for q := 0; q < 8; q++ {
+				query(fmt.Sprintf("g%dq%d", g, q))
+			}
+		}()
+	}
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * testWait):
+		t.Fatalf("the queries did not finish within %s", 2*testWait)
+	}
+	checkNoPins(t, c)
 }

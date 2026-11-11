@@ -51,12 +51,11 @@ func newTestSetRequest(t *testing.T, pages, buffered int) *setRequest {
 func TestSetRequest_GetRowsSince_OnePagePerCall(t *testing.T) {
 	const pages, buffered = 5, 300
 	req := newTestSetRequest(t, pages, buffered)
-	ctx := context.Background()
 
 	streamed := 0
 	calls := 0
 	for {
-		rows, err := req.getRowsSince(ctx, streamed)
+		rows, err := req.getRowsSince(streamed)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -89,7 +88,7 @@ func TestSetRequest_GetRowsSince_OnePagePerCall(t *testing.T) {
 // Starting part-way through a page returns the rest of that page.
 func TestSetRequest_GetRowsSince_StartOffset(t *testing.T) {
 	req := newTestSetRequest(t, 2, 10)
-	rows, err := req.getRowsSince(context.Background(), 1500)
+	rows, err := req.getRowsSince(1500)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +96,7 @@ func TestSetRequest_GetRowsSince_StartOffset(t *testing.T) {
 		t.Fatalf("got %d rows starting at %s, want 500 starting at row-1500", len(rows), rows[0].Columns["id"].GetStringValue())
 	}
 	// caught up with the cache: the buffered rows come next
-	rows, err = req.getRowsSince(context.Background(), 2000)
+	rows, err = req.getRowsSince(2000)
 	if err != nil {
 		t.Fatal(err)
 	}

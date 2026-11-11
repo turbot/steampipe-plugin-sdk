@@ -3,11 +3,9 @@ package query_cache
 import (
 	"context"
 	"fmt"
-	"github.com/sethvargo/go-retry"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"log"
 	"sync"
-	"time"
 )
 
 type setRequestState int64
@@ -30,6 +28,11 @@ type setRequest struct {
 	bufferIndex int
 	err         error
 	cache       *QueryCache
+	// the query that started the scan: it reads the scan as a subscriber too
+	ownSubscriber *setRequestSubscriber
+	// set when a page does not fit in the cache: the readers still get every row,
+	// but the result is not cached
+	notCached bool
 }
 
 func newSetRequest(req *CacheRequest, cache *QueryCache) *setRequest {
@@ -42,14 +45,36 @@ func newSetRequest(req *CacheRequest, cache *QueryCache) *setRequest {
 	}
 }
 
-func (req *setRequest) subscribe(subscriber *setRequestSubscriber) {
-	// note: requestLock must be locked when this is called
+// subscribe adds a reader. The reader needs every page the scan has written, and reads them
+// from the cache, so it pins them. Each page the scan writes after this is pinned for it too.
+// The reader cannot join a scan that has failed, or whose pages are not all in the cache:
+// then subscribe returns false.
+// note: requestLock must be locked when this is called
+func (req *setRequest) subscribe(subscriber *setRequestSubscriber) bool {
+	if req.state == requestError || !req.cache.cache.pin(req.pageKeys(0, int(req.pageCount))) {
+		return false
+	}
 	req.subscribers[subscriber] = struct{}{}
+	return true
 }
 
+// unsubscribe removes a reader, and releases its pins on the pages it has not read.
+// note: requestLock must be locked when this is called
 func (req *setRequest) unsubscribe(subscriber *setRequestSubscriber) {
-	// note: requestLock must be locked when this is called
+	if _, ok := req.subscribers[subscriber]; !ok {
+		return
+	}
 	delete(req.subscribers, subscriber)
+	req.cache.cache.unpin(req.pageKeys(subscriber.pinnedFrom, int(req.pageCount))...)
+}
+
+// pageKeys returns the cache keys of pages from to to-1.
+func (req *setRequest) pageKeys(from, to int) []string {
+	keys := make([]string, 0, max(to-from, 0))
+	for pageIdx := from; pageIdx < to; pageIdx++ {
+		keys = append(keys, getPageKey(req.resultKeyRoot, pageIdx))
+	}
+	return keys
 }
 
 func (req *setRequest) getBufferedRows() []*sdkproto.Row {
@@ -59,13 +84,8 @@ func (req *setRequest) getBufferedRows() []*sdkproto.Row {
 	return req.pageBuffer[:req.bufferIndex]
 }
 
-// get result key for the most recent page of the request
-func (req *setRequest) getPageResultKey() string {
-	return getPageKey(req.resultKeyRoot, int(req.pageCount-1))
-}
-
 // return all rows available after the given row count
-func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int) ([]*sdkproto.Row, error) {
+func (req *setRequest) getRowsSince(rowsAlreadyStreamed int) ([]*sdkproto.Row, error) {
 	/*
 
 		[0,1,2,3,4]
@@ -151,10 +171,16 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 	// Return one page per call - the subscriber calls again for the rest.
 	// (Loading every page since startPage at once held a lagging subscriber's whole backlog
 	// in memory, which for a large table is hundreds of MB, while holding the request lock.)
-	// sometimes the cached page is not available to read immediately - retry if needed
-	cachedResult, cacheErr := req.readPageFromCacheWithRetries(ctx, startPage)
-	if cacheErr != nil {
-		return nil, cacheErr
+	pageKey := getPageKey(req.resultKeyRoot, startPage)
+	cachedResult := &sdkproto.QueryResult{}
+	if err := doGet(pageKey, req.cache.cache, cachedResult); err != nil {
+		log.Printf("[WARN] getRowsSince failed to read page %d key %s: %s (%s)", startPage, pageKey, err.Error(), req.CallId)
+		// the subscriber pins every page it has not read, so the page must be there.
+		// Do not return a cache miss: the subscriber may have streamed rows already
+		if IsCacheMiss(err) {
+			return nil, fmt.Errorf("page %d of the scan is missing from the query cache", startPage)
+		}
+		return nil, err
 	}
 	res := cachedResult.Rows[startOffset:]
 
@@ -162,71 +188,30 @@ func (req *setRequest) getRowsSince(ctx context.Context, rowsAlreadyStreamed int
 	return res, nil
 }
 
-func (req *setRequest) readPageFromCacheWithRetries(ctx context.Context, pageIdx int) (*sdkproto.QueryResult, error) {
-	pageKey := getPageKey(req.resultKeyRoot, pageIdx)
-	log.Printf("[TRACE] getRowsSince reading page %d key %s", pageIdx, pageKey)
-
-	var cachedResult = &sdkproto.QueryResult{}
-	var maxRetries uint64 = 10
-	retryBackoff := retry.WithMaxRetries(
-		maxRetries,
-		retry.NewExponential(10*time.Millisecond),
-	)
-
-	retries := 0
-
-	cacheErr := retry.Do(ctx, retryBackoff, func(ctx context.Context) error {
-		err := doGet[*sdkproto.QueryResult](pageKey, req.cache.cache, cachedResult)
-		if err != nil {
-
-			if IsCacheMiss(err) {
-				retries++
-
-				log.Printf("[INFO] readPageFromCacheWithRetries got a cache miss - retrying (#%d) (%s)", retries, req.CallId)
-				err = retry.RetryableError(err)
-			} else {
-				log.Printf("[WARN] readPageFromCacheWithRetries got error: %s", err.Error())
-			}
-		}
-
-		return err
-	})
-
-	if cacheErr != nil {
-		log.Printf("[WARN] getRowsSince failed to read page %d key %s after %d retries: %s (%s)", pageIdx, pageKey, maxRetries, cacheErr.Error(), req.CallId)
-		return nil, cacheErr
-	}
-
-	log.Printf("[INFO] getRowsSince read page %d after %d %s  - key %s (%s)",
-		pageIdx,
-		retries,
-		pluralizeClient().Pluralize("retry", retries, false),
-		pageKey,
-		req.CallId)
-
-	return cachedResult, nil
-}
-
+// waitForSubscribers waits until each subscriber has stopped reading, or ctx is done.
 func (req *setRequest) waitForSubscribers(ctx context.Context) {
 	log.Printf("[INFO] setRequest waitForSubscribers (%s)", req.CallId)
 
-	doneChan := make(chan struct{})
-	go func() {
-		for subscriber := range req.subscribers {
-			log.Printf("[INFO] waiting for subscriber %s (%s)", subscriber.callId, req.CallId)
-			err := subscriber.waitUntilDone()
-			if err != nil {
-				log.Printf("[INFO] subscriber %s had error: %s (%s)", subscriber.callId, err.Error(), req.CallId)
-			} else {
-				log.Printf("[INFO] subscriber %s done (%s)", subscriber.callId, req.CallId)
-			}
-		}
-		close(doneChan)
-	}()
+	// subscribers remove themselves when they stop, so wait for the ones there are now
+	req.requestLock.RLock()
+	subscribers := make([]*setRequestSubscriber, 0, len(req.subscribers))
+	for subscriber := range req.subscribers {
+		subscribers = append(subscribers, subscriber)
+	}
+	req.requestLock.RUnlock()
 
-	select {
-	case <-ctx.Done():
-	case <-doneChan:
+	for _, subscriber := range subscribers {
+		log.Printf("[INFO] waiting for subscriber %s (%s)", subscriber.callId, req.CallId)
+		select {
+		case <-ctx.Done():
+			return
+		case <-subscriber.doneChan:
+		}
+		if subscriber.err != nil {
+			log.Printf("[INFO] subscriber %s had error: %s (%s)", subscriber.callId, subscriber.err.Error(), req.CallId)
+		} else {
+			log.Printf("[INFO] subscriber %s done (%s)", subscriber.callId, req.CallId)
+		}
 	}
 }
 
@@ -238,7 +223,10 @@ func (req *setRequest) addRow(row *sdkproto.Row) error {
 
 	// if the request has no subscribers, cancel this scan
 	if len(req.subscribers) == 0 {
-		// lock access to set request
+		// the query that started the scan stopped reading it because of an error: that query fails
+		if req.ownSubscriber != nil && req.ownSubscriber.err != nil {
+			return req.ownSubscriber.err
+		}
 		log.Printf("[INFO] IterateSet NO SUBSCRIBERS! (%s)", req.CallId)
 		return NoSubscribersError{}
 	}

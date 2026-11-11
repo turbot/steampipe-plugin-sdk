@@ -22,12 +22,8 @@ func TestSetRequestSubscriber_GetRowsToStream_ReleasesLockOnError(t *testing.T) 
 	req.pageCount = 1
 	req.rowCount = rowBufferSize
 
-	// a cancelled context makes the page read fail at once instead of retrying for ~10s
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
 	s := newSetRequestSubscriber(func(*sdkproto.Row) {}, "reader", context.Background(), req)
-	if _, err := s.getRowsToStream(ctx); err == nil {
+	if _, err := s.getRowsToStream(); err == nil {
 		t.Fatal("getRowsToStream returned no error for a page that is not in the cache")
 	}
 
