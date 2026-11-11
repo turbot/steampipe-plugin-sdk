@@ -176,7 +176,7 @@ func (req *setRequest) readPageFromCacheWithRetries(ctx context.Context, pageIdx
 	retries := 0
 
 	cacheErr := retry.Do(ctx, retryBackoff, func(ctx context.Context) error {
-		err := doGet[*sdkproto.QueryResult](ctx, pageKey, req.cache.cache, cachedResult)
+		err := doGet[*sdkproto.QueryResult](pageKey, req.cache.cache, cachedResult)
 		if err != nil {
 
 			if IsCacheMiss(err) {

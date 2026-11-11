@@ -26,10 +26,8 @@ require (
 )
 
 require (
-	github.com/allegro/bigcache/v3 v3.1.0
 	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964
 	github.com/eko/gocache/lib/v4 v4.1.6
-	github.com/eko/gocache/store/bigcache/v4 v4.2.1
 	github.com/eko/gocache/store/ristretto/v4 v4.2.1
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/hashicorp/go-getter v1.8.6

@@ -54,7 +54,7 @@ func (s *cacheResultSubscriber) waitUntilDone(ctx context.Context) error {
 	pageIdx := 0
 	pageKey := getPageKey(s.indexItem.Key, pageIdx)
 	var cacheResult = &sdkproto.QueryResult{}
-	if err := doGet[*sdkproto.QueryResult](ctx, pageKey, s.queryCache.cache, cacheResult); err != nil {
+	if err := doGet[*sdkproto.QueryResult](pageKey, s.queryCache.cache, cacheResult); err != nil {
 		return err
 	}
 
@@ -85,7 +85,7 @@ func (s *cacheResultSubscriber) waitUntilDone(ctx context.Context) error {
 
 			log.Printf("[TRACE] fetching key: %s", pageKey)
 			var cacheResult = &sdkproto.QueryResult{}
-			if err := doGet[*sdkproto.QueryResult](ctx, pageKey, s.queryCache.cache, cacheResult); err != nil {
+			if err := doGet[*sdkproto.QueryResult](pageKey, s.queryCache.cache, cacheResult); err != nil {
 				if IsCacheMiss(err) {
 					// This is not expected
 					log.Printf("[WARN] getCachedQueryResult - no item retrieved for cache key %s (%s)", pageKey, s.req.CallId)

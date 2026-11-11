@@ -10,10 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/allegro/bigcache/v3"
-	"github.com/eko/gocache/lib/v4/cache"
-	"github.com/eko/gocache/lib/v4/store"
-	bigcache_store "github.com/eko/gocache/store/bigcache/v4"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc"
 	sdkproto "github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v6/telemetry"
@@ -42,7 +38,7 @@ type QueryCache struct {
 	pendingData     map[string]*pendingIndexBucket
 	pendingDataLock sync.RWMutex
 
-	cache *cache.Cache[[]byte]
+	cache *pageStore
 	// map of ongoing set requests, keyed by callId
 	setRequests       map[string]*setRequest
 	setRequestMapLock sync.RWMutex
@@ -73,30 +69,9 @@ func (c *QueryCache) SetPluginSchemaMap(schemaMap map[string]*grpc.PluginSchema)
 }
 
 func (c *QueryCache) createCache(maxCacheStorageMb int, maxTtl time.Duration) error {
-	cacheStore, err := c.createCacheStore(maxCacheStorageMb, maxTtl)
-	if err != nil {
-		return err
-	}
-	c.cache = cache.New[[]byte](cacheStore)
+	c.cache = newPageStore(maxCacheStorageMb, maxTtl)
+	log.Printf("[INFO] query cache for plugin '%s': max size %dMb, max ttl %s", c.pluginName, maxCacheStorageMb, maxTtl)
 	return nil
-}
-
-func (c *QueryCache) createCacheStore(maxCacheStorageMb int, maxTtl time.Duration) (store.StoreInterface, error) {
-	config := bigcache.DefaultConfig(maxTtl)
-	// ensure each shard is at least 5Mb
-	config.Shards = 1024
-	for maxCacheStorageMb/config.Shards < 5 {
-		config.Shards = config.Shards / 2
-		if config.Shards == 2 {
-			break
-		}
-	}
-	config.HardMaxCacheSize = maxCacheStorageMb
-	log.Printf("[INFO] createCacheStore for plugin '%s' setting max size to %dMb, Shards: %d, max shard size: %d ", c.pluginName, maxCacheStorageMb, config.Shards, ((maxCacheStorageMb*1024*1024)/config.Shards)/(1024*1024))
-
-	bigcacheClient, _ := bigcache.New(context.Background(), config)
-	bigcacheStore := bigcache_store.NewBigcache(bigcacheClient)
-	return bigcacheStore, nil
 }
 
 func (c *QueryCache) Get(ctx context.Context, req *CacheRequest, streamUncachedRowFunc, streamCachedRowFunc func(row *sdkproto.Row)) error {
@@ -356,16 +331,15 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 	// remove all pages that have already been written
 	for i := 0; i < int(req.pageCount); i++ {
 		pageKey := getPageKey(req.resultKeyRoot, i)
-		if err := c.cache.Delete(ctx, pageKey); err != nil {
-			log.Printf("[WARN] QueryCache AbortSet failed to delete page %s: %v", pageKey, err)
-		}
+		c.cache.delete(pageKey)
 	}
 	log.Printf("[INFO] QueryCache AbortSet done (%s)", req.CallId)
 }
 
 // ClearForConnection removes all cache entries for the given connection
 func (c *QueryCache) ClearForConnection(ctx context.Context, connectionName string) error {
-	return c.cache.Invalidate(ctx, store.WithInvalidateTags([]string{connectionName}))
+	c.cache.invalidateTag(connectionName)
+	return nil
 }
 
 func (c *QueryCache) updateIndex(ctx context.Context, callId string, req *setRequest) error {
@@ -433,7 +407,7 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest, fina
 
 	// put connection name in tags
 	tags := []string{req.ConnectionName}
-	err := doSet(ctx, pageKey, result, req.ttl(), c.cache, tags)
+	err := doSet(pageKey, result, c.cache, tags)
 	if err != nil {
 		log.Printf("[WARN] writePageToCache cache Set failed: %v - page key %s (%s)", err, pageKey, req.CallId)
 	} else {
@@ -445,7 +419,7 @@ func (c *QueryCache) writePageToCache(ctx context.Context, req *setRequest, fina
 
 func (c *QueryCache) getCachedIndexBucket(ctx context.Context, key string) (*IndexBucket, error) {
 	var indexBucket = &sdkproto.IndexBucket{}
-	if err := doGet(ctx, key, c.cache, indexBucket); err != nil {
+	if err := doGet(key, c.cache, indexBucket); err != nil {
 		if IsCacheMiss(err) {
 			c.Stats.Misses++
 			log.Printf("[TRACE] getCachedIndexBucket - no item retrieved for cache key %s", key)
@@ -571,24 +545,19 @@ func (c *QueryCache) cacheSetIndexBucket(ctx context.Context, indexBucketKey str
 
 	// put connection name in tags
 	tags := []string{req.ConnectionName}
-	return doSet(ctx, indexBucketKey, indexBucket.AsProto(), req.ttl(), c.cache, tags)
+	return doSet(indexBucketKey, indexBucket.AsProto(), c.cache, tags)
 }
 
-func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]byte], target T) error {
+func doGet[T CacheData](key string, cache *pageStore, target T) error {
 	// get the bytes from the cache
-	getRes, err := cache.Get(ctx, key)
-	if err != nil {
-		if IsCacheMiss(err) {
-			log.Printf("[TRACE] doGet cache miss ")
-		} else {
-			log.Printf("[WARN] cache.Get returned error %s", err.Error())
-		}
-		//  return the error
-		return err
+	bytes, ok := cache.get(key)
+	if !ok {
+		log.Printf("[TRACE] doGet cache miss ")
+		return CacheMissError{}
 	}
 
 	// unmarshall into the correct type
-	err = proto.Unmarshal(getRes, target)
+	err := proto.Unmarshal(bytes, target)
 	if err != nil {
 		log.Printf("[WARN] error unmarshalling result: %s", err.Error())
 		return err
@@ -597,19 +566,15 @@ func doGet[T CacheData](ctx context.Context, key string, cache *cache.Cache[[]by
 	return nil
 }
 
-func doSet[T CacheData](ctx context.Context, key string, value T, ttl time.Duration, cache *cache.Cache[[]byte], tags []string) error {
+// doSet stores value under key. Every entry lives for the cache's max TTL from when it is written.
+func doSet[T CacheData](key string, value T, cache *pageStore, tags []string) error {
 	bytes, err := proto.Marshal(value)
 	if err != nil {
 		log.Printf("[WARN] doSet - marshal failed: %v", err)
 		return err
 	}
 
-	err = cache.Set(ctx,
-		key,
-		bytes,
-		store.WithExpiration(ttl),
-		store.WithTags(tags),
-	)
+	err = cache.set(key, bytes, tags)
 	if err != nil {
 		log.Printf("[WARN] doSet cache.Set failed: %v", err)
 	}
