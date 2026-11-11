@@ -1,3 +1,26 @@
+## v6.2.0 [2026-11-11]
+_What's new?_
+- Administrative plugin RPCs (`GetSchema`, `SetConnectionConfig`, `SetAllConnectionConfigs`, `UpdateConnectionConfigs`, `GetSupportedOperations`, cache options and rate limiter calls) now have a deadline of 5 minutes, so a plugin that stops answering returns an error instead of blocking its caller forever. Set `STEAMPIPE_ADMIN_RPC_TIMEOUT` (a Go duration such as `90s` or `10m`) to change it. ([#957](https://github.com/turbot/steampipe-plugin-sdk/pull/957))
+
+_Bug fixes_
+- Fix the query cache returning wrong rows with no error on results of more than 1,000 rows: some rows came back twice and the same number were missing. ([#979](https://github.com/turbot/steampipe-plugin-sdk/issues/979))
+- Fix a query getting part of its rows, rows twice, or failing, when the query cache removed a page the query still needed. The cache now keeps each page until every query reading it is done, so it can exceed its size limit while queries are behind. A result page bigger than the cache limit no longer fails the query; the result is not cached. ([#996](https://github.com/turbot/steampipe-plugin-sdk/issues/996))
+- Fix a query hanging when it joined a running scan and a cached page could not be read. ([#986](https://github.com/turbot/steampipe-plugin-sdk/issues/986))
+- Fix a query that joined a running scan holding the whole scan's rows in memory at once (one case added 601 MB); it now reads one page at a time. ([#983](https://github.com/turbot/steampipe-plugin-sdk/issues/983))
+- The query cache size limit now counts all of the cache's memory, expired results are freed, the oldest results are removed first, and the cache no longer allocates 286 MiB up front. ([#988](https://github.com/turbot/steampipe-plugin-sdk/issues/988), [#981](https://github.com/turbot/steampipe-plugin-sdk/issues/981))
+- Fix a data race on the query cache's scan error. ([#990](https://github.com/turbot/steampipe-plugin-sdk/issues/990))
+- Fix a crash at connection start for plugins that declare a plugin-level `HydrateConfig`. ([#968](https://github.com/turbot/steampipe-plugin-sdk/pull/968))
+- Fix a crash when a query reading cached results is cancelled. ([#968](https://github.com/turbot/steampipe-plugin-sdk/pull/968))
+- A negative hydrate retry `MaxAttempts` now falls back to the default of 10 instead of retrying almost indefinitely. ([#968](https://github.com/turbot/steampipe-plugin-sdk/pull/968))
+
+_Behaviour change_
+- A query whose own scan cannot read back every row from the cache now fails with an error instead of returning part of its rows.
+- `query_cache.CacheStats` `Hits` and `Misses` are now `atomic.Int64` instead of `int`.
+
+_Dependencies_
+- Upgrade `google.golang.org/grpc` to v1.83.2, `google.golang.org/protobuf` to v1.36.12, OpenTelemetry to v1.47.0, `golang.org/x/net` to v0.59.0, `golang.org/x/crypto` to v0.57.0, `hashicorp/go-getter` to v1.8.6, `fsnotify` to v1.10.1 and `golang.org/x/time` to v0.15.0.
+- Remove `allegro/bigcache` and `eko/gocache/store/bigcache`.
+
 ## v6.1.0 [2026-08-18]
 _Bug fixes_
 - Fix three data races in the in-process `Execute` path that could drop or corrupt a scan result. A failed scan is now reported as an error rather than as a clean empty result; the local plugin stream no longer sends its nil sentinel on a failed scan, with the pending error guarded by a mutex; and the per-query stats counters are now `atomic.Int64`. ([#942](https://github.com/turbot/steampipe-plugin-sdk/pull/942))
