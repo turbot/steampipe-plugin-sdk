@@ -16,7 +16,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/stevenle/topsort v0.2.0
-	github.com/turbot/go-kit v1.1.0
+	github.com/turbot/go-kit v1.3.1
 	github.com/zclconf/go-cty v1.14.4
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/metric v1.47.0 // indirect
@@ -118,7 +118,7 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.7.0 // indirect
-	github.com/tkrajina/go-reflector v0.5.6 // indirect
+	github.com/tkrajina/go-reflector v0.5.8 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.44.0 // indirect
