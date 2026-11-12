@@ -45,7 +45,7 @@ func BenchmarkSetWithTTL(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cache.SetWithTTL(ctx, fmt.Sprintf("key-%d", i), "value", time.Hour)
+		_ = cache.SetWithTTL(ctx, fmt.Sprintf("key-%d", i), "value", time.Hour)
 	}
 }
 
@@ -59,7 +59,7 @@ func BenchmarkSetWithTTLThenGet(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		key := fmt.Sprintf("key-%d", i)
-		cache.SetWithTTL(ctx, key, "value", time.Hour)
+		_ = cache.SetWithTTL(ctx, key, "value", time.Hour)
 		// Immediately get to verify visibility
 		cache.Get(ctx, key)
 	}

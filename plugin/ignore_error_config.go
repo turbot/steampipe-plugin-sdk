@@ -68,10 +68,10 @@ type IgnoreConfig struct {
 func (c *IgnoreConfig) String() string {
 	var s strings.Builder
 	if c.ShouldIgnoreError != nil {
-		s.WriteString(fmt.Sprintf("ShouldIgnoreError: %s\n", helpers.GetFunctionName(c.ShouldIgnoreError)))
+		fmt.Fprintf(&s, "ShouldIgnoreError: %s\n", helpers.GetFunctionName(c.ShouldIgnoreError))
 	}
 	if c.ShouldIgnoreErrorFunc != nil {
-		s.WriteString(fmt.Sprintf("ShouldIgnoreErrorFunc: %s\n", helpers.GetFunctionName(c.ShouldIgnoreErrorFunc)))
+		fmt.Fprintf(&s, "ShouldIgnoreErrorFunc: %s\n", helpers.GetFunctionName(c.ShouldIgnoreErrorFunc))
 	}
 	return s.String()
 }

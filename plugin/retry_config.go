@@ -55,7 +55,7 @@ Retry errors that may occur in many HydrateFuncs:
 */
 type RetryConfig struct {
 	ShouldRetryErrorFunc ErrorPredicateWithContext
-	// deprecated use ShouldRetryErrorFunc
+	// Deprecated: use ShouldRetryErrorFunc
 	ShouldRetryError ErrorPredicate
 
 	// Maximum number of retry operation to be performed. Default set to 10.

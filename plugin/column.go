@@ -3,11 +3,11 @@ package plugin
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/turbot/go-kit/helpers"
 	"github.com/turbot/go-kit/types"
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"log"
 	"net"
 )
@@ -187,14 +187,12 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 	switch c.Type {
 	case proto.ColumnType_STRING:
 		columnValue = &proto.Column{Value: &proto.Column_StringValue{StringValue: types.ToString(val)}}
-		break
 	case proto.ColumnType_BOOL:
 		b, err := types.ToBool(val)
 		if err != nil {
 			return nil, fmt.Errorf("interfaceToColumnValue failed for column '%s': %v", c.Name, err)
 		}
 		columnValue = &proto.Column{Value: &proto.Column_BoolValue{BoolValue: b}}
-		break
 	case proto.ColumnType_INT:
 		i, err := types.ToInt64(val)
 		if err != nil {
@@ -202,14 +200,12 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 		}
 
 		columnValue = &proto.Column{Value: &proto.Column_IntValue{IntValue: i}}
-		break
 	case proto.ColumnType_DOUBLE:
 		d, err := types.ToFloat64(val)
 		if err != nil {
 			return nil, fmt.Errorf("interfaceToColumnValue failed for column '%s': %v", c.Name, err)
 		}
 		columnValue = &proto.Column{Value: &proto.Column_DoubleValue{DoubleValue: d}}
-		break
 	case proto.ColumnType_JSON:
 		strValue, ok := val.(string)
 		if ok {
@@ -226,19 +222,18 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 			}
 			columnValue = &proto.Column{Value: &proto.Column_JsonValue{JsonValue: res}}
 		}
-	case proto.ColumnType_DATETIME, proto.ColumnType_TIMESTAMP:
+	case proto.ColumnType_DATETIME, proto.ColumnType_TIMESTAMP: //nolint:staticcheck // ColumnType_DATETIME is deprecated but still a valid wire value plugins may set; handled the same as TIMESTAMP for backward compatibility; see #970
 		// cast val to time
 		var timeVal, err = types.ToTime(val)
 		if err != nil {
 			return nil, fmt.Errorf("interfaceToColumnValue failed for column '%s': %v", c.Name, err)
 		}
 		// now convert time to protobuf timestamp
-		timestamp, err := ptypes.TimestampProto(timeVal)
-		if err != nil {
+		timestamp := timestamppb.New(timeVal)
+		if err := timestamp.CheckValid(); err != nil {
 			return nil, fmt.Errorf("interfaceToColumnValue failed for column '%s': %v", c.Name, err)
 		}
 		columnValue = &proto.Column{Value: &proto.Column_TimestampValue{TimestampValue: timestamp}}
-		break
 	case proto.ColumnType_IPADDR:
 		ipString := types.SafeString(val)
 		// treat an empty string as a null ip address
@@ -250,7 +245,6 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 			}
 			columnValue = &proto.Column{Value: &proto.Column_IpAddrValue{IpAddrValue: ipString}}
 		}
-		break
 	case proto.ColumnType_CIDR:
 		cidrRangeString := types.SafeString(val)
 		// treat an empty string as a null ip address
@@ -262,7 +256,6 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 			}
 			columnValue = &proto.Column{Value: &proto.Column_CidrRangeValue{CidrRangeValue: cidrRangeString}}
 		}
-		break
 	case proto.ColumnType_INET:
 		inetString := types.SafeString(val)
 		// treat an empty string as a null ip address
@@ -278,7 +271,6 @@ func (c *Column) ToColumnValue(val any) (*proto.Column, error) {
 		}
 	case proto.ColumnType_LTREE:
 		columnValue = &proto.Column{Value: &proto.Column_LtreeValue{LtreeValue: types.ToString(val)}}
-		break
 
 	default:
 		return nil, fmt.Errorf("unrecognised columnValue type '%s'", c.Type)

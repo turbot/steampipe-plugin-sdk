@@ -31,7 +31,7 @@ func getMaxConcurrentConnections() int {
 	if maxConcurrentConnections == 0 {
 		maxConcurrentConnections = defaultMaxConcurrentConnections
 	}
-	log.Printf("[INFO] Setting max concurrent connections to %d", maxConcurrentConnections)
+	log.Printf("[INFO] Setting max concurrent connections to %d", maxConcurrentConnections) //nolint:gosec // value is a parsed int, not attacker-controlled text; local env var set by the operator running the plugin
 	return maxConcurrentConnections
 }
 

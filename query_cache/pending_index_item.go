@@ -51,14 +51,10 @@ func (b *pendingIndexBucket) GetItemsSatisfiedByRequest(req *CacheRequest, keyCo
 	return satisfyingItems
 }
 
-func (b *pendingIndexBucket) delete(pendingItem *pendingIndexItem) {
-	delete(b.Items, pendingItem.item.Key)
-}
-
 func (b *pendingIndexBucket) String() any {
 	var sb strings.Builder
 	for itemKey, item := range b.Items {
-		sb.WriteString(fmt.Sprintf("item: %p, key:%s\n", item, itemKey))
+		fmt.Fprintf(&sb, "item: %p, key:%s\n", item, itemKey)
 	}
 	return sb.String()
 }
@@ -67,7 +63,6 @@ func (b *pendingIndexBucket) String() any {
 // note - this index item it tied to a specific table and set of quals
 type pendingIndexItem struct {
 	item              *IndexItem
-	err               error
 	callId            string
 	pendingSetRequest *setRequest
 }

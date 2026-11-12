@@ -19,14 +19,6 @@ func (t *Table) getColumn(columnName string) *Column {
 	return nil
 }
 
-// get the type of the column the given name
-func (t *Table) getColumnType(columnName string) proto.ColumnType {
-	if column := t.getColumn(columnName); column != nil {
-		return column.Type
-	}
-	return proto.ColumnType_UNKNOWN
-}
-
 // take the raw value returned by the get/list/hydrate call, apply transforms and convert to protobuf value
 func (t *Table) getColumnValue(ctx context.Context, rowData *rowData, column *QueryColumn) (*proto.Column, error) {
 	hydrateItem, err := rowData.GetColumnData(column)

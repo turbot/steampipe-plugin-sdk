@@ -81,7 +81,9 @@ func (c *ConnectionCache) Delete(ctx context.Context, key string) {
 	// build a key which includes the connection name
 	key = c.buildCacheKey(key)
 
-	c.cache.Delete(ctx, key)
+	if err := c.cache.Delete(ctx, key); err != nil {
+		log.Printf("[WARN] ConnectionCache.Delete failed for key '%s': %v", key, err)
+	}
 }
 
 // Clear deletes all cache items for this connection

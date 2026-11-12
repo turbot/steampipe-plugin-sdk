@@ -1,8 +1,6 @@
 package plugin
 
 import (
-	"fmt"
-
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/schema"
 
 	"reflect"
@@ -207,7 +205,6 @@ func TestValidateConnectionConfig(t *testing.T) {
 		validationErrors := test.schema.Validate()
 
 		if !reflect.DeepEqual(validationErrors, test.expected) {
-			fmt.Printf("")
 			t.Errorf(`Test: '%s' FAILED : expected %v, got %v`, name, test.expected, validationErrors)
 		}
 	}
