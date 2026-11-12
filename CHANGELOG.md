@@ -1,3 +1,7 @@
+## v6.2.1 [2026-11-12]
+_Dependencies_
+- Upgrade `turbot/go-kit` to v1.3.1, which lowers plugin memory use by compiling the `IsFieldArray` regular expression once instead of on every call. ([#985](https://github.com/turbot/steampipe-plugin-sdk/pull/985))
+
 ## v6.2.0 [2026-11-11]
 _What's new?_
 - Administrative plugin RPCs (`GetSchema`, `SetConnectionConfig`, `SetAllConnectionConfigs`, `UpdateConnectionConfigs`, `GetSupportedOperations`, cache options and rate limiter calls) now have a deadline of 5 minutes, so a plugin that stops answering returns an error instead of blocking its caller forever. Set `STEAMPIPE_ADMIN_RPC_TIMEOUT` (a Go duration such as `90s` or `10m`) to change it. ([#957](https://github.com/turbot/steampipe-plugin-sdk/pull/957))
