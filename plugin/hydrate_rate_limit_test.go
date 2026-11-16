@@ -237,6 +237,53 @@ func sendThreeRequestsAtOnce(ctx context.Context, _ *plugin.QueryData, h *plugin
 	return h.Item.(rlWidget).ID, nil
 }
 
+// firstOfThreeRequestsAtOnce sends three requests from three goroutines, and returns how many
+// milliseconds the first of them waited.
+func firstOfThreeRequestsAtOnce(ctx context.Context, _ *plugin.QueryData, _ *plugin.HydrateData) (any, error) {
+	start := time.Now()
+	waited := make(chan time.Duration, 3)
+	for i := 0; i < 3; i++ {
+		go func() {
+			plugin.WaitForHydrateRateLimit(ctx)
+			waited <- time.Since(start)
+		}()
+	}
+	first := <-waited
+	<-waited
+	<-waited
+	return int(first.Milliseconds()), nil
+}
+
+// sendAfterACancelledWait gives up its first wait after 50 ms, then waits again and sends its request.
+func sendAfterACancelledWait(ctx context.Context, _ *plugin.QueryData, h *plugin.HydrateData) (any, error) {
+	short, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+	plugin.WaitForHydrateRateLimit(short)
+	cancel()
+	plugin.WaitForHydrateRateLimit(ctx)
+	return h.Item.(rlWidget).ID, nil
+}
+
+// waitWithCancelledContext waits with a ctx that is already cancelled, so it sends no request.
+func waitWithCancelledContext(ctx context.Context, _ *plugin.QueryData, h *plugin.HydrateData) (any, error) {
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	plugin.WaitForHydrateRateLimit(cancelled)
+	return h.Item.(rlWidget).ID, nil
+}
+
+// workWithoutRequest takes 100 ms and sends no request.
+func workWithoutRequest(_ context.Context, _ *plugin.QueryData, h *plugin.HydrateData) (any, error) {
+	time.Sleep(100 * time.Millisecond)
+	return h.Item.(rlWidget).ID, nil
+}
+
+// sendOneSlowRequest sends a request that takes 100 ms.
+func sendOneSlowRequest(ctx context.Context, _ *plugin.QueryData, h *plugin.HydrateData) (any, error) {
+	plugin.WaitForHydrateRateLimit(ctx)
+	time.Sleep(100 * time.Millisecond)
+	return h.Item.(rlWidget).ID, nil
+}
+
 // sendRequestForRowZero needs one token for the whole query: only the row with ID 0 sends a request.
 func sendRequestForRowZero(ctx context.Context, _ *plugin.QueryData, h *plugin.HydrateData) (any, error) {
 	id := h.Item.(rlWidget).ID
@@ -380,6 +427,71 @@ func TestClientWaits_KeepsMaxConcurrency(t *testing.T) {
 	}
 }
 
+func TestClientWaits_RequestsAtOnceWaitForTheToken(t *testing.T) {
+	// 5 tokens a second and a bucket of 1: the second row's token comes after 200 ms,
+	// and none of its three requests may go before it
+	f := rlFixture{
+		rows:        2,
+		clientWaits: true,
+		limiter:     &rate_limiter.Definition{Name: rlLimiter, FillRate: 5, BucketSize: 1, Scope: []string{"connection"}, Where: "service = 'widget'"},
+		columns:     map[string]plugin.HydrateConfig{"value": {Func: firstOfThreeRequestsAtOnce, Tags: widgetTags}},
+	}
+	rows, finished := newRlServer(t, f).query(t, []string{"id", "value"}, rlFinishTimeout)
+	if !finished || len(rows) != 2 {
+		t.Fatalf("finished %v, %d rows, want 2", finished, len(rows))
+	}
+	var slowest int64
+	for _, row := range rows {
+		slowest = max(slowest, row.Columns["value"].GetIntValue())
+	}
+	if slowest < 150 {
+		t.Fatalf("a request went after %d ms, before its call had its token (about 200 ms)", slowest)
+	}
+}
+
+func TestClientWaits_CancelledWaitTakesNoToken(t *testing.T) {
+	// each row waits once with a 50 ms deadline, then again. With one token, one row gets it at once
+	// and the other row's first wait gives up: its second wait must still need a token of its own.
+	assertTokens(t, oneColumn(2, true, plugin.HydrateConfig{Func: sendAfterACancelledWait, Tags: widgetTags}), []string{"id", "value"}, 2)
+
+	// 2 tokens a second and a bucket of 1: one row takes the first token at once. The other row's
+	// first wait gives up after 50 ms, with no other wait queued behind it, so the limiter gets
+	// its token back. The row's second wait then gets the token due at 500 ms, not the one at 1 s.
+	f := rlFixture{
+		rows:        2,
+		clientWaits: true,
+		limiter:     &rate_limiter.Definition{Name: rlLimiter, FillRate: 2, BucketSize: 1, Scope: []string{"connection"}, Where: "service = 'widget'"},
+		columns:     map[string]plugin.HydrateConfig{"value": {Func: sendAfterACancelledWait, Tags: widgetTags}},
+	}
+	start := time.Now()
+	rows, finished := newRlServer(t, f).query(t, []string{"id", "value"}, rlFinishTimeout)
+	if !finished || len(rows) != 2 {
+		t.Fatalf("finished %v, %d rows, want 2", finished, len(rows))
+	}
+	if took := time.Since(start); took >= 750*time.Millisecond {
+		t.Fatalf("the query took %v, so the cancelled wait kept its token (want about 500 ms)", took)
+	}
+}
+
+func TestClientWaits_WaitWithCancelledContextTakesNoToken(t *testing.T) {
+	// one token; three rows that wait with a cancelled ctx, then a query that needs the one token
+	s := newRlServer(t, rlFixture{
+		rows:        3,
+		clientWaits: true,
+		limiter:     slowLimiter(1),
+		columns: map[string]plugin.HydrateConfig{
+			"cancelled": {Func: waitWithCancelledContext, Tags: widgetTags},
+			"probe":     {Func: sendRequestForRowZero, Tags: widgetTags},
+		},
+	})
+	if rows, finished := s.query(t, []string{"id", "cancelled"}, rlFinishTimeout); !finished || len(rows) != 3 {
+		t.Fatalf("rows that wait with a cancelled ctx waited for a token: finished %v, %d rows", finished, len(rows))
+	}
+	if _, finished := s.query(t, []string{"id", "probe"}, rlFinishTimeout); !finished {
+		t.Fatalf("a wait with a cancelled ctx took the only token")
+	}
+}
+
 func TestSDKWaits_NoRequestStillUsesAToken(t *testing.T) {
 	// without the setting, the SDK waits before each hydrate call runs, as before
 	assertTokens(t, oneColumn(3, false, plugin.HydrateConfig{Func: returnEarly, Tags: widgetTags}), []string{"id", "value"}, 3)
@@ -428,8 +540,8 @@ func hydrateDelays(t *testing.T, rows []*proto.Row) []int64 {
 func TestRateLimitDelayShowsInDiagnostics(t *testing.T) {
 	t.Setenv(plugin.EnvDiagnosticsLevel, plugin.DiagnosticsAll)
 
-	// 20 tokens a second and a bucket of 1: of three rows that send a request, two wait 40 ms or more
-	fastLimiter := &rate_limiter.Definition{Name: rlLimiter, FillRate: 20, BucketSize: 1, Scope: []string{"connection"}, Where: "service = 'widget'"}
+	// 10 tokens a second and a bucket of 1: of three rows that send a request, two wait 50 ms or more
+	fastLimiter := &rate_limiter.Definition{Name: rlLimiter, FillRate: 10, BucketSize: 1, Scope: []string{"connection"}, Where: "service = 'widget'"}
 	for _, clientWaits := range []bool{true, false} {
 		f := rlFixture{rows: 3, clientWaits: clientWaits, limiter: fastLimiter, columns: map[string]plugin.HydrateConfig{"value": {Func: sendOneRequest, Tags: widgetTags}}}
 		rows, finished := newRlServer(t, f).query(t, []string{"id", "value"}, rlFinishTimeout)
@@ -438,12 +550,35 @@ func TestRateLimitDelayShowsInDiagnostics(t *testing.T) {
 		}
 		var waited int
 		for _, d := range hydrateDelays(t, rows) {
-			if d >= 40 {
+			if d >= 50 {
 				waited++
 			}
 		}
 		if waited < 2 {
-			t.Fatalf("client waits %v: %d rows show a rate limiter delay of 40 ms or more, want 2", clientWaits, waited)
+			t.Fatalf("client waits %v: %d rows show a rate limiter delay of 50 ms or more, want 2", clientWaits, waited)
+		}
+	}
+
+	// one call at a time, each taking 100 ms: the rows that wait for the slot show that wait as their delay,
+	// also when the call sends no request
+	oneAtATime := &rate_limiter.Definition{Name: rlLimiter, MaxConcurrency: 1, Scope: []string{"connection"}, Where: "service = 'widget'"}
+	for _, c := range []struct {
+		clientWaits bool
+		hydrate     plugin.HydrateFunc
+	}{{true, sendOneSlowRequest}, {false, sendOneSlowRequest}, {true, workWithoutRequest}} {
+		f := rlFixture{rows: 3, clientWaits: c.clientWaits, limiter: oneAtATime, columns: map[string]plugin.HydrateConfig{"value": {Func: c.hydrate, Tags: widgetTags}}}
+		rows, finished := newRlServer(t, f).query(t, []string{"id", "value"}, rlFinishTimeout)
+		if !finished {
+			t.Fatalf("client waits %v: query did not finish", c.clientWaits)
+		}
+		var waited int
+		for _, d := range hydrateDelays(t, rows) {
+			if d >= 50 {
+				waited++
+			}
+		}
+		if waited < 2 {
+			t.Fatalf("client waits %v: %d rows show a concurrency delay of 50 ms or more, want 2", c.clientWaits, waited)
 		}
 	}
 

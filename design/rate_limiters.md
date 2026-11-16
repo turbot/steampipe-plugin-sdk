@@ -145,7 +145,10 @@ With the AWS SDK for Go v2, one middleware on the shared `aws.Config` does this 
 
 - A hydrate call still takes one token, as before. The first wait takes it. A wait made while the first one runs returns when it ends, and a later wait in the same call, retries included, returns at once.
 - A hydrate call that sends no request takes no token, and does not wait.
+- A wait whose `ctx` is already cancelled returns at once and takes no token.
+- A wait whose `ctx` is cancelled while it waits does not count as the call's token, so the next wait in the same call waits again. The limiter gets the token back only when no other wait is queued behind it.
 - Every request must carry the `ctx` the SDK passed to the hydrate function. A request sent with another context, such as `context.Background()`, is not rate limited.
+- Send every request before the hydrate function returns. A wait after that is a data race on the row's diagnostics.
 - List and get calls do not change. The SDK still waits before it calls them, and `WaitForListRateLimit` still applies to list pages.
 
 ## Scenarios
