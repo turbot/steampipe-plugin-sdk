@@ -117,6 +117,37 @@ If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, w
 	}
 ```
 
+## Hydrate Calls That Send No Request
+
+By default the SDK waits for a hydrate call's rate limiters before it runs the hydrate function. A hydrate function that returns without an API call (for example, one that skips resources the account does not own) still uses a token, and still waits for it.
+
+A plugin whose API client can call the SDK before each request can set `ClientWaitsForHydrateRateLimit`. The SDK then does not wait before it runs a hydrate function. It puts the hydrate call's rate limiters in the function's `ctx`, and the client calls `plugin.WaitForHydrateRateLimit(ctx)` before it sends each request:
+
+```go
+	p := &plugin.Plugin{
+		Name:                           "steampipe-plugin-aws",
+		RateLimiters:                   rateLimiters,
+		ClientWaitsForHydrateRateLimit: true,
+	}
+```
+
+With the AWS SDK for Go v2, one middleware on the shared `aws.Config` does this for every service client:
+
+```go
+	cfg.APIOptions = append(cfg.APIOptions, func(stack *middleware.Stack) error {
+		return stack.Initialize.Add(middleware.InitializeMiddlewareFunc("SteampipeHydrateRateLimit",
+			func(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (middleware.InitializeOutput, middleware.Metadata, error) {
+				plugin.WaitForHydrateRateLimit(ctx)
+				return next.HandleInitialize(ctx, in)
+			}), middleware.Before)
+	})
+```
+
+- A hydrate call still takes one token, as before. The first wait takes it. A wait made while the first one runs returns when it ends, and a later wait in the same call, retries included, returns at once.
+- A hydrate call that sends no request takes no token, and does not wait.
+- Every request must carry the `ctx` the SDK passed to the hydrate function. A request sent with another context, such as `context.Background()`, is not rate limited.
+- List and get calls do not change. The SDK still waits before it calls them, and `WaitForListRateLimit` still applies to list pages.
+
 ## Scenarios
 
 ### 1. Plugin defines a single unscoped rate limiter
