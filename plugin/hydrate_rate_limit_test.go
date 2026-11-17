@@ -5,11 +5,13 @@ package plugin_test
 // The hydrate functions here call plugin.WaitForHydrateRateLimit where a plugin's API client
 // would, just before it sends a request.
 //
-// The tests count rate limiter tokens without timing them. A fixture's limiter starts with
+// Most tests count rate limiter tokens without timing them. A fixture's limiter starts with
 // `budget` tokens and refills one token every 100 s. A query that needs no more than `budget`
 // tokens finishes at once; a query that needs one more waits 100 s, and the test sees it still
 // running after a short timeout. So "finishes with budget k" shows the query used at most k
-// tokens, and "still waiting with budget k-1" shows it used k.
+// tokens, and "still waiting with budget k-1" shows it used k. The tests of waits made at the
+// same time, of cancelled waits and of diagnostics time the waits instead, with at least 200 ms
+// between the time they expect and their cutoff, so a row that starts late does not fail them.
 //
 // Every hydrate function is a named function: the SDK names a hydrate call after the last part
 // of its Go function name, and two closures would both be named "func1".
@@ -271,16 +273,16 @@ func waitWithCancelledContext(ctx context.Context, _ *plugin.QueryData, h *plugi
 	return h.Item.(rlWidget).ID, nil
 }
 
-// workWithoutRequest takes 100 ms and sends no request.
+// workWithoutRequest takes 250 ms and sends no request.
 func workWithoutRequest(_ context.Context, _ *plugin.QueryData, h *plugin.HydrateData) (any, error) {
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 	return h.Item.(rlWidget).ID, nil
 }
 
-// sendOneSlowRequest sends a request that takes 100 ms.
+// sendOneSlowRequest sends a request that takes 250 ms.
 func sendOneSlowRequest(ctx context.Context, _ *plugin.QueryData, h *plugin.HydrateData) (any, error) {
 	plugin.WaitForHydrateRateLimit(ctx)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 	return h.Item.(rlWidget).ID, nil
 }
 
@@ -428,12 +430,12 @@ func TestClientWaits_KeepsMaxConcurrency(t *testing.T) {
 }
 
 func TestClientWaits_RequestsAtOnceWaitForTheToken(t *testing.T) {
-	// 5 tokens a second and a bucket of 1: the second row's token comes after 200 ms,
+	// 2 tokens a second and a bucket of 1: the second row's token comes after 500 ms,
 	// and none of its three requests may go before it
 	f := rlFixture{
 		rows:        2,
 		clientWaits: true,
-		limiter:     &rate_limiter.Definition{Name: rlLimiter, FillRate: 5, BucketSize: 1, Scope: []string{"connection"}, Where: "service = 'widget'"},
+		limiter:     &rate_limiter.Definition{Name: rlLimiter, FillRate: 2, BucketSize: 1, Scope: []string{"connection"}, Where: "service = 'widget'"},
 		columns:     map[string]plugin.HydrateConfig{"value": {Func: firstOfThreeRequestsAtOnce, Tags: widgetTags}},
 	}
 	rows, finished := newRlServer(t, f).query(t, []string{"id", "value"}, rlFinishTimeout)
@@ -444,8 +446,8 @@ func TestClientWaits_RequestsAtOnceWaitForTheToken(t *testing.T) {
 	for _, row := range rows {
 		slowest = max(slowest, row.Columns["value"].GetIntValue())
 	}
-	if slowest < 150 {
-		t.Fatalf("a request went after %d ms, before its call had its token (about 200 ms)", slowest)
+	if slowest < 300 {
+		t.Fatalf("a request went after %d ms, before its call had its token (about 500 ms)", slowest)
 	}
 }
 
@@ -540,8 +542,9 @@ func hydrateDelays(t *testing.T, rows []*proto.Row) []int64 {
 func TestRateLimitDelayShowsInDiagnostics(t *testing.T) {
 	t.Setenv(plugin.EnvDiagnosticsLevel, plugin.DiagnosticsAll)
 
-	// 10 tokens a second and a bucket of 1: of three rows that send a request, two wait 50 ms or more
-	fastLimiter := &rate_limiter.Definition{Name: rlLimiter, FillRate: 10, BucketSize: 1, Scope: []string{"connection"}, Where: "service = 'widget'"}
+	// 4 tokens a second and a bucket of 1: of three rows that send a request, two wait 250 ms or more,
+	// so two show 50 ms or more
+	fastLimiter := &rate_limiter.Definition{Name: rlLimiter, FillRate: 4, BucketSize: 1, Scope: []string{"connection"}, Where: "service = 'widget'"}
 	for _, clientWaits := range []bool{true, false} {
 		f := rlFixture{rows: 3, clientWaits: clientWaits, limiter: fastLimiter, columns: map[string]plugin.HydrateConfig{"value": {Func: sendOneRequest, Tags: widgetTags}}}
 		rows, finished := newRlServer(t, f).query(t, []string{"id", "value"}, rlFinishTimeout)
@@ -559,7 +562,7 @@ func TestRateLimitDelayShowsInDiagnostics(t *testing.T) {
 		}
 	}
 
-	// one call at a time, each taking 100 ms: the rows that wait for the slot show that wait as their delay,
+	// one call at a time, each taking 250 ms: the rows that wait for the slot show that wait as their delay,
 	// also when the call sends no request
 	oneAtATime := &rate_limiter.Definition{Name: rlLimiter, MaxConcurrency: 1, Scope: []string{"connection"}, Where: "service = 'widget'"}
 	for _, c := range []struct {
