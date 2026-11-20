@@ -83,6 +83,12 @@ type Plugin struct {
 	// rate limiter definitions - these are (optionally) defined by the plugin author
 	// and do NOT include any config overrides
 	RateLimiters []*rate_limiter.Definition
+	// ClientWaitsForHydrateRateLimit says that the plugin's API client calls [WaitForHydrateRateLimit]
+	// before each request it sends. The SDK then does not wait for a hydrate call's rate limiters
+	// before it runs the hydrate function: the call's token is taken when it sends its first request,
+	// so a hydrate call that sends no request uses no token. A request that does not carry the ctx
+	// the SDK passed to the hydrate function is not rate limited. List and get calls are not affected.
+	ClientWaitsForHydrateRateLimit bool
 
 	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
 	DefaultGetConfig *GetConfig

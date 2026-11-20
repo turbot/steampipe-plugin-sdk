@@ -91,9 +91,25 @@ func (h *hydrateCall) canStart(rowData *rowData) bool {
 	return canStart
 }
 
-// Start starts a hydrate call
-func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.Duration {
-	rateLimitDelay := h.rateLimit(ctx, d)
+// Start starts a hydrate call, and returns its metadata
+func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) *hydrateMetadata {
+	metadata := &hydrateMetadata{
+		Type:         "hydrate",
+		FuncName:     h.Name,
+		ScopeValues:  h.rateLimiter.ScopeValues,
+		RateLimiters: h.rateLimiter.LimiterNames(),
+	}
+	concurrencyDelay := r.getHydrateConcurrencyDelay(h.Name)
+
+	if d.plugin.ClientWaitsForHydrateRateLimit {
+		// the plugin's API client waits for the rate limiters, through the function's context,
+		// and the waiter records the wait in the metadata
+		metadata.DelayMs = concurrencyDelay.Milliseconds()
+		ctx = contextWithHydrateRateLimitWaiter(ctx, newHydrateRateLimitWaiter(h.rateLimiter, metadata, concurrencyDelay))
+	} else {
+		rateLimitDelay := h.rateLimit(ctx, d)
+		metadata.DelayMs = (rateLimitDelay + concurrencyDelay).Milliseconds()
+	}
 
 	// tell the rowData to wait for this call to complete
 	r.wg.Add(1)
@@ -105,9 +121,7 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) time.
 		r.callHydrate(ctx, d, h.namedHydrateFunc, h.Config)
 		h.onFinished()
 	}()
-	// retrieve the concurrencyDelay for the call
-	concurrencyDelay := r.getHydrateConcurrencyDelay(h.Name)
-	return rateLimitDelay + concurrencyDelay
+	return metadata
 }
 
 func (h *hydrateCall) rateLimit(ctx context.Context, d *QueryData) time.Duration {
