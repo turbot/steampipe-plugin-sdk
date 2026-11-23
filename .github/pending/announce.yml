@@ -1,6 +1,6 @@
-# Announces a release once its tag is made: the "Live in" comment on each issue the release closes, and
-# the close of the prep job it shipped. It posts no #releases line: a product with a changelog page has none, so there is no
-# `slack-token`. The release App's tag starts it; run it again by hand with the tag.
+# Announces a release once its tag is made: the "Live in" comment on each issue the release closes, the close of the prep job it
+# shipped, and the #releases line. The SDK has no changelog page, so it has the #releases line, which needs the `slack-token`
+# secret. The release App's tag starts it; run it again by hand with the tag.
 name: Announce
 
 on:
@@ -26,3 +26,5 @@ jobs:
       tag: ${{ inputs.tag || github.ref_name }}
       # The fleet's release-PR hook opens the release PR as the fleet App, as the ship caller's `automation-logins` says.
       automation-logins: turbot-agent-fleet[bot]
+    secrets:
+      slack-token: ${{ secrets.SHIPYARD_SLACK_BOT_TOKEN }}
