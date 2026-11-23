@@ -3,6 +3,9 @@ _Bug fixes_
 - Fix a failed hydrate call being dropped and its row returned with missing column values: when the error and the end of the row's hydrate calls were both ready, the wait could take the end and never read the error. ([#1018](https://github.com/turbot/steampipe-plugin-sdk/issues/1018))
 - Fix a query whose list call fails ending with no error and no rows: when the error and the end of the row data were both ready, `streamRows` could take the end of the row data and never read the error. The same could happen when a child list call panicked, because the call counted as finished before its error was sent. ([#1002](https://github.com/turbot/steampipe-plugin-sdk/issues/1002))
 
+_Dependencies_
+- Remove the `olekukonko/tablewriter` dependency, so plugins and the programs that use the SDK can use any tablewriter version, including v1. The `STEAMPIPE_PROFILE` timing table is now written with the Go standard library and looks the same as before. ([#1022](https://github.com/turbot/steampipe-plugin-sdk/pull/1022))
+
 ## v6.2.1 [2026-11-12]
 _Dependencies_
 - Upgrade `turbot/go-kit` to v1.3.1, which lowers plugin memory use by compiling the `IsFieldArray` regular expression once instead of on every call. ([#985](https://github.com/turbot/steampipe-plugin-sdk/pull/985))
