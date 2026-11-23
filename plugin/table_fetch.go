@@ -496,7 +496,7 @@ func (t *Table) doList(ctx context.Context, queryData *QueryData, listCall named
 	// OK we know there is no matrix, initialise the rate limiters for this query data
 	queryData.initialiseRateLimiters()
 	// now wait for any configured 'list' rate limiters
-	fetchDelay := queryData.fetchLimiters.wait(ctx)
+	fetchDelay := queryData.fetchLimiters.waitForListCall(ctx)
 	// set the metadata
 	queryData.setListMetadata(fetchDelay)
 
@@ -547,7 +547,7 @@ func (t *Table) listForEachMatrixItem(ctx context.Context, queryData *QueryData,
 			// now we have set the matrix item, initialise the rate limiters for this query data
 			matrixQueryData.initialiseRateLimiters()
 			// now wait for any configured 'list' rate limiters
-			fetchDelay := matrixQueryData.fetchLimiters.wait(ctx)
+			fetchDelay := matrixQueryData.fetchLimiters.waitForListCall(ctx)
 			// set the metadata
 			matrixQueryData.setListMetadata(fetchDelay)
 

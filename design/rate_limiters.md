@@ -92,7 +92,9 @@ Scope values are populated from 3 sources:
 
 ## Paged List Calls
 
-If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, which can be called before paging to apply rate limiting to the list call:
+If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, which can be called before each page to apply rate limiting to the list call. The SDK has already waited for the list call's rate limiters before it calls the list function, which pays for the first page, so the first call to `WaitForListRateLimit` returns at once and each later call waits for one token. If the list function has already streamed items before its first call (it got its first page with no wait and waits only before each later page), that call is for a later page and waits too. A list call therefore uses one token per page, and a list function that never calls the hook uses one token. The same holds for each child list call of a parent-child list.
+
+The SDK tells those two kinds of list function apart only by the items they stream. A list function that waits only before its later pages, and streams no item from its first page (an empty page that still has a next page, or a page whose items it all filters out), gets its second page with no token of its own. Call `WaitForListRateLimit` before every page, the first one included, as below, and every page is counted:
 
 ```go
 	// List call
