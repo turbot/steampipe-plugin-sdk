@@ -158,6 +158,14 @@ func (r *rowData) waitForCompletionOrError() error {
 		log.Printf("[WARN] hydrate error chan select: %s (%s)", r.queryData.connectionCallId, err)
 		return err
 	case <-r.waitChan:
+		// select picks at random when both are ready, so a failed call may have put its error on errorChan
+		// just before the wait chan closed. Look once, without waiting, before reporting a clean finish
+		select {
+		case err := <-r.errorChan:
+			log.Printf("[WARN] hydrate error chan found after the wait chan closed: %s (%s)", r.queryData.connectionCallId, err)
+			return err
+		default:
+		}
 		return nil
 	}
 }

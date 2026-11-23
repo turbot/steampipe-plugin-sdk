@@ -1,3 +1,7 @@
+## v6.2.2 [tbd]
+_Bug fixes_
+- Fix a failed hydrate call being dropped and its row returned with missing column values: when the error and the end of the row's hydrate calls were both ready, the wait could take the end and never read the error. ([#1018](https://github.com/turbot/steampipe-plugin-sdk/issues/1018))
+
 ## v6.2.1 [2026-11-12]
 _Dependencies_
 - Upgrade `turbot/go-kit` to v1.3.1, which lowers plugin memory use by compiling the `IsFieldArray` regular expression once instead of on every call. ([#985](https://github.com/turbot/steampipe-plugin-sdk/pull/985))
