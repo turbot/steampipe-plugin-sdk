@@ -92,7 +92,7 @@ Scope values are populated from 3 sources:
 
 ## Paged List Calls
 
-If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, which can be called before paging to apply rate limiting to the list call:
+If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, which can be called before each page to apply rate limiting to the list call. The SDK has already waited for the list call's rate limiters before it calls the list function, which pays for the first page, so the first call to `WaitForListRateLimit` returns at once and each later call waits for one token. A list call therefore uses one token per page, and a list function that never calls the hook uses one token:
 
 ```go
 	// List call
