@@ -4,9 +4,39 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// parsePluginPackage parses every .go file in this directory (with comments) and returns the files
+// of package plugin. It does what the deprecated parser.ParseDir did for this one package.
+func parsePluginPackage(t *testing.T) []*ast.File {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fset := token.NewFileSet()
+	var files []*ast.File
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".go" {
+			continue
+		}
+		f, err := parser.ParseFile(fset, e.Name(), nil, parser.ParseComments)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Name.Name == "plugin" {
+			files = append(files, f)
+		}
+	}
+	if len(files) == 0 {
+		t.Fatal("package plugin not found")
+	}
+	return files
+}
 
 // hasDeprecatedParagraph reports whether a doc comment has a paragraph starting "Deprecated: ".
 // This is the form Go tools (staticcheck SA1019, gopls, pkgsite) read as a deprecation.
@@ -49,15 +79,7 @@ func TestHasDeprecatedParagraph(t *testing.T) {
 
 // the four concurrency settings the SDK does not read must be marked as deprecated, and point at the rate limiter
 func TestConcurrencySettingsAreDeprecated(t *testing.T) {
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, ".", nil, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkg := pkgs["plugin"]
-	if pkg == nil {
-		t.Fatal("package plugin not found")
-	}
+	files := parsePluginPackage(t)
 
 	type item struct{ typeName, field string }
 	wantFields := []item{
@@ -79,7 +101,7 @@ func TestConcurrencySettingsAreDeprecated(t *testing.T) {
 		}
 	}
 
-	for _, file := range pkg.Files {
+	for _, file := range files {
 		if strings.HasSuffix(file.Name.Name, "_test") {
 			continue
 		}
@@ -130,13 +152,8 @@ func TestConcurrencySettingsAreDeprecated(t *testing.T) {
 
 // the docs of HydrateConfig, GetConfig and Plugin must not tell an author to set a setting that does nothing
 func TestDocsDoNotAdviseConcurrencySettings(t *testing.T) {
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, ".", nil, parser.ParseComments)
-	if err != nil {
-		t.Fatal(err)
-	}
 	seen := 0
-	for _, file := range pkgs["plugin"].Files {
+	for _, file := range parsePluginPackage(t) {
 		for _, decl := range file.Decls {
 			gd, ok := decl.(*ast.GenDecl)
 			if !ok || gd.Doc == nil {
