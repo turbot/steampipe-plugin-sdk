@@ -15,9 +15,9 @@ type fetchCallRateLimiters struct {
 	// rate limiters for the child list call - populated if this is a list call and the list has a parent hydrate
 	childListRateLimiter *rate_limiter.MultiLimiter
 
-	// set once the SDK has waited for rateLimiter before calling the list hydrate function.
-	// That wait pays for the list call's first page, so the first WaitForListRateLimit call
-	// from the list function does not wait again (see waitForListCall and waitForListPage)
+	// set once the SDK has waited before calling the list hydrate function (waitForListCall), or before
+	// calling a child list function (forChildListCall). That wait pays for the call's first page,
+	// so the first WaitForListRateLimit call from the list function does not wait again (see waitForListPage)
 	listCallPaid atomic.Bool
 }
 
@@ -48,7 +48,7 @@ func (l *fetchCallRateLimiters) waitForListCall(ctx context.Context) time.Durati
 }
 
 // waitForListPage is called by the list hydrate function (via QueryData.WaitForListRateLimit) before each page.
-// The first call is already paid for by waitForListCall, so it returns at once. Every later call waits.
+// The first call is already paid for by waitForListCall (or forChildListCall), so it returns at once. Every later call waits.
 // (If the list hydrate function is retried, the retry's first call waits, as the first attempt has used the token.)
 func (l *fetchCallRateLimiters) waitForListPage(ctx context.Context) time.Duration {
 	if l.listCallPaid.CompareAndSwap(true, false) {
