@@ -606,6 +606,8 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 		// create a copy of query data with the stream function set to streamLeafListItem
 		childQueryData := d.shallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
+		// the child list rate limiter wait above paid for the child's first page
+		childQueryData.fetchLimiters = d.fetchLimiters.forChildListCall()
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
 		childQueryData.parentItem = parentItem
 		// now call the child list

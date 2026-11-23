@@ -160,3 +160,59 @@ func TestWaitForListPage(t *testing.T) {
 		t.Errorf("the SDK's wait and three pages: expected 3 tokens used, got %d", got)
 	}
 }
+
+// A parent-child list: the SDK waits once for the parent list call and once before each child list call.
+// Each of those waits pays for the first page of the call it comes before, whether or not the parent
+// list function waits, so a child that waits before its page uses no token beyond the SDK's.
+func TestParentChildListCallTokens(t *testing.T) {
+	const children = 3
+	for _, parentWaits := range []bool{true, false} {
+		name := "parent never waits"
+		if parentWaits {
+			name = "parent waits before its page"
+		}
+		t.Run(name, func(t *testing.T) {
+			p := newListRateLimitTestPlugin(t)
+			table := &Table{Name: "t", Plugin: p}
+			table.List = &ListConfig{
+				ParentHydrate: func(ctx context.Context, d *QueryData, _ *HydrateData) (interface{}, error) {
+					if parentWaits {
+						d.WaitForListRateLimit(ctx)
+					}
+					for i := 0; i < children; i++ {
+						d.StreamListItem(ctx, i)
+					}
+					return nil, nil
+				},
+				Hydrate: func(ctx context.Context, d *QueryData, _ *HydrateData) (interface{}, error) {
+					d.WaitForListRateLimit(ctx)
+					return nil, nil
+				},
+			}
+			table.List.initialise(table)
+
+			d := newListRateLimitTestQueryData(p, table)
+			d.setListCalls(table.List.namedParentHydrate, table.List.namedHydrate)
+			d.StreamListItem = d.streamListItem
+
+			table.doList(context.Background(), d, table.List.namedParentHydrate)
+			d.listWg.Wait()
+
+			// one token for the parent list call and one for each child list call
+			want := 1 + children
+			limiter, err := p.getHydrateCallRateLimiter(nil, d)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			left := 0
+			for left < listTestBucketSize+1 && limiter.Wait(ctx) == 0 {
+				left++
+			}
+			if got := listTestBucketSize - left; got != want {
+				t.Fatalf("expected %d tokens (the parent call and %d child calls), used %d", want, children, got)
+			}
+		})
+	}
+}

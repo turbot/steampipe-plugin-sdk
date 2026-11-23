@@ -56,3 +56,16 @@ func (l *fetchCallRateLimiters) waitForListPage(ctx context.Context) time.Durati
 	}
 	return l.wait(ctx)
 }
+
+// forChildListCall returns the rate limiters for one child list call of a parent-child list.
+// The SDK has waited for the child list rate limiter before the child list function is called, which pays for
+// the child's first page, so the first WaitForListRateLimit call from the child does not wait again.
+// Each child call has its own copy, so one child's first page never uses up the free page of another call
+func (l *fetchCallRateLimiters) forChildListCall() *fetchCallRateLimiters {
+	res := &fetchCallRateLimiters{
+		rateLimiter:          l.rateLimiter,
+		childListRateLimiter: l.childListRateLimiter,
+	}
+	res.listCallPaid.Store(true)
+	return res
+}
