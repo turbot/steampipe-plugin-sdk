@@ -76,7 +76,7 @@ type Plugin struct {
 	ConnectionKeyColumns []ConnectionKeyColumn
 
 	// Deprecated: The SDK no longer reads DefaultConcurrency, so setting it has no effect. To limit concurrency,
-	// set MaxConcurrency on a [rate_limiter.Definition] in [Plugin.RateLimiters]. It will be removed in v7.
+	// set MaxConcurrency on a [rate_limiter.Definition] in [Plugin.RateLimiters].
 	DefaultConcurrency *DefaultConcurrencyConfig
 
 	DefaultRetryConfig  *RetryConfig
