@@ -27,7 +27,7 @@ kinds:
     checks: [build, unit]
     show: [test]
   workflows:
-    paths: [".github/**", ".gitignore"]
+    paths: [".github/**", ".gitignore", ".gitleaksignore"]
     show: [none]
   docs:
     paths: ["**/*.md", "docs/**", "design/**", ".claude/**", "LICENSE"]
