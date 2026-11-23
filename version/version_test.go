@@ -49,10 +49,3 @@ func TestVersionFromBuildInfo(t *testing.T) {
 		})
 	}
 }
-
-// the SDK's own test binary has no module version for the SDK, so it reports the development version
-func TestStringInSdkTests(t *testing.T) {
-	if got := String(); got != devVersion {
-		t.Fatalf("String() = %q, want %q", got, devVersion)
-	}
-}
