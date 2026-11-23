@@ -26,7 +26,7 @@ func newListRateLimitTestPlugin(t *testing.T) *Plugin {
 }
 
 func newListRateLimitTestQueryData(p *Plugin, table *Table) *QueryData {
-	return &QueryData{
+	d := &QueryData{
 		Table:            table,
 		plugin:           p,
 		Connection:       &Connection{Name: "c"},
@@ -37,8 +37,10 @@ func newListRateLimitTestQueryData(p *Plugin, table *Table) *QueryData {
 		errorChan:        make(chan error, 10),
 		rowDataChan:      make(chan *rowData, 10),
 		listWg:           &sync.WaitGroup{},
-		queryStatus:      &queryStatus{},
+		queryStatus:      newQueryStatus(nil),
 	}
+	d.StreamListItem = d.streamListItem
+	return d
 }
 
 // tokensLeft counts the tokens the list call's limiter still has, by taking them with an already cancelled
@@ -58,17 +60,36 @@ func tokensLeft(t *testing.T, p *Plugin, d *QueryData) int {
 	return left
 }
 
-// newListTable builds a table whose list call waits for the list rate limit before each of `pages` pages
-// (the way plugins do), or never waits when `waitPerPage` is false
-func newListTable(pages int, waitPerPage bool) *Table {
+// how a test list function waits for the list rate limit as it fetches its pages
+type pageWait int
+
+const (
+	// waits before each page, the first one included, as design/rate_limiters.md shows
+	waitBeforeEachPage pageWait = iota
+	// gets its first page with no wait and waits only before each later page, as the Azure plugin's
+	// `for result.NotDone() { d.WaitForListRateLimit(ctx); result.NextWithContext(ctx) }` loops do
+	waitBeforeLaterPages
+	// never waits
+	neverWait
+)
+
+// listPages is a list function body that fetches `pages` pages, waiting for the list rate limit as `wait` says,
+// and streams one item from each page
+func listPages(ctx context.Context, d *QueryData, pages int, wait pageWait) {
+	for i := 0; i < pages; i++ {
+		if wait == waitBeforeEachPage || (wait == waitBeforeLaterPages && i > 0) {
+			d.WaitForListRateLimit(ctx)
+		}
+		d.StreamListItem(ctx, i+1)
+	}
+}
+
+// newListTable builds a table whose list call fetches `pages` pages, waiting for the list rate limit as `wait` says
+func newListTable(pages int, wait pageWait) *Table {
 	table := &Table{Name: "t"}
 	table.List = &ListConfig{
 		Hydrate: func(ctx context.Context, d *QueryData, _ *HydrateData) (interface{}, error) {
-			for i := 0; i < pages; i++ {
-				if waitPerPage {
-					d.WaitForListRateLimit(ctx)
-				}
-			}
+			listPages(ctx, d, pages, wait)
 			return nil, nil
 		},
 	}
@@ -78,22 +99,26 @@ func newListTable(pages int, waitPerPage bool) *Table {
 
 func TestListCallTokens(t *testing.T) {
 	tests := []struct {
-		name        string
-		pages       int
-		waitPerPage bool
-		wantUsed    int
+		name     string
+		pages    int
+		wait     pageWait
+		wantUsed int
 	}{
 		// the issue: a one page list that waits before its page used two tokens
-		{"one page, waits before the page", 1, true, 1},
-		{"three pages, waits before each", 3, true, 3},
+		{"one page, waits before the page", 1, waitBeforeEachPage, 1},
+		{"three pages, waits before each", 3, waitBeforeEachPage, 3},
 		// a list function which never waits still uses the one token the SDK takes before calling it
-		{"one page, never waits", 1, false, 1},
-		{"three pages, never waits", 3, false, 1},
+		{"one page, never waits", 1, neverWait, 1},
+		{"three pages, never waits", 3, neverWait, 1},
+		// a list function whose first page comes with no wait: the SDK's token pays for that page, and each
+		// later page waits for its own token (the first wait comes after an item has streamed, so it is not free)
+		{"one page, waits only before later pages", 1, waitBeforeLaterPages, 1},
+		{"three pages, waits only before later pages", 3, waitBeforeLaterPages, 3},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			p := newListRateLimitTestPlugin(t)
-			table := newListTable(tc.pages, tc.waitPerPage)
+			table := newListTable(tc.pages, tc.wait)
 			table.Plugin = p
 			d := newListRateLimitTestQueryData(p, table)
 			d.listHydrate = table.List.namedHydrate
@@ -110,7 +135,7 @@ func TestListCallTokens(t *testing.T) {
 // each matrix item (a region, for example) is its own list call and uses one token for a one page list
 func TestListCallTokensWithMatrix(t *testing.T) {
 	p := newListRateLimitTestPlugin(t)
-	table := newListTable(1, true)
+	table := newListTable(1, waitBeforeEachPage)
 	table.Plugin = p
 	d := newListRateLimitTestQueryData(p, table)
 	d.listHydrate = table.List.namedHydrate
@@ -127,20 +152,30 @@ func TestListCallTokensWithMatrix(t *testing.T) {
 
 // A parent-child list: the SDK waits once for the parent list call and once before each child list call.
 // Each of those waits pays for the first page of the call it comes before, whether or not the parent
-// list function waits, so a child that waits before its page uses no token beyond the SDK's.
+// list function waits, so a child that waits before its first page uses no token beyond the SDK's,
+// and a child that waits only before its later pages pays one token for each of them.
 func TestParentChildListCallTokens(t *testing.T) {
 	const children = 3
-	for _, parentWaits := range []bool{true, false} {
-		name := "parent never waits"
-		if parentWaits {
-			name = "parent waits before its page"
-		}
-		t.Run(name, func(t *testing.T) {
+	tests := []struct {
+		name        string
+		parentWait  pageWait
+		childPages  int
+		childWait   pageWait
+		perChildUse int
+	}{
+		{"parent waits before its page", waitBeforeEachPage, 1, waitBeforeEachPage, 1},
+		{"parent never waits", neverWait, 1, waitBeforeEachPage, 1},
+		{"children wait before each of two pages", neverWait, 2, waitBeforeEachPage, 2},
+		{"children wait only before their second page", waitBeforeEachPage, 2, waitBeforeLaterPages, 2},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
 			p := newListRateLimitTestPlugin(t)
 			table := &Table{Name: "t", Plugin: p}
 			table.List = &ListConfig{
+				// one page holding one item per child list call
 				ParentHydrate: func(ctx context.Context, d *QueryData, _ *HydrateData) (interface{}, error) {
-					if parentWaits {
+					if tc.parentWait == waitBeforeEachPage {
 						d.WaitForListRateLimit(ctx)
 					}
 					for i := 0; i < children; i++ {
@@ -149,7 +184,7 @@ func TestParentChildListCallTokens(t *testing.T) {
 					return nil, nil
 				},
 				Hydrate: func(ctx context.Context, d *QueryData, _ *HydrateData) (interface{}, error) {
-					d.WaitForListRateLimit(ctx)
+					listPages(ctx, d, tc.childPages, tc.childWait)
 					return nil, nil
 				},
 			}
@@ -157,25 +192,14 @@ func TestParentChildListCallTokens(t *testing.T) {
 
 			d := newListRateLimitTestQueryData(p, table)
 			d.setListCalls(table.List.namedParentHydrate, table.List.namedHydrate)
-			d.StreamListItem = d.streamListItem
 
 			table.doList(context.Background(), d, table.List.namedParentHydrate)
 			d.listWg.Wait()
 
-			// one token for the parent list call and one for each child list call
-			want := 1 + children
-			limiter, err := p.getHydrateCallRateLimiter(nil, d)
-			if err != nil {
-				t.Fatal(err)
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-			cancel()
-			left := 0
-			for left < listTestBucketSize+1 && limiter.Wait(ctx) == 0 {
-				left++
-			}
-			if got := listTestBucketSize - left; got != want {
-				t.Fatalf("expected %d tokens (the parent call and %d child calls), used %d", want, children, got)
+			// one token for the parent list call and the child's pages for each child list call
+			want := 1 + children*tc.perChildUse
+			if got := listTestBucketSize - tokensLeft(t, p, d); got != want {
+				t.Fatalf("expected %d tokens (the parent call and %d child calls of %d each), used %d", want, children, tc.perChildUse, got)
 			}
 		})
 	}

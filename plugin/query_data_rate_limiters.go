@@ -12,6 +12,7 @@ import (
 // WaitForListRateLimit waits for the list call's rate limiters. Call it before each page of a paged list call.
 // The SDK has already waited before calling the list hydrate function, which pays for the first page,
 // so the first call to WaitForListRateLimit returns at once and each later call waits for one token.
+// If the list function has streamed an item before its first call, that call is for a later page and waits too.
 func (d *QueryData) WaitForListRateLimit(ctx context.Context) {
 	d.fetchLimiters.waitForListPage(ctx)
 }

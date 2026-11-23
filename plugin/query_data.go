@@ -557,6 +557,10 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 
 // stream an item returned from the list call
 func (d *QueryData) streamListItem(ctx context.Context, items ...interface{}) {
+	if len(items) > 0 {
+		// a page has been fetched, so a later WaitForListRateLimit call is for a further page
+		d.fetchLimiters.itemStreamed()
+	}
 	// loop over items
 	for _, item := range items {
 		// have we streamed enough already?
@@ -619,6 +623,10 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 }
 
 func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}) {
+	if len(items) > 0 {
+		// a page has been fetched, so a later WaitForListRateLimit call is for a further page
+		d.fetchLimiters.itemStreamed()
+	}
 	// loop over items
 	for _, item := range items {
 		// have we streamed enough already?

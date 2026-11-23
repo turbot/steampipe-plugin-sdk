@@ -17,7 +17,8 @@ type fetchCallRateLimiters struct {
 
 	// set once the SDK has waited before calling the list hydrate function (waitForListCall), or before
 	// calling a child list function (forChildListCall). That wait pays for the call's first page,
-	// so the first WaitForListRateLimit call from the list function does not wait again (see waitForListPage)
+	// so the first WaitForListRateLimit call from the list function does not wait again (see waitForListPage),
+	// unless the list function has streamed an item since (see itemStreamed)
 	listCallPaid atomic.Bool
 }
 
@@ -48,7 +49,9 @@ func (l *fetchCallRateLimiters) waitForListCall(ctx context.Context) time.Durati
 }
 
 // waitForListPage is called by the list hydrate function (via QueryData.WaitForListRateLimit) before each page.
-// The first call is already paid for by waitForListCall (or forChildListCall), so it returns at once. Every later call waits.
+// The first call is already paid for by waitForListCall (or forChildListCall), so it returns at once,
+// unless the list function has streamed an item before it: then the SDK's token paid for the page those items
+// came from, and this call is for a later page, so it waits (see itemStreamed). Every later call waits.
 // (If the list hydrate function is retried, the retry's first call waits, as the first attempt has used the token.)
 func (l *fetchCallRateLimiters) waitForListPage(ctx context.Context) time.Duration {
 	if l.listCallPaid.CompareAndSwap(true, false) {
@@ -68,4 +71,19 @@ func (l *fetchCallRateLimiters) forChildListCall() *fetchCallRateLimiters {
 	}
 	res.listCallPaid.Store(true)
 	return res
+}
+
+// itemStreamed is called each time the list function streams items. The page those items came from was paid for,
+// either by the SDK's wait before the list function (for the first page) or by a WaitForListRateLimit call,
+// so a WaitForListRateLimit call after it is for a further page and must wait.
+// This covers a list function whose first page comes with no wait and which waits only before each later page,
+// such as the Azure plugin's `for result.NotDone() { d.WaitForListRateLimit(ctx); result.NextWithContext(ctx) }` loops
+func (l *fetchCallRateLimiters) itemStreamed() {
+	if l == nil {
+		return
+	}
+	// read first, so streaming each item does not write the flag once it is clear
+	if l.listCallPaid.Load() {
+		l.listCallPaid.Store(false)
+	}
 }
