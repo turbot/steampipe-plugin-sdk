@@ -100,15 +100,16 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) *hydr
 		RateLimiters: h.rateLimiter.LimiterNames(),
 	}
 	concurrencyDelay := r.getHydrateConcurrencyDelay(h.Name)
+	metadata.DelayMs = concurrencyDelay.Milliseconds()
 
-	if d.plugin.ClientWaitsForHydrateRateLimit {
+	// by default the call waits for its rate limiters in its own goroutine (below), so the row's start loop
+	// does not wait: the row reserves the tokens of all its calls at once, and a call with no
+	// rate limiter starts straight away
+	waitsInCall := !d.plugin.ClientWaitsForHydrateRateLimit
+	if !waitsInCall {
 		// the plugin's API client waits for the rate limiters, through the function's context,
 		// and the waiter records the wait in the metadata
-		metadata.DelayMs = concurrencyDelay.Milliseconds()
 		ctx = contextWithHydrateRateLimitWaiter(ctx, newHydrateRateLimitWaiter(h.rateLimiter, metadata, concurrencyDelay))
-	} else {
-		rateLimitDelay := h.rateLimit(ctx, d)
-		metadata.DelayMs = (rateLimitDelay + concurrencyDelay).Milliseconds()
 	}
 
 	// tell the rowData to wait for this call to complete
@@ -118,6 +119,12 @@ func (h *hydrateCall) start(ctx context.Context, r *rowData, d *QueryData) *hydr
 
 	// call callHydrate async, ignoring return values
 	go func() {
+		if waitsInCall {
+			// the metadata is read only once every call of the row has finished (rowData.wg),
+			// so writing the delay here is safe
+			rateLimitDelay := h.rateLimit(ctx, d)
+			metadata.DelayMs = (rateLimitDelay + concurrencyDelay).Milliseconds()
+		}
 		r.callHydrate(ctx, d, h.namedHydrateFunc, h.Config)
 		h.onFinished()
 	}()

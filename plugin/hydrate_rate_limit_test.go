@@ -135,6 +135,14 @@ func newRlServer(t *testing.T, f rlFixture) *rlServer {
 // was still running after timeout (it is then cancelled).
 func (s *rlServer) query(t *testing.T, columns []string, timeout time.Duration) ([]*proto.Row, bool) {
 	t.Helper()
+	rows, _, finished := s.queryWithArrivals(t, columns, timeout)
+	return rows, finished
+}
+
+// queryWithArrivals is query that also returns how long after the query started each row arrived.
+func (s *rlServer) queryWithArrivals(t *testing.T, columns []string, timeout time.Duration) ([]*proto.Row, []time.Duration, bool) {
+	t.Helper()
+	started := time.Now()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -150,20 +158,23 @@ func (s *rlServer) query(t *testing.T, columns []string, timeout time.Duration) 
 	s.server.CallExecuteAsync(req, stream)
 
 	type result struct {
-		rows []*proto.Row
-		err  error
+		rows     []*proto.Row
+		arrivals []time.Duration
+		err      error
 	}
 	done := make(chan result, 1)
 	go func() {
 		var rows []*proto.Row
+		var arrivals []time.Duration
 		for {
 			item, err := stream.Recv()
 			if err != nil || item == nil {
-				done <- result{rows, err}
+				done <- result{rows, arrivals, err}
 				return
 			}
 			if item.Row != nil {
 				rows = append(rows, item.Row)
+				arrivals = append(arrivals, time.Since(started))
 			}
 		}
 	}()
@@ -173,7 +184,7 @@ func (s *rlServer) query(t *testing.T, columns []string, timeout time.Duration) 
 		if r.err != nil {
 			t.Fatalf("query failed after %d rows: %v", len(r.rows), r.err)
 		}
-		return r.rows, true
+		return r.rows, r.arrivals, true
 	case <-time.After(timeout):
 		cancel()
 		// let the cancelled query wind down before the next one starts
@@ -182,7 +193,7 @@ func (s *rlServer) query(t *testing.T, columns []string, timeout time.Duration) 
 		case <-time.After(rlFinishTimeout):
 			t.Fatalf("query did not stop after it was cancelled")
 		}
-		return nil, false
+		return nil, nil, false
 	}
 }
 
