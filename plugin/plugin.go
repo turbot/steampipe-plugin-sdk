@@ -46,7 +46,7 @@ Various default behaviours can be defined:
 
   - A default [transform] which will be applied to all columns which do not specify a transform. ([plugin.Plugin.DefaultTransform]).
 
-  - The default concurrency limits for a [HydrateFunc] ([plugin.Plugin.DefaultConcurrency]).
+  - To limit concurrency, use [plugin.Plugin.RateLimiters] with MaxConcurrency set on a [rate_limiter.Definition].
 
   - The plugin default [error_handling] behaviour.
 
@@ -75,8 +75,10 @@ type Plugin struct {
 	// See [ConnectionKeyColumn] for more details.
 	ConnectionKeyColumns []ConnectionKeyColumn
 
-	// deprecated - use RateLimiters to control concurrency
-	DefaultConcurrency  *DefaultConcurrencyConfig
+	// Deprecated: The SDK no longer reads DefaultConcurrency, so setting it has no effect. To limit concurrency,
+	// set MaxConcurrency on a [rate_limiter.Definition] in [Plugin.RateLimiters]. It will be removed in v7.
+	DefaultConcurrency *DefaultConcurrencyConfig
+
 	DefaultRetryConfig  *RetryConfig
 	DefaultIgnoreConfig *IgnoreConfig
 

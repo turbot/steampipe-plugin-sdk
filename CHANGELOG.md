@@ -1,3 +1,10 @@
+## v6.3.0 [unreleased]
+_Deprecations_
+- Deprecate `HydrateConfig.MaxConcurrency`, `GetConfig.MaxConcurrency`, `Plugin.DefaultConcurrency` and its type `DefaultConcurrencyConfig`. The SDK has not read them since rate limiters came in (v5.6.0), so setting one has no effect and gives no warning. They now carry a Go `Deprecated:` comment, so staticcheck (SA1019) warns a plugin that sets one. To limit concurrency, set `MaxConcurrency` on a `rate_limiter.Definition` in `Plugin.RateLimiters`. The four will be removed in v7. ([#1011](https://github.com/turbot/steampipe-plugin-sdk/issues/1011))
+
+_Documentation_
+- The `HydrateConfig`, `GetConfig` and `Plugin` docs no longer list these settings or show `MaxConcurrency: 50` examples; they say to limit concurrency with a rate limiter. ([#1011](https://github.com/turbot/steampipe-plugin-sdk/issues/1011))
+
 ## v6.2.2 [2026-11-23]
 _Bug fixes_
 - Fix a failed hydrate call being dropped and its row returned with missing column values: when the error and the end of the row's hydrate calls were both ready, the wait could take the end and never read the error. ([#1018](https://github.com/turbot/steampipe-plugin-sdk/issues/1018))
