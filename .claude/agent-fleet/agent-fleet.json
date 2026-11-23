@@ -1,8 +1,13 @@
 {
   "warm": "go mod download",
   "warmProbe": "go.sum",
-  "platforms": ["darwin", "linux"],
-  "tools": ["go"],
+  "platforms": [
+    "darwin",
+    "linux"
+  ],
+  "tools": [
+    "go"
+  ],
   "secrets": {},
   "chores": {
     "security-audit": {
@@ -13,7 +18,17 @@
         "query and connection caches (query_cache/, connection/)",
         "rate limiting and concurrency (rate_limiter/, plugin/hydrate*.go)",
         "logging and telemetry, including what reaches logs (logging/, telemetry/)"
-      ]
+      ],
+      "off": true
+    },
+    "secret-scan": {
+      "off": true
+    },
+    "dependencies": {
+      "off": true
+    },
+    "dependabot-cant-fix": {
+      "off": true
     }
   }
 }

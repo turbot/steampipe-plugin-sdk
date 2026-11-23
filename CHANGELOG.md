@@ -1,3 +1,13 @@
+## v6.2.2 [2026-11-23]
+_Bug fixes_
+- Fix a failed hydrate call being dropped and its row returned with missing column values: when the error and the end of the row's hydrate calls were both ready, the wait could take the end and never read the error. ([#1018](https://github.com/turbot/steampipe-plugin-sdk/issues/1018))
+- Fix a query whose list call fails ending with no error and no rows: when the error and the end of the row data were both ready, `streamRows` could take the end of the row data and never read the error. The same could happen when a child list call panicked, because the call counted as finished before its error was sent. ([#1002](https://github.com/turbot/steampipe-plugin-sdk/issues/1002))
+- Fix plugins reporting SDK version 5.14.0 since v6.0.0, in the `_ctx` column's `sdk_version` and to Steampipe. They now report the SDK version they use.
+
+_Dependencies_
+- Remove the `olekukonko/tablewriter` dependency, so plugins and the programs that use the SDK can use any tablewriter version, including v1. The `STEAMPIPE_PROFILE` timing table is now written with the Go standard library and looks the same as before. ([#1022](https://github.com/turbot/steampipe-plugin-sdk/pull/1022))
+- Upgrade `google.golang.org/grpc` to v1.84.0, `hashicorp/go-plugin` to v1.8.0, `hashicorp/go-getter` to v1.8.10, `hashicorp/go-version` to v1.9.0, `zclconf/go-cty` to v1.20.0, `eko/gocache/lib/v4` to v4.4.0, `otel/exporters/otlp/otlpmetric/otlpmetricgrpc` to v1.47.0, `golang.org/x/sync` to v0.25.0, `golang.org/x/time` to v0.16.0 and `golang.org/x/exp`. ([#964](https://github.com/turbot/steampipe-plugin-sdk/pull/964), [#1005](https://github.com/turbot/steampipe-plugin-sdk/pull/1005), [#1006](https://github.com/turbot/steampipe-plugin-sdk/pull/1006), [#1015](https://github.com/turbot/steampipe-plugin-sdk/pull/1015), [#1013](https://github.com/turbot/steampipe-plugin-sdk/pull/1013), [#1014](https://github.com/turbot/steampipe-plugin-sdk/pull/1014))
+
 ## v6.2.1 [2026-11-12]
 _Dependencies_
 - Upgrade `turbot/go-kit` to v1.3.1, which lowers plugin memory use by compiling the `IsFieldArray` regular expression once instead of on every call. ([#985](https://github.com/turbot/steampipe-plugin-sdk/pull/985))
