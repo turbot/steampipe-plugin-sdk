@@ -161,7 +161,8 @@ func TestQueryCache_ClosedQueryStreamsNoRowOnceItsGetHasReturned(t *testing.T) {
 	case <-time.After(earlyCloseWait):
 	}
 	close(resume)
-	waitFor(t, "closed query's Get", getDone)
+	// the closed query's own Get error is not what this test checks, only that it has returned
+	_ = waitFor(t, "closed query's Get", getDone)
 	select {
 	case <-streamed:
 	case <-time.After(testWait):
