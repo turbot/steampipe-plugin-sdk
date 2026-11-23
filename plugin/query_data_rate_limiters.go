@@ -19,10 +19,14 @@ func (d *QueryData) initialiseRateLimiters() {
 	d.populateRateLimitScopeValues()
 
 	// populate the rate limiters for the fetch call(s) (get/list/parent-list)
-	d.resolveFetchRateLimiters()
+	if err := d.resolveFetchRateLimiters(); err != nil {
+		log.Printf("[WARN] resolveFetchRateLimiters failed (%s): %v", d.connectionCallId, err)
+	}
 
 	// populate the rate limiters for the hydrate calls
-	d.resolveHydrateRateLimiters()
+	if err := d.resolveHydrateRateLimiters(); err != nil {
+		log.Printf("[WARN] resolveHydrateRateLimiters failed (%s): %v", d.connectionCallId, err)
+	}
 }
 
 // resolve the scope values for a given hydrate call

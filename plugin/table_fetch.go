@@ -207,7 +207,10 @@ func (t *Table) doGet(ctx context.Context, queryData *QueryData) (err error) {
 	// if there is no error and the getItem is nil, we assume the item does not exist
 	if !helpers.IsNil(rd.item) {
 		// NOTE: explicitly set the get hydrate results on rowData
-		rd.set(hydrateKey, rd.item)
+		if err := rd.set(hydrateKey, rd.item); err != nil {
+			// a duplicate hydrate key - log for visibility but do not fail the row; see #969
+			log.Printf("[WARN] %s: %v", hydrateKey, err)
+		}
 		// set the rowsStreamed to 1
 		queryData.queryStatus.rowsStreamed.Store(1)
 		// send the result down the stream

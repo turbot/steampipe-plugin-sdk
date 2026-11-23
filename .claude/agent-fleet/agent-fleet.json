@@ -1,0 +1,19 @@
+{
+  "warm": "go mod download",
+  "warmProbe": "go.sum",
+  "platforms": ["darwin", "linux"],
+  "tools": ["go"],
+  "secrets": {},
+  "chores": {
+    "security-audit": {
+      "when": "mon week 3",
+      "areas": [
+        "the gRPC plugin server and its request handling (grpc/)",
+        "connection config parsing and validation (plugin/connection_config*.go, connection/)",
+        "query and connection caches (query_cache/, connection/)",
+        "rate limiting and concurrency (rate_limiter/, plugin/hydrate*.go)",
+        "logging and telemetry, including what reaches logs (logging/, telemetry/)"
+      ]
+    }
+  }
+}

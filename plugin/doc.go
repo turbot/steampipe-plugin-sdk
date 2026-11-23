@@ -13,8 +13,8 @@ import (
 // ForceImport is a mechanism to ensure godoc can reference all required packages
 type ForceImport string
 
-var forceImportConnection connection.ForceImport
-var forceImportDynamicPlugin dynamic_tables.ForceImport
-var forceImportKeyColumns key_columns.ForceImport
-var forceImportErrorHandling error_handling.ForceImport
-var forceImportMatrixItems matrix_items.ForceImport
+var forceImportConnection connection.ForceImport        //nolint:unused // godoc cross-reference mechanism, see comment on ForceImport above
+var forceImportDynamicPlugin dynamic_tables.ForceImport //nolint:unused // godoc cross-reference mechanism, see comment on ForceImport above
+var forceImportKeyColumns key_columns.ForceImport       //nolint:unused // godoc cross-reference mechanism, see comment on ForceImport above
+var forceImportErrorHandling error_handling.ForceImport //nolint:unused // godoc cross-reference mechanism, see comment on ForceImport above
+var forceImportMatrixItems matrix_items.ForceImport     //nolint:unused // godoc cross-reference mechanism, see comment on ForceImport above

@@ -7,26 +7,6 @@ import (
 	"log"
 )
 
-func (c *QueryCache) getPendingResultItem(indexBucketKey string, req *CacheRequest) *pendingIndexItem {
-	log.Printf("[TRACE] getPendingResultItem indexBucketKey %s, columns %v, limit %d", indexBucketKey, req.Columns, req.Limit)
-
-	// do we have a pending items which satisfy the qual, limit and column constraints
-	pendingItems, _ := c.getPendingItemSatisfyingRequest(indexBucketKey, req)
-
-	// if there was no pending result - we assume the calling code will fetch the data and add it to the cache
-	// so add a pending result
-	if len(pendingItems) == 0 {
-		log.Printf("[TRACE] no pending index item - add pending result, indexBucketKey %s", indexBucketKey)
-		// return nil (i.e. cache miss)
-		return nil
-	}
-
-	// to get here we must have a non-empty list of pending items
-	log.Printf("[TRACE] getPendingResultItem returning %v", pendingItems[0])
-	// return pending item
-	return pendingItems[0]
-}
-
 // this must be called inside a lock
 func (c *QueryCache) getPendingItemSatisfyingRequest(indexBucketKey string, req *CacheRequest) ([]*pendingIndexItem, *pendingIndexBucket) {
 	keyColumns := c.getKeyColumnsForTable(req.Table, req.ConnectionName)

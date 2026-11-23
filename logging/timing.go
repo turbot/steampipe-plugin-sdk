@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/pkg/twwarp"
 	"github.com/olekukonko/tablewriter/tw"
 )
 
@@ -54,16 +55,16 @@ func DisplayProfileData(minTime time.Duration) {
 			var itemData []string
 			itemData = append(itemData, logEntry.Operation)
 
-			timeStr := fmt.Sprintf("%s", logEntry.Time.Format(time.StampMilli))
+			timeStr := logEntry.Time.Format(time.StampMilli)
 			itemData = append(itemData, timeStr)
 
-			intervalStr := fmt.Sprintf("%s", logEntry.Interval)
+			intervalStr := logEntry.Interval.String()
 			if logEntry.Interval < minTime {
 				intervalStr = minString
 			}
 			itemData = append(itemData, intervalStr)
 
-			cumulativeStr := fmt.Sprintf("%s", logEntry.Cumulative)
+			cumulativeStr := logEntry.Cumulative.String()
 			if logEntry.Cumulative < minTime {
 				cumulativeStr = minString
 			}
@@ -94,8 +95,15 @@ func DisplayProfileData(minTime time.Duration) {
 }
 
 func displayTable(out io.Writer, data [][]string) {
-	// rows are never wrapped or truncated, whatever their width.
+	// the operation wraps at 50 columns, as it did with tablewriter v0. This is done here rather than by the table,
+	// which would also collapse the double space in the time column on single digit days.
 	// ASCII borders: DisplayProfileData re-encodes the output byte by byte, which garbles multibyte characters
+	wrapped := make([][]string, len(data))
+	for i, row := range data {
+		lines, _ := twwarp.WrapString(row[0], 50)
+		wrapped[i] = append([]string{strings.Join(lines, "\n")}, row[1:]...)
+	}
+	data = wrapped
 	table := tablewriter.NewTable(out,
 		tablewriter.WithRowAutoWrap(tw.WrapNone),
 		tablewriter.WithSymbols(tw.NewSymbols(tw.StyleASCII)))

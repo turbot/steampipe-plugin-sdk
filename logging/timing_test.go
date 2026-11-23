@@ -2,26 +2,27 @@ package logging
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 )
 
-// the table is logged line by line, byte by byte, so it must be pure ASCII
-func TestDisplayTableIsASCII(t *testing.T) {
+// the expected text is what tablewriter v0.0.5 printed for the same rows
+func TestDisplayTableMatchesV0Output(t *testing.T) {
 	var b bytes.Buffer
 	displayTable(&b, [][]string{
 		{"first operation", "Jan  1 00:00:00.000", "< 1s", "2s"},
-		{"a very long operation name that goes on and on and on and on and on and on and on", "x", "y", "z"},
+		{"second", "Jan  1 00:00:02.500", "2.5s", "4.5s"},
+		{"a very long operation name that goes on and on and on and on", "Jan  1 00:00:03.000", "500ms", "5s"},
 	})
-	out := b.String()
-	for _, r := range out {
-		if r > 127 {
-			t.Fatalf("non-ASCII character %q in table:\n%s", r, out)
-		}
-	}
-	for _, want := range []string{"OPERATION", "CUMULATIVE", "first operation", "a very long operation name that goes on and on and on and on and on and on and on", "+-", "| "} {
-		if !strings.Contains(out, want) {
-			t.Errorf("table does not contain %q:\n%s", want, out)
-		}
+	want := `+----------------------------------------------------+---------------------+---------+------------+
+|                     OPERATION                      |        TIME         | ELAPSED | CUMULATIVE |
++----------------------------------------------------+---------------------+---------+------------+
+| first operation                                    | Jan  1 00:00:00.000 | < 1s    | 2s         |
+| second                                             | Jan  1 00:00:02.500 | 2.5s    | 4.5s       |
+| a very long operation name that goes on and on and | Jan  1 00:00:03.000 | 500ms   | 5s         |
+| on and on                                          |                     |         |            |
++----------------------------------------------------+---------------------+---------+------------+
+`
+	if got := b.String(); got != want {
+		t.Errorf("table output changed.\nwant:\n%s\ngot:\n%s", want, got)
 	}
 }

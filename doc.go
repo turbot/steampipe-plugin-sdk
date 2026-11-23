@@ -166,6 +166,6 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
 )
 
-var forceImportDynamicPlugin dynamic_tables.ForceImport
-var forceImportPlugin plugin.ForceImport
-var forceImportTransform transform.ForceImport
+var forceImportDynamicPlugin dynamic_tables.ForceImport //nolint:unused // godoc cross-reference mechanism, see plugin/doc.go
+var forceImportPlugin plugin.ForceImport                //nolint:unused // godoc cross-reference mechanism, see plugin/doc.go
+var forceImportTransform transform.ForceImport          //nolint:unused // godoc cross-reference mechanism, see plugin/doc.go
