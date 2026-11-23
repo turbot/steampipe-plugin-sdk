@@ -315,6 +315,13 @@ func (c *QueryCache) AbortSet(ctx context.Context, callId string, err error) {
 
 	log.Printf("[INFO] QueryCache AbortSet - deleting %d pages from the cache (%s)", req.pageCount, req.CallId)
 	c.deletePages(req)
+
+	// wait for the query that started the scan to stop reading, as EndSet does: the caller ends
+	// the query next, and the query's reader must not stream a row after that. The reader stops
+	// as soon as it sees the request has failed.
+	if req.ownSubscriber != nil {
+		<-req.ownSubscriber.doneChan
+	}
 	log.Printf("[INFO] QueryCache AbortSet done (%s)", req.CallId)
 }
 
