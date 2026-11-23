@@ -15,7 +15,8 @@ A GetConfig defines how to get a single row of a table:
 
   - The [error_handling] behaviour.
 
-  - How many concurrent [HydrateFunc] calls to allow, [when the get call is used as a column hydrate func]: [plugin.GetConfig.MaxConcurrency].
+To limit how many calls to the get HydrateFunc run at once, use a rate limiter: set MaxConcurrency on a
+[rate_limiter.Definition] in [plugin.Plugin.RateLimiters], and use [plugin.GetConfig.Tags] to scope it to the get call.
 
 A GetConfig with KeyColumns:
 
@@ -51,14 +52,12 @@ A GetConfig with all fields specified:
 			ShouldRetryErrorFunc: shouldRetryError,
 		},
 		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
-		MaxConcurrency: 50,
 	}
 
 Plugin examples:
   - [hackernews]
 
 [hackernews]: https://github.com/turbot/steampipe-plugin-hackernews/blob/bbfbb12751ad43a2ca0ab70901cde6a88e92cf44/hackernews/table_hackernews_item.go#L21-L24
-[when the get call is used as a column hydrate func]: https://github.com/turbot/steampipe-plugin-hackernews/blob/d14efdd3f2630f0146e575fe07666eda4e126721/hackernews/item.go#L14-L35
 */
 type GetConfig struct {
 	// the hydrate function which is called first when performing a 'get' call.
@@ -74,8 +73,12 @@ type GetConfig struct {
 
 	// Deprecated: use IgnoreConfig
 	ShouldIgnoreError ErrorPredicate
-	MaxConcurrency    int
-	namedHydrate      namedHydrateFunc
+
+	// Deprecated: The SDK no longer reads MaxConcurrency, so setting it has no effect. To limit concurrency,
+	// set MaxConcurrency on a [rate_limiter.Definition] in [Plugin.RateLimiters]. It will be removed in v7.
+	MaxConcurrency int
+
+	namedHydrate namedHydrateFunc
 }
 
 // initialise the GetConfig

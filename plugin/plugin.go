@@ -46,7 +46,7 @@ Various default behaviours can be defined:
 
   - A default [transform] which will be applied to all columns which do not specify a transform. ([plugin.Plugin.DefaultTransform]).
 
-  - The default concurrency limits for a [HydrateFunc] ([plugin.Plugin.DefaultConcurrency]).
+  - To limit concurrency, use [plugin.Plugin.RateLimiters] with MaxConcurrency set on a [rate_limiter.Definition].
 
   - The plugin default [error_handling] behaviour.
 
@@ -75,14 +75,22 @@ type Plugin struct {
 	// See [ConnectionKeyColumn] for more details.
 	ConnectionKeyColumns []ConnectionKeyColumn
 
-	// deprecated - use RateLimiters to control concurrency
-	DefaultConcurrency  *DefaultConcurrencyConfig
+	// Deprecated: The SDK no longer reads DefaultConcurrency, so setting it has no effect. To limit concurrency,
+	// set MaxConcurrency on a [rate_limiter.Definition] in [Plugin.RateLimiters]. It will be removed in v7.
+	DefaultConcurrency *DefaultConcurrencyConfig
+
 	DefaultRetryConfig  *RetryConfig
 	DefaultIgnoreConfig *IgnoreConfig
 
 	// rate limiter definitions - these are (optionally) defined by the plugin author
 	// and do NOT include any config overrides
 	RateLimiters []*rate_limiter.Definition
+	// ClientWaitsForHydrateRateLimit says that the plugin's API client calls [WaitForHydrateRateLimit]
+	// before each request it sends. The SDK then does not wait for a hydrate call's rate limiters
+	// before it runs the hydrate function: the call's token is taken when it sends its first request,
+	// so a hydrate call that sends no request uses no token. A request that does not carry the ctx
+	// the SDK passed to the hydrate function is not rate limited. List and get calls are not affected.
+	ClientWaitsForHydrateRateLimit bool
 
 	// deprecated - use DefaultRetryConfig and DefaultIgnoreConfig
 	DefaultGetConfig *GetConfig

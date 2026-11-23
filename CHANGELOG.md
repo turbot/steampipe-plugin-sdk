@@ -1,4 +1,10 @@
-## v6.2.3 [tbd]
+## v6.3.0 [unreleased]
+_Deprecations_
+- Deprecate `HydrateConfig.MaxConcurrency`, `GetConfig.MaxConcurrency`, `Plugin.DefaultConcurrency` and its type `DefaultConcurrencyConfig`. The SDK has not read them since rate limiters came in (v5.6.0), so setting one has no effect and gives no warning. They now carry a Go `Deprecated:` comment, so staticcheck (SA1019) warns a plugin that sets one. (staticcheck does not warn on a field set in an untyped literal such as `HydrateConfig: []plugin.HydrateConfig{{... MaxConcurrency: 50}}`, so search your plugin for the name.) To limit concurrency, set `MaxConcurrency` on a `rate_limiter.Definition` in `Plugin.RateLimiters`. The four will be removed in v7. ([#1011](https://github.com/turbot/steampipe-plugin-sdk/issues/1011))
+
+_Documentation_
+- The `HydrateConfig`, `GetConfig` and `Plugin` docs no longer list these settings or show `MaxConcurrency: 50` examples; they say to limit concurrency with a rate limiter. ([#1011](https://github.com/turbot/steampipe-plugin-sdk/issues/1011))
+
 _Bug fixes_
 - Fix a list call's first page using two rate limiter tokens when the list function calls `d.WaitForListRateLimit` before each page. The SDK waits for the list call's rate limiters before it calls the list function, and the first `WaitForListRateLimit` call then waited again. The SDK's wait now pays for the first page, so a list call uses one token per page. A list function that gets its first page with no wait and waits only before each later page still waits for every later page, as long as its first page streams an item. A list function that never calls `WaitForListRateLimit` still uses one token, and no plugin has to change. ([#1008](https://github.com/turbot/steampipe-plugin-sdk/issues/1008))
 

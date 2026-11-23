@@ -43,7 +43,18 @@ func (s *setRequestSubscriber) readRowsAsync(ctx context.Context) {
 	go func() {
 		log.Printf("[INFO] setRequestSubscriber readRowsAsync publisher %s (%s)", s.publisher.CallId, s.callId)
 		var err error
+		// readCtx stops the streaming goroutine when this goroutine returns
+		readCtx, stopReading := context.WithCancel(ctx)
+		// internal goroutine to read all rows from the publisher and stream them
+		streamDone, readerExited := s.readAndStreamAsync(readCtx)
+
 		defer func() {
+			// stop the streaming goroutine, and wait for it: once doneChan is closed, the caller
+			// may end the query and close the channel that streamRowFunc writes to, so
+			// streamRowFunc must not be called again
+			stopReading()
+			<-readerExited
+
 			// stop subscribing, which releases our pins, then indicate this subscriber has finished
 			s.publisher.requestLock.Lock()
 			s.err = err
@@ -52,9 +63,6 @@ func (s *setRequestSubscriber) readRowsAsync(ctx context.Context) {
 			close(s.doneChan)
 			log.Printf("[INFO] setRequestSubscriber readRowsAsync goroutine returning - doneChan CLOSED - publisher %s (%s)", s.publisher.CallId, s.callId)
 		}()
-
-		// internal goroutine to read all rows from the publisher and stream them
-		streamDone := s.readAndStreamAsync(ctx)
 
 		// wait for all rows to be streams (or cancellation)
 		select {
@@ -68,12 +76,15 @@ func (s *setRequestSubscriber) readRowsAsync(ctx context.Context) {
 	}()
 }
 
-// readAndStreamAsync reads all rows from the publisher and streams them. The channel it
-// returns gets nil when all rows are streamed, or the error that stopped it.
-func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) chan error {
+// readAndStreamAsync reads all rows from the publisher and streams them, until ctx is done.
+// The first channel it returns gets nil when all rows are streamed, or the error that stopped it.
+// The second is closed when the goroutine has returned, so streamRowFunc will not be called again.
+func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) (chan error, chan struct{}) {
 	var streamDone = make(chan error, 1)
+	var exited = make(chan struct{})
 
 	go func() {
+		defer close(exited)
 		baseRetryInterval := 1 * time.Millisecond
 		maxRetryInterval := 50 * time.Millisecond
 		backoff := retry.WithCappedDuration(maxRetryInterval, retry.NewExponential(baseRetryInterval))
@@ -111,6 +122,12 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) chan erro
 			}
 
 			for _, row := range rowsTostream {
+				// stop if the reader is done: do not stream a row to a query that has stopped reading
+				if ctx.Err() != nil {
+					log.Printf("[INFO] readAndStreamAsync reader stopped (%s)", s.callId)
+					streamDone <- ctx.Err()
+					return
+				}
 				log.Printf("[TRACE] readAndStreamAsync stream row (%s)", s.callId)
 				s.streamRowFunc(row)
 				s.rowsStreamed++
@@ -126,7 +143,7 @@ func (s *setRequestSubscriber) readAndStreamAsync(ctx context.Context) chan erro
 		}
 
 	}()
-	return streamDone
+	return streamDone, exited
 }
 
 func (s *setRequestSubscriber) getRowsToStream() ([]*sdkproto.Row, error) {

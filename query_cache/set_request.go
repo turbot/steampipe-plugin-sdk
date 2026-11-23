@@ -228,6 +228,13 @@ func (req *setRequest) addRow(row *sdkproto.Row) error {
 			return req.ownSubscriber.err
 		}
 		log.Printf("[INFO] IterateSet NO SUBSCRIBERS! (%s)", req.CallId)
+		// The caller now cancels the scan. Mark the request as failed in the same lock hold, so a query
+		// that asks for the same data from here on cannot subscribe to a scan that is being cancelled:
+		// it starts its own scan. A query that joined before this point is a subscriber, and the scan goes on.
+		if req.state == requestInProgress {
+			req.state = requestError
+			req.err = NoSubscribersError{}
+		}
 		return NoSubscribersError{}
 	}
 
