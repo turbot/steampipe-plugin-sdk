@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/grpc/proto"
@@ -60,6 +61,46 @@ func TestStreamRowsReturnsNilWhenRowChanClosedWithoutError(t *testing.T) {
 		case <-doneChan:
 			t.Fatalf("run %d: doneChan should stay open on a clean end", i)
 		default:
+		}
+	}
+}
+
+// A child list call that panics reports the panic as an error. fetchComplete stops waiting for child list calls
+// when they are done, and the row channels close after it, so the error must reach errorChan before the call
+// counts as done: otherwise streamRows can see a closed row channel and an empty errorChan, and end with no error.
+func TestChildListPanicErrorIsSentBeforeFetchCompletes(t *testing.T) {
+	for i := 0; i < 500; i++ {
+		var wg sync.WaitGroup
+		p := &Plugin{Name: "p", queryCache: &query_cache.QueryCache{}}
+		table := &Table{Name: "t", Plugin: p}
+		table.List = &ListConfig{
+			Hydrate: func(context.Context, *QueryData, *HydrateData) (interface{}, error) {
+				panic("child list exploded")
+			},
+		}
+		d := &QueryData{
+			Table:         table,
+			plugin:        p,
+			Connection:    &Connection{Name: "c"},
+			errorChan:     make(chan error, 1),
+			rowDataChan:   make(chan *rowData, 1),
+			listWg:        &wg,
+			fetchMetadata: &hydrateMetadata{},
+			queryStatus:   &queryStatus{},
+			fetchLimiters: &fetchCallRateLimiters{},
+		}
+
+		d.callChildListHydrate(context.Background(), "parent item")
+		// fetchComplete waits for the child list call, then closes rowDataChan
+		d.fetchComplete(context.Background())
+
+		select {
+		case err := <-d.errorChan:
+			if err == nil {
+				t.Fatalf("run %d: got a nil error", i)
+			}
+		default:
+			t.Fatalf("run %d: fetchComplete returned before the child list call's panic reached errorChan", i)
 		}
 	}
 }

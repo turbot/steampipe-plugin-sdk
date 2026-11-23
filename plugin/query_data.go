@@ -590,6 +590,9 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 	callingFunction := helpers.GetCallingFunction(1)
 	d.listWg.Add(1)
 	go func() {
+		// NOTE: registered first so it runs last: a panic's error must be on errorChan before fetchComplete can
+		// stop waiting and close the row channels (see streamRows)
+		defer d.listWg.Done()
 		defer func() {
 			if r := recover(); r != nil {
 				err := helpers.ToError(r)
@@ -600,7 +603,6 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 				d.streamError(err)
 			}
 		}()
-		defer d.listWg.Done()
 		// create a copy of query data with the stream function set to streamLeafListItem
 		childQueryData := d.shallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
