@@ -143,13 +143,22 @@ func (r *rowData) waitForHydrateCallsToComplete(rowDataCtx context.Context) (*pr
 		close(r.waitChan)
 	}()
 
+	if err := r.waitForCompletionOrError(); err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+// waitForCompletionOrError blocks until either a hydrate call fails or all the calls complete.
+// It returns the hydrate error, or nil if the calls completed without one.
+func (r *rowData) waitForCompletionOrError() error {
 	// select both wait chan and error chan
 	select {
 	case err := <-r.errorChan:
 		log.Printf("[WARN] hydrate error chan select: %s (%s)", r.queryData.connectionCallId, err)
-		return nil, err
+		return err
 	case <-r.waitChan:
-		return row, nil
+		return nil
 	}
 }
 
