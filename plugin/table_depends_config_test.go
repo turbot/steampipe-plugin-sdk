@@ -15,6 +15,8 @@ func TestHydrateConfigMapIncludesDependencies(t *testing.T) {
 		wantConfigs []string
 		// names whose config must be the one declared on the table (same pointer as its HydrateConfig entry)
 		wantKept []string
+		// names which must have no config (fetch calls)
+		wantAbsent []string
 	}{
 		"dependency named only in Depends": {
 			table: &Table{
@@ -79,6 +81,26 @@ func TestHydrateConfigMapIncludesDependencies(t *testing.T) {
 			},
 			wantConfigs: []string{"hydrate1", "hydrate2"},
 		},
+		"dependency which is the list call gets no config": {
+			table: &Table{
+				Name:          "t",
+				List:          &ListConfig{Hydrate: listHydrate},
+				Columns:       []*Column{{Name: "c1", Hydrate: hydrate2}},
+				HydrateConfig: []HydrateConfig{{Func: hydrate2, Depends: []HydrateFunc{listHydrate}}},
+			},
+			wantConfigs: []string{"hydrate2"},
+			wantAbsent:  []string{"listHydrate"},
+		},
+		"dependency which is the parent list call gets no config": {
+			table: &Table{
+				Name:          "t",
+				List:          &ListConfig{Hydrate: listHydrate, ParentHydrate: hydrate3},
+				Columns:       []*Column{{Name: "c1", Hydrate: hydrate2}},
+				HydrateConfig: []HydrateConfig{{Func: hydrate2, Depends: []HydrateFunc{hydrate3}}},
+			},
+			wantConfigs: []string{"hydrate2"},
+			wantAbsent:  []string{"hydrate3"},
+		},
 		"dependency with a plugin level config": {
 			pluginConfig: []HydrateConfig{{Func: hydrate1, Tags: map[string]string{"own": "config"}}},
 			table: &Table{
@@ -101,6 +123,11 @@ func TestHydrateConfigMapIncludesDependencies(t *testing.T) {
 			for _, n := range test.wantConfigs {
 				if test.table.hydrateConfigMap[n] == nil {
 					t.Errorf("no hydrate config for %s", n)
+				}
+			}
+			for _, n := range test.wantAbsent {
+				if test.table.hydrateConfigMap[n] != nil {
+					t.Errorf("unexpected hydrate config for %s", n)
 				}
 			}
 			for _, n := range test.wantKept {

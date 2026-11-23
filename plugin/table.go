@@ -216,6 +216,16 @@ func (t *Table) addDependencyHydrateConfigs() {
 		return t.hydrateConfigMap[name]
 	}
 
+	// the list call and its parent are fetch calls, not row hydrate calls: a config for one would make a get query
+	// call it for each row, so leave them as they were
+	fetchCalls := make(map[string]struct{})
+	if t.List != nil {
+		fetchCalls[t.List.namedHydrate.Name] = struct{}{}
+		if t.List.ParentHydrate != nil {
+			fetchCalls[t.List.namedParentHydrate.Name] = struct{}{}
+		}
+	}
+
 	// walk the dependencies of every config, including those of plugin level configs, which are not in the table map
 	var pending []string
 	for name := range t.hydrateConfigMap {
@@ -236,6 +246,9 @@ func (t *Table) addDependencyHydrateConfigs() {
 		}
 		for _, dep := range config.Depends {
 			namedDep := newNamedHydrateFunc(dep)
+			if _, isFetchCall := fetchCalls[namedDep.Name]; isFetchCall {
+				continue
+			}
 			if lookup(namedDep.Name) == nil {
 				log.Printf("[TRACE] table %s create hydrate config for dependency : %s", t.Name, namedDep.Name)
 				t.hydrateConfigMap[namedDep.Name] = t.newHydrateConfig(namedDep)
