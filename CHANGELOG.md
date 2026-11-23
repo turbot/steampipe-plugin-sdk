@@ -1,4 +1,7 @@
 ## v6.3.0 [unreleased]
+_Enhancements_
+- A hydrate call now waits for its rate limiters in its own goroutine, not in its row's start loop, so a row reserves the tokens of all its calls at once and arrives as soon as they come. With 100 rows of 6 rate limited calls under one limiter of 200 tokens a second, the first row arrives after 0.08 s, not 2.04 s. The total time and the number of tokens a query uses do not change, and a max concurrency limit still holds. A call with no rate limiter no longer waits for its row's rate limited calls. A plugin that sets `ClientWaitsForHydrateRateLimit` is not affected. ([#1009](https://github.com/turbot/steampipe-plugin-sdk/issues/1009))
+
 _Deprecations_
 - Deprecate `HydrateConfig.MaxConcurrency`, `GetConfig.MaxConcurrency`, `Plugin.DefaultConcurrency` and its type `DefaultConcurrencyConfig`. The SDK has not read them since rate limiters came in (v5.6.0), so setting one has no effect and gives no warning. They now carry a Go `Deprecated:` comment, so staticcheck (SA1019) warns a plugin that sets one. (staticcheck does not warn on a field set in an untyped literal such as `HydrateConfig: []plugin.HydrateConfig{{... MaxConcurrency: 50}}`, so search your plugin for the name.) To limit concurrency, set `MaxConcurrency` on a `rate_limiter.Definition` in `Plugin.RateLimiters`. The four will be removed in v7. ([#1011](https://github.com/turbot/steampipe-plugin-sdk/issues/1011))
 
