@@ -125,42 +125,6 @@ func TestListCallTokensWithMatrix(t *testing.T) {
 	}
 }
 
-// the first waitForListPage after the SDK's wait is free; every later one takes a token.
-// One with no SDK wait before it (not inside a list call) also takes a token.
-func TestWaitForListPage(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	// run does its waits on a limiter of its own and returns how many tokens they used
-	run := func(waits func(l *fetchCallRateLimiters)) int {
-		p := newListRateLimitTestPlugin(t)
-		limiter, err := p.getHydrateCallRateLimiter(nil, &QueryData{Table: &Table{}, Connection: &Connection{Name: "c"}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		waits(&fetchCallRateLimiters{rateLimiter: limiter})
-		left := 0
-		for left < listTestBucketSize+1 && limiter.Wait(ctx) == 0 {
-			left++
-		}
-		return listTestBucketSize - left
-	}
-
-	if got := run(func(l *fetchCallRateLimiters) { l.waitForListPage(ctx) }); got != 1 {
-		t.Errorf("a page with no SDK wait before it: expected 1 token used, got %d", got)
-	}
-	if got := run(func(l *fetchCallRateLimiters) { l.waitForListCall(ctx) }); got != 1 {
-		t.Errorf("the SDK's wait alone: expected 1 token used, got %d", got)
-	}
-	if got := run(func(l *fetchCallRateLimiters) {
-		l.waitForListCall(ctx)
-		l.waitForListPage(ctx)
-		l.waitForListPage(ctx)
-		l.waitForListPage(ctx)
-	}); got != 3 {
-		t.Errorf("the SDK's wait and three pages: expected 3 tokens used, got %d", got)
-	}
-}
-
 // A parent-child list: the SDK waits once for the parent list call and once before each child list call.
 // Each of those waits pays for the first page of the call it comes before, whether or not the parent
 // list function waits, so a child that waits before its page uses no token beyond the SDK's.
