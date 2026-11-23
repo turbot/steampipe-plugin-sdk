@@ -34,11 +34,30 @@ func rlCall5(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (a
 	return rlRowValue(ctx, d, h)
 }
 
-var rlUnlimitedStarted atomic.Int64
+// rlUnlimitedStarted counts the calls with no limiter that started before rlUnlimitedDeadline:
+// the limited calls that wait are released when the query is cancelled, and the calls after them start then.
+var (
+	rlUnlimitedStarted  atomic.Int64
+	rlUnlimitedDeadline atomic.Int64 // unix nanoseconds
+)
 
-// rlUnlimitedCall has no rate limiter tags, so no limiter applies to it
-func rlUnlimitedCall(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (any, error) {
-	rlUnlimitedStarted.Add(1)
+func rlUnlimitedStart() {
+	if time.Now().UnixNano() < rlUnlimitedDeadline.Load() {
+		rlUnlimitedStarted.Add(1)
+	}
+}
+
+// rlUnlimitedCall1 to 3 have no rate limiter tags, so no limiter applies to them
+func rlUnlimitedCall1(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (any, error) {
+	rlUnlimitedStart()
+	return rlRowValue(ctx, d, h)
+}
+func rlUnlimitedCall2(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (any, error) {
+	rlUnlimitedStart()
+	return rlRowValue(ctx, d, h)
+}
+func rlUnlimitedCall3(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (any, error) {
+	rlUnlimitedStart()
 	return rlRowValue(ctx, d, h)
 }
 
@@ -74,22 +93,31 @@ func TestSDKWaits_RowArrivesAsSoonAsItsOwnTokensDo(t *testing.T) {
 
 func TestSDKWaits_CallWithNoLimiterDoesNotWaitForTheRowsLimitedCalls(t *testing.T) {
 	rlUnlimitedStarted.Store(0)
+	// cancelled after rlWaitTimeout (1 s): count the calls that start in the first half second
+	rlUnlimitedDeadline.Store(time.Now().Add(rlWaitTimeout / 2).UnixNano())
 	// one token: the limited calls of every row but one wait for the whole query, and the query is cancelled
-	// after a second. The row's call with no limiter must have run in every row anyway.
+	// after a second. A row's calls start in no fixed order, so the row has three calls with no limiter
+	// among its five limited ones: if the row's start loop waited for a limited call, it would
+	// almost always leave one of the three unstarted.
 	f := rlFixture{
 		rows:    5,
 		limiter: slowLimiter(1),
 		columns: map[string]plugin.HydrateConfig{
-			"a":    {Func: rlCall1, Tags: widgetTags},
-			"b":    {Func: rlCall2, Tags: widgetTags},
-			"free": {Func: rlUnlimitedCall},
+			"a":     {Func: rlCall1, Tags: widgetTags},
+			"b":     {Func: rlCall2, Tags: widgetTags},
+			"c":     {Func: rlCall3, Tags: widgetTags},
+			"d":     {Func: rlCall4, Tags: widgetTags},
+			"e":     {Func: rlCall5, Tags: widgetTags},
+			"free1": {Func: rlUnlimitedCall1},
+			"free2": {Func: rlUnlimitedCall2},
+			"free3": {Func: rlUnlimitedCall3},
 		},
 	}
-	if _, finished := newRlServer(t, f).query(t, []string{"id", "a", "b", "free"}, rlWaitTimeout); finished {
-		t.Fatalf("the query finished with 1 token, but its rows need 10")
+	if _, finished := newRlServer(t, f).query(t, []string{"id", "a", "b", "c", "d", "e", "free1", "free2", "free3"}, rlWaitTimeout); finished {
+		t.Fatalf("the query finished with 1 token, but its rows need 25")
 	}
-	if got := rlUnlimitedStarted.Load(); got != 5 {
-		t.Fatalf("the call with no limiter started in %d of 5 rows: it waited for its row's limited calls", got)
+	if got := rlUnlimitedStarted.Load(); got != 15 {
+		t.Fatalf("the calls with no limiter started %d times, want 15 (3 in each of 5 rows): they waited for their row's limited calls", got)
 	}
 }
 
