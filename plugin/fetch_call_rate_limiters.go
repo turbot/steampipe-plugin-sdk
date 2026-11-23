@@ -52,6 +52,8 @@ func (l *fetchCallRateLimiters) waitForListCall(ctx context.Context) time.Durati
 // The first call is already paid for by waitForListCall (or forChildListCall), so it returns at once,
 // unless the list function has streamed an item before it: then the SDK's token paid for the page those items
 // came from, and this call is for a later page, so it waits (see itemStreamed). Every later call waits.
+// Streamed items are the only sign the SDK has: a list function that waits only before later pages and streams
+// nothing from its first page gets its second page free. Waiting before every page, the first included, avoids that.
 // (If the list hydrate function is retried, the retry's first call waits, as the first attempt has used the token.)
 func (l *fetchCallRateLimiters) waitForListPage(ctx context.Context) time.Duration {
 	if l.listCallPaid.CompareAndSwap(true, false) {

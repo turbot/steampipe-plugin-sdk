@@ -1,6 +1,6 @@
 ## v6.2.3 [tbd]
 _Bug fixes_
-- Fix a list call's first page using two rate limiter tokens when the list function calls `d.WaitForListRateLimit` before each page. The SDK waits for the list call's rate limiters before it calls the list function, and the first `WaitForListRateLimit` call then waited again. The SDK's wait now pays for the first page, so a list call uses one token per page. A list function that gets its first page with no wait and waits only before each later page still waits for every later page. A list function that never calls `WaitForListRateLimit` still uses one token, and no plugin has to change. ([#1008](https://github.com/turbot/steampipe-plugin-sdk/issues/1008))
+- Fix a list call's first page using two rate limiter tokens when the list function calls `d.WaitForListRateLimit` before each page. The SDK waits for the list call's rate limiters before it calls the list function, and the first `WaitForListRateLimit` call then waited again. The SDK's wait now pays for the first page, so a list call uses one token per page. A list function that gets its first page with no wait and waits only before each later page still waits for every later page, as long as its first page streams an item. A list function that never calls `WaitForListRateLimit` still uses one token, and no plugin has to change. ([#1008](https://github.com/turbot/steampipe-plugin-sdk/issues/1008))
 
 ## v6.2.2 [2026-11-23]
 _Bug fixes_
