@@ -590,6 +590,9 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 	callingFunction := helpers.GetCallingFunction(1)
 	d.listWg.Add(1)
 	go func() {
+		// NOTE: registered first so it runs last: a panic's error must be on errorChan before fetchComplete can
+		// stop waiting and close the row channels (see streamRows)
+		defer d.listWg.Done()
 		defer func() {
 			if r := recover(); r != nil {
 				err := helpers.ToError(r)
@@ -600,7 +603,6 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 				d.streamError(err)
 			}
 		}()
-		defer d.listWg.Done()
 		// create a copy of query data with the stream function set to streamLeafListItem
 		childQueryData := d.shallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
@@ -785,6 +787,16 @@ func (d *QueryData) streamRows(ctx context.Context, rowChan chan *proto.Row, don
 		case row := <-rowChan:
 			// nil row means we are done streaming
 			if row == nil {
+				// the select picks at random when the error and the closed row chan are both ready,
+				// so a failed list call may have put its error on errorChan just before the row chan closed.
+				// Look once, without waiting, before reporting a clean end
+				select {
+				case err := <-d.errorChan:
+					log.Printf("[TRACE] streamRows error chan found after the row chan closed: %v", err)
+					close(doneChan)
+					return err
+				default:
+				}
 				log.Printf("[INFO] streamRows - nil row, stop streaming (%s)", d.connectionCallId)
 				return nil
 			}

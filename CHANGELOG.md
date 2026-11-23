@@ -1,3 +1,7 @@
+## v6.2.2 [tbd]
+_Bug fixes_
+- Fix a query whose list call fails ending with no error and no rows: when the error and the end of the row data were both ready, `streamRows` could take the end of the row data and never read the error. The same could happen when a child list call panicked, because the call counted as finished before its error was sent. ([#1002](https://github.com/turbot/steampipe-plugin-sdk/issues/1002))
+
 ## v6.2.1 [2026-11-12]
 _Dependencies_
 - Upgrade `turbot/go-kit` to v1.3.1, which lowers plugin memory use by compiling the `IsFieldArray` regular expression once instead of on every call. ([#985](https://github.com/turbot/steampipe-plugin-sdk/pull/985))
