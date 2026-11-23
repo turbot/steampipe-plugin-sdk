@@ -1,0 +1,24 @@
+{
+  "product": "Steampipe Plugin SDK",
+  "notShipped": [
+    ".claude/",
+    ".github/",
+    "design/",
+    "docs/",
+    "**/*_test.go",
+    "CLAUDE.md",
+    "README.md",
+    "Makefile",
+    ".golangci.yml",
+    ".gitleaksignore"
+  ],
+  "start": {
+    "branches": [{ "name": "develop", "cadence": "weekly" }],
+    "tagPrefix": "v",
+    "approvers": ["turbot/pipelings-release-approvers"]
+  },
+  "notes": {
+    "internalTerms": ["turbot-ops", "clitesting", "SPIPETOOLS"]
+  },
+  "ask": { "channel": "C03DTNDLQGP" }
+}

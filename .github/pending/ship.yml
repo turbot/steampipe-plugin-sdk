@@ -1,0 +1,25 @@
+# Ships a Steampipe plugin SDK release on the merge of its release PR. The SDK is a Go library, so the tag is the publish: the Go
+# proxy serves a version once its tag exists. There is nothing to build, no Homebrew formula and no changelog page, so the one job
+# makes the tag, as the Pipelings release App, at the release PR's merge commit.
+name: Ship
+
+on:
+  push:
+    branches: [main, 'main-*']
+
+permissions: {}
+
+jobs:
+  tag:
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: write
+      id-token: write
+    uses: turbot/shipyard-workflows/.github/workflows/tag.yml@v0
+    with:
+      signal: merge
+      automation-logins: turbot-agent-fleet[bot]
+      product: Steampipe Plugin SDK
+    secrets:
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

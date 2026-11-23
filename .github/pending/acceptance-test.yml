@@ -1,0 +1,123 @@
+name: Steampipe plugin SDK acceptance tests
+on:
+  pull_request:
+  # The release PR's record runs this workflow by name (release-pr.yml).
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  STEAMPIPE_UPDATE_CHECK: false
+
+jobs:
+  sdkUnitTests:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+        - name: Checkout
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+        - name: Set up Go
+          uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+          with:
+            go-version: 1.26
+
+        - name: golangci-lint
+          uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+          with:
+            version: v2.10.1
+            args: --timeout=15m --config=.golangci.yml
+
+        # -race is required: the SDK's race regression tests only fail under
+        # the race detector, so without it they assert nothing.
+        - name: Run SDK Unit Tests
+          run: |
+            go clean -testcache
+            go test -race -timeout 900s ./... -test.v
+
+  buildChaosPlugin:
+    name: Run chaos acceptance tests
+    needs: sdkUnitTests
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version: 1.26
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: sdk
+
+      # develop, not the latest release: the released steampipe still requires
+      # steampipe-plugin-sdk/v5, so there is no /v6 requirement to replace and
+      # the SDK under test would be silently left out of the build. Pin back to
+      # a release tag once a steampipe release ships on /v6 — tracking develop
+      # means an unrelated break there turns this job red.
+      - name: Checkout Steampipe
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: turbot/steampipe
+          ref: develop
+          path: steampipe
+
+      - name: Update go.mod and build Steampipe
+        run: |
+          echo "PATH=$PATH:$HOME/build:/home/runner" >> $GITHUB_ENV
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe
+          go mod edit -replace github.com/turbot/steampipe-plugin-sdk/v6=/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
+          go mod tidy
+          go build -o /home/runner/steampipe
+
+
+      - name: Install Chaos plugin from registry
+        run: steampipe plugin install chaos
+
+      - name: Checkout Chaos plugin
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: turbot/steampipe-plugin-chaos
+          path: steampipe-plugin-chaos
+          submodules: true
+
+      - name: Update go.mod and build plugin chaos
+        run: |
+          echo "PATH=$PATH:$HOME/build::/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/lib/bats/libexec" >> $GITHUB_ENV
+          cd /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/
+          go mod edit -replace github.com/turbot/steampipe-plugin-sdk/v6=/home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/sdk
+          go mod tidy
+          make
+
+      - name: Setup BATS
+        uses: mig4/setup-bats@af9a00deb21b5d795cabfeaa8d9060410377686d # v1.2.0
+        with:
+          bats-version: 1.2.1
+
+      - name: Run Test Suite
+        run: |
+          chmod +x /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
+          /home/runner/work/steampipe-plugin-sdk/steampipe-plugin-sdk/steampipe-plugin-chaos/tests/acceptance/run.sh
+
+  # The check develop requires: it needs every test job above, so a repo that adds, renames or splits a test job never changes the rule.
+  ci:
+    name: ci
+    needs: [sdkUnitTests, buildChaosPlugin]
+    # Always runs, so a failed or cancelled job needed above fails it instead of leaving it skipped.
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every job this gates
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          # A job skipped on purpose is fine; anything but success or skipped fails.
+          bad=$(echo "$NEEDS" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key): \(.value.result)"')
+          if [ -n "$bad" ]; then
+            echo "::error title=ci::A job this gates did not pass"
+            echo "$bad"
+            exit 1
+          fi
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
