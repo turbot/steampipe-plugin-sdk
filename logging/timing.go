@@ -99,7 +99,8 @@ var (
 	bareNumber = regexp.MustCompile(`^-?(?:\d{1,3}(?:,\d{3})*|\d+)(?:\.\d+)?$`)
 )
 
-// displayTable writes the rows as the bordered table that tablewriter v0.0.5 printed
+// displayTable writes the rows as the bordered table that tablewriter v0.0.5 printed. Widths count
+// characters, where v0 counted screen columns, so the two match for ASCII text
 func displayTable(out io.Writer, data [][]string) {
 	widths := make([]int, len(timingHeader))
 	for c, h := range timingHeader {
