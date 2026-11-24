@@ -1,3 +1,22 @@
+## [6.3.0] - 2026-11-24
+
+### What's new
+
+- A plugin can now set `Plugin.ClientWaitsForHydrateRateLimit` and call `plugin.WaitForHydrateRateLimit(ctx)` from its API client, so a hydrate call takes its rate limit token at its first request and a call that sends no request uses no token and does not wait. (#1012)
+- Deprecate `HydrateConfig.MaxConcurrency`, `GetConfig.MaxConcurrency`, `Plugin.DefaultConcurrency` and its type `DefaultConcurrencyConfig`, which the SDK has not read since rate limiters came in (v5.6.0): staticcheck (SA1019) now warns a plugin that sets one, though not for a field set in an untyped literal such as `HydrateConfig: []plugin.HydrateConfig{{... MaxConcurrency: 50}}`, so search your plugin for the name; to limit concurrency set `MaxConcurrency` on a `rate_limiter.Definition` in `Plugin.RateLimiters`. The `HydrateConfig`, `GetConfig` and `Plugin` docs no longer list these settings or show `MaxConcurrency: 50` examples. (#1030)
+
+### Improvements
+
+- A hydrate call now waits for its rate limiters in its own goroutine, not in its row's start loop, so a row reserves the tokens of all its calls at once and arrives as soon as they come: with 100 rows of 6 rate limited calls under one limiter of 200 tokens a second, the first row arrives after 0.08 s, not 2.04 s, while the total time, the tokens a query uses and the max concurrency limit do not change. A call with no rate limiter no longer waits for its row's rate limited calls, and a plugin that sets `ClientWaitsForHydrateRateLimit` is not affected. (#1032)
+
+### Bug fixes
+
+- Fix a query failing with `set request has no subscribers`, or a crash, when the last query reading a shared scan closed while another query asked for the same data: the new query now starts its own scan and a query that joined earlier keeps the scan going. (#1026)
+- Fix a list call's first page using two rate limiter tokens when the list function calls `d.WaitForListRateLimit` before each page: the SDK's wait now pays for the first page, a list function that never calls `WaitForListRateLimit` still uses one token, and no plugin has to change. (#1027)
+- Fix a column whose hydrate function is named only in another hydrate function's `Depends` list coming back empty with no error: the function now gets a config and is called before the function that depends on it, and no plugin has to change. (#1029)
+- Plugins now report the SDK version from the Go build information of the running binary instead of a hand-typed string, so `_ctx`'s `sdk_version` and the version sent to Steampipe are the SDK version the plugin uses, and `0.0.0-dev` when the build has no module version. (#1031)
+- With `STEAMPIPE_DIAGNOSTIC_LEVEL=ALL`, each row of a parent-child list table now shows the rate limiter delay of the child list call that returned it, and the data race on that delay is gone. (#1038)
+
 ## v6.2.2 [2026-11-23]
 _Bug fixes_
 - Fix a failed hydrate call being dropped and its row returned with missing column values: when the error and the end of the row's hydrate calls were both ready, the wait could take the end and never read the error. ([#1018](https://github.com/turbot/steampipe-plugin-sdk/issues/1018))
