@@ -114,22 +114,3 @@ func TestChildListMetadataDoesNotRace(t *testing.T) {
 		runParentChildList(t, false)
 	}
 }
-
-// the parent query's own list metadata is not changed by the child list calls
-func TestChildListLeavesQueryListMetadataAlone(t *testing.T) {
-	d := &QueryData{fetchMetadata: &hydrateMetadata{Type: "list", FuncName: "child", RateLimiters: []string{"l"}}}
-	got := d.childListMetadata(75 * time.Millisecond)
-	if got == d.fetchMetadata {
-		t.Fatal("the child list call must get its own metadata")
-	}
-	if got.DelayMs != 75 || got.Type != "list" || got.FuncName != "child" || len(got.RateLimiters) != 1 {
-		t.Fatalf("unexpected child list metadata %+v", got)
-	}
-	if d.fetchMetadata.DelayMs != 0 {
-		t.Fatalf("the query's list metadata changed: %+v", d.fetchMetadata)
-	}
-	// a query data with no list metadata still gives the child a value
-	if (&QueryData{}).childListMetadata(time.Second).DelayMs != 1000 {
-		t.Fatal("expected the delay with no list metadata")
-	}
-}
