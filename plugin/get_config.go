@@ -75,7 +75,7 @@ type GetConfig struct {
 	ShouldIgnoreError ErrorPredicate
 
 	// Deprecated: The SDK no longer reads MaxConcurrency, so setting it has no effect. To limit concurrency,
-	// set MaxConcurrency on a [rate_limiter.Definition] in [Plugin.RateLimiters]. It will be removed in v7.
+	// set MaxConcurrency on a [rate_limiter.Definition] in [Plugin.RateLimiters].
 	MaxConcurrency int
 
 	namedHydrate namedHydrateFunc
