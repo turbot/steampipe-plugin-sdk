@@ -1,5 +1,5 @@
 # Cuts a Steampipe plugin SDK release. The fleet's release-PR hook then opens its PR from the cut's `release-pr` artifact.
-# Run by hand on develop, naming the commit the prep job read and its prep file.
+# Run on develop, naming the commit the prep job read and its prep file: the fleet's dispatcher starts it for a prep job, or a person runs it by hand.
 # A re-ship (a merged release that is not live because its ship job broke) gives `reship` and `fixes` and no prep file.
 # A patch (fixes already merged into develop, shipped from main without the rest of develop) gives `patch`, `fixes`, a prep file made from facts with those fixes, and `commit` the tip of main.
 name: Release
