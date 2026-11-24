@@ -15,9 +15,10 @@ HydrateConfig defines how to run a [HydrateFunc]:
 
   - Which errors to retry: [plugin.HydrateConfig.RetryConfig].
 
-  - How many concurrent calls to allow: [plugin.HydrateConfig.MaxConcurrency].
-
   - Which hydrate calls must complete before this HydrateFunc can start: [plugin.HydrateConfig.Depends].
+
+To limit how many calls to a HydrateFunc run at once, use a rate limiter: set MaxConcurrency on a [rate_limiter.Definition]
+in [plugin.Plugin.RateLimiters], and use [plugin.HydrateConfig.Tags] to scope it to the hydrate call.
 
 It's not valid to have a HydrateConfig for a HydrateFunc that is specified in a [GetConfig].
 
@@ -29,21 +30,11 @@ A HydrateConfig with IgnoreConfig:
 		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
 		}
 
-A HydrateConfig with MaxConcurrency:
-
-	HydrateConfig: []plugin.HydrateConfig{
-		{
-		Func:           getRetentionPeriod,
-		MaxConcurrency: 50,
-		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
-		}
-
 A HydrateConfig with all fields specified:
 
 	HydrateConfig: []plugin.HydrateConfig{
 		{
 		Func:           getRetentionPeriod,
-		MaxConcurrency: 50,
 		IgnoreConfig:   &plugin.IgnoreConfig{ShouldIgnoreErrorFunc: shouldIgnoreError},
 		RetryConfig:    &plugin.RetryConfig{
 			ShouldRetryErrorFunc: shouldRetryError,
@@ -109,6 +100,8 @@ type HydrateConfig struct {
 	// this map is then used to find a rate limiter
 	Tags map[string]string
 
+	// Deprecated: The SDK no longer reads MaxConcurrency, so setting it has no effect. To limit concurrency,
+	// set MaxConcurrency on a [rate_limiter.Definition] in [Plugin.RateLimiters].
 	MaxConcurrency int
 
 	// Deprecated: use IgnoreConfig

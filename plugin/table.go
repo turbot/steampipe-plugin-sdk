@@ -193,6 +193,69 @@ func (t *Table) buildHydrateConfigMap() {
 			t.hydrateConfigMap[hydrateName] = t.newHydrateConfig(c.namedHydrate)
 		}
 	}
+
+	// finally, add config for any hydrate function which is named only in a Depends list
+	t.addDependencyHydrateConfigs()
+}
+
+// addDependencyHydrateConfigs adds an implicit hydrate config for every hydrate function which is named
+// in the Depends list of another hydrate config but has no config of its own and is not a column's hydrate.
+// Without this the dependency could not be found when building the required hydrate calls for a query,
+// and the column which depends on it would be empty.
+// A function with a plugin level config, or a table level config, keeps it.
+func (t *Table) addDependencyHydrateConfigs() {
+	var pluginConfigMap map[string]*HydrateConfig
+	if t.Plugin != nil {
+		pluginConfigMap = t.Plugin.hydrateConfigMap
+	}
+	// the plugin config takes precedence (see getHydrateConfig)
+	lookup := func(name string) *HydrateConfig {
+		if c := pluginConfigMap[name]; c != nil {
+			return c
+		}
+		return t.hydrateConfigMap[name]
+	}
+
+	// the list call and its parent are fetch calls, not row hydrate calls: a config for one would make a get query
+	// call it for each row, so leave them as they were
+	fetchCalls := make(map[string]struct{})
+	if t.List != nil {
+		fetchCalls[t.List.namedHydrate.Name] = struct{}{}
+		if t.List.ParentHydrate != nil {
+			fetchCalls[t.List.namedParentHydrate.Name] = struct{}{}
+		}
+	}
+
+	// walk the dependencies of every config, including those of plugin level configs, which are not in the table map
+	var pending []string
+	for name := range t.hydrateConfigMap {
+		pending = append(pending, name)
+	}
+	visited := make(map[string]struct{})
+	for len(pending) > 0 {
+		name := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if _, ok := visited[name]; ok {
+			continue
+		}
+		visited[name] = struct{}{}
+
+		config := lookup(name)
+		if config == nil {
+			continue
+		}
+		for _, dep := range config.Depends {
+			namedDep := newNamedHydrateFunc(dep)
+			if _, isFetchCall := fetchCalls[namedDep.Name]; isFetchCall {
+				continue
+			}
+			if lookup(namedDep.Name) == nil {
+				log.Printf("[TRACE] table %s create hydrate config for dependency : %s", t.Name, namedDep.Name)
+				t.hydrateConfigMap[namedDep.Name] = t.newHydrateConfig(namedDep)
+			}
+			pending = append(pending, namedDep.Name)
+		}
+	}
 }
 
 func (t *Table) newHydrateConfig(namedHydrateFunc namedHydrateFunc, depends ...HydrateFunc) *HydrateConfig {

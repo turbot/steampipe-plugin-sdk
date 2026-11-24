@@ -557,6 +557,10 @@ func (d *QueryData) verifyCallerIsListCall(callingFunction string) bool {
 
 // stream an item returned from the list call
 func (d *QueryData) streamListItem(ctx context.Context, items ...interface{}) {
+	if len(items) > 0 {
+		// a page has been fetched, so a later WaitForListRateLimit call is for a further page
+		d.fetchLimiters.itemStreamed()
+	}
 	// loop over items
 	for _, item := range items {
 		// have we streamed enough already?
@@ -584,8 +588,10 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 	// wait for any configured child ListCall rate limiters
 	rateLimitDelay := d.fetchLimiters.childListWait(ctx)
 
-	// populate delay in metadata
-	d.fetchMetadata.DelayMs = rateLimitDelay.Milliseconds()
+	// the child list call gets its own metadata, holding the delay it waited for.
+	// NOTE: never write the delay into d.fetchMetadata: that struct is shared by every child list call, and rows
+	// from earlier child lists read it while the next child list call is started
+	childMetadata := d.childListMetadata(rateLimitDelay)
 
 	callingFunction := helpers.GetCallingFunction(1)
 	d.listWg.Add(1)
@@ -606,6 +612,9 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 		// create a copy of query data with the stream function set to streamLeafListItem
 		childQueryData := d.shallowCopy()
 		childQueryData.StreamListItem = childQueryData.streamLeafListItem
+		childQueryData.fetchMetadata = childMetadata
+		// the child list rate limiter wait above paid for the child's first page
+		childQueryData.fetchLimiters = d.fetchLimiters.forChildListCall()
 		// set parent list result so that it can be stored in rowdata hydrate results in streamLeafListItem
 		childQueryData.parentItem = parentItem
 		// now call the child list
@@ -616,7 +625,22 @@ func (d *QueryData) callChildListHydrate(ctx context.Context, parentItem interfa
 	}()
 }
 
+// childListMetadata returns a copy of the list metadata for one child list call, with the delay that call waited for.
+// Only the delay differs between child list calls, so the copy shares the other (read only) fields.
+func (d *QueryData) childListMetadata(delay time.Duration) *hydrateMetadata {
+	metadata := &hydrateMetadata{}
+	if d.fetchMetadata != nil {
+		*metadata = *d.fetchMetadata
+	}
+	metadata.DelayMs = delay.Milliseconds()
+	return metadata
+}
+
 func (d *QueryData) streamLeafListItem(ctx context.Context, items ...interface{}) {
+	if len(items) > 0 {
+		// a page has been fetched, so a later WaitForListRateLimit call is for a further page
+		d.fetchLimiters.itemStreamed()
+	}
 	// loop over items
 	for _, item := range items {
 		// have we streamed enough already?

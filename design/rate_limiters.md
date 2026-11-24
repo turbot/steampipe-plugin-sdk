@@ -92,7 +92,9 @@ Scope values are populated from 3 sources:
 
 ## Paged List Calls
 
-If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, which can be called before paging to apply rate limiting to the list call:
+If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, which can be called before each page to apply rate limiting to the list call. The SDK has already waited for the list call's rate limiters before it calls the list function, which pays for the first page, so the first call to `WaitForListRateLimit` returns at once and each later call waits for one token. If the list function has already streamed items before its first call (it got its first page with no wait and waits only before each later page), that call is for a later page and waits too. A list call therefore uses one token per page, and a list function that never calls the hook uses one token. The same holds for each child list call of a parent-child list.
+
+The SDK tells those two kinds of list function apart only by the items they stream. A list function that waits only before its later pages, and streams no item from its first page (an empty page that still has a next page, or a page whose items it all filters out), gets its second page with no token of its own. Call `WaitForListRateLimit` before every page, the first one included, as below, and every page is counted:
 
 ```go
 	// List call
@@ -116,6 +118,40 @@ If the list call uses paging, the SDK provides a hook, `WaitForListRateLimit`, w
 		}
 	}
 ```
+
+## Hydrate Calls That Send No Request
+
+By default the SDK waits for a hydrate call's rate limiters before it runs the hydrate function. A hydrate function that returns without an API call (for example, one that skips resources the account does not own) still uses a token, and still waits for it.
+
+A plugin whose API client can call the SDK before each request can set `ClientWaitsForHydrateRateLimit`. The SDK then does not wait before it runs a hydrate function. It puts the hydrate call's rate limiters in the function's `ctx`, and the client calls `plugin.WaitForHydrateRateLimit(ctx)` before it sends each request:
+
+```go
+	p := &plugin.Plugin{
+		Name:                           "steampipe-plugin-aws",
+		RateLimiters:                   rateLimiters,
+		ClientWaitsForHydrateRateLimit: true,
+	}
+```
+
+With the AWS SDK for Go v2, one middleware on the shared `aws.Config` does this for every service client:
+
+```go
+	cfg.APIOptions = append(cfg.APIOptions, func(stack *middleware.Stack) error {
+		return stack.Initialize.Add(middleware.InitializeMiddlewareFunc("SteampipeHydrateRateLimit",
+			func(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (middleware.InitializeOutput, middleware.Metadata, error) {
+				plugin.WaitForHydrateRateLimit(ctx)
+				return next.HandleInitialize(ctx, in)
+			}), middleware.Before)
+	})
+```
+
+- A hydrate call still takes one token, as before. The first wait takes it. A wait made while the first one runs returns when it ends, and a later wait in the same call, retries included, returns at once.
+- A hydrate call that sends no request takes no token, and does not wait.
+- A wait whose `ctx` is already cancelled returns at once and takes no token.
+- A wait whose `ctx` is cancelled while it waits does not count as the call's token, so the next wait in the same call waits again. The limiter gets the token back only when no other wait is queued behind it.
+- Every request must carry the `ctx` the SDK passed to the hydrate function. A request sent with another context, such as `context.Background()`, is not rate limited.
+- Send every request before the hydrate function returns. A wait after that is a data race on the row's diagnostics.
+- List and get calls do not change. The SDK still waits before it calls them, and `WaitForListRateLimit` still applies to list pages.
 
 ## Scenarios
 
