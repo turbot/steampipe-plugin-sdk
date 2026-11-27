@@ -19,7 +19,7 @@ jobs:
     uses: turbot/shipyard-workflows/.github/workflows/tag.yml@v0
     with:
       signal: merge
-      automation-logins: turbot-agent-fleet[bot]
+      automation-ids: "340042353"
       product: Steampipe Plugin SDK
     secrets:
       RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
